@@ -47,9 +47,12 @@ from hammunition.backends import (
     SourceBackend,
     VenvBackend,
 )
+from hammunition.backends.comaps_maps import ComapsMapsBackend
 from hammunition.backends.dem import DemTilesBackend
 from hammunition.backends.derived import Ledger
+from hammunition.backends.kiwix import KiwixBooksBackend
 from hammunition.backends.source import tree_destination
+from hammunition.backends.topo import TopoQuadsBackend
 from hammunition.distro import Target
 from hammunition.launchers import launcher_steps
 from hammunition.manifest.schema import (
@@ -59,9 +62,12 @@ from hammunition.manifest.schema import (
     DerivedDataInstall,
     GitInstall,
     InstallBlock,
+    KiwixBooksInstall,
+    MwmRegionsInstall,
     NodeInstall,
     RegionalDataInstall,
     SourceInstall,
+    TopoQuadsInstall,
     VenvInstall,
     effective_binaries,
 )
@@ -109,6 +115,14 @@ def _declares_installed_binaries(block: InstallBlock) -> bool:
     if isinstance(method, SourceInstall | GitInstall):
         return True
     return isinstance(method, BinaryInstall) and method.format != "deb"
+
+
+def _extra_files(block: InstallBlock) -> tuple[str, ...]:
+    """A git block's `extra_files`, as paths under the prefix (D-069)."""
+    method = block.install
+    if isinstance(method, GitInstall):
+        return tuple(extra.install_as for extra in method.extra_files)
+    return ()
 
 
 def _tree_marker(block: InstallBlock) -> str | None:
@@ -317,6 +331,9 @@ def build_effects_present(planned: PlannedPackage, *, prefix: Path) -> bool | No
     if _declares_installed_binaries(planned.block):
         for declared_file in planned.manifest.installed_files:
             present.append((prefix / declared_file).exists())
+    for extra in _extra_files(planned.block):
+        path = prefix / extra
+        present.append(path.is_file() and not path.is_symlink())
     if not present:
         return None
     return all(present)
@@ -400,6 +417,9 @@ def commands_for(
     regions: RegionsBackend | None = None,
     derived: DerivedBackend | None = None,
     dem: DemTilesBackend | None = None,
+    topo: TopoQuadsBackend | None = None,
+    books: KiwixBooksBackend | None = None,
+    mwm: ComapsMapsBackend | None = None,
     repos: AptRepoBackend | None = None,
     config_staging: Path | None = None,
     launcher_bin: Path | None = None,
@@ -526,6 +546,31 @@ def commands_for(
                 )
             builds.extend(dem.steps(planned.manifest, block))
             ledgers.setdefault(id(dem.ledger), dem.ledger)
+        elif isinstance(block, TopoQuadsInstall):
+            if topo is None:
+                raise BackendError(
+                    f"{planned.name} installs the station's US Topo sheets and no topo-quads "
+                    f"backend was supplied. Skipping it would report a successful run "
+                    f"that installed nothing."
+                )
+            builds.extend(topo.steps(planned.manifest, block))
+            ledgers.setdefault(id(topo.ledger), topo.ledger)
+        elif isinstance(block, KiwixBooksInstall):
+            if books is None:
+                raise BackendError(
+                    f"{planned.name} installs the station's reference books and no books "
+                    f"backend was supplied. Skipping it would report a successful run "
+                    f"that installed nothing."
+                )
+            builds.extend(books.steps(planned.manifest, block))
+        elif isinstance(block, MwmRegionsInstall):
+            if mwm is None:
+                raise BackendError(
+                    f"{planned.name} installs CoMaps' maps for the station's regions and no "
+                    f"mwm-regions backend was supplied. Skipping it would report a "
+                    f"successful run that installed nothing."
+                )
+            builds.extend(mwm.steps(planned.manifest, block))
     builds.extend(conversions)
 
     # A `fetch` is an in-process download into the cache, verified before it
@@ -850,6 +895,26 @@ def verify_effects(
                 )
 
         for planned in plan.packages:
+            for extra in _extra_files(planned.block):
+                path = prefix / extra
+                present = path.is_file() and not path.is_symlink()
+                checks.append(
+                    EffectCheck(
+                        kind="file",
+                        subject=f"{planned.name}:{extra}",
+                        confirmed=present,
+                        detail=(
+                            f"regular file at {path}"
+                            if present
+                            else (
+                                f"the install step exited 0 but {path} is not a regular "
+                                f"file -- missing, or left a symlink (D-069)"
+                            )
+                        ),
+                    )
+                )
+
+        for planned in plan.packages:
             if not _declares_installed_binaries(planned.block):
                 continue
             for declared_file in planned.manifest.installed_files:
@@ -982,6 +1047,16 @@ class ExecutionReport:
         return self.verification is not None and self.verification.ok
 
 
+#: The keys every ``action_end`` entry carries; a step's facts never replace one.
+_ACTION_END_KEYS = frozenset({"event", "version", "timestamp", "kind", "detail", "outcome"})
+
+
+def _facts(action: Action) -> dict[str, str]:
+    """*action*'s facts for its ``action_end`` entry (D-070), minus any key
+    the entry already has: a fact adds to the record, never rewrites it."""
+    return {k: v for k, v in action.facts.items() if k not in _ACTION_END_KEYS}
+
+
 def execute(
     commands: Sequence[Step],
     runner: CommandRunner,
@@ -1078,6 +1153,7 @@ def execute(
                     # details back as destinations; an Action has no argv.
                     "detail": command.detail,
                     "outcome": outcome,
+                    **_facts(command),
                 }
             )
             if outcome:
@@ -1358,6 +1434,7 @@ def run_removal(
                     "kind": command.kind,
                     "detail": command.detail,
                     "outcome": outcome,
+                    **_facts(command),
                 }
             )
             if outcome:

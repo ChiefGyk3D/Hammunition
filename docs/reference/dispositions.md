@@ -636,11 +636,11 @@ catalog does not have before either can be carried.
 | **navit** (+ `maptool`, `osmium-tool`) | ADD | apt | `navit` and `maptool` have Debian 13 candidates | Offline turn-by-turn navigation. Useless without a map; pairs with sub-project 5. |
 | **paracon** (`install-bbs-client.sh`) | ADD | binary (`.pyz`, pinned, sha256) | MIT; 1.3.0 is current (2025-10-12), ETC pins 1.1.0 (2024-06) | A single-file Python packet terminal. Depends on AX.25 being up — the D-035 station-config gap applies. |
 | **chattervox** | NEEDS-DECISION | binary (Node bundle) | GPL-3.0-or-later; last tag 0.7.0 (2019-03-17), last push 2020-01-04 | Dormant six years. Carrying it means carrying a bundled Node runtime of that age. The policy's bar for dormant-but-working is a test on a target, not an inherited verdict — install it before deciding. |
-| **kiwix** (`install-wikipedia.sh`) | ADD | apt | `kiwix`, `kiwix-tools`, `zim-tools` have Debian 13 candidates; **`zimwriterfs` has none** | The offline reader. ETC's package list includes `zimwriterfs`, which Debian 13 does not carry; the manifest drops it or the apt step fails whole. |
+| **kiwix** (`install-wikipedia.sh`) | ADD | apt | `kiwix`, `kiwix-tools`, `zim-tools` have Debian 13 candidates; **no package is named `zimwriterfs`**, though `zim-tools` 3.5.0 ships `/usr/bin/zimwriterfs` (corrected 2026-09-29, D-066) | The offline reader. ETC's package list names `zimwriterfs` as a package, which Debian 13 does not carry, so a manifest naming it fails the apt step whole; only a ZIM writer needs the binary anyway. Carried as `kiwix-tools` and `kiwix` in the `reference` profile (D-066). |
 | **mbtileserver** | ADD | binary (Go, pinned, sha256) | ISC; 0.11.0 (2024-10-03) is current; no Debian 13 candidate | Serves the sub-project-5 tileset to a browser. Nothing to serve without it. |
 | **mbutil** | RETIRE | — | BSD-3-Clause; last tag 0.3.0 (2017-05-03); ETC runs `python setup.py install` under **python2**, which Debian 13 does not ship | Import/export for MBTiles. The maps ETC ships are already MBTiles; nothing in its own workflow calls it. Record the reason, do not carry. |
 | **gis-tools** (`qgis`, `sqlite3`, and `gpsbabel` + `gpsbabel-gui`) | ADD for `qgis`; the rest is already CARRY | apt | `qgis` and `gpsbabel-gui` have Debian 13 candidates | `gpsbabel` is in the catalog already. `qgis` is large; profile placement, not the manifest, is the question. |
-| **dict** (`dict`, `dictd`, `dict-gcide`) | ADD | apt | all three have Debian 13 candidates | Offline dictionary. Cheap; the offline-data profile's smallest member. |
+| **dict** (`dict`, `dictd`, `dict-gcide`) | ADD | apt | all three have Debian 13 candidates | Offline dictionary. Cheap; the offline-data profile's smallest member. Carried as `dictionaries`, with WordNet, FOLDOC and VERA added (D-066). |
 | **artemis** | ADD | binary (zip, pinned, sha256) | GPL-3.0; 4.2.0 is current (2026-07-18), ETC pins 4.1.0 | Signal-identification reference with the sigidwiki database offline. The one ETC delta unit that belongs in `listening`/`rf-security` rather than an EMCOMM profile. |
 | **gpa** | ADD, build-only | source (tarball from gnupg.org, pinned, sha256) | **no Debian 13 candidate** (measured 2026-09-06); ETC builds 0.11.1 | GNU Privacy Assistant, for AmRRON's signed-traffic workflow. Every target needs the build; check `apt-cache policy` on the others before assuming Debian 13's answer is theirs. |
 | **pfte** | RETIRE | — | proprietary `.deb` from `paranoiaworks.mobi`, no licence, no source, unsigned download | Paranoia Text Encryption. A closed binary from a vendor site fetched without verification is what the security requirements refuse by name; the AmRRON workflow it serves has GnuPG. Record the reason, do not carry. |
@@ -650,6 +650,20 @@ catalog does not have before either can be carried.
 sub-project 5. **Every ETC fetch is unverified upstream** (34 of 34); every
 binary and source route above is pinned and hashed under this project's rules
 or it is not written.
+
+---
+
+## Beyond the six sources — the 2026-09 gap analysis
+
+Units the gap analysis (`catalog-gaps-2026-09.md`) found in the field rather
+than in any of the six inventories. They are ADD by the maintainer's ruling on
+**Q-022**, recorded here so each has a disposition, and kept out of the
+six-source summary and index above, whose counts are the inventories'.
+
+| Unit | Decided | How | What was measured (2026-09-30) |
+|---|---|---|---|
+| **mercury** | ADD — `catalog/packages/mercury.yaml`, `packet` profile (Q-022 #6) | apt on Kali (1.9.13+ds-1); elsewhere a `make` build of tag v1.9.15, the release Debian unstable packages (D-024) | GPL-3.0 LICENSE; default branch `mercuryv2` head 2026-09-30 (D-032). Built on Parrot in 8 s, 156 MiB peak. Debian's pat 0.16.0 carried a message peer to peer through two Mercury 1.9.15 instances wired back to back, with no radio and no sound card. Upstream's own apt repository is not used: its https certificate does not verify. |
+| **freedata** | ADD — `catalog/packages/freedata.yaml`, `packet` profile (Q-022 #6) | venv, the 0.18.2 wheel and 68 dependencies hash-pinned; x86-64 only | GPL-3.0 LICENSE; default branch `main` head 2026-07-27, which is the v0.18.2 tag (D-032). No target packages it. The wheel carries the built web interface and its own libcodec2, so no Node step and no codec2 build. The pinned set installed into a Python 3.13 venv and the codec2 binding loaded; the server was not started. |
 
 ---
 

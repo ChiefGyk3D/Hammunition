@@ -45,13 +45,16 @@ their text follows.
 
 ## Commands
 
+- `hammunition artifacts`
 - `hammunition doctor`
 - `hammunition hardware state`
 - `hammunition install` (with `--dry-run` only)
 - `hammunition list`
+- `hammunition maps phone`
 - `hammunition maps regions`
 - `hammunition maps repeaters import`
 - `hammunition maps repeaters remove`
+- `hammunition reference books`
 - `hammunition show`
 - `hammunition station show`
 - `hammunition status`
@@ -64,10 +67,13 @@ their text follows.
 
 | kind | document |
 |---|---|
+| `artifacts` | [`ArtifactsDocument`](#artifacts) |
+| `books` | [`BooksDocument`](#books) |
 | `catalog` | [`CatalogDocument`](#catalog) |
 | `doctor` | [`DoctorDocument`](#doctor) |
 | `error` | [`ErrorDocument`](#error) |
 | `hardware` | [`HardwareDocument`](#hardware) |
+| `phone` | [`PhoneDocument`](#phone) |
 | `plan` | [`PlanDocument`](#plan) |
 | `profile` | [`ProfileDocument`](#profile) |
 | `regions` | [`RegionsDocument`](#regions) |
@@ -77,6 +83,316 @@ their text follows.
 | `status` | [`StatusDocument`](#status) |
 | `unit` | [`UnitDocument`](#unit) |
 | `update` | [`UpdateDocument`](#update) |
+
+### artifacts
+
+Every remote data artifact the engine would fetch for the selection
+given (D-070): `data` units, map regions and terrain tiles. No station
+file is read; the regions are the ones on the command line. What cannot
+be listed is listed as deferred, with the reason, never dropped.
+
+| field | type | meaning |
+|---|---|---|
+| `map_regions` | list of string | the `--map-regions` given; empty when none |
+| `map_freshness` | string | the `--map-freshness` given, `yearly` when none |
+| `units` | list of string | the units listed, in order |
+| `artifacts` | list of [`ArtifactEntry`](#artifactentry) | one entry per artifact, deferred ones included |
+
+#### `ArtifactEntry`
+
+One remote artifact, or one the selection cannot list and why.
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the catalog unit (`osm-regions`, `dem-copernicus`, `country-files`) |
+| `name` | string or null | the artifact's stable name within the unit: a region path, a tile name, a data file's name. A LAN mirror serves it at `<mirror>/<unit>/<name>`. Null only for a deferred entry that covers the whole unit |
+| `url` | string or null | the publisher URL the engine itself fetches; null when deferred |
+| `check` | string or null | how the download is verified: `sha256` (pinned by Hammunition), `md5-publisher` (Geofabrik's published MD5), `etag-md5` (the Copernicus object's ETag), `sha1-publisher` (the SHA-1 and size in CoMaps' own map index at the pinned commit, carried in the catalog) or `sha256-publisher` (no unit uses it today); null when deferred |
+| `digest` | string or null | the expected digest, in hex, of the kind `check` names: the pin, or the publisher's checksum as the engine read it while resolving; null when deferred |
+| `checksum_url` | string or null | where a publisher checksum is read: the `.md5` beside a Geofabrik file, or the tile URL whose `HEAD` carries the ETag; null for a pinned sha256 and when deferred |
+| `size` | integer or null | bytes, known before the fetch; null when deferred |
+| `licence` | string | the licence line the plan prints for the unit |
+| `deferred` | string or null | null, or why this artifact cannot be listed for this selection |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "ArtifactEntry": {
+      "additionalProperties": false,
+      "description": "One remote artifact, or one the selection cannot list and why.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Name"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        },
+        "check": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Check"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Digest"
+        },
+        "checksum_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Checksum Url"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Size"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "deferred": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Deferred"
+        }
+      },
+      "required": [
+        "unit",
+        "name",
+        "url",
+        "check",
+        "digest",
+        "checksum_url",
+        "size",
+        "licence",
+        "deferred"
+      ],
+      "title": "ArtifactEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Every remote data artifact the engine would fetch for the selection\ngiven (D-070): `data` units, map regions and terrain tiles. No station\nfile is read; the regions are the ones on the command line. What cannot\nbe listed is listed as deferred, with the reason, never dropped.",
+  "properties": {
+    "map_regions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Map Regions",
+      "type": "array"
+    },
+    "map_freshness": {
+      "title": "Map Freshness",
+      "type": "string"
+    },
+    "units": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Units",
+      "type": "array"
+    },
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/ArtifactEntry"
+      },
+      "title": "Artifacts",
+      "type": "array"
+    }
+  },
+  "required": [
+    "map_regions",
+    "map_freshness",
+    "units",
+    "artifacts"
+  ],
+  "title": "ArtifactsDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### books
+
+The Kiwix books the catalog offers. Read from the catalog and the disk;
+nothing is fetched.
+
+| field | type | meaning |
+|---|---|---|
+| `books` | list of [`BookRow`](#bookrow) | every book in catalog/data/kiwix-books.yaml, in its order |
+
+#### `BookRow`
+
+One book the catalog offers, with its pin.
+
+| field | type | meaning |
+|---|---|---|
+| `id` | string | the id station config takes (`station set --reference-books`) |
+| `title` | string | what the book is |
+| `file` | string or null | the pinned dated file; null when the book is not pinned |
+| `size` | integer or null | bytes of the pinned file; null when not pinned |
+| `licence` | string | the publisher's licence line, printed in the plan too |
+| `licence_url` | string | where the publisher states it |
+| `note` | string or null | anything else the book list says of it |
+| `chosen` | boolean | whether station config chooses it |
+| `installed` | boolean | whether its pinned file is installed |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "BookRow": {
+      "additionalProperties": false,
+      "description": "One book the catalog offers, with its pin.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "File"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Size"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Note"
+        },
+        "chosen": {
+          "title": "Chosen",
+          "type": "boolean"
+        },
+        "installed": {
+          "title": "Installed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "file",
+        "size",
+        "licence",
+        "licence_url",
+        "note",
+        "chosen",
+        "installed"
+      ],
+      "title": "BookRow",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The Kiwix books the catalog offers. Read from the catalog and the disk;\nnothing is fetched.",
+  "properties": {
+    "books": {
+      "items": {
+        "$ref": "#/$defs/BookRow"
+      },
+      "title": "Books",
+      "type": "array"
+    }
+  },
+  "required": [
+    "books"
+  ],
+  "title": "BooksDocument",
+  "type": "object"
+}
+```
+
+</details>
 
 ### catalog
 
@@ -698,6 +1014,179 @@ A catalogued device that is attached but cannot be parked right now.
 
 </details>
 
+### phone
+
+The phone files gathered into one folder with a SHA256SUMS, and the
+routes to a phone. Names carry region slugs: for local programs, not for
+pasting. Nothing was transferred.
+
+| field | type | meaning |
+|---|---|---|
+| `directory` | string | the folder, under the operator's XDG data directory |
+| `sums` | string | the SHA256SUMS file beside them |
+| `files` | list of [`PhoneFileLine`](#phonefileline) | every phone file now in the folder |
+| `removed` | list of string | our files removed because their region is gone |
+| `missing` | list of string | phone units with nothing installed |
+| `routes` | list of [`PhoneRouteLine`](#phonerouteline) | the ways to carry the folder to a phone |
+
+#### `PhoneFileLine`
+
+One phone file in the folder.
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the unit that built it: mapsforge-map, mapsforge-poi or osm-garmin |
+| `name` | string | its name in the folder, `<region slug>.<map\|poi\|img>` |
+| `size` | integer | bytes |
+| `sha256` | string | its sha256, as written in SHA256SUMS |
+| `copied` | boolean | true when this run copied it; false when the copy was already current |
+
+#### `PhoneRouteLine`
+
+One way to carry the folder to a phone. The engine runs none of them.
+
+| field | type | meaning |
+|---|---|---|
+| `name` | string | the route |
+| `laptop` | string | what the laptop needs |
+| `phone` | string | what the phone needs |
+| `commands` | list of string | commands for the operator to run, in order; may be empty |
+| `note` | string | how to use it, and what it binds or modifies |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "PhoneFileLine": {
+      "additionalProperties": false,
+      "description": "One phone file in the folder.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "copied": {
+          "title": "Copied",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "unit",
+        "name",
+        "size",
+        "sha256",
+        "copied"
+      ],
+      "title": "PhoneFileLine",
+      "type": "object"
+    },
+    "PhoneRouteLine": {
+      "additionalProperties": false,
+      "description": "One way to carry the folder to a phone. The engine runs none of them.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "laptop": {
+          "title": "Laptop",
+          "type": "string"
+        },
+        "phone": {
+          "title": "Phone",
+          "type": "string"
+        },
+        "commands": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Commands",
+          "type": "array"
+        },
+        "note": {
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "laptop",
+        "phone",
+        "commands",
+        "note"
+      ],
+      "title": "PhoneRouteLine",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The phone files gathered into one folder with a SHA256SUMS, and the\nroutes to a phone. Names carry region slugs: for local programs, not for\npasting. Nothing was transferred.",
+  "properties": {
+    "directory": {
+      "title": "Directory",
+      "type": "string"
+    },
+    "sums": {
+      "title": "Sums",
+      "type": "string"
+    },
+    "files": {
+      "items": {
+        "$ref": "#/$defs/PhoneFileLine"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "removed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Removed",
+      "type": "array"
+    },
+    "missing": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing",
+      "type": "array"
+    },
+    "routes": {
+      "items": {
+        "$ref": "#/$defs/PhoneRouteLine"
+      },
+      "title": "Routes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "directory",
+    "sums",
+    "files",
+    "removed",
+    "missing",
+    "routes"
+  ],
+  "title": "PhoneDocument",
+  "type": "object"
+}
+```
+
+</details>
+
 ### plan
 
 The plan `install --dry-run` or `uninstall --dry-run` prints, as data.
@@ -737,6 +1226,7 @@ Everything an install will do, section by section as the text prints it.
 | `apt_release` | [`ReleaseSection`](#releasesection) or null | present when apt resolves from another release |
 | `no_recommends` | [`NoRecommendsSection`](#norecommendssection) or null | present when a unit opted out of Recommends |
 | `repos` | list of [`RepoLine`](#repoline) | third-party repositories added |
+| `mirror` | [`MirrorSection`](#mirrorsection) or null | the LAN mirror data downloads try first (D-070); null when none is set |
 | `data` | list of [`DataLine`](#dataline) | offline data downloaded |
 | `maps` | [`MapSectionView`](#mapsectionview) or null | the station's map regions (D-057); null when no map unit or nothing to disclose |
 | `memberships` | list of [`MembershipLine`](#membershipline) | group membership changes |
@@ -816,6 +1306,16 @@ A third-party apt repository the transaction adds, behind its own gate (D-040).
 | `sources` | string | the .sources file written |
 | `keyring` | string | the keyring file written |
 | `consent_env_var` | string | must equal the key fingerprint for a scripted run |
+
+#### `MirrorSection`
+
+The LAN mirror a data download is asked for first (D-070).
+
+| field | type | meaning |
+|---|---|---|
+| `url` | string | the mirror's base URL, from station config |
+| `ignored` | boolean | true when `--no-mirror` ignores it for this run |
+| `text` | string | what the plan prints about it |
 
 #### `DataLine`
 
@@ -925,6 +1425,7 @@ Terrain, and what is built for QMapShack (D-061). Names where the operator is: l
 | `disk_total` | integer | bytes: the tiles plus everything estimated to be built |
 | `disk_total_human` | string | as the text prints it |
 | `estimate_note` | string | how the estimates were measured |
+| `topo` | [`TopoSectionView`](#toposectionview) or null | USGS US Topo quads and their mosaic (D-068); null when neither unit is planned |
 
 #### `TerrainRegionLine`
 
@@ -960,6 +1461,51 @@ A region mkgmap builds a Garmin map from this run.
 | `snapshot` | string | the dated snapshot |
 | `estimate` | integer | bytes the map is estimated to take |
 | `estimate_human` | string | that estimate as the text prints it |
+
+#### `TopoSectionView`
+
+USGS US Topo sheets and QMapShack's mosaic of them (D-068). Local only.
+
+| field | type | meaning |
+|---|---|---|
+| `regions` | list of [`TopoRegionLine`](#toporegionline) | quads per region |
+| `no_quads` | list of string | regions no US Topo quad covers (outside the United States); nothing is fetched for them |
+| `fetch` | list of [`QuadLine`](#quadline) | quads downloaded this run |
+| `current` | integer | quads already installed |
+| `licence` | string | the sheets' licence |
+| `licence_url` | string | where it is stated |
+| `download_total` | integer | bytes of quads downloaded |
+| `download_total_human` | string | as the text prints it |
+| `warp` | integer | quads warped for QMapShack this run |
+| `warp_estimate` | integer | bytes the warped quads are estimated to take |
+| `warp_estimate_human` | string | as the text prints it |
+| `disk_total` | integer | bytes: the downloads plus the warped quads |
+| `disk_total_human` | string | as the text prints it |
+| `estimate_note` | string | how the estimate was measured |
+
+#### `TopoRegionLine`
+
+The US Topo quads one region needs (D-068).
+
+| field | type | meaning |
+|---|---|---|
+| `region` | string | the Geofabrik region path |
+| `quads` | integer | quads whose box its outline touches |
+| `size` | integer | bytes of all its quads, installed or not |
+| `size_human` | string | as the text prints it |
+| `download` | integer | bytes of its quads downloaded this run; a quad two regions share counts in both |
+| `download_human` | string | as the text prints it |
+
+#### `QuadLine`
+
+One US Topo quad downloaded this run.
+
+| field | type | meaning |
+|---|---|---|
+| `quad` | string | the quad's file name without .tif: state, map name and edition date |
+| `size` | integer | bytes |
+| `size_human` | string | the size as the text prints it |
+| `verified_by` | string | how the download is checked |
 
 #### `BoundaryLine`
 
@@ -1060,6 +1606,7 @@ One step, exactly as the real run performs it.
 | `argv` | list of string | the argv executed, escalation applied; empty for an in-process step |
 | `action` | string or null | the in-process step's kind (`fetch`, `extract`, ...); null for a command |
 | `requires_root` | boolean | whether it runs as root |
+| `sources` | list of string | for a data download (a `data` artifact, a map region, a terrain tile), the URLs it is fetched from in the order tried: the LAN mirror, then the publisher (D-070); the publisher alone with no mirror; empty for any other step |
 
 #### `RemovalPlanView`
 
@@ -1576,6 +2123,16 @@ A unit and files.
           "title": "Repos",
           "type": "array"
         },
+        "mirror": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MirrorSection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "data": {
           "items": {
             "$ref": "#/$defs/DataLine"
@@ -1686,6 +2243,7 @@ A unit and files.
         "apt_release",
         "no_recommends",
         "repos",
+        "mirror",
         "data",
         "maps",
         "memberships",
@@ -1881,6 +2439,31 @@ A unit and files.
       "title": "MembershipLine",
       "type": "object"
     },
+    "MirrorSection": {
+      "additionalProperties": false,
+      "description": "The LAN mirror a data download is asked for first (D-070).",
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "ignored": {
+          "title": "Ignored",
+          "type": "boolean"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "ignored",
+        "text"
+      ],
+      "title": "MirrorSection",
+      "type": "object"
+    },
     "NoRecommendsSection": {
       "additionalProperties": false,
       "description": "apt packages installed by a second command without Recommends (D-052).",
@@ -1946,6 +2529,36 @@ A unit and files.
         "apt"
       ],
       "title": "PackageLine",
+      "type": "object"
+    },
+    "QuadLine": {
+      "additionalProperties": false,
+      "description": "One US Topo quad downloaded this run.",
+      "properties": {
+        "quad": {
+          "title": "Quad",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "size_human": {
+          "title": "Size Human",
+          "type": "string"
+        },
+        "verified_by": {
+          "title": "Verified By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "quad",
+        "size",
+        "size_human",
+        "verified_by"
+      ],
+      "title": "QuadLine",
       "type": "object"
     },
     "RecordsLine": {
@@ -2203,6 +2816,13 @@ A unit and files.
         "requires_root": {
           "title": "Requires Root",
           "type": "boolean"
+        },
+        "sources": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sources",
+          "type": "array"
         }
       },
       "required": [
@@ -2210,7 +2830,8 @@ A unit and files.
         "display",
         "argv",
         "action",
-        "requires_root"
+        "requires_root",
+        "sources"
       ],
       "title": "StepView",
       "type": "object"
@@ -2431,6 +3052,16 @@ A unit and files.
         "estimate_note": {
           "title": "Estimate Note",
           "type": "string"
+        },
+        "topo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TopoSectionView"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -2454,7 +3085,8 @@ A unit and files.
         "brouter_estimate_human",
         "disk_total",
         "disk_total_human",
-        "estimate_note"
+        "estimate_note",
+        "topo"
       ],
       "title": "TerrainSectionView",
       "type": "object"
@@ -2487,6 +3119,135 @@ A unit and files.
         "verified_by"
       ],
       "title": "TileLine",
+      "type": "object"
+    },
+    "TopoRegionLine": {
+      "additionalProperties": false,
+      "description": "The US Topo quads one region needs (D-068).",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "quads": {
+          "title": "Quads",
+          "type": "integer"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "size_human": {
+          "title": "Size Human",
+          "type": "string"
+        },
+        "download": {
+          "title": "Download",
+          "type": "integer"
+        },
+        "download_human": {
+          "title": "Download Human",
+          "type": "string"
+        }
+      },
+      "required": [
+        "region",
+        "quads",
+        "size",
+        "size_human",
+        "download",
+        "download_human"
+      ],
+      "title": "TopoRegionLine",
+      "type": "object"
+    },
+    "TopoSectionView": {
+      "additionalProperties": false,
+      "description": "USGS US Topo sheets and QMapShack's mosaic of them (D-068). Local only.",
+      "properties": {
+        "regions": {
+          "items": {
+            "$ref": "#/$defs/TopoRegionLine"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "no_quads": {
+          "items": {
+            "type": "string"
+          },
+          "title": "No Quads",
+          "type": "array"
+        },
+        "fetch": {
+          "items": {
+            "$ref": "#/$defs/QuadLine"
+          },
+          "title": "Fetch",
+          "type": "array"
+        },
+        "current": {
+          "title": "Current",
+          "type": "integer"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "download_total": {
+          "title": "Download Total",
+          "type": "integer"
+        },
+        "download_total_human": {
+          "title": "Download Total Human",
+          "type": "string"
+        },
+        "warp": {
+          "title": "Warp",
+          "type": "integer"
+        },
+        "warp_estimate": {
+          "title": "Warp Estimate",
+          "type": "integer"
+        },
+        "warp_estimate_human": {
+          "title": "Warp Estimate Human",
+          "type": "string"
+        },
+        "disk_total": {
+          "title": "Disk Total",
+          "type": "integer"
+        },
+        "disk_total_human": {
+          "title": "Disk Total Human",
+          "type": "string"
+        },
+        "estimate_note": {
+          "title": "Estimate Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "regions",
+        "no_quads",
+        "fetch",
+        "current",
+        "licence",
+        "licence_url",
+        "download_total",
+        "download_total_human",
+        "warp",
+        "warp_estimate",
+        "warp_estimate_human",
+        "disk_total",
+        "disk_total_human",
+        "estimate_note"
+      ],
+      "title": "TopoSectionView",
       "type": "object"
     },
     "UnitFiles": {
@@ -3207,6 +3968,8 @@ and a grid square or a map region says where the station is.
 | `node_alias` | string or null | the packet node alias; null when not set |
 | `map_regions` | list of string | Geofabrik region paths carrying offline map data; empty when none are set |
 | `map_freshness` | string or null | how often map data is refreshed: yearly, monthly or latest; null means the yearly default applies |
+| `reference_books` | list of string | Kiwix book ids chosen for kiwix-library (D-066); empty when none are chosen |
+| `mirror` | string or null | the LAN mirror the verified fetch tries before the publisher, the same digest checked either way (D-070); null when none is set |
 
 <details><summary>JSON Schema</summary>
 
@@ -3273,6 +4036,24 @@ and a grid square or a map region says where the station is.
         }
       ],
       "title": "Map Freshness"
+    },
+    "reference_books": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reference Books",
+      "type": "array"
+    },
+    "mirror": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Mirror"
     }
   },
   "required": [
@@ -3282,7 +4063,9 @@ and a grid square or a map region says where the station is.
     "grid_square",
     "node_alias",
     "map_regions",
-    "map_freshness"
+    "map_freshness",
+    "reference_books",
+    "mirror"
   ],
   "title": "StationDocument",
   "type": "object"

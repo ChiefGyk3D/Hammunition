@@ -215,7 +215,8 @@ def render(catalog: dict[str, PackageManifest]) -> str:
             value = cells[target_name]
             if value in {
                 *("source", "git", "binary", "venv", "node", "pipx"),
-                *("data", "osm-regions", "dem-tiles", "derived"),
+                *("data", "osm-regions", "dem-tiles", "topo-quads", "derived"),
+                *("kiwix-books", "mwm-regions"),
             }:
                 counts["build"] += 1
             else:

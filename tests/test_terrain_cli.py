@@ -173,6 +173,7 @@ def test_the_run_discloses_each_converter_s_pending_work(tmp_path: Path) -> None
         "mkgmap",
         "routino-planetsplitter",
         "gdal-dem",
+        "ustopo-mosaic",
         "brouter-mapcreator",
     }
 
@@ -453,7 +454,7 @@ def test_a_disk_short_of_terrain_s_needs_refuses_the_plan(
     monkeypatch.setattr(
         cli,
         "combined_shortfall",
-        lambda maps, terrain: combined_shortfall(maps, terrain, free_at=lambda path: 0),
+        lambda maps, terrain, **kw: combined_shortfall(maps, terrain, free_at=lambda path: 0, **kw),
     )
     catalog = str(_terrain_catalog(tmp_path))
     assert cli.main(["--catalog", catalog, "install", "--dry-run", "dem-qmapshack"]) == 2

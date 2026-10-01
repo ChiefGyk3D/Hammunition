@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**269 programs and packages** from the catalog, laid out the way the
+**285 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -98,20 +98,28 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 | [brouter](packages/brouter.md) | BRouter, the offline router QMapShack runs for hiking, bike and car routes with elevation | [github.com/abrensch/brouter](https://github.com/abrensch/brouter) |
 | [brouter-mapcreator-profiles](packages/brouter-mapcreator-profiles.md) | The two filter files BRouter's map creator needs and its release zip leaves out | [github.com/abrensch/brouter](https://github.com/abrensch/brouter) |
 | [brouter-segments](packages/brouter-segments.md) | BRouter routing files built from your own regions, with elevation, never downloaded | [github.com/abrensch/brouter](https://github.com/abrensch/brouter) |
+| [comaps](packages/comaps.md) | Offline vector maps with search and car, bike and foot routing, from CoMaps' own map files | [comaps.app](https://www.comaps.app/) |
+| [comaps-maps](packages/comaps-maps.md) | CoMaps' own map files for your map regions, checked against CoMaps' index | [comaps.app](https://www.comaps.app/) |
 | [country-boundaries](packages/country-boundaries.md) | Natural Earth's world country borders, which let Navit's address search find towns | [naturalearthdata.com](https://www.naturalearthdata.com/) |
 | [dem-copernicus](packages/dem-copernicus.md) | Copernicus GLO-30 elevation tiles for your map regions, verified | [registry.opendata.aws/copernicus-dem](https://registry.opendata.aws/copernicus-dem/) |
 | [dem-qmapshack](packages/dem-qmapshack.md) | Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles | [gdal.org](https://gdal.org/) |
 | [gdal-bin](packages/gdal-bin.md) | GDAL's command-line tools for rasters and elevation data | [gdal.org](https://gdal.org/) |
+| [mapsforge-map](packages/mapsforge-map.md) | Mapsforge vector maps of your OpenStreetMap regions, for phone map apps | [github.com/mapsforge/mapsforge](https://github.com/mapsforge/mapsforge) |
+| [mapsforge-poi](packages/mapsforge-poi.md) | Mapsforge points-of-interest files of your regions, for searching on a phone | [github.com/mapsforge/mapsforge](https://github.com/mapsforge/mapsforge) |
 | [mkgmap](packages/mkgmap.md) | Builds Garmin-format maps from OpenStreetMap data | [mkgmap.org.uk](https://www.mkgmap.org.uk/) |
 | [mkgmap-splitter](packages/mkgmap-splitter.md) | Cuts OpenStreetMap data into tiles sized for mkgmap | [mkgmap.org.uk/doc/splitter.html](https://www.mkgmap.org.uk/doc/splitter.html) |
 | [navit](packages/navit.md) | Offline turn-by-turn navigation that follows the GPS, with spoken directions | [navit-project.org](https://www.navit-project.org/) |
 | [osm-garmin](packages/osm-garmin.md) | Garmin maps of your OpenStreetMap regions, with trails, for QMapShack | [mkgmap.org.uk](https://www.mkgmap.org.uk/) |
 | [osm-navit](packages/osm-navit.md) | Navit's binary maps, converted from your OpenStreetMap regions, and its configuration | [navit-project.org](https://www.navit-project.org/) |
+| [osm-pmtiles](packages/osm-pmtiles.md) | Vector-tile maps of your OpenStreetMap regions, for the offline browser map | [github.com/systemed/tilemaker](https://github.com/systemed/tilemaker) |
 | [osm-regions](packages/osm-regions.md) | OpenStreetMap region extracts from Geofabrik, the regions you choose, verified | [download.geofabrik.de](https://download.geofabrik.de/) |
 | [osm-routino](packages/osm-routino.md) | One Routino routing database over all your regions, for routes on foot | [routino.org](https://www.routino.org/) |
 | [qmapshack](packages/qmapshack.md) | Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot | [github.com/Maproom/qmapshack](https://github.com/Maproom/qmapshack) |
 | [routino](packages/routino.md) | Offline routing over OpenStreetMap data, on foot, by bike or by car | [routino.org](https://www.routino.org/) |
 | [socat](packages/socat.md) *(retired)* | A relay between two data channels, sockets, files or programs | [dest-unreach.org/socat](http://www.dest-unreach.org/socat/) |
+| [usgs-ustopo](packages/usgs-ustopo.md) | USGS US Topo 7.5-minute map sheets for your US map regions, verified | [usgs.gov/programs/national-geospatial-program/us-topo-maps-america](https://www.usgs.gov/programs/national-geospatial-program/us-topo-maps-america) |
+| [ustopo-qmapshack](packages/ustopo-qmapshack.md) | The US Topo sheets as one seamless QMapShack map, collars cropped | [gdal.org](https://gdal.org/) |
+| [vector-map-kit](packages/vector-map-kit.md) | The fixed files the offline browser map needs, from their publishers, pinned | [openmaptiles.org](https://openmaptiles.org/) |
 
 ### Locators & Bearings
 
@@ -212,6 +220,8 @@ AX.25 packet, soundcard modems, nodes and BBS, Winlink, APRS, LoRa mesh and the 
 |---|---|---|
 | [ardopcf](packages/ardopcf.md) | HF data modem for Winlink and packet over poor paths | [github.com/pflarue/ardop](https://github.com/pflarue/ardop) |
 | [direwolf](packages/direwolf.md) | Software TNC — turns a sound card into an APRS and packet modem | [github.com/wb2osz/direwolf](https://github.com/wb2osz/direwolf) |
+| [freedata](packages/freedata.md) | HF messaging and file transfer over codec2 modems, with a browser interface | [freedata.app](https://freedata.app) |
+| [mercury](packages/mercury.md) | Open HF data modem that speaks VARA's TCP interface, so pat uses it unchanged | [github.com/Rhizomatica/mercury](https://github.com/Rhizomatica/mercury) |
 | [qtsoundmodem](packages/qtsoundmodem.md) | Soundcard packet modem with a scope — an alternative to Direwolf | [github.com/g8bpq/QtSoundModem](https://github.com/g8bpq/QtSoundModem) |
 | [tmd710-tncsetup](packages/tmd710-tncsetup.md) | Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios | [github.com/fmarier/tmd710_tncsetup](https://github.com/fmarier/tmd710_tncsetup) |
 
@@ -588,6 +598,12 @@ Licence exam practice, Morse training and reference material.
 | Project | What it is | Its home |
 |---|---|---|
 | [artemis](packages/artemis.md) | Signal identification reference — the sigidwiki database, offline | [github.com/AresValley/Artemis](https://github.com/AresValley/Artemis) |
+| [dictionaries](packages/dictionaries.md) | A local dictionary server with an English dictionary, a thesaurus, computing terms and acronyms | [sourceforge.net/projects/dict](https://sourceforge.net/projects/dict/) |
+| [goldendict-ng](packages/goldendict-ng.md) | A desktop dictionary that looks words up in dictd and in Kiwix books | [github.com/xiaoyifang/goldendict-ng](https://github.com/xiaoyifang/goldendict-ng) |
+| [ics-forms](packages/ics-forms.md) | FEMA's 39 fillable ICS forms, 205 radio communications plan and 213 general message among them | [training.fema.gov/emiweb/is/icsresource/icsforms](https://training.fema.gov/emiweb/is/icsresource/icsforms/) |
+| [kiwix](packages/kiwix.md) | The Kiwix desktop reader for offline Wikipedia and other ZIM books | [github.com/kiwix/kiwix-desktop](https://github.com/kiwix/kiwix-desktop) |
+| [kiwix-library](packages/kiwix-library.md) | The Kiwix books you chose -- Wikipedia, WikiMed, Stack Exchange -- pinned and verified | [library.kiwix.org](https://library.kiwix.org/) |
+| [kiwix-tools](packages/kiwix-tools.md) | Kiwix's command-line reader, server and library manager for offline ZIM books | [github.com/kiwix/kiwix-tools](https://github.com/kiwix/kiwix-tools) |
 | [python3-pyhamtools](packages/python3-pyhamtools.md) | Python library for callsign lookup, locators and DXCC data | [github.com/dh1tw/pyhamtools](https://github.com/dh1tw/pyhamtools) |
 
 ## Workstation

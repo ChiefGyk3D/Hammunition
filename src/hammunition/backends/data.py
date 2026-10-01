@@ -8,8 +8,9 @@ is fetched into the shared cache and verified against its sha256 like every
 other download; the declared ``size`` is checked against the bytes received,
 so a manifest that says 0.69 GB and fetches something else is refused rather
 than trusted. A ``file`` is copied under the unit's data directory; a ``zip``
-or ``tarball`` is extracted into it, through the same guarded extraction the
-source backend uses. Nothing here is executed, ever.
+or ``tarball`` is extracted into it, or into its own subdirectory ``into``,
+through the same guarded extraction the source backend uses, and only its
+listed ``members`` when it lists any (D-071). Nothing here is executed, ever.
 
 The install directory is ``<prefix>/share/hammunition/data/<name>/`` -- a
 namespace only this engine writes, which is what lets ``uninstall`` remove
@@ -23,7 +24,7 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 
-from ..fetch import Fetcher
+from ..fetch import Fetcher, MirrorPath, fetch_disclosure, record_fetch, safe_name
 from ..manifest.schema import DataArtifact, DataInstall, PackageManifest
 from .base import Action, BackendError, Command, CommandRunner
 from .source import extract, needs_root_for
@@ -38,6 +39,13 @@ def human_size(size: int) -> str:
     if size >= 1_000_000:
         return f"{size / 1e6:.1f} MB"
     return f"{size / 1e3:.0f} KB"
+
+
+def data_name(artifact: DataArtifact) -> str:
+    """The artifact's stable name within its unit, as ``hammunition
+    artifacts`` lists it and a LAN mirror serves it (D-070): the name it is
+    installed under, or for an archive the file name its URL ends in."""
+    return artifact.install_as or safe_name(artifact.url)
 
 
 @dataclass(frozen=True)
@@ -58,12 +66,20 @@ class DataBackend:
         target_dir = self.data_dir(manifest)
         for artifact in block.artifacts:
             fetched: dict[str, Path] = {}
+            facts: dict[str, str] = {}
+            where = MirrorPath(manifest.name, data_name(artifact))
+            note, urls, sources = fetch_disclosure(self.fetcher, artifact.url, where, "sha256")
             steps.append(
                 Action(
                     kind="fetch",
-                    description=f"Fetch {manifest.name} data ({human_size(artifact.size)}, {block.licence})",
-                    detail=f"{artifact.url} (sha256 {artifact.sha256[:12]}…, {artifact.size} bytes)",
-                    perform=partial(self._fetch, artifact, fetched),
+                    description=(
+                        f"Fetch {manifest.name} data ({human_size(artifact.size)}, "
+                        f"{block.licence}){note}"
+                    ),
+                    detail=f"{urls} (sha256 {artifact.sha256[:12]}…, {artifact.size} bytes)",
+                    perform=partial(self._fetch, artifact, fetched, where, facts),
+                    sources=sources,
+                    facts=facts,
                 )
             )
             if artifact.format == "file":
@@ -71,9 +87,15 @@ class DataBackend:
                 dest = target_dir / artifact.install_as
                 description = f"Install {manifest.name} data file {artifact.install_as}"
             else:
-                dest = target_dir
+                dest = target_dir if artifact.into is None else target_dir / artifact.into
+                target = "its data directory" if artifact.into is None else str(dest)
+                which = (
+                    f", only the listed members ({len(artifact.members)})"
+                    if artifact.members is not None
+                    else ""
+                )
                 description = (
-                    f"Extract {manifest.name} data ({artifact.format}) into its data directory"
+                    f"Extract {manifest.name} data ({artifact.format}) into {target}{which}"
                 )
             steps.append(
                 Action(
@@ -88,8 +110,15 @@ class DataBackend:
             )
         return steps
 
-    def _fetch(self, artifact: DataArtifact, fetched: dict[str, Path]) -> str:
-        result = self.fetcher.fetch(artifact)
+    def _fetch(
+        self,
+        artifact: DataArtifact,
+        fetched: dict[str, Path],
+        where: MirrorPath,
+        facts: dict[str, str],
+    ) -> str:
+        result = self.fetcher.fetch(artifact, mirror=where)
+        source = record_fetch(result, facts, mirrored=bool(self.fetcher.mirror))
         if result.size != artifact.size:
             raise BackendError(
                 f"{artifact.url}: the manifest declares {artifact.size} bytes and the "
@@ -97,8 +126,8 @@ class DataBackend:
                 f"wrong -- fix the manifest, the plan printed a size that was not true"
             )
         fetched["path"] = result.path
-        where = "cached" if result.from_cache else "downloaded"
-        return f"{where} {result.size} bytes, sha256 {result.sha256[:12]}… verified"
+        how = "cached" if result.from_cache else "downloaded"
+        return f"{how} {result.size} bytes, sha256 {result.sha256[:12]}… verified{source}"
 
     def _install(self, artifact: DataArtifact, fetched: dict[str, Path], dest: Path) -> str:
         path = fetched.get("path")
@@ -112,7 +141,11 @@ class DataBackend:
             writer = PrefixWriter(privileged=needs_root_for(self.prefix), runner=self.runner)
             writer.install_verified(path, dest, algorithm="sha256", digest=artifact.sha256)
             return f"installed {dest} ({human_size(artifact.size)}, mode 0644, sha256 re-verified)"
-        outcome = extract(path, dest)
+        if artifact.into is not None:
+            # The unit's own directory, which a first archive with `into` makes.
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            os.chmod(dest.parent, 0o755)
+        outcome = extract(path, dest, members=artifact.members)
         installed = sorted(p for p in dest.rglob("*") if p.is_file())
         for p in installed:
             os.chmod(p, 0o644)

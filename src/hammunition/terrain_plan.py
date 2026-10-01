@@ -52,6 +52,8 @@ from .backends.regions import MapLedger, MapResolution, data_root
 from .backends.routino import RoutinoConverter, Source
 from .backends.staging import Staging
 from .backends.terrain import TerrainLedger, TerrainWork, terrain_needs
+from .backends.topo import TopoDisclosure, TopoQuadsBackend, TopoResolution
+from .backends.topo_mosaic import UstopoMosaicConverter
 from .copernicus import (
     CopernicusError,
     TileFile,
@@ -66,7 +68,7 @@ from .copernicus import (
 )
 from .fetch import Fetcher
 from .geofabrik import BASE, GeofabrikError, Probe, RegionFile
-from .manifest.schema import BinaryInstall, DemTilesInstall, DerivedDataInstall
+from .manifest.schema import BinaryInstall, DemTilesInstall, DerivedDataInstall, TopoQuadsInstall
 from .plan import InstallPlan, PlannedPackage
 
 
@@ -238,6 +240,8 @@ class TerrainRun:
     garmin: GarminConverter
     routino: RoutinoConverter
     gdal: GdalDemConverter
+    topo: TopoQuadsBackend
+    mosaic: UstopoMosaicConverter
     brouter: BRouterConverter
 
     @property
@@ -246,8 +250,29 @@ class TerrainRun:
             "mkgmap": self.garmin,
             "routino-planetsplitter": self.routino,
             "gdal-dem": self.gdal,
+            "ustopo-mosaic": self.mosaic,
             "brouter-mapcreator": self.brouter,
         }
+
+    def _topo(self, plan: InstallPlan) -> TopoDisclosure | None:
+        """The US Topo part of the disclosure (D-068); None with neither unit."""
+        quads = _planned(plan, TopoQuadsInstall)
+        mosaic = _planned(plan, DerivedDataInstall, "ustopo-mosaic")
+        if quads is None and mosaic is None:
+            return None
+        block = quads.block.install if quads is not None else None
+        building = False
+        if mosaic is not None and isinstance(mosaic.block.install, DerivedDataInstall):
+            # Anything to do: a warp, a removal, or the VRT rebuilt. The steps
+            # are built, not run; building them only reads the disk.
+            building = bool(self.mosaic.steps(mosaic.manifest, mosaic.block.install))
+        return TopoDisclosure(
+            resolution=self.topo.resolution,
+            licence=block.licence if isinstance(block, TopoQuadsInstall) else "",
+            licence_url=block.licence_url if isinstance(block, TopoQuadsInstall) else "",
+            warp=tuple(self.mosaic.pending(mosaic.manifest)) if mosaic is not None else (),
+            building=building,
+        )
 
     def disclosure(self, plan: InstallPlan) -> TerrainDisclosure | None:
         """What the plan says about piece 2; None when it holds none of its units."""
@@ -255,8 +280,9 @@ class TerrainRun:
         garmin = _planned(plan, DerivedDataInstall, "mkgmap")
         routino = _planned(plan, DerivedDataInstall, "routino-planetsplitter")
         gdal = _planned(plan, DerivedDataInstall, "gdal-dem")
+        topo = self._topo(plan)
         brouter = _planned(plan, DerivedDataInstall, "brouter-mapcreator")
-        if not (dem or garmin or routino or gdal or brouter):
+        if not (dem or garmin or routino or gdal or brouter or topo):
             return None
         sources = self._routino_sources(routino)
         rebuilt, tiles, squares = self._brouter_work(brouter)
@@ -279,6 +305,7 @@ class TerrainRun:
             brouter_total=sum(s.size for s in rebuilt),
             brouter_tiles=tiles,
             brouter_squares=squares,
+            topo=topo,
         )
 
     def _brouter_work(self, brouter: PlannedPackage | None) -> tuple[list[BRouterSource], int, int]:
@@ -310,6 +337,8 @@ class TerrainRun:
             brouter=disclosed.brouter_total,
             brouter_regions=disclosed.brouter_regions,
             brouter_squares=disclosed.brouter_squares,
+            quads=sum(q.size for q in disclosed.topo.resolution.fetch) if disclosed.topo else 0,
+            warp=tuple(q.size for q in disclosed.topo.warp) if disclosed.topo else (),
         )
         return terrain_needs(
             work,
@@ -317,6 +346,7 @@ class TerrainRun:
             garmin_staging=self.garmin.staging.directory,
             routino_staging=self.routino.staging.directory,
             contour_staging=self.gdal.staging.directory,
+            mosaic_staging=self.mosaic.staging.directory,
             prefix=prefix,
             brouter_staging=self.brouter.staging.directory,
         )
@@ -334,6 +364,7 @@ def build_terrain_run(
     regions: MapLedger,
     resolution: DemResolution,
     pins: InputPins | None = None,
+    topo: TopoResolution | None = None,
 ) -> TerrainRun:
     """Every piece-2 backend for one run. Each converter stages in its own
     directory under the operator's build tree and runs as the operator."""
@@ -383,5 +414,22 @@ def build_terrain_run(
             ledger=ledger,
             runner=runner,
             pins=pins or InputPins(),
+        ),
+        # D-068: the US Topo sheets and their mosaic share the terrain ledger:
+        # a sheet that did not install is named with the tiles that did not.
+        topo=TopoQuadsBackend(
+            fetcher=fetcher,
+            prefix=prefix,
+            resolution=topo or TopoResolution(),
+            keep=keep,
+            ledger=ledger,
+            runner=runner,
+        ),
+        mosaic=UstopoMosaicConverter(
+            prefix=prefix,
+            resolution=topo or TopoResolution(),
+            staging=Staging(builds / "ustopo-qmapshack", owner=owner),
+            ledger=ledger,
+            runner=runner,
         ),
     )

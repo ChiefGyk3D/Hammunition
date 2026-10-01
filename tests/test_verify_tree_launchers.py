@@ -334,6 +334,7 @@ def test_every_catalog_launcher_working_directory_is_under_the_shared_prefix() -
     catalog = load_catalog(CATALOG)
     launcher_units = {name for name, m in catalog.items() if m.launchers}
     assert launcher_units == {
+        "comaps",
         "ais-catcher",
         "artemis",
         "ax25-apps",

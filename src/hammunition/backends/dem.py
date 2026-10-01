@@ -30,13 +30,14 @@ from functools import partial
 from pathlib import Path
 
 from ..copernicus import CopernicusError, TileFile, parse_tile_list
-from ..fetch import Fetcher
+from ..fetch import Fetcher, MirrorPath, fetch_disclosure, record_fetch
 from ..geofabrik import RegionFile
 from ..manifest.schema import DemTilesInstall, PackageManifest, RemoteArtifact
 from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
 from .regions import MIB, data_root, prefix_writer, removal_steps
 from .terrain import TerrainLedger, tile_key
+from .topo import TopoDisclosure
 from .verified import PrefixWriter
 
 TIF = ".tif"
@@ -146,6 +147,9 @@ class TerrainDisclosure:
     """How many terrain tiles the rebuild folds in as elevation."""
     brouter_squares: int = 0
     """How many 5-degree squares those tiles fall in."""
+    topo: TopoDisclosure | None = None
+    """The US Topo sheets and their mosaic (D-068); None when neither unit
+    is planned."""
 
 
 @dataclass(frozen=True)
@@ -181,18 +185,25 @@ class DemTilesBackend:
         steps: list[Action | Command] = []
         for tile in self.resolution.fetch:
             fetched: dict[str, Path] = {}
+            facts: dict[str, str] = {}
             digest = (
                 f"sha256 {tile.sha256[:12]}…" if tile.sha256 else f"md5 {(tile.md5 or '')[:12]}…"
+            )
+            where = MirrorPath(manifest.name, tile.name)
+            note, urls, sources = fetch_disclosure(
+                self.fetcher, tile.url, where, "sha256" if tile.sha256 else "md5"
             )
             steps.append(
                 Action(
                     kind="fetch",
                     description=(
                         f"Fetch terrain tile {tile.name} ({human_size(tile.size)}, "
-                        f"{block.licence}) — {tile.verified_by}"
+                        f"{block.licence}) — {tile.verified_by}{note}"
                     ),
-                    detail=f"{tile.url} ({digest}, {tile.size} bytes)",
-                    perform=partial(self._fetch, tile, fetched),
+                    detail=f"{urls} ({digest}, {tile.size} bytes)",
+                    perform=partial(self._fetch, tile, fetched, where, facts),
+                    sources=sources,
+                    facts=facts,
                 )
             )
             dest = out / f"{tile.name}{TIF}"
@@ -242,16 +253,26 @@ class DemTilesBackend:
             return f"wrote {record}; {no_terrain_line(entry.region)}"
         return f"wrote {record}"
 
-    def _fetch(self, tile: TileFile, fetched: dict[str, Path]) -> str:
+    def _fetch(
+        self,
+        tile: TileFile,
+        fetched: dict[str, Path],
+        where: MirrorPath | None = None,
+        facts: dict[str, str] | None = None,
+    ) -> str:
         key = tile_key(tile.name)
         try:
             if tile.sha256 is not None:
                 result = self.fetcher.fetch(
-                    RemoteArtifact(url=tile.url, sha256=tile.sha256), max_bytes=tile.size + MIB
+                    RemoteArtifact(url=tile.url, sha256=tile.sha256),
+                    max_bytes=tile.size + MIB,
+                    mirror=where,
                 )
                 how = f"sha256 {result.sha256[:12]}… verified against the pin"
             elif tile.md5 is not None:
-                result = self.fetcher.fetch_md5(tile.url, tile.md5, expected_size=tile.size)
+                result = self.fetcher.fetch_md5(
+                    tile.url, tile.md5, expected_size=tile.size, mirror=where
+                )
                 how = f"md5 {tile.md5[:12]}… matched the object's metadata (not pinned)"
             else:  # pragma: no cover - resolve_tile always sets one
                 raise BackendError(f"{tile.url}: neither a sha256 pin nor an MD5 to verify it by")
@@ -262,8 +283,11 @@ class DemTilesBackend:
         except (BackendError, OSError) as exc:
             return self.ledger.fail(key, f"{tile.name}: {exc}")
         fetched["path"] = result.path
-        where = "cached" if result.from_cache else "downloaded"
-        return f"{where} {result.size} bytes, {how}"
+        source = record_fetch(
+            result, facts if facts is not None else {}, mirrored=bool(self.fetcher.mirror)
+        )
+        state = "cached" if result.from_cache else "downloaded"
+        return f"{state} {result.size} bytes, {how}{source}"
 
     def _install(
         self, tile: TileFile, fetched: dict[str, Path], dest: Path, writer: PrefixWriter

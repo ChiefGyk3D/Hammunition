@@ -382,6 +382,121 @@ class PinReview(Strict):
         return today > self.due
 
 
+def _unhashed(lines: Sequence[str]) -> list[str]:
+    """Requirement lines that carry no ``--hash=sha256:`` pin."""
+    return [
+        line
+        for line in lines
+        if line.strip()
+        and not line.lstrip().startswith(("#", "--"))
+        and "--hash=sha256:" not in line
+    ]
+
+
+def _inside_tree(path: str) -> bool:
+    """A relative path with no ``..`` component: it cannot leave the tree."""
+    parts = PurePosixPath(path).parts
+    return bool(path.strip()) and not path.startswith("/") and ".." not in parts
+
+
+#: The variables the git backend sets on a prepare step itself (D-069): the
+#: build Python's ``PATH`` and ``VIRTUAL_ENV``, and the job count. A manifest
+#: setting one would silently undo the engine's.
+ENGINE_BUILD_ENV = frozenset({"PATH", "VIRTUAL_ENV", "CMAKE_BUILD_PARALLEL_LEVEL"})
+
+
+class PrepareStep(Strict):
+    """An upstream script run in the checked-out tree before configure (D-069).
+
+    CoMaps' ``configure.sh`` generates the symbols, drawing rules and strings
+    the CMake build reads, and builds a helper tool to do it. The script is
+    upstream's, named by path, never a command line the catalog writes; the
+    engine owns how it runs. ``produces`` is what makes it checkable:
+    CoMaps' ``generate_symbols.sh`` exits 0 with no symbols when optipng is
+    missing, so a script's exit status is not evidence of anything (D-031).
+    """
+
+    script: str = Field(description="Path of the script, relative to the tree; run as ./<script>.")
+    args: list[str] = Field(default_factory=list)
+    env: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Upstream's own switches, e.g. SKIP_PYTHON_VENV=1 so CoMaps' script does "
+            "not pip-install an unpinned protobuf. Never secrets: the plan prints it."
+        ),
+    )
+    produces: list[str] = Field(
+        min_length=1,
+        description=(
+            "Globs relative to the tree; each must match at least one non-empty "
+            "regular file after the script, or the step fails naming it."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _check(self) -> PrepareStep:
+        for path in (self.script, *self.produces):
+            if not _inside_tree(path):
+                raise ManifestError(
+                    f"prepare path {path!r} must be a relative path inside the tree, "
+                    f"with no `..` components"
+                )
+        owned = sorted(ENGINE_BUILD_ENV & set(self.env))
+        if owned:
+            raise ManifestError(
+                f"prepare env sets {', '.join(owned)}, which the engine sets itself on "
+                f"this step (the build Python and the job count)"
+            )
+        return self
+
+
+class ExtraArtifact(RemoteArtifact):
+    """A pinned file installed beside a build, with its size (D-069)."""
+
+    size: int = Field(
+        gt=0, description="Bytes, as published. Printed in the plan, checked on fetch."
+    )
+
+
+class ExtraFile(Strict):
+    """A file a build's install rule leaves out, installed after it (D-069).
+
+    Either a pinned artifact or a file from the built tree, installed at
+    ``<prefix>/<install_as>`` with mode 0644, after an ``rm -f`` so a symlink
+    at the destination is replaced and never written through. CoMaps'
+    install rule skips ``World.mwm`` and ``WorldCoasts.mwm`` when the tree has
+    none (they are downloaded, not built), and leaves out
+    ``categories_brands.txt``; Flathub's manifest installs all three by hand.
+    """
+
+    artifact: ExtraArtifact | None = None
+    from_tree: str | None = Field(
+        default=None, description="A file in the checked-out tree, relative to it."
+    )
+    install_as: str = Field(description="Relative to the prefix, under share/.")
+
+    @model_validator(mode="after")
+    def _check(self) -> ExtraFile:
+        if (self.artifact is None) == (self.from_tree is None):
+            raise ManifestError(
+                "an extra file names exactly one of `artifact` (a pinned download) or "
+                "`from_tree` (a file of the built tree)"
+            )
+        if self.from_tree is not None and not _inside_tree(self.from_tree):
+            raise ManifestError(
+                f"from_tree {self.from_tree!r} must be a relative path inside the tree, "
+                f"with no `..` components"
+            )
+        parts = PurePosixPath(self.install_as).parts
+        if not _inside_tree(self.install_as) or len(parts) < 2 or parts[0] != "share":
+            raise ManifestError(
+                f"extra file install_as {self.install_as!r} must be a relative path under "
+                f"share/ in the prefix: data beside a build, never an executable or a "
+                f"library, and never outside the prefix"
+            )
+        return self
+
+
 class GitInstall(Strict):
     """Build from a pinned git revision. `ref` must be immutable."""
 
@@ -436,6 +551,42 @@ class GitInstall(Strict):
         default=None,
         description="Required when `ref` is a commit SHA rather than a tag. D-024.",
     )
+    commit: str | None = Field(
+        default=None,
+        description=(
+            "For a tag `ref`: the commit it must resolve to. The pin check then "
+            "refuses a re-cut tag instead of only recording what it resolved to. "
+            "CoMaps' tag is the one Flathub, nixpkgs and the AUR build, at this "
+            "commit (D-024, D-069)."
+        ),
+    )
+    submodules: bool = Field(
+        default=False,
+        description=(
+            "Check out every submodule, recursively, at the superproject's gitlinks, "
+            "shallow (`git submodule update --init --recursive --depth 1`, upstream "
+            "CoMaps' own command), then refuse unless `git submodule status "
+            "--recursive` shows each one at its gitlink. D-069."
+        ),
+    )
+    build_python: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Hash-pinned requirement lines for a Python the build needs, installed "
+            "into a venv in the build directory with --require-hashes; prepare, "
+            "configure and compile run with it first on the PATH. CoMaps' CMake "
+            "refuses Debian's protobuf 4.x (D-069). Build-only: it is discarded "
+            "with the build directory and never reaches the operator."
+        ),
+    )
+    prepare: PrepareStep | None = Field(
+        default=None,
+        description="An upstream script run in the tree before configure. D-069.",
+    )
+    extra_files: list[ExtraFile] = Field(
+        default_factory=list,
+        description="Files the install rule leaves out, installed after it. D-069.",
+    )
 
     @model_validator(mode="after")
     def _pinned(self) -> GitInstall:
@@ -458,6 +609,29 @@ class GitInstall(Strict):
     @model_validator(mode="after")
     def _tree_marker(self) -> GitInstall:
         _check_tree_marker(self.install_tree, self.tree_marker, self.method)
+        return self
+
+    @model_validator(mode="after")
+    def _build_fields(self) -> GitInstall:
+        if self.commit is not None:
+            if COMMIT_SHA.match(self.ref):
+                raise ManifestError(
+                    f"commit is for a tag ref; ref {self.ref!r} is already a commit"
+                )
+            if not COMMIT_SHA.match(self.commit):
+                raise ManifestError(
+                    f"commit must be 40 lowercase hex characters, got {self.commit!r}"
+                )
+        unhashed = _unhashed(self.build_python)
+        if unhashed:
+            raise ManifestError(
+                f"build_python lines without a --hash=sha256: pin: {unhashed[:3]} -- "
+                f"non-apt sources are verified or refused, at build time too"
+            )
+        names = [f.install_as for f in self.extra_files]
+        twice = sorted({n for n in names if names.count(n) > 1})
+        if twice:
+            raise ManifestError(f"extra files would install {', '.join(twice)} twice")
         return self
 
 
@@ -587,13 +761,7 @@ class VenvInstall(Strict):
 
     @model_validator(mode="after")
     def _hashes(self) -> VenvInstall:
-        unhashed = [
-            line
-            for line in self.requirements
-            if line.strip()
-            and not line.lstrip().startswith(("#", "--"))
-            and "--hash=sha256:" not in line
-        ]
+        unhashed = _unhashed(self.requirements)
         if unhashed:
             raise ManifestError(
                 f"venv requirements without a --hash=sha256: pin: {unhashed[:3]} — "
@@ -705,6 +873,10 @@ class NodeInstall(Strict):
         return self
 
 
+#: One path component a data unit's archive is extracted into (D-071).
+_PLAIN_NAME = re.compile(r"(?!\.{1,2}$)[A-Za-z0-9._-]+")
+
+
 class DataArtifact(RemoteArtifact):
     """One file of an offline dataset: a map tileset, a Wikipedia ZIM, cty.dat.
 
@@ -727,6 +899,24 @@ class DataArtifact(RemoteArtifact):
             "unit's data directory. Archives extract their members and take none."
         ),
     )
+    members: list[str] | None = Field(
+        default=None,
+        description=(
+            "For an archive: extract only these paths, as the archive names them "
+            "(its top directory included); one ending in `/` takes everything "
+            "below it. A member that matches nothing refuses the install. "
+            "Without it the whole archive is extracted (D-071)."
+        ),
+    )
+    into: str | None = Field(
+        default=None,
+        description=(
+            "For an archive: the subdirectory of the unit's data directory it is "
+            "extracted into, one plain name. Required on every archive of a unit "
+            "with more than one archive, or with files beside an archive: an "
+            "archive replaces the directory it is extracted into (D-071)."
+        ),
+    )
 
     @model_validator(mode="after")
     def _install_name(self) -> DataArtifact:
@@ -735,11 +925,27 @@ class DataArtifact(RemoteArtifact):
                 raise ManifestError("a data file needs install_as: the name it is kept under")
             if "/" in self.install_as or self.install_as in {".", ".."}:
                 raise ManifestError(f"install_as must be a bare file name, got {self.install_as!r}")
+            if self.members is not None or self.into is not None:
+                raise ManifestError(
+                    "members and into are for an archive only; a data file is kept under install_as"
+                )
         elif self.install_as is not None:
             raise ManifestError(
                 f"install_as is only meaningful for format: file, not {self.format}: an archive's "
                 f"members keep their own names"
             )
+        if self.into is not None and not _PLAIN_NAME.fullmatch(self.into):
+            raise ManifestError(
+                f"into must be one plain name (letters, digits, . _ -), got {self.into!r}"
+            )
+        for member in self.members or ():
+            if not member or member.startswith("/") or "\\" in member or ".." in member.split("/"):
+                raise ManifestError(
+                    f"an archive member is a relative path inside the archive, with no '..', "
+                    f"got {member!r}"
+                )
+        if self.members is not None and not self.members:
+            raise ManifestError("an empty members list would extract nothing; omit it for all")
         return self
 
 
@@ -772,6 +978,22 @@ class DataInstall(Strict):
         names = [a.install_as for a in self.artifacts if a.install_as]
         if len(set(names)) != len(names):
             raise ManifestError("two data artifacts would install under the same name")
+        # D-071: an archive rebuilds the directory it is extracted into, so a
+        # second archive, or a file installed beside one, would be wiped by it.
+        archives = [a for a in self.artifacts if a.format != "file"]
+        if len(archives) > 1 or (archives and names):
+            if any(a.into is None for a in archives):
+                raise ManifestError(
+                    "a unit with more than one archive, or files beside an archive, needs "
+                    "into on every archive: each is extracted into its own subdirectory, "
+                    "which it replaces"
+                )
+            intos = [a.into for a in archives]
+            if len(set(intos)) != len(intos) or set(intos) & set(names):
+                raise ManifestError(
+                    "two data artifacts would install under the same name (an archive's into "
+                    "and another's into or install_as)"
+                )
         return self
 
 
@@ -828,6 +1050,78 @@ class DemTilesInstall(Strict):
         return self
 
 
+class TopoQuadsInstall(Strict):
+    """Official topographic map sheets for the station's map regions (D-068).
+
+    Like `DemTilesInstall`, nothing is pinned in the manifest: which sheets
+    are needed follows the operator's regions in station config, chosen at
+    plan time from a carried, generated index
+    (``catalog/data/ustopo-quads.txt``), each checked against the S3 ETag
+    its publisher lists, the plan saying so sheet by sheet. `provider` is an
+    enum so the Forest Service's FSTopo is a new member the engine
+    implements, never a URL in the catalog.
+    """
+
+    method: Literal["topo-quads"] = "topo-quads"
+    provider: Literal["usgs-ustopo"] = "usgs-ustopo"
+    licence: str = Field(
+        min_length=2,
+        description="SPDX identifier where one exists, else the publisher's own words.",
+    )
+    licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+
+    @model_validator(mode="after")
+    def _check(self) -> TopoQuadsInstall:
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        return self
+
+
+class KiwixBooksInstall(Strict):
+    """The Kiwix books the operator chose in station config (D-066).
+
+    Like `DemTilesInstall`, nothing is pinned in the manifest: which books
+    follows ``reference_books`` in station config, and each book resolves at
+    plan time to a pin in ``catalog/data/kiwix-pins.yaml``, generated from
+    Kiwix's own ``.meta4`` files. There is no ``licence`` here because the
+    books do not share one: each book's licence line is in the hand-written
+    ``catalog/data/kiwix-books.yaml``, and the plan prints it beside the
+    book's size before the confirmation (D-049 rule 2). `provider` is an
+    enum, as `dem-tiles`' is, so another library is a new member the engine
+    implements, never a URL in the catalog.
+    """
+
+    method: Literal["kiwix-books"] = "kiwix-books"
+    provider: Literal["kiwix"] = "kiwix"
+
+
+class MwmRegionsInstall(Strict):
+    """CoMaps' own map files for the station's map regions (D-069).
+
+    Like `DemTilesInstall`, nothing is pinned in the manifest: which maps
+    follows the operator's regions in station config, through the region
+    table in ``catalog/data/comaps-pins.yaml``, generated from CoMaps' map
+    index at the commit the `comaps` unit pins. Each map is checked against
+    that index's SHA-1 and exact size, the publisher's own check, and the plan
+    says so. `provider` is an enum, so Organic Maps' CDN would be a new member
+    the engine implements, never a URL in the catalog.
+    """
+
+    method: Literal["mwm-regions"] = "mwm-regions"
+    provider: Literal["comaps"] = "comaps"
+    licence: str = Field(
+        min_length=2,
+        description="SPDX identifier where one exists, else the publisher's own words.",
+    )
+    licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+
+    @model_validator(mode="after")
+    def _check(self) -> MwmRegionsInstall:
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        return self
+
+
 #: D-061: the install method a `derived` block's `source` unit must actually
 #: resolve to, keyed by `converter`. A single-manifest validator cannot check
 #: this -- it would need another manifest's own install block, which is why
@@ -839,6 +1133,10 @@ CONVERTER_SOURCE_METHOD: dict[str, str] = {
     "routino-planetsplitter": "osm-regions",
     "gdal-dem": "dem-tiles",
     "brouter-mapcreator": "osm-regions",
+    "mapsforge-map": "osm-regions",
+    "mapsforge-poi": "osm-regions",
+    "ustopo-mosaic": "topo-quads",
+    "tilemaker-pmtiles": "osm-regions",
 }
 
 #: D-063: the other units a ``brouter-mapcreator`` block reads, the install
@@ -850,6 +1148,63 @@ BROUTER_INPUTS: dict[str, tuple[str, bool]] = {
     "profiles": ("data", True),
     "elevation": ("dem-tiles", False),
 }
+
+#: D-071: the unit a ``tilemaker-pmtiles`` block reads besides its regions: the
+#: kit holding tilemaker's OpenMapTiles profile and the Natural Earth layers.
+TILEMAKER_INPUTS: dict[str, tuple[str, bool]] = {"kit": ("data", True)}
+
+#: Every converter that reads units besides its `source`, and those inputs:
+#: field -> (the install method it must resolve to, whether it is required).
+#: A field is refused on every converter not listed against it.
+CONVERTER_INPUTS: dict[str, dict[str, tuple[str, bool]]] = {
+    "brouter-mapcreator": BROUTER_INPUTS,
+    "tilemaker-pmtiles": TILEMAKER_INPUTS,
+}
+
+#: D-067: the converters that run a program no archive packages, carried as a
+#: pinned `tool` on the derived block. Required for these, refused for the rest.
+CONVERTERS_WITH_TOOL = frozenset({"mapsforge-poi"})
+
+#: A tool's file name, from the last component of its URL: a bare name the
+#: engine can install under the unit's own directory, never a path.
+_TOOL_FILE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+
+
+class ConverterTool(Strict):
+    """A program a converter runs that no archive packages, pinned.  D-067.
+
+    The catalog supplies where it is and what it hashes to; the engine owns
+    how it is run, exactly as it owns every converter's command line. It is
+    fetched, verified against `artifact.sha256`, checked against `size`, and
+    installed under ``<prefix>/share/hammunition/<unit>/`` -- not under the
+    unit's data directory, which holds only files that are read, never run
+    (D-049). A `signature_url` is recorded and not verified; the fetch step
+    says so, in the words every declared-but-unverified signature gets.
+    """
+
+    artifact: RemoteArtifact
+    size: int = Field(gt=0, description="Bytes, measured; a download of another size is refused.")
+    licence: str = Field(
+        min_length=2,
+        description="SPDX identifier where one exists, else the publisher's own words.",
+    )
+    licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+
+    @property
+    def file_name(self) -> str:
+        return self.artifact.url.rsplit("/", 1)[-1]
+
+    @model_validator(mode="after")
+    def _check(self) -> ConverterTool:
+        if not self.artifact.url.startswith("https://"):
+            raise ManifestError(f"a converter tool's url must be https: {self.artifact.url!r}")
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        if not _TOOL_FILE.fullmatch(self.file_name):
+            raise ManifestError(
+                f"a converter tool's url must end in a plain file name, got {self.artifact.url!r}"
+            )
+        return self
 
 
 class DerivedDataInstall(Strict):
@@ -867,20 +1222,29 @@ class DerivedDataInstall(Strict):
 
     method: Literal["derived"] = "derived"
     converter: Literal[
-        "navit-maptool", "mkgmap", "routino-planetsplitter", "gdal-dem", "brouter-mapcreator"
+        "navit-maptool",
+        "mkgmap",
+        "routino-planetsplitter",
+        "gdal-dem",
+        "brouter-mapcreator",
+        "mapsforge-map",
+        "mapsforge-poi",
+        "ustopo-mosaic",
+        "tilemaker-pmtiles",
     ] = Field(
         description=(
             "The transformation to run. Each needs a `source` of one particular "
             "install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): "
-            "`navit-maptool`, `mkgmap`, `routino-planetsplitter` and "
-            "`brouter-mapcreator` need an `osm-regions` source; `gdal-dem` needs a "
-            "`dem-tiles` source."
+            "`navit-maptool`, `mkgmap`, `routino-planetsplitter`, `brouter-mapcreator`, "
+            "`mapsforge-map`, `mapsforge-poi` and `tilemaker-pmtiles` need an `osm-regions` "
+            "source; `gdal-dem` needs a `dem-tiles` source; `ustopo-mosaic` needs a "
+            "`topo-quads` source (D-068)."
         )
     )
     source: str = Field(
         description=(
             "The catalog package name this is derived from: an `osm-regions` unit, "
-            "or for `gdal-dem` a `dem-tiles` unit."
+            "for `gdal-dem` a `dem-tiles` unit, for `ustopo-mosaic` a `topo-quads` unit."
         )
     )
     boundaries: str | None = Field(
@@ -916,33 +1280,67 @@ class DerivedDataInstall(Strict):
             "it the routes are flat. Must also be in `depends`."
         ),
     )
+    kit: str | None = Field(
+        default=None,
+        description=(
+            "`tilemaker-pmtiles` only, and required there (D-071): the `data` unit "
+            "holding tilemaker's OpenMapTiles profile (config and Lua) and the Natural "
+            "Earth shapefiles the profile names. Must also be in `depends`."
+        ),
+    )
     licence: str = Field(
         min_length=2,
         description="SPDX identifier where one exists, else the publisher's own words.",
     )
     licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+    tool: ConverterTool | None = Field(
+        default=None,
+        description=(
+            "The pinned program the converter runs, for a converter in "
+            "`CONVERTERS_WITH_TOOL` (`mapsforge-poi`: Maven Central's "
+            "mapsforge-poi-writer, which no archive packages, D-067). Required for "
+            "those converters and refused for every other."
+        ),
+    )
 
     @model_validator(mode="after")
     def _check(self) -> DerivedDataInstall:
         if not self.licence_url.startswith("https://"):
             raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
-        for name, (_, required) in BROUTER_INPUTS.items():
-            value = getattr(self, name)
-            if self.converter != "brouter-mapcreator":
-                if value is not None:
-                    raise ManifestError(
-                        f"{name} is read only by the brouter-mapcreator converter, not "
-                        f"{self.converter!r}"
-                    )
-            elif required and value is None:
-                raise ManifestError(f"converter brouter-mapcreator needs {name}: the unit it reads")
+        if self.converter in CONVERTERS_WITH_TOOL and self.tool is None:
+            raise ManifestError(
+                f"converter {self.converter!r} runs a program no archive packages, so the "
+                f"block must pin it as `tool` (url, sha256, size, licence)"
+            )
+        if self.converter not in CONVERTERS_WITH_TOOL and self.tool is not None:
+            raise ManifestError(
+                f"converter {self.converter!r} runs only what the archive installs; a `tool` "
+                f"on it would be fetched for nothing"
+            )
+        for owner, fields in CONVERTER_INPUTS.items():
+            for name, (_, required) in fields.items():
+                value = getattr(self, name)
+                if self.converter != owner:
+                    if value is not None:
+                        raise ManifestError(
+                            f"{name} is read only by the {owner} converter, not {self.converter!r}"
+                        )
+                elif required and value is None:
+                    raise ManifestError(f"converter {owner} needs {name}: the unit it reads")
         return self
 
     def inputs(self) -> tuple[str, ...]:
         """Every other unit this block reads at run time; each must be in `depends`."""
         return tuple(
             unit
-            for unit in (self.source, self.boundaries, self.program, self.profiles, self.elevation)
+            for unit in (
+                self.source,
+                self.boundaries,
+                self.program,
+                self.profiles,
+                self.elevation,
+                self.kit,
+            )
             if unit is not None
         )
 
@@ -964,7 +1362,10 @@ InstallMethod = Annotated[
     | DataInstall
     | RegionalDataInstall
     | DemTilesInstall
-    | DerivedDataInstall,
+    | TopoQuadsInstall
+    | DerivedDataInstall
+    | KiwixBooksInstall
+    | MwmRegionsInstall,
     Field(discriminator="method"),
 ]
 
@@ -1308,6 +1709,8 @@ class UpdateProbe(Strict):
         "binary_version",
         "label_file",
         "pypi",
+        "kiwix",
+        "comaps_maps",
         "none",
     ]
     repo: str | None = None
@@ -1793,7 +2196,7 @@ def derived_source_method_problem(
                     f"needs source {block.source!r} to be a {needed!r} unit, but "
                     f"{block.source!r} is {sorted(methods)!r}"
                 )
-        for field_name, (method, _) in BROUTER_INPUTS.items():
+        for field_name, (method, _) in CONVERTER_INPUTS.get(block.converter, {}).items():
             unit = getattr(block, field_name)
             found = catalog.get(unit) if unit is not None else None
             if found is None:

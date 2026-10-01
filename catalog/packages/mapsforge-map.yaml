@@ -1,0 +1,70 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: mapsforge-map
+version: "station"
+summary: Mapsforge vector maps of your OpenStreetMap regions, for phone map apps
+categories: [navigation-maps]
+
+# Derived data (D-067): the engine runs the `mapsforge-map` converter, an enum
+# it implements, over each region osm-regions installed. Everything it runs is
+# from the archive: `apt-cache policy` on Parrot 7 (echo), 2026-09-29: osmosis
+# 0.49.2-2 and libmapsforge-java 0.20.0-1 (echo/main); Java arrives through
+# osmosis's own dependency on default-jre-headless, as mkgmap's does. Debian's
+# /usr/bin/osmosis does not load the packaged writer, so the engine runs
+# `java -cp` over osmosis's jars and the writer's (backends/mapsforge.py).
+depends: [osm-regions, osmosis, libmapsforge-java]
+
+install:
+  - install:
+      method: derived
+      converter: mapsforge-map
+      source: osm-regions
+      licence: ODbL-1.0
+      licence_url: https://www.openstreetmap.org/copyright
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Follows osm-regions: a region whose downloaded file changed is built
+    again on the next install, and one that did not is skipped.
+
+documentation:
+  what_it_does: >-
+    Builds one Mapsforge `.map` file per region `osm-regions` downloaded, as
+    the operator in a staging directory, with the archive's osmosis and its
+    Mapsforge map writer. A `.map` is a compact vector map that phone map
+    apps draw offline with their own styles. The files land under
+    /usr/local/share/hammunition/data/mapsforge-map/, and
+    `hammunition maps phone` gathers them for carrying to a phone.
+  why_you_want_it: >-
+    It makes the laptop the map factory for the team's phones: every phone
+    that reads Mapsforge maps gets the same regions as the laptop, built from
+    the same verified download, with no phone needing the internet to fetch
+    its own. The phone apps that read Mapsforge files, by their own
+    documentation, include Cruiser, Locus Map, OruxMaps and c:geo; none has
+    been checked on a phone here.
+  prerequisites: >-
+    `osm-regions` with at least one region set in station config, and the
+    archive's `osmosis` and `libmapsforge-java`; all install first. With no
+    regions set this unit is deferred by name. A phone app that reads
+    Mapsforge `.map` files, installed on the phone while it still had the
+    internet.
+  known_problems: >-
+    Measured on one region, Delaware (22 MB download), on 2026-09-29: 3 min
+    38 s, 1.04 GB of memory with a 2 GB Java heap, a map 0.78 times the
+    download, and about 14 times the download written to disk while it runs
+    (scratch the writer removes, in the staging directory, never /tmp). The
+    plan uses 0.78 and 15 and says they were measured on one region; a large
+    region can take hours. The writer is the archive's 0.20.0 and writes map
+    file version 3, which every Mapsforge reader reads. It has not been
+    loaded on a phone yet. The map carries the Open Database License
+    obligations of the data.
+  upstream_url: https://github.com/mapsforge/mapsforge
+  upstream_support: >-
+    GitHub issues at https://github.com/mapsforge/mapsforge/issues; each
+    phone app's own forum for how it reads and styles the map; problems in
+    the map data are fixed in OpenStreetMap
+    (https://www.openstreetmap.org/fixthemap).

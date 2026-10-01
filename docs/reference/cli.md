@@ -199,6 +199,29 @@ not release)`. When `osm-regions` is behind, the footer's command also names
 `osm-garmin` and `osm-routino` if they are installed, since they are built
 from the same regions.
 
+For `usgs-ustopo` (**D-068**) the row is a count too, since a sheet's name is
+a place: `12 US Topo quad(s) installed, each at the edition the carried index
+lists`, or, *behind the pin*, `...; 3 of them have a newer edition in the
+carried index`, and then the footer's command names `ustopo-qmapshack` beside
+it, which warps the new sheets.
+
+For `comaps-maps` (**D-069**) the row is a count too, because a CoMaps map
+id names a region: every map the station's regions need at its pinned
+version and size is `up to date` (`2 map(s) installed at their pinned
+version`); one installed under another version directory is `behind the
+pin`, with `install comaps-maps` to fetch the pinned one; anything else is
+`not installed`. Regions the carried table has no CoMaps map for are counted
+on the end. With `--upstream`, a `comaps_maps` probe asks CoMaps' CDN, once
+per unit, for the pinned version's `World.mwm` with a `HEAD`, and needs 200
+**and** the pinned size, since a CoMaps mirror answers a missing file with
+200 and a web page: `current` when it is published, `pin expiring` from 90
+days after the version's date (the CDN keeps a version for months, not
+forever), and `pin expired` when it answers 404 or 410, or 200 with another
+size, which an install would refuse. Any other answer (a 503, a 429) is
+`unanswered`, not an expired pin.
+Both name `scripts/gen_comaps_pins.py`. The summary line counts the expired
+and expiring pins.
+
 With `--json`, prints an `update` document
 ([json-interface.md](json-interface.md)) with the same rows, counts and
 commands. It keeps the text's count-only rule: `osm-regions` is a count
@@ -228,14 +251,50 @@ With `--json`, prints a `regions` document
 ([json-interface.md](json-interface.md)): the filter and the matching region
 paths. It is Geofabrik's list, nothing of yours.
 
+### `hammunition artifacts [--map-regions R[,R…]] [--map-freshness MODE] [--units U[,U…]]`
+
+Every remote data artifact the engine would fetch for the selection on the
+command line (**D-070**): each `data` unit's files, the Geofabrik extract of
+each region, and the Copernicus tiles each region's outline touches. It
+reads no station file and nothing installed on this machine, and installs
+nothing; the answer is the same on every machine. It is what
+[Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker), a
+LAN mirror of this data, asks to learn what to keep.
+
+```
+$ hammunition artifacts --map-regions north-america/us/vermont --units osm-regions,country-files
+```
+
+| Flag | Effect |
+|---|---|
+| `--map-regions R[,R…]` | Geofabrik region paths, as `station set --map-regions` takes them. None defers the map units |
+| `--map-freshness MODE` | `yearly` (the default), `monthly` or `latest`: which dated file each region resolves to and how it is verified, exactly as in the plan |
+| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions`, `dem-tiles` or `mwm-regions` install block. A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
+
+The network is asked as the plan asks it, and only for what the selection
+names: Geofabrik for a region's dated file, its `.md5` and its `.poly`
+outline, and the Copernicus bucket for an unpinned tile's size and ETag. A
+pinned region or tile asks nothing. What cannot be resolved — a region
+Geofabrik does not have, an outline that cannot be read, a map unit with no
+`--map-regions` — is listed as deferred with the reason; it does not change
+the exit code.
+
+With `--json`, prints an `artifacts` document
+([json-interface.md](json-interface.md)): per artifact the unit, its stable
+name within the unit (what a mirror serves at `<mirror>/<unit>/<name>`), the
+publisher URL, the check (`sha256`, `md5-publisher`, `etag-md5`, `sha1-publisher` for CoMaps' maps, D-069), the
+expected digest, where a publisher checksum was read, the size, the licence,
+and `deferred`. It carries the regions given, and nothing of the station's.
+
 ### `hammunition maps qmapshack [--configure-only]`
 
 What the `qmapshack-offline` launcher runs (**D-061**). It adds
 Hammunition's map, elevation and routing directories to QMapShack's own
 settings, `$XDG_CONFIG_HOME/QLandkarte/QMapShack.conf` (by default
 `~/.config/QLandkarte/QMapShack.conf`), then starts `qmapshack`. The keys
-are `mapPath` (the Garmin maps and the contour map) and `demPaths` (the
-elevation) under `[Canvas]`, and `Route/routino/paths` (the Routino
+are `mapPath` (the Garmin maps, the contour map and, from **D-068**, the US
+Topo mosaic's directory, whose `ustopo.vrt` QMapShack lists) and `demPaths`
+(the elevation) under `[Canvas]`, and `Route/routino/paths` (the Routino
 database) under `[Route]`: the names read from QMapShack 1.17.1's binary,
 the groups measured on the field laptop (2026-09-29). An earlier version
 wrote the two lists under `[General]`, which QMapShack ignores; its own
@@ -298,7 +357,42 @@ line when it switched BRouter from online to local or bound it to
 `qmapshack` is a named error, exit 1, after the edit. There is no `--json`
 form, because it replaces itself with a GUI (D-059).
 
-### `hammunition maps gps-tether [--gpsd HOST[:PORT]] [--port N]`
+### `hammunition maps comaps [--configure-only]`
+
+What the `comaps-offline` launcher runs (**D-069**). As the operator, never
+as root, it prepares two things CoMaps reads and then starts it:
+
+- **The licence answer.** CoMaps shows a modal dialog with its licence and
+  copyright notice until `EulaAccepted=true` is in
+  `$XDG_CONFIG_HOME/CoMaps/settings.ini` (by default
+  `~/.config/CoMaps/settings.ini`). The line is added only when no line sets
+  that key: the file is `key=value` lines, and CoMaps stops on a duplicated
+  key. An answer already there, either one, is left. A new file is mode
+  0600. A line on stderr says it was recorded and where the notice is.
+- **The maps.** Each map `comaps-maps` installed under
+  `/usr/local/share/hammunition/data/comaps-maps/<version>/` is linked into
+  `$XDG_DATA_HOME/CoMaps/<version>/` (by default `~/.local/share/CoMaps/`),
+  where CoMaps looks for them. A regular file of the same name, a map
+  downloaded in CoMaps, is left, with a line; a link of ours whose map is
+  gone is removed; nothing else there is touched.
+
+It then replaces itself with `/usr/local/bin/CoMaps`, with
+`MWM_WRITABLE_DIR` set to that data directory and `MWM_RESOURCES_DIR` to
+`/usr/local/share/comaps/data`. `--configure-only` prepares and does not
+start it.
+
+It refuses, exit 1, changing nothing and starting nothing: under root; when
+`/usr/local/bin/CoMaps` is not installed (naming `hammunition install
+comaps`); and when the settings file is a symbolic link, not a regular file,
+or not UTF-8. There is no `--json` form, because it replaces itself with a
+GUI (D-059). Started from the menu entry, which opens no terminal, its lines
+on stderr, the licence answer among them, are not seen; the guide says so.
+
+CoMaps has no position on the laptop: it reads GeoClue2 only, and nothing
+here feeds GeoClue the GPS. The navigation guide says what the route would
+be.
+
+### `hammunition maps gps-tether [--gpsd HOST[:PORT]] [--port N] [--position-port N]`
 
 What the `gps-tether` launcher runs (**D-061**). It watches gpsd's JSON, as
 `xgps` and Navit do, and writes `$GPRMC` and `$GPGGA` for every position
@@ -309,8 +403,9 @@ the host and port to enter:
 ```
 Serving gpsd's position as NMEA on 127.0.0.1 port 10110, to this machine only.
 In QMapShack: Realtime, Add source, GPS TCP/IP; host 127.0.0.1, port 10110.
+The offline browser map (`hammunition reference serve`) reads it from http://127.0.0.1:10111/position.
 Reading gpsd at 127.0.0.1 port 2947. Any number of NMEA programs may connect at once.
-Options: --gpsd HOST[:PORT] for a gpsd on another machine, --port N if 10110 is taken.
+Options: --gpsd HOST[:PORT] for a gpsd on another machine, --port N if 10110 is taken, --position-port N for the map's.
 Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 ```
 
@@ -318,6 +413,24 @@ Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 |---|---|---|
 | `--gpsd HOST[:PORT]` | `127.0.0.1:2947` | The gpsd to read: a host name or address, port 2947 when none is given. An IPv6 address goes in brackets (`[::1]`, `[2001:db8::7]:2947`); a bare one, an unclosed bracket, an empty host or a port outside 1 to 65535 is refused by name. |
 | `--port N` | `10110` | The port to serve on, still on 127.0.0.1 only. 1024 to 65535; below 1024 (only root may listen there, and the tether refuses root) and above 65535 are refused by name, and so is anything that is not a number. |
+| `--position-port N` | `10111` | The port of the browser map's position stream (**D-071**), on 127.0.0.1 only, with the same limits. The same port as `--port` is refused by name, so `--port 10111` needs `--position-port` too. |
+
+**The browser map's position (D-071).** A browser cannot read an NMEA
+socket, so the tether also answers `GET /position` on 127.0.0.1 port 10111
+as Server-Sent Events: one `data: {"lat": …, "lon": …, "mode": 2|3,
+"time": …}` event per fix. An event stream is a client like any NMEA client,
+counted in the same fan-out, so gpsd is watched while the map page is open
+and not after. A request whose `Host` is not `127.0.0.1:<port>` or
+`localhost:<port>` (DNS rebinding), or whose `Origin` is not a loopback page,
+is refused with 403 before gpsd is asked; `Access-Control-Allow-Origin` is
+sent only to a loopback page, so no web page from elsewhere can read your
+position through your own browser. A request with no `Origin` must ask for
+`Accept: text/event-stream` (so an image tag on some site cannot keep gpsd
+watched; `curl -N -H 'Accept: text/event-stream'
+http://127.0.0.1:10111/position` tests it from a terminal). Anything but
+`GET /position` is 404 or 405. A request not finished within 5 s is closed,
+at most 16 are held at once, and with gpsd unreachable the page gets a 503
+saying so.
 
 Neither option widens the bind: the feed is a position without
 authentication, so another machine reaches it through
@@ -455,6 +568,144 @@ With `--json`, prints a `repeaters-removed` document
 ([json-interface.md](json-interface.md)): the files deleted and what each
 program was told.
 
+### `hammunition reference books`
+
+The Kiwix books the catalog offers (**D-066**), one per entry of the
+hand-written `catalog/data/kiwix-books.yaml`: the id `station set
+--reference-books` takes, the pinned file's size, the publisher's licence
+line, and `[chosen]` / `[installed]` marks. Read from the catalog, the
+station file and the disk; nothing is fetched.
+
+```
+$ hammunition reference books
+...
+ham.stackexchange.com_en_all             75.9 MB  CC BY-SA
+                                                  Amateur Radio Stack Exchange
+...
+ifixit_en_all                            3.57 GB  CC BY-NC-SA 3.0 — non-commercial
+                                                  iFixit repair guides
+```
+
+With `--json`, prints a `books` document ([json-interface.md](json-interface.md)):
+every book with its id, title, pinned file and size, licence and licence
+URL, and whether it is chosen and installed. Which books somebody reads is
+not where they are, so unlike map regions the ids are named everywhere.
+
+### `hammunition reference serve [--port N] [--position-port N]`
+
+The offline reference on one page, on **127.0.0.1 only** (**D-066**):
+
+```
+$ hammunition reference serve
+Offline reference: http://127.0.0.1:8480/  (this machine only; Ctrl-C stops it)
+  books: kiwix-serve on http://127.0.0.1:8481/wiki/
+  map: http://127.0.0.1:8480/map/  (2 region(s); your position from `hammunition maps gps-tether` on port 10111)
+```
+
+The page, from the engine's own standard-library server on port 8480,
+lists every installed book (a link into Kiwix, with its licence line), every
+ICS form (served from `/forms/`), and how to use the dictionaries (`dict
+WORD` in a terminal; goldendict-ng on the desktop). The books are served
+by `kiwix-serve`, started as a child on the next port:
+
+    kiwix-serve --library -i 127.0.0.1 -p 8481 -r /wiki -b -M -a <pid> <library.xml>
+
+`-i 127.0.0.1` is always there: without it kiwix-serve listens on every
+address of the machine, and its default port, 80, needs root (both
+measured 2026-09-29). `-b` blocks links out of the books, `-M` reloads the
+library when it changes, `-a` makes kiwix-serve exit if this process dies.
+The library is rebuilt by `kiwix-manage` from the installed books every
+time the verb starts, in `~/.cache/hammunition/reference/library.xml`, as
+you: parsing downloaded files is the reader's business, never root's.
+
+| Option | Default | What it does |
+|---|---|---|
+| `--port N` | `8480` | The page's port, still on 127.0.0.1; kiwix-serve takes N+1. 1024 to 65534; anything else is refused by name. |
+| `--position-port N` | `10111` | Where the map page asks the GPS tether for your position, on 127.0.0.1: the tether's own `--position-port`. 1024 to 65535. |
+
+**The offline map (D-071).** When `vector-map-kit` is installed, the same
+server also serves the map (with no `osm-pmtiles` region installed, the
+page says so and what to run):
+`/map/` (the page), `/map/regions.json` (the installed regions),
+`/map/tiles/<slug>.pmtiles` and `/map/kit/<path>` (MapLibre GL JS,
+pmtiles.js, the OSM Bright style, sprite and fonts). Each file is served by
+its exact installed name only, found when the verb starts: a region built
+while it runs appears after a restart. Every file answers a single HTTP
+`Range` with 206 and `Content-Range` (pmtiles.js reads the tiles that way,
+and Python's plain `http.server`, which ignores ranges, makes it fail:
+measured), `HEAD` with its size and `Accept-Ranges: bytes`, and a range past
+the end with 416. A request whose `Host` is not `127.0.0.1:<port>` or
+`localhost:<port>` is refused with 403, on every path, so a web page whose
+name an attacker points at 127.0.0.1 cannot read which regions you carry.
+The page loads nothing from anywhere else, draws "© OpenMapTiles ©
+OpenStreetMap contributors" on the map as the licences require, and shows
+your position when `hammunition maps gps-tether` runs. Without the kit the
+landing page says what to install instead.
+
+With no books installed, no kiwix-serve is started and the page says how to
+choose some. With books installed and `kiwix-serve` or `kiwix-manage`
+missing, it refuses naming `hammunition install kiwix-tools`, exit 1. It
+refuses root, exit 1. A port in use is a named error, exit 1. Ctrl-C stops
+both servers, exit 0; kiwix-serve exiting on its own stops the page, exit
+1. There is no `--json` form: it is a server, not a document (D-059).
+`docs/guides/offline-reference.md` is the operator's walk-through.
+
+### `hammunition maps phone`
+
+Gathers the phone files the laptop has built into one folder and prints the
+ways to carry them to a phone (**D-067**). **It transfers nothing and serves
+nothing**: every route it prints is a command for you to run.
+
+It copies each installed Mapsforge map (`mapsforge-map`), Mapsforge POI file
+(`mapsforge-poi`) and Garmin map (`osm-garmin`, from `navigation`) from
+`/usr/local/share/hammunition/data/` into `$XDG_DATA_HOME/hammunition/phone/`
+(by default `~/.local/share/hammunition/phone/`, created mode 0700), named
+`<region slug>.map`, `.poi` and `.img`, and writes `SHA256SUMS` beside them
+in the format `sha256sum -c SHA256SUMS` checks. Each source is hashed as it
+is copied and each copy is hashed again after it is written. A copy that
+already hashes the same is left alone, so a second run copies nothing. A
+file the previous run listed in `SHA256SUMS` whose region is no longer
+installed is removed; nothing else in the folder is touched, including a
+`.map` you put there yourself, symbolic links and subdirectories. With no
+phone file installed at all, the folder is left as it is.
+
+```
+$ hammunition maps phone
+Phone files in /home/you/.local/share/hammunition/phone:
+  north-america-us-vermont.map        12345678 bytes  copied
+  ...
+  SHA256SUMS: check a copy with `sha256sum -c SHA256SUMS` in the folder
+
+Nothing was transferred. To carry them to a phone:
+
+1. Laptop hotspot and a web browser
+   ...
+     python3 -m http.server 8000 --bind 10.42.0.1 --directory /home/you/.local/share/hammunition/phone
+```
+
+The routes: **the laptop's hotspot** (`nmcli device wifi hotspot`) with
+`python3 -m http.server` **bound to the hotspot's address** (10.42.0.1,
+NetworkManager's default for a hotspot), so the files are served on the
+hotspot link and not on any other network the laptop has joined, after a
+check bound to 127.0.0.1; **USB file transfer** (MTP: `kio-extras` on KDE
+Plasma, which Plasma installs, else `gvfs-backends`, `jmtpfs` or
+`mtp-tools`); and two opt-ins, **`adb`** (brings `android-udev-rules`, a
+system modification; the phone needs USB debugging) and **KDE Connect**
+(the phone needs its app, installed while it had internet, and pairing).
+The full walk-through is `docs/guides/offline-navigation.md`, section 14.
+
+It refuses root, exit 1, and changes nothing. It refuses, exit 1, before
+copying anything, when the folder is a symbolic link or not a directory,
+and when its file system has less room than the copies need. With no phone
+file installed it says which units build them and exits 0, touching
+nothing.
+
+With `--json`, prints a `phone` document
+([json-interface.md](json-interface.md)): the folder, each file with its
+unit, size, sha256 and whether this run copied it, the files removed, the
+phone units with nothing installed, and the routes as data. File names carry
+region slugs: for local programs, not for pasting.
+
 ### `hammunition list [all|packages|profiles]`
 
 Everything in the catalog, with each package's install method **on this
@@ -478,7 +729,7 @@ With `--json`, prints a `profile` document
 document carrying its manifest; the text `show` still describes profiles
 only.
 
-### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
+### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
 **A re-run rebuilds nothing it has already built** (**D-051**): a source, git
 or prebuilt-archive unit whose binaries are on the machine *and* whose build
@@ -495,6 +746,7 @@ Names may be packages or profiles, mixed freely.
 | `--yes` | Skip the confirmation. **Does not satisfy a consent gate** (D-021). Also suppresses the station prompt |
 | `--no-refresh` | Skip the `apt-get update` that otherwise opens every transaction with apt work (**D-044**). For a local mirror, or a station with no uplink. `--refresh` is the default and still parses |
 | `--no-sudo-keepalive` | Do not hold sudo's ticket for the run (**D-062**). By default a run as a user that mixes root steps with steps that are not asks the password once, by `sudo -v`, before the first step, and keeps the ticket valid with `sudo -n -v` every 4 minutes until the run ends. With this flag each root step asks for itself, and one that follows a long step may prompt again. `--sudo-keepalive` is the default and still parses |
+| `--no-mirror` | Ignore the LAN mirror set in station config for this run (**D-070**): every data download comes from its publisher. With no mirror set it changes nothing |
 | `--user NAME` | Who to add to groups. Defaults to `$SUDO_USER`, then `$USER` |
 | `--callsign CALL` | Station callsign for this run. Overrides the saved value |
 | `--grid-square LOC` | Maidenhead locator, four or six characters |
@@ -685,6 +937,44 @@ did not install. It refuses at plan time, exit 2, changing nothing:
 
 With no regions set, all four units are deferred by name with the rest of
 the map data.
+
+**US Topo (D-068).** When the plan holds `usgs-ustopo` or
+`ustopo-qmapshack`, the Terrain block ends with a *US Topo* part. Each
+region's sheets are read from its record (`usgs-ustopo/<slug>.quads`,
+whole rows of the index, so an offline plan needs nothing else) or chosen
+from its outline, the same fetch the terrain uses: the quads in the carried
+index `catalog/data/ustopo-quads.txt` whose box overlaps an eighth-of-a-degree
+cell the outline touches. Each sheet not installed is asked for with a
+`HEAD` to USGS's bucket, which must answer with the size and ETag the index
+carries. From the test suite's synthetic plan:
+
+```
+  US Topo, USGS 7.5-minute quads (D-068):
+    atlantis/oceania  2 quad(s), 17.0 MB; 9.0 MB to download
+    note: no US Topo quad covers atlantis/lemuria (US Topo covers the United States and its territories)
+    (a region's quads are read from its outline at Geofabrik until
+    they are installed and its record written)
+    will be downloaded (1 quad(s), 9.0 MB):
+      ZZ_Alpha_20240101     9.0 MB  MD5 from the publisher's object metadata; not pinned by Hammunition
+    already installed: 1 quad(s)
+      licence: Public domain (USGS), stated at https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits
+    warped for QMapShack: 1 quad(s), about 9.0 MB (1.0x each download, measured on one quad)
+      about 18.0 MB of disk for US Topo (measured on one quad)
+```
+
+Every sheet is checked against its S3 ETag: a single-part upload's is its
+MD5, a multipart one's the MD5 of its parts' MD5s, reproduced by trying each
+whole-MiB part size. The commands section shows each sheet's fetch and
+install, each region's record, each warp and its overviews (as the operator,
+in `~/.cache/hammunition/build/ustopo-qmapshack/`), the one `ustopo.vrt`,
+and the same last step that fails the run by name if anything did not
+install. A region outside the United States gets the `note:` line and does
+not fail the run. The plan refuses, exit 2, changing nothing, when the
+index is missing or empty, when an outline cannot be read, or when a sheet
+not installed is not in the bucket as the index says (every such one named
+together, with `scripts/gen_ustopo_index.py --fetch`, which regenerates the
+index). Offline, a region whose record names an edition the index has since
+replaced keeps its installed sheets, and a `note:` says so.
 
 **Recommends, per unit (D-052).** Recommends are not suppressed globally —
 that would deviate from what every target distribution does, and several ham
@@ -1113,7 +1403,8 @@ keys the helper prints, plus any error reading the kept-off rules.
 ### `hammunition station show` / `hammunition station set`
 
 The values only you can supply — callsign, grid square, packet node alias,
-and the regions to carry offline maps for. Some
+the regions to carry offline maps for, and the LAN mirror to take their data
+from. Some
 manifests write configuration files templated with them: `linbpq` needs a node
 callsign, AX.25 needs one in `/etc/ax25/axports`, Direwolf needs one in its
 own configuration.
@@ -1130,6 +1421,9 @@ hammunition station show
 | `--node-alias NAME` | Short packet node alias |
 | `--map-regions R[,R…]` | Geofabrik region paths for offline maps, e.g. `north-america/us/vermont,north-america/us/new-hampshire`. Replaces the whole list. Checked for shape only (lowercase words joined by `/`); whether Geofabrik has the region is checked at plan time (**D-057**) |
 | `--map-freshness MODE` | `yearly` (the default when unset), `monthly` or `latest`: which dated file each region resolves to, and so how it can be verified |
+| `--reference-books ID[,ID…]` | Kiwix books for `kiwix-library`, by id (`hammunition reference books` lists them). Replaces the whole list; an id the catalog's book list does not name is refused when you type it, and an empty list is refused (uninstall `kiwix-library` to remove the books) (**D-066**) |
+| `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
+| `--clear-mirror` | Remove the saved mirror |
 
 A region list says where the operator lives or travels, so `station show`
 and `station set` print how many regions are set, never their names; the
@@ -1151,6 +1445,9 @@ needed a callsign got an operator nowhere.
 because a configuration file written with a made-up callsign would transmit
 it. An interactive run offers to prompt for what the request actually needs;
 `--yes`, a pipe, or a value that is already known all skip the question.
+
+`station show` prints the mirror URL in full: it is an address on your own
+network, and `--no-mirror` or `--clear-mirror` are the way to stop using it.
 
 `station show --json` prints a `station` document
 ([json-interface.md](json-interface.md)) carrying the values themselves:
@@ -1461,6 +1758,34 @@ recorded beside the pin rather than implied by it.
 
 The fetch is shallow and by ref, so a pinned commit costs one object walk rather
 than a project's whole history.
+
+**A tag may name its commit** (`commit:`). The pin check then compares the
+checkout with it and refuses a re-cut tag instead of only recording what it
+resolved to. CoMaps pins `v2026.08.31-14` to `72632e4`, the commit Flathub,
+nixpkgs and the AUR build (**D-069**).
+
+Four more steps exist for a build that needs them, each catalog data and
+each run by the engine (**D-069**; CoMaps is the one user):
+
+- `submodules: true` runs `git submodule update --init --recursive --depth
+  1` after the pin check, then `git submodule status --recursive`, and stops
+  unless there is at least one submodule and each is at the commit the
+  pinned revision records.
+- `build_python` makes a venv beside the tree
+  (`<build>/build-python`) with the engine's own interpreter and installs
+  the hash-pinned lines with `--require-hashes`; the prepare, configure and
+  compile commands run with `VIRTUAL_ENV` and the venv first on `PATH`. The
+  install command does not.
+- `prepare` runs an upstream script in the tree (`./configure.sh
+  --skip-map-download` for CoMaps) with its declared environment,
+  `CMAKE_BUILD_PARALLEL_LEVEL` set to the job count, then checks that each
+  glob in `produces` matches a non-empty regular file: CoMaps' symbol
+  generation exits 0 with no symbols when optipng is missing.
+- `extra_files` installs, after the build's own install, each file its rule
+  leaves out, a sha256-pinned download (fetched with the others, before
+  apt) or a file of the built tree, with `rm -f` first so a symlink at the
+  destination is replaced, never written through. The effect check then
+  requires a regular file there.
 
 ## Consent gates
 

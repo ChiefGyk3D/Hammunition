@@ -49,12 +49,15 @@ from hammunition.manifest.schema import (  # noqa: E402
     DerivedDataInstall,
     GitInstall,
     InstallBlock,
+    KiwixBooksInstall,
+    MwmRegionsInstall,
     NodeInstall,
     PackageManifest,
     PipxInstall,
     RegionalDataInstall,
     SourceInstall,
     Status,
+    TopoQuadsInstall,
     VenvInstall,
 )
 
@@ -73,7 +76,25 @@ def method_of(block: InstallBlock) -> str:
     if isinstance(install, SourceInstall):
         return f"source ({install.build_system}) from {install.source.url}"
     if isinstance(install, GitInstall):
-        return f"git ({install.build_system}) — {install.repo} at `{install.ref}`"
+        pin = f"`{install.ref}`" + (f" (commit `{install.commit}`)" if install.commit else "")
+        extras = [
+            text
+            for on, text in (
+                (install.submodules, "submodules at their recorded commits"),
+                (bool(install.build_python), "a hash-pinned build Python"),
+                (
+                    install.prepare is not None,
+                    f"upstream's `{install.prepare.script}` first" if install.prepare else "",
+                ),
+                (
+                    bool(install.extra_files),
+                    f"{len(install.extra_files)} file(s) the install rule leaves out",
+                ),
+            )
+            if on
+        ]
+        with_ = f"; with {', '.join(extras)}" if extras else ""
+        return f"git ({install.build_system}) — {install.repo} at {pin}{with_}"
     if isinstance(install, BinaryInstall):
         return f"prebuilt {install.format} from {install.artifact.url}"
     if isinstance(install, VenvInstall):
@@ -91,10 +112,40 @@ def method_of(block: InstallBlock) -> str:
             f"elevation tiles from {install.provider} for the regions in station config "
             f"({install.licence}, {install.licence_url})"
         )
-    if isinstance(install, DerivedDataInstall):
+    if isinstance(install, MwmRegionsInstall):
         return (
+            f"CoMaps' own maps for the regions in station config, each checked by the "
+            f"SHA-1 and size in `catalog/data/comaps-pins.yaml` "
+            f"({install.licence}, {install.licence_url})"
+        )
+    if isinstance(install, TopoQuadsInstall):
+        return (
+            f"topographic map sheets from {install.provider} for the regions in station "
+            f"config ({install.licence}, {install.licence_url})"
+        )
+    if isinstance(install, KiwixBooksInstall):
+        return (
+            "Kiwix books chosen in station config, each pinned in "
+            "`catalog/data/kiwix-pins.yaml` and licensed as "
+            "`catalog/data/kiwix-books.yaml` states, printed in the plan"
+        )
+    if isinstance(install, DerivedDataInstall):
+        converted = (
             f"converted from {install.source} by {install.converter} "
             f"({install.licence}, {install.licence_url})"
+        )
+        if install.tool is None:
+            return converted
+        tool = install.tool
+        signed = (
+            f"; a signature is published at {tool.artifact.signature_url} and not verified"
+            if tool.artifact.signature_url
+            else ""
+        )
+        return (
+            f"{converted}, running `{tool.file_name}` fetched from {tool.artifact.url} "
+            f"({tool.size} bytes, {tool.licence}), sha256 `{tool.artifact.sha256}`, "
+            f"pinned by Hammunition{signed}"
         )
     if isinstance(install, NodeInstall):
         return (
@@ -241,6 +292,27 @@ def page(m: PackageManifest) -> str:
         )
         for declared in m.installed_files:
             out.append(f"- `{declared}`")
+        out.append("")
+
+    extras = [
+        extra
+        for block in m.install
+        if isinstance(block.install, GitInstall)
+        for extra in block.install.extra_files
+    ]
+    if extras:
+        out.append(
+            "Files the build's own install rule leaves out, installed by the engine "
+            "after it (a symlink at the destination replaced, never written through) "
+            "and checked after the run:\n"
+        )
+        for extra in extras:
+            where = (
+                f"{extra.artifact.url} ({extra.artifact.size:,} bytes, sha256 pinned)"
+                if extra.artifact is not None
+                else f"`{extra.from_tree}` from the built tree"
+            )
+            out.append(f"- `{extra.install_as}`, from {where}")
         out.append("")
 
     if m.conflicts_with_repo_package:

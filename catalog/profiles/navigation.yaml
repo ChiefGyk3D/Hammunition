@@ -13,7 +13,11 @@ stage: post-1.0
 # Piece 2 (docs/superpowers/specs/2026-09-28-hiking-maps-design.md, D-061):
 # QMapShack with trails, terrain and routing on foot. D-063 adds BRouter,
 # QMapShack's second offline router, over routing files built from the same
-# regions and terrain. Piece 3 (Kiwix, tile servers) adds to it.
+# regions and terrain. D-068: USGS US Topo sheets as a QMapShack map
+# (docs/superpowers/specs/2026-09-29-official-topo-design.md). D-069 adds
+# CoMaps, built from source, over CoMaps' own maps for the same regions.
+# D-071 adds the vector-tile maps the offline browser page draws (Kiwix went
+# to its own `reference` profile, D-066).
 packages:
   - gpsd
   - gpsd-clients
@@ -33,6 +37,12 @@ packages:
   - brouter
   - brouter-mapcreator-profiles
   - brouter-segments
+  - usgs-ustopo
+  - ustopo-qmapshack
+  - comaps
+  - comaps-maps
+  - vector-map-kit
+  - osm-pmtiles
 
 documentation:
   what_it_installs: >-
@@ -48,12 +58,22 @@ documentation:
     (`osm-garmin`), one Routino database over all of them for routes on foot
     (`osm-routino`), Copernicus elevation tiles for the regions
     (`dem-copernicus`) and the hillshade, slope and contours drawn from them
-    (`dem-qmapshack`), opened by the `qmapshack-offline` launcher; BRouter
+    (`dem-qmapshack`), and for US regions the official USGS US Topo map
+    sheets (`usgs-ustopo`) made into one seamless QMapShack map
+    (`ustopo-qmapshack`), opened by the `qmapshack-offline` launcher; BRouter
     (`brouter`), QMapShack's second offline router, which weighs trail
     difficulty and climbs, over routing files built on the machine from the
     same regions and elevation (`brouter-segments`, with the two map-creator
-    filters in `brouter-mapcreator-profiles`); and `gps-tether`, which
-    serves gpsd's position to QMapShack as NMEA on this machine only.
+    filters in `brouter-mapcreator-profiles`); vector-tile maps of the same
+    regions (`osm-pmtiles`, built with the archive's tilemaker and the fixed
+    files in `vector-map-kit`), which `hammunition reference serve` draws in
+    a browser at http://127.0.0.1:8480/map/ (D-071); and `gps-tether`, which
+    serves gpsd's position to QMapShack as NMEA, and to that browser map, on
+    this machine only. And CoMaps (`comaps`), a phone-style map with
+    offline address search and car, bike and foot routing, built from
+    source, over CoMaps' own map files for the same regions (`comaps-maps`),
+    opened by the `comaps-offline` launcher; it has no position on the
+    laptop yet (it reads GeoClue only).
   why_together: >-
     A navigator is only useful with a position and a map, and offline it
     needs both already on the machine. Navit without gpsd does not know
@@ -62,7 +82,19 @@ documentation:
     phone network down: the maps are on the laptop before anything goes
     wrong, and `hammunition update` says when newer map data is pinned.
   deliberately_excludes: >-
-    Tile servers and Kiwix are the next piece of this work. Viking, Marble,
+    Maps for phones are their own profile, `phone-maps` (D-067), because
+    each is built for every region and a team's phones are not every
+    operator's. Kiwix and the rest of the offline reference are the
+    `reference` profile (D-066). No tile server program is carried (martin,
+    go-pmtiles, mbtileserver, tileserver-gl, D-071): the browser map is
+    served by the engine's own loopback page. Raster tiles for Xastir and
+    QMapShack's tile layers need PostGIS, osm2pgsql, renderd and a style;
+    that stack is documented and not built.
+    Official trail lines from the Park Service, the Forest Service and the
+    states are not carried as a second layer, because OpenStreetMap already
+    has nearly all of them and a duplicate draws every trail twice; US Topo
+    shows their official names. Forest Service FSTopo sheets and USGS 3DEP
+    bare-earth elevation are the next US additions (D-068). Viking, Marble,
     GPSPrune and JOSM were measured and left out: Debian's Viking renders
     nothing offline, Marble's offline place index has no packaged builder,
     and GPSPrune and JOSM use online tiles. BRouter's published routing
@@ -73,7 +105,9 @@ documentation:
     archive package or clean binary. Navit's GTK interface (`navit-gui-gtk`) is
     left out in favour of the internal one, which suits a touch screen and a
     small panel. Grid-square readouts belong to the station and dashboard
-    tools.
+    tools. Organic Maps is left out: it is the same program family as
+    CoMaps, built the same way, and one of the two is enough; Flathub's
+    builds of either are not used, because Flatpak is not a backend here.
   manual_configuration: >-
     Choose your map regions first, with Geofabrik's region paths, for
     example `hammunition station set --map-regions
@@ -99,10 +133,15 @@ documentation:
     wrong and the first tether silent, and both are rewritten (D-061's
     amendment); the new
     versions have not yet been run on a desktop, and bench session 12
-    (docs/reference/bench-verification-5430.md) is that check.
+    (docs/reference/bench-verification-5430.md) is that check. For CoMaps:
+    start it from the `comaps-offline` launcher, which records the licence
+    answer CoMaps asks for and links your maps where it looks; it shows no
+    "you are here" on the laptop, because it reads position from GeoClue
+    only and nothing feeds GeoClue the GPS yet.
   disk_footprint_hint: >-
     Navit, espeak-ng, osmium-tool and gpsd from the archive (size not yet
-    measured), and the 13.3 MB country-border file once.
+    measured), the 13.3 MB country-border file once, and the browser map's
+    kit once (about 79 MB downloaded, 45 MB installed).
     Per region: the download, plus Navit's converted map at about 0.9 times
     the download, plus about twice the download of temporary space while it
     converts (the map factor measured on three regions: a 6.1 GB
@@ -121,4 +160,14 @@ documentation:
     downloads together (Delaware: 3.3 MB from 22.1 MB), with up to three
     times the downloads of scratch allowed while they build (not measured)
     and about 650 MB of elevation scratch for one 5-degree square at a
-    time.
+    time. US Topo, for US regions: about 8 MB a sheet, twice over once
+    warped for QMapShack (Delaware about 220 MB of sheets, Vermont about
+    1.6 GB, Virginia about 6 GB, measured from the index on 2026-09-29).
+    Vector-tile maps for the browser: about 0.91 times each download
+    (measured on Delaware), with up to three times the download of scratch
+    allowed while one builds (not measured).
+    CoMaps: a source build, measured by hand at about 11 GB of build
+    tree with full git history (the shallow submodule fetch the engine uses
+    is smaller and not measured) and 123 MB installed with its World maps;
+    its own maps are tens to a few hundred megabytes a US state (Vermont
+    61 MB) and 15.7 GB for all of the US.
