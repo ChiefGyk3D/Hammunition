@@ -25,8 +25,10 @@ import yaml
 
 from hammunition.artifacts import SelectionError, list_artifacts, select_units
 from hammunition.copernicus import tile_name, tile_url
+from hammunition.fetch import MirrorPath
 from hammunition.geofabrik import BASE, GeofabrikError
 from hammunition.interface.artifacts import ArtifactEntry
+from hammunition.kiwix import DOWNLOAD, GENERATED_MARK
 from hammunition.manifest.load import load_catalog
 from hammunition.manifest.schema import DataInstall
 from hammunition.station import Station, save_station
@@ -43,6 +45,28 @@ DE_MD5 = hashlib.md5(b"delaware", usedforsecurity=False).hexdigest()
 TILE_VT = tile_name((43, -73))
 TILE_DE = tile_name((38, -76))
 TILE_MD5 = "b" * 32
+HAM = "ham.stackexchange.com_en_all"
+MED = "wikipedia_en_medicine_nopic"
+BOOK_PINS: list[dict[str, Any]] = [
+    {
+        "id": HAM,
+        "file": f"{HAM}_2026-08.zim",
+        "url": f"{DOWNLOAD}/stack_exchange/{HAM}_2026-08.zim",
+        "size": 76_000_000,
+        "sha256": "e" * 64,
+        "published": "2026-08",
+        "measured": "2026-09-29",
+    },
+    {
+        "id": MED,
+        "file": f"{MED}_2026-07.zim",
+        "url": f"{DOWNLOAD}/wikipedia/{MED}_2026-07.zim",
+        "size": 1_100_000_000,
+        "sha256": "f" * 64,
+        "published": "2026-07",
+        "measured": "2026-09-29",
+    },
+]
 POLY = {
     VT: "vermont\n1\n-72.9 43.1\n-72.1 43.1\n-72.1 43.9\n-72.9 43.9\nEND\nEND\n",
     DE: "delaware\n1\n-75.9 38.1\n-75.1 38.1\n-75.1 38.9\n-75.9 38.9\nEND\nEND\n",
@@ -99,16 +123,29 @@ def _root(tmp_path: Path) -> Path:
             {"pins": [{"tile": TILE_VT, "size": 41, "sha256": "c" * 64, "md5": "d" * 32}]}
         )
     )
+    # The real book list (its licence lines), and pins written here so the
+    # listing does not move every time the real pins are regenerated.
+    (root / "data" / "kiwix-books.yaml").symlink_to(
+        REPO_ROOT / "catalog" / "data" / "kiwix-books.yaml"
+    )
+    (root / "data" / "kiwix-pins.yaml").write_text(
+        f"# {GENERATED_MARK}\n" + yaml.safe_dump({"pins": BOOK_PINS}, sort_keys=False)
+    )
     return root
 
 
 def _list(
-    tmp_path: Path, units: tuple[str, ...], regions: tuple[str, ...], freshness: str = "yearly"
+    tmp_path: Path,
+    units: tuple[str, ...],
+    regions: tuple[str, ...],
+    freshness: str = "yearly",
+    books: tuple[str, ...] = (),
 ) -> tuple[tuple[ArtifactEntry, ...], Geofabrik, Bucket]:
     geofabrik, bucket = Geofabrik(), Bucket()
     entries = list_artifacts(
         units,
         regions=regions,
+        books=books,
         freshness=freshness,
         catalog=CATALOG,
         catalog_root=_root(tmp_path),
@@ -129,6 +166,7 @@ def _by(entries: tuple[ArtifactEntry, ...], unit: str) -> list[ArtifactEntry]:
 def test_the_default_units_are_every_unit_that_fetches_data() -> None:
     units = select_units(CATALOG, ())
     assert {"country-files", "country-boundaries", "osm-regions", "dem-copernicus"} <= set(units)
+    assert "kiwix-library" in units  # deferred when no books are given, never dropped
     assert "osm-navit" not in units and "navit" not in units  # derived, apt
 
 
@@ -265,6 +303,83 @@ def _refuse_prefix(real: Any) -> Any:
     return guarded
 
 
+# -- reference books (D-066, issue #159) -------------------------------------
+
+
+def test_books_with_none_given_are_one_deferred_entry_saying_how(tmp_path: Path) -> None:
+    entries, _, _ = _list(tmp_path, ("kiwix-library",), (VT,))
+    (entry,) = entries
+    assert (entry.unit, entry.name, entry.url) == ("kiwix-library", None, None)
+    assert entry.deferred is not None and entry.deferred.startswith("no books selected")
+    assert "--reference-books" in entry.deferred
+
+
+def test_each_chosen_book_is_listed_by_its_id_with_its_pin_and_licence(tmp_path: Path) -> None:
+    entries, geofabrik, bucket = _list(tmp_path, ("kiwix-library",), (), books=(MED, HAM))
+    assert [e.name for e in entries] == [MED, HAM]  # the order chosen
+    med, ham = entries
+    pin = BOOK_PINS[0]
+    assert ham == ArtifactEntry(
+        unit="kiwix-library",
+        name=HAM,
+        url=pin["url"],
+        check="sha256",
+        digest=pin["sha256"],
+        checksum_url=None,
+        size=pin["size"],
+        licence="CC BY-SA",
+        deferred=None,
+    )
+    assert med.licence.startswith("CC BY-SA 4.0") and med.size == 1_100_000_000
+    # Pinned in the catalog: nothing is asked of the network to list a book.
+    assert geofabrik.asked == [] and bucket.asked == []
+
+
+def test_a_book_that_cannot_be_resolved_is_deferred_by_its_id(tmp_path: Path) -> None:
+    entries, _, _ = _list(
+        tmp_path, ("kiwix-library",), (), books=(HAM, "no.such.book_en_all", "wikem_en_all_nopic")
+    )
+    assert [(e.name, e.deferred is None) for e in entries] == [
+        (HAM, True),
+        ("no.such.book_en_all", False),
+        ("wikem_en_all_nopic", False),
+    ]
+    assert "not in the catalog's book list" in (entries[1].deferred or "")
+    assert "not pinned" in (entries[2].deferred or "")
+
+
+def test_unreadable_book_pins_defer_the_unit_naming_the_file(tmp_path: Path) -> None:
+    root = _root(tmp_path)
+    (root / "data" / "kiwix-pins.yaml").write_text("pins: []\n")
+    entries = list_artifacts(
+        ("kiwix-library",),
+        regions=(),
+        books=(HAM,),
+        freshness="yearly",
+        catalog=CATALOG,
+        catalog_root=root,
+        today=TODAY,
+        region_probe=Geofabrik(),
+        tile_probe=Bucket(),
+    )
+    (entry,) = entries
+    assert entry.name is None and "kiwix-pins.yaml" in (entry.deferred or "")
+
+
+def test_a_listed_book_is_the_mirror_path_the_books_backend_asks_for(tmp_path: Path) -> None:
+    """The D-070 contract for books: ``<unit>/<name>`` in the listing is what
+    the install asks the mirror for."""
+    from hammunition.backends.kiwix import book_mirror_path
+    from hammunition.kiwix import load_book_list, load_pin_file, resolve_books
+
+    root = _root(tmp_path)
+    entries, _, _ = _list(tmp_path / "again", ("kiwix-library",), (), books=(HAM, MED))
+    files = resolve_books((HAM, MED), load_book_list(root), load_pin_file(root))
+    assert [MirrorPath(e.unit, e.name or "") for e in entries] == [
+        book_mirror_path("kiwix-library", f) for f in files
+    ]
+
+
 # -- the command --------------------------------------------------------------
 
 
@@ -329,9 +444,55 @@ def test_the_text_form_lists_the_same_artifacts(
     assert "country-files" in out
 
 
+def test_the_books_document_matches_its_golden_and_its_schema(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rc, out, _ = _cli(
+        monkeypatch,
+        tmp_path,
+        capsys,
+        "--json",
+        "--units",
+        "kiwix-library",
+        "--reference-books",
+        f"{HAM}, {MED},no.such.book_en_all",
+    )
+    doc = parse_one(out)
+    validate(doc)
+    assert rc == 0 and doc["reference_books"] == [HAM, MED, "no.such.book_en_all"]
+    assert_golden("artifacts-books", doc)
+
+
+def test_books_are_taken_from_the_command_line_never_the_station(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    save_station(
+        Station(reference_books=(HAM,)),
+        path=tmp_path / "config" / "hammunition" / "station.yml",
+    )
+    rc, out, _ = _cli(monkeypatch, tmp_path, capsys, "--json", "--units", "kiwix-library")
+    doc = parse_one(out)
+    assert rc == 0 and doc["reference_books"] == []
+    (entry,) = doc["artifacts"]
+    assert entry["deferred"].startswith("no books selected")
+
+
+def test_the_text_form_lists_the_books(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rc, out, _ = _cli(
+        monkeypatch, tmp_path, capsys, "--units", "kiwix-library", "--reference-books", HAM
+    )
+    assert rc == 0
+    assert f"kiwix-library  {HAM}  76.0 MB  sha256  {BOOK_PINS[0]['url']}" in out
+    assert "1 reference book(s)" in out
+
+
 @pytest.mark.parametrize(
     "argv",
     [
+        ("--reference-books", " , "),
+        ("--reference-books", "Not A Book!"),
         ("--units", "osm-navit"),
         ("--units", "no-such-unit"),
         ("--map-regions", "North America/US"),

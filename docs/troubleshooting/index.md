@@ -47,6 +47,10 @@ here. Where a fix is distribution-specific it says so.
 - **[FT8 decodes nothing on a busy band](running.md#clock)** —
   the clock is more than a second out. `timedatectl`; with no network, a GPS
   keeps it, by a route that depends on the time daemon.
+- **[GPS dead after the laptop slept](running.md#gps-after-suspend)** —
+  the receiver is not re-enumerated on resume and gpsd keeps a quiet tty.
+  `hammunition hardware apply` installs the resume step; park and wake by hand
+  if it is still dead.
 - **[A program cannot reach the radio, or the radio behaves erratically](../guides/rig-control.md#when-it-does-not-work)** —
   two programs have the serial port open. One owns it; the rest ask it.
 - **[Everyone is heard, nobody hears you](../guides/audio-routing.md#transmit-the-alc-trap)** —

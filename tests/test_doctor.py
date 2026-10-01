@@ -429,3 +429,24 @@ def test_a_launcher_shadowing_a_path_binary_warns_naming_both_and_the_fix() -> N
 
 def test_no_engine_launchers_adds_no_check() -> None:
     assert "launchers" not in _by_name(run_checks(**HEALTHY))  # type: ignore[arg-type]
+
+
+def test_gps_resume_not_applicable_adds_no_check() -> None:
+    """No GPS receiver attached, or no gpsd: nothing to say (issue #177)."""
+    checks = run_checks(**HEALTHY)  # type: ignore[arg-type]
+    assert "gps-resume" not in {c.name for c in checks}
+
+
+def test_gps_resume_installed_is_ok() -> None:
+    checks = run_checks(**HEALTHY, gps_resume="installed")  # type: ignore[arg-type]
+    check = next(c for c in checks if c.name == "gps-resume")
+    assert check.status == "ok"
+
+
+@pytest.mark.parametrize("state", ["absent", "stale"])
+def test_gps_resume_missing_or_stale_warns_and_names_the_fix(state: str) -> None:
+    checks = run_checks(**HEALTHY, gps_resume=state)  # type: ignore[arg-type]
+    check = next(c for c in checks if c.name == "gps-resume")
+    assert check.status == "warn"
+    assert "suspend" in check.detail
+    assert check.fix == "hammunition hardware apply"

@@ -11,6 +11,54 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Kiwix books come through the LAN mirror, and `artifacts` lists them**
+  (issue #159, D-070 amended 2026-10-01, D-066). The books backend fetched
+  from download.kiwix.org only, whatever the station's mirror; it now asks
+  `<mirror>/kiwix-library/<book id>` first and Kiwix second, the same pinned
+  sha256 and size checked either way, the plan line saying so and the log
+  recording `source`, `fetched_from` and `mirror_failure` as a `data` fetch
+  does. `hammunition artifacts --reference-books ID,ID` lists each book
+  (`check: sha256`, its own licence line) from the carried pins, no station
+  read; with none given `kiwix-library` is deferred as *no books selected*,
+  and it is now among the default units. The `artifacts` document gains
+  `reference_books`. Books are the largest data the catalog fetches, up to
+  127 GB.
+- **`import hammunition.fetch` no longer raises a circular `ImportError`
+  when it is the first `hammunition` import in the process** (issue #158).
+  `src/hammunition/backends/__init__.py` eagerly imports every backend, six of
+  which (`apt_repo`, `binary`, `data`, `git`, `node`, `regions`, `source`,
+  `venv`) named `hammunition.fetch` symbols at module scope purely for type
+  annotations or late-needed helpers; `hammunition.cli.main`'s own import
+  order happened to prime `sys.modules` around it, which is why the engine's
+  CLI never hit it while Hammunition Bunker's `enginelib.py` did. Those
+  imports now move under `TYPE_CHECKING` (annotations, deferred by
+  `from __future__ import annotations` anyway) or become local imports at
+  their one or two call sites (`MirrorPath`, `fetch_disclosure`,
+  `record_fetch`, `safe_name`, `operator_dir`, `remove_tree`,
+  `UrllibTransport`) — never a bare `try`/`except ImportError`.
+  `tests/test_import_isolation.py` imports every `hammunition` module alone
+  in a fresh subprocess so this cannot come back silently.
+
+- **The GPS receiver gets a resume step** (issue #177, D-058 amended
+  2026-10-01). Measured on the field laptop: a USB receiver is not
+  re-enumerated across a suspend, so gpsd can keep a tty that has gone quiet
+  and the fix does not come back. Where gpsd is installed,
+  `hammunition hardware apply` now installs
+  `/usr/local/libexec/hammunition-gps-resume` and
+  `hammunition-gps-resume.service`, a oneshot that runs after every suspend
+  or hibernation. It does nothing when no `/dev/gpsN` exists, so a parked
+  receiver stays parked. Otherwise it runs `gpsdctl remove` and `add` for
+  each receiver, and `systemctl try-restart gpsd.service` if gpsd then
+  reports no device, logging one journal line per action. It makes no
+  check that data flows, so a receiver gpsd still lists but that stays
+  silent is left to the manual steps: a gpsd restart, then park and wake.
+  Both files are printed in the plan, read back after the run and removed
+  by `hardware unapply`. `--no-gps-resume` opts
+  out, and `doctor` reports the step when a receiver is attached. The
+  catalog names the step (`resume: {step: gpsd_reopen}` on the
+  `gps-receiver` class), and that class's page gains "After suspend". It
+  has not yet run on the field laptop; the bench steps are on the issue.
+  After merge: `hammunition hardware apply`.
 - **Repeater data beyond RepeaterBook, one layer per source** (D-074).
   `open-repeater` is a new data unit: Open Repeater's CC0 list (241 kB,
   461 repeaters, none yet in the US), pinned by sha256 in its manifest by

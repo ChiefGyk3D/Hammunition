@@ -7,6 +7,7 @@
     "north-america/us/delaware"
   ],
   "map_freshness": "yearly",
+  "reference_books": [],
   "units": [
     "osm-regions",
     "dem-copernicus"
