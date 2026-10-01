@@ -144,6 +144,25 @@ other programs at flrig: WSJT-X's Rig is *FLRig FLRig* with Network Server
 `127.0.0.1:12345`, and fldigi has its own *flrig* tab. Do not run `rigctld`
 against the radio at the same time.
 
+## The radio on another machine
+
+When the radio sits beside a small computer in the shack and you operate
+from somewhere else, run `rigctld` on the machine with the radio and
+point the programs at that machine's address instead of `127.0.0.1`,
+with `-T` set to an address only your own network can reach. Every
+program above already speaks to it that way.
+
+[ser2net](../packages/ser2net.md) is for the other case: software that
+wants a raw serial port rather than hamlib, or a device hamlib does not
+know. It serves a serial device on a TCP port, configured in
+`/etc/ser2net.yaml`. It is not in the `station` profile, because
+installing the package starts a root service whose shipped
+configuration already listens on four loopback ports for the machine's
+built-in serial ports; the package page says what that means and how to
+turn it off. Never put either on a public address: there is no
+encryption, and a CAT port is the transmitter's controls. Neither route
+has been run against a real radio by this project.
+
 ## When it does not work
 
 - **Nothing answers, no error** → baud rate or CI-V address mismatch. The

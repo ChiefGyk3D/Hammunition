@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**285 programs and packages** from the catalog, laid out the way the
+**291 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -299,6 +299,7 @@ SDR receivers and toolkits, device support, and receive-only decoders for aircra
 | Project | What it is | Its home |
 |---|---|---|
 | [gnuradio](packages/gnuradio.md) | Build a radio out of signal-processing blocks instead of hardware | [gnuradio.org](https://www.gnuradio.org/) |
+| [gr-fosphor](packages/gr-fosphor.md) | GPU-drawn real-time spectrum and waterfall display blocks for GNU Radio | [gitea.osmocom.org/sdr/gr-fosphor](https://gitea.osmocom.org/sdr/gr-fosphor) |
 | [odr-audioenc](packages/odr-audioenc.md) | Encodes audio into the DAB and DAB+ formats a multiplexer expects | [github.com/Opendigitalradio/ODR-AudioEnc](https://github.com/Opendigitalradio/ODR-AudioEnc) |
 | [odr-dabmod](packages/odr-dabmod.md) | Turns a DAB ensemble into a transmittable OFDM signal | [github.com/Opendigitalradio/ODR-DabMod](https://github.com/Opendigitalradio/ODR-DabMod) |
 | [odr-dabmux](packages/odr-dabmux.md) | Assembles audio services into a DAB ensemble multiplex | [github.com/Opendigitalradio/ODR-DabMux](https://github.com/Opendigitalradio/ODR-DabMux) |
@@ -325,6 +326,7 @@ SDR receivers and toolkits, device support, and receive-only decoders for aircra
 | [hackrf](packages/hackrf.md) | Host tools for HackRF — transfer, sweep, spectrum and firmware utilities | [github.com/greatscottgadgets/hackrf](https://github.com/greatscottgadgets/hackrf) |
 | [langford-utils](packages/langford-utils.md) | Control programs for the Per Vices Noctar board | [pervices.com](https://www.pervices.com/) |
 | [libbladerf2](packages/libbladerf2.md) | Library and udev rules for Nuand bladeRF boards | [github.com/Nuand/bladeRF](https://github.com/Nuand/bladeRF) |
+| [libiio-utils](packages/libiio-utils.md) | Command-line tools that find and talk to IIO devices such as the PlutoSDR and ADALM2000 | [github.com/analogdevicesinc/libiio](https://github.com/analogdevicesinc/libiio) |
 | [libmirisdr4](packages/libmirisdr4.md) | Open driver for Mirics-based receivers, including SDRplay RSP hardware | [github.com/f4exb/libmirisdr-4](https://github.com/f4exb/libmirisdr-4) |
 | [limesuite](packages/limesuite.md) | Host tools and library for LimeSDR hardware | [github.com/myriadrf/LimeSuite](https://github.com/myriadrf/LimeSuite) |
 | [miri-sdr](packages/miri-sdr.md) | Command-line tools for Mirics-based receivers | [github.com/f4exb/libmirisdr-4](https://github.com/f4exb/libmirisdr-4/) |
@@ -379,6 +381,7 @@ SDR receivers and toolkits, device support, and receive-only decoders for aircra
 | [ais-catcher](packages/ais-catcher.md) | AIS receiver and decoder for marine vessel traffic, with a web map | [github.com/jvde-github/AIS-catcher](https://github.com/jvde-github/AIS-catcher) |
 | [gnuais](packages/gnuais.md) | Decodes AIS from the discriminator output of a VHF receiver | [gnuais.sourceforge.net](http://gnuais.sourceforge.net/) |
 | [gnuaisgui](packages/gnuaisgui.md) | Puts the vessels gnuais has heard on an OpenStreetMap display | [gnuais.sourceforge.net](http://gnuais.sourceforge.net/) |
+| [opencpn](packages/opencpn.md) | Marine chart plotter -- your position and AIS ships on nautical charts | [opencpn.org](https://opencpn.org/) |
 | [rtl-ais](packages/rtl-ais.md) | Receives both AIS channels at once from one cheap dongle | [github.com/dgiardini/rtl-ais](https://github.com/dgiardini/rtl-ais) |
 
 ### Weather, Sensors & Radiosondes
@@ -487,6 +490,7 @@ Antenna design and analysers, spectrum analysers, electronics, radio memories, f
 | [openfpgaloader](packages/openfpgaloader.md) | Universal bitstream loader for FPGAs, over JTAG and SPI | [github.com/trabucayre/openFPGALoader](https://github.com/trabucayre/openFPGALoader) |
 | [openocd](packages/openocd.md) | On-chip debugging and in-system programming over JTAG and SWD | [openocd.org](https://openocd.org/) |
 | [stlink-tools](packages/stlink-tools.md) | Flash and debug STM32 targets through an ST-Link probe | [github.com/stlink-org/stlink](https://github.com/stlink-org/stlink) |
+| [stm32flash](packages/stm32flash.md) | Flash STM32 microcontrollers over their built-in serial bootloader | [sourceforge.net/projects/stm32flash](https://sourceforge.net/projects/stm32flash/) |
 
 ### Serial Terminals
 
@@ -496,6 +500,7 @@ Antenna design and analysers, spectrum analysers, electronics, radio memories, f
 | [minicom](packages/minicom.md) | Full-screen serial communication program, the one everyone already knows | [salsa.debian.org/minicom-team/minicom](https://salsa.debian.org/minicom-team/minicom) — *Debian package page* |
 | [picocom](packages/picocom.md) | The minimal terminal-native serial console | [github.com/npat-efault/picocom](https://github.com/npat-efault/picocom) |
 | [putty](packages/putty.md) | The GUI serial terminal hams reach for, with saved sessions | [chiark.greenend.org.uk/~sgtatham/putty](https://www.chiark.greenend.org.uk/~sgtatham/putty/) |
+| [ser2net](packages/ser2net.md) | Serve a serial port over TCP, so a rig's CAT port can be reached from another machine | [github.com/cminyard/ser2net](https://github.com/cminyard/ser2net) |
 | [tio](packages/tio.md) | Serial device terminal — the modern replacement for screen on a TTY | [github.com/tio/tio](https://github.com/tio/tio) |
 
 ### Device Support & Drivers
@@ -507,6 +512,7 @@ Antenna design and analysers, spectrum analysers, electronics, radio memories, f
 | [hammunition-tray](packages/hammunition-tray.md) | KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own | [github.com/ChiefGyk3D/hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) |
 | [hammunition-tray-qt](packages/hammunition-tray-qt.md) | Tray switches for parking and waking radio devices on Xfce, LXQt, LXDE, MATE and Cinnamon — the Hammunition family's own | [github.com/ChiefGyk3D/hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) |
 | [pciutils](packages/pciutils.md) | lspci — for the SDRs and capture cards that are not on USB | [mj.ucw.cz/sw/pciutils](https://mj.ucw.cz/sw/pciutils/) |
+| [qpwgraph](packages/qpwgraph.md) | PipeWire patchbay -- see and change which program is connected to which sound card | [gitlab.freedesktop.org/rncbc/qpwgraph](https://gitlab.freedesktop.org/rncbc/qpwgraph) |
 | [usbutils](packages/usbutils.md) | lsusb — step one of every hardware problem in this catalog | [github.com/gregkh/usbutils](https://github.com/gregkh/usbutils) |
 | [z8530-utils2](packages/z8530-utils2.md) *(retired)* | Configures Z8530-based HDLC cards for high-speed packet | [tracker.debian.org/pkg/z8530-utils2](https://tracker.debian.org/pkg/z8530-utils2) — *Debian package page* |
 

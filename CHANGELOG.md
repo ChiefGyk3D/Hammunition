@@ -44,6 +44,39 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   Mercury 1.9.15 peer to peer, two instances back to back with no radio.
   Not measured: either modem over the air, FreeDATA's server and window.
 
+- **Apt units from the gap analysis** (section D.6, branch
+  `gap-06-apt-adds`). The eight candidates were swept on the seven targets
+  first; `catalog-gaps-2026-09.md` carries the table and corrects the
+  report where it was wrong. `predict` is in no archive (not in Debian 12,
+  13 or unstable either) and is not added. `gr-fosphor` joins `sdr`: GNU
+  Radio's GPU spectrum and waterfall blocks, offered on all seven targets;
+  its .deb pulls `gnuradio-dev` and only the OpenCL loader, so the page
+  says an OpenCL driver is the operator's to install. Not run on any GPU.
+  `libiio-utils` joins `electronics` beside `m2kcli` and is linked from
+  the `plutosdr` device: `iio_info -S`, as the `iio_scan` launcher, is
+  the first check that libiio sees a Pluto or an ADALM2000. No such
+  device is owned; nothing was scanned.
+  `stm32flash` joins `electronics` beside `stlink-tools`: the STM32's
+  built-in serial bootloader over a USB-serial adapter. No device the
+  hardware catalog carries flashes that way (its STM32 entries use USB
+  DFU), so none links to it; nothing was flashed.
+  `ser2net` is carried but in no profile: installing the package enables
+  a root `ser2net.service` whose shipped configuration listens on four
+  loopback ports for `/dev/ttyS0` and `/dev/ttyS1` (read from the .deb,
+  measured in a Debian 13 container), which a base profile should not
+  do to every station; its page says how to inspect and disable it, and
+  the rig-control guide gains a section on a radio on another machine.
+  `qpwgraph`, the PipeWire patchbay the radio-audio guide already told
+  people to install with apt, joins `digital-modes`, and the guide now
+  links its page.
+  `gpsprune` is offered everywhere and is not added: D-061 already
+  measured it and left it out for its online tiles, and the report now
+  says so.
+  `opencpn`, the marine chart plotter that draws AIS ships from
+  `rtl-ais` or `ais-catcher` and the position from gpsd or `gps-tether`,
+  joins `navigation`; not opened on any target, so its OpenGL display on
+  the field laptop and every one of those connections are unmeasured.
+
 ## v0.17.0 — 2026-09-30 — official topo sheets, CoMaps, and the offline browser map
 
 Three pull requests since v0.16.0 (#161, #163, #164), 3 entries.

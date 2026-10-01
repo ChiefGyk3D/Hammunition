@@ -1,0 +1,82 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: opencpn
+version: "5.10.2"
+summary: Marine chart plotter -- your position and AIS ships on nautical charts
+categories: [ships, navigation-maps]
+
+# Gap analysis 2026-09 (catalog-gaps-2026-09.md, B Groups 1 and 4; D.6), ADD.
+#
+# Upstream (D-032): github.com/OpenCPN/OpenCPN, default branch `master`, head
+# 452a60d963b8, 2026-09-29 -- read from a depth-1 clone on 2026-09-30.
+# Active. Licence: GPL-2.0-or-later for the project's own files, with bundled
+# code under GPL-3.0+, LGPL-2+/3+ and BSD licences (LICENSING at the top of
+# the tree).
+#
+# `apt-cache policy`, 2026-09-30: offered on all seven targets, from 5.8.4
+# (Ubuntu 24.04, Mint 22.3) through 5.10.2 (Debian 13, Parrot, arm64) and
+# 5.12.4 (Ubuntu 26.04) to 5.14.1 (Kali).
+#
+# Read from the Debian 13 .debs, 2026-09-30: `opencpn` (26.7 MB installed)
+# ships its own desktop entry and four plugins (chart downloader, dashboard,
+# GRIB weather, world magnetic model); it Depends on `opencpn-data` (46.4 MB
+# installed), which carries the world basemap and GSHHS coastlines, so there
+# is a map before any chart is added. It Recommends `opencpn-sglock-amd64`,
+# which has no candidate on Debian 13, Parrot or Ubuntu 24.04 (swept the same
+# day) and which apt therefore skips.
+
+install:
+  - install:
+      method: apt
+      packages: [opencpn]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A chart plotter and navigation program for boats: it draws official
+    nautical charts (vector S-57 ENCs and raster BSB/KAP charts, among
+    others), shows your own position, heading and track from a GPS, plans
+    routes with waypoints, and shows AIS ship targets with their names,
+    courses and closest-approach warnings. The packaged build includes a
+    chart downloader, a dashboard of instruments, a GRIB weather-file viewer
+    and the world magnetic model.
+  why_you_want_it: >-
+    It is the one program that makes the `ships` category more than a
+    decoder: `rtl-ais` and `ais-catcher` turn an SDR into an AIS receiver
+    that outputs NMEA, and OpenCPN is what draws those ships on a chart
+    around you. For a station on or near the water -- a harbour event, a
+    maritime-mobile operator, an EMCOMM deployment on the coast -- it is
+    the offline alternative to web AIS maps and to phone apps. It is the
+    open-source alternative to commercial PC chart plotters.
+  prerequisites: >-
+    Charts: none come with it beyond the world basemap. The bundled chart
+    downloader fetches free official charts (for US waters, NOAA's ENCs)
+    while online; after that they are files on the disk. A position source:
+    OpenCPN's Connections settings take NMEA from a serial port or from the
+    network, and gpsd as a network source. On this station that is gpsd
+    itself, or the `gps-tether` launcher from the `navigation` profile,
+    which serves gpsd's position as NMEA on 127.0.0.1 port 10110 (TCP).
+    Ships: an AIS decoder (`rtl-ais`, `ais-catcher`) sending NMEA to a
+    network port OpenCPN is told to listen on. None of these connections
+    has been set up and tried by this project.
+  known_problems: >-
+    Unmeasured here: OpenCPN has not been opened on any target, so its
+    OpenGL display on the field laptop's Intel Iris Xe, its gpsd and
+    `gps-tether` connections and an AIS feed from `rtl-ais` or `ais-catcher`
+    are all untried; the paths above are what the programs document, not
+    what has been run. The archives differ by three feature releases (5.8.4
+    to 5.14.1, measured 2026-09-30), so dialog names move between targets.
+    OpenCPN's plugin manager can fetch further plugins from upstream's
+    online catalog: those are binaries from outside apt, not reviewed or
+    tracked by Hammunition, and `hammunition uninstall` does not remove
+    them.
+  upstream_url: https://opencpn.org/
+  upstream_support: >-
+    The OpenCPN project. The user manual and the community forum are
+    linked from opencpn.org; bugs go to GitHub issues at
+    https://github.com/OpenCPN/OpenCPN.

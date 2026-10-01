@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 198 | 7 | 78 | 2 | 0 |
-| ubuntu-26.04 | 200 | 5 | 78 | 2 | 0 |
-| ubuntu-24.04 | 193 | 14 | 76 | 2 | 0 |
-| kali-rolling | 205 | 8 | 72 | 0 | 0 |
-| parrot | 202 | 5 | 76 | 2 | 0 |
-| linuxmint-22.3 | 193 | 14 | 76 | 2 | 0 |
-| debian-13-arm64 | 197 | 8 | 74 | 6 | 0 |
+| debian-13 | 204 | 7 | 78 | 2 | 0 |
+| ubuntu-26.04 | 206 | 5 | 78 | 2 | 0 |
+| ubuntu-24.04 | 199 | 14 | 76 | 2 | 0 |
+| kali-rolling | 211 | 8 | 72 | 0 | 0 |
+| parrot | 208 | 5 | 76 | 2 | 0 |
+| linuxmint-22.3 | 199 | 14 | 76 | 2 | 0 |
+| debian-13-arm64 | 203 | 8 | 74 | 6 | 0 |
 
-**285 manifests** against **7 targets**.
+**291 manifests** against **7 targets**.
 
 ---
 
@@ -223,6 +223,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `gpsd-tools` | apt | apt | apt | apt | apt | apt | apt |
 | `gqrx-sdr` | apt | apt | apt | apt | apt | apt | apt |
 | `gr-air-modes` | apt | apt | apt | apt | apt | apt | apt |
+| `gr-fosphor` | apt | apt | apt | apt | apt | apt | apt |
 | `gr-funcube` | apt | apt | apt | apt | apt | apt | apt |
 | `gr-gsm` | apt | apt ✗ | apt | apt | apt | apt | apt |
 | `gr-hpsdr` | apt | apt | apt | apt | apt | apt | apt |
@@ -261,6 +262,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `libbladerf2` | apt | apt | apt | apt | apt | apt | apt |
 | `libfreefare-bin` | apt | apt | apt | apt | apt | apt | apt |
 | `libhamlib-utils` | apt | apt | apt | apt | apt | apt | apt |
+| `libiio-utils` | apt | apt | apt | apt | apt | apt | apt |
 | `libmirisdr4` | apt | apt | apt | apt | apt | apt | apt |
 | `libnfc-bin` | apt | apt | apt | apt | apt | apt | apt |
 | `limesuite` | apt | apt | apt | apt | apt | apt | apt |
@@ -293,6 +295,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `odr-dabmod` | apt | apt | apt | apt | apt | apt | apt |
 | `odr-dabmux` | apt | apt | apt | apt | apt | apt | apt |
 | `odr-padenc` | apt | apt | apt | apt | apt | apt | apt |
+| `opencpn` | apt | apt | apt | apt | apt | apt | apt |
 | `openfpgaloader` | apt | apt | apt | apt | apt | apt | apt |
 | `openhamclock` | node | node | node | node | node | node | node |
 | `openocd` | apt | apt | apt | apt | apt | apt | apt |
@@ -320,6 +323,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `qgrid` | source | source | source | source | source | source | source |
 | `qlog` | git | git | git | apt | apt | git | git |
 | `qmapshack` | apt | apt | apt | apt | apt | apt | apt |
+| `qpwgraph` | apt | apt | apt | apt | apt | apt | apt |
 | `qrq` | apt | apt | apt | apt | apt | apt | apt |
 | `qsstv` | apt | apt | apt | apt | apt | apt | apt |
 | `qtbpqaprs` | git | git | git | git | git | git | git |
@@ -343,6 +347,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `screen` | apt | apt | apt | apt | apt | apt | apt |
 | `sdrangel` | apt ✗ | binary | apt ✗ | apt | apt ✗ | apt ✗ | apt ✗ |
 | `sdrpp` | git | git | git | apt | apt | git | git |
+| `ser2net` | apt | apt | apt | apt | apt | apt | apt |
 | `skid-finder` | binary | binary | binary | binary | binary | binary | binary |
 | `soapyremote-server` | apt | apt | apt | apt | apt | apt | apt |
 | `soapysdr-module-airspy` | apt | apt | apt | apt | apt | apt | apt |
@@ -363,6 +368,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `spectools` | apt | apt | apt | apt | apt | apt | apt |
 | `splat` | apt | apt | apt | apt | apt | apt | apt |
 | `stlink-tools` | apt | apt | apt | apt | apt | apt | apt |
+| `stm32flash` | apt | apt | apt | apt | apt | apt | apt |
 | `sunclock` | apt | apt | apt | apt | apt | apt | apt |
 | `supersdr` | venv | venv | venv | venv | venv | venv | venv |
 | `svxlink-calibration-tools` | apt | apt | apt | apt | apt | apt | apt |
