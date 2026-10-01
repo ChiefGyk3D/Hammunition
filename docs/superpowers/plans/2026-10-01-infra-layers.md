@@ -9,7 +9,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 **Goal:** D-075: one map layer per infrastructure source (eight OSM layers, FAA NASR, EIA-860M, WRI, FCC ASR, NOAA Weather Radio) for QMapShack, Navit and the browser map, with three generated pins and an `infra` tile layer.
 
-**Architecture:** A pure layer module (`infra.py`: layer table, points, writers, store) beside the repeater layers, a parser module for the federal and worldwide files (`infra_sources.py`), documents in `interface/infra.py`, CLI verbs under `maps infra`, three data-unit manifests with generators sharing `scripts/data_pin.py`, and the converter and map page extended.
+**Architecture:** A pure layer module (`src/hammunition/infra.py`: layer table, points, writers, store) beside the repeater layers, a parser module for the federal and worldwide files (`src/hammunition/infra_sources.py`), documents in `src/hammunition/interface/infra.py`, CLI verbs under `maps infra`, three data-unit manifests with generators sharing `scripts/data_pin.py`, and the converter and map page extended.
 
 **Tech Stack:** Python 3.11 stdlib (zipfile, csv, xml.etree iterparse, sqlite3), osmium-tool, tilemaker 3.0 Lua, MapLibre GL JS.
 
