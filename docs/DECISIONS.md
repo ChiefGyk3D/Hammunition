@@ -7533,6 +7533,19 @@ trust. `artifacts` reading the station by default: the Bunker runs on a NAS
 with no station, and a listing that changed with whoever ran it would not
 be a contract.
 
+**Amended 2026-10-01 (issue #159): Kiwix books (D-066) go through the mirror
+too, and `artifacts` lists them.** The books backend had fetched from
+download.kiwix.org only; it now asks `<mirror>/kiwix-library/<book id>`
+first, the id as `catalog/data/kiwix-pins.yaml` names it, with the same
+pinned sha256 and size, the same plan wording and the same log facts as a
+`data` file. `artifacts --reference-books ID,ID` lists each book (`check:
+sha256`, its own licence line) from the carried pins alone, no station read;
+with none given, `kiwix-library` is one entry deferred as *no books
+selected*. Books are the largest data the catalog fetches (up to 127 GB), so
+they are the mirror's most valuable case. Measured in
+`tests/test_mirror_books.py` (two loopback servers: a mirror hit, and wrong
+bytes falling back to the publisher) and `tests/test_artifacts.py`.
+
 ---
 
 ## D-071 — The offline browser map: vector tiles from the station's regions by the archive's tilemaker, served with byte ranges by `reference serve` on loopback, drawn by a pinned MapLibre, with the position as a loopback event stream

@@ -927,7 +927,8 @@ def cmd_artifacts(args: argparse.Namespace) -> int:
     Hammunition Bunker's one source of what to mirror. The network is asked
     exactly as the plan asks it -- Geofabrik for a region's dated file and
     MD5 and its outline, the Copernicus bucket for an unpinned tile's size
-    and ETag -- and only for what the selection names.
+    and ETag -- and only for what the selection names. Reference books come
+    from the carried pins alone (D-066).
     """
     from hammunition.artifacts import SelectionError, list_artifacts, select_units
     from hammunition.interface.artifacts import ArtifactsDocument, render_artifacts
@@ -947,6 +948,23 @@ def cmd_artifacts(args: argparse.Namespace) -> int:
         except StationError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return EXIT_UNPLANNABLE
+    books: tuple[str, ...] = ()
+    if args.reference_books is not None:
+        books = tuple(b for b in (p.strip() for p in args.reference_books.split(",")) if b)
+        if not books:
+            print(
+                "error: --reference-books gave no book ids after splitting on ',' and "
+                "stripping whitespace; give at least one, or leave the flag out.",
+                file=sys.stderr,
+            )
+            return EXIT_UNPLANNABLE
+        try:
+            # The shape station config accepts, nothing more; an id the book
+            # list does not carry is listed as deferred, as a region is.
+            books = Station(reference_books=books).reference_books
+        except StationError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_UNPLANNABLE
     requested = (
         tuple(u for u in (p.strip() for p in args.units.split(",")) if u)
         if args.units is not None
@@ -962,6 +980,7 @@ def cmd_artifacts(args: argparse.Namespace) -> int:
     entries = list_artifacts(
         units,
         regions=regions,
+        books=books,
         freshness=args.map_freshness,
         catalog=catalog,
         catalog_root=catalog_root,
@@ -970,7 +989,11 @@ def cmd_artifacts(args: argparse.Namespace) -> int:
         tile_probe=S3Probe(),
     )
     doc = ArtifactsDocument(
-        map_regions=regions, map_freshness=args.map_freshness, units=units, artifacts=entries
+        map_regions=regions,
+        map_freshness=args.map_freshness,
+        reference_books=books,
+        units=units,
+        artifacts=entries,
     )
     if envelope.wanted(args):
         envelope.emit(doc)
@@ -4668,7 +4691,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--units",
         default=None,
         metavar="U[,U...]",
-        help="the units to list (default: every data, osm-regions and dem-tiles unit)",
+        help="the units to list (default: every data, osm-regions, dem-tiles, mwm-regions "
+        "and kiwix-books unit)",
+    )
+    p_artifacts.add_argument(
+        "--reference-books",
+        default=None,
+        metavar="ID[,ID...]",
+        help="comma-separated Kiwix book ids (`hammunition reference books` lists them); "
+        "none defers kiwix-library",
     )
     p_artifacts.set_defaults(func=cmd_artifacts)
 
