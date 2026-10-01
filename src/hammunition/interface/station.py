@@ -45,6 +45,22 @@ class StationDocument(Strict):
         "the LAN mirror the verified fetch tries before the publisher, the same digest "
         "checked either way (D-070); null when none is set"
     )
+    rig: str | None = described(
+        "the station's radio: a catalog device id or hamlib:<model>; null when not set (D-073)"
+    )
+    rig_device: str | None = described(
+        "the serial port the rig is reached on — the full by-id path, for the operator's "
+        "own screen (the plan, doctor and status elide the serial); null when not set"
+    )
+    rig_baud: int | None = described(
+        "the CAT serial speed; null when not set or for a PTT-only rig"
+    )
+    rig_ptt_line: str | None = described(
+        "for a PTT-only rig: rts, dtr or vox; null for a CAT rig or when not set"
+    )
+    rig_owner: str | None = described(
+        "who holds the port: rigctld (the default when unset) or flrig; null when not set"
+    )
     dem_source: str = described(
         "where QMapShack's elevation is drawn from: `copernicus` (the default, also when "
         "unset) or `3dep`, USGS bare earth (D-068, amended 2026-10-01)"
@@ -62,6 +78,11 @@ def build_station(path: Path, station: Station) -> StationDocument:
         map_freshness=station.map_freshness,
         reference_books=station.reference_books,
         mirror=station.mirror,
+        rig=station.rig,
+        rig_device=station.rig_device,
+        rig_baud=station.rig_baud,
+        rig_ptt_line=station.rig_ptt_line,
+        rig_owner=station.rig_owner,
         dem_source=station.elevation,
     )
 

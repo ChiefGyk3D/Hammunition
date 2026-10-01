@@ -29,12 +29,20 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import pwd
 import sys
 from pathlib import Path
 
+from hammunition.backends.base import BackendError, Command, SubprocessRunner
 from hammunition.gpstime.apply import apply_mode
 from hammunition.gpstime.mode import MODES, TimeError, as_mode
 from hammunition.gpstime.state import gather, gps_from
+from hammunition.hardware.linger import (
+    LINGER_RECORD,
+    plan_linger,
+    read_record,
+    write_record,
+)
 from hammunition.hardware.polkit import (
     WritabilityFinding,
     WritabilityRisk,
@@ -225,6 +233,64 @@ def _time_state() -> int:
     return EXIT_OK
 
 
+def caller_uid() -> int:
+    """The account to act on: the one polkit reports, never an argv.
+
+    pkexec sets ``PKEXEC_UID`` to the uid that invoked it; under ``sudo``
+    ``SUDO_UID`` is the equivalent. A direct unprivileged run acts on itself.
+    A name is never taken from an argument — that would let a caller linger
+    somebody else's account (D-073 §5a).
+    """
+    for var in ("PKEXEC_UID", "SUDO_UID"):
+        value = os.environ.get(var)
+        if value and value.isdigit():
+            return int(value)
+    return os.getuid()
+
+
+def _linger_is_on(username: str) -> bool:
+    result = SubprocessRunner().run(
+        Command(
+            argv=("loginctl", "show-user", username, "--property=Linger", "--value"),
+            description="Read whether the account already lingers",
+        )
+    )
+    return result.ok and result.stdout.strip().lower() in ("yes", "1", "true")
+
+
+def _linger(on: bool) -> int:
+    uid = caller_uid()
+    try:
+        username = pwd.getpwuid(uid).pw_name
+    except KeyError:
+        print(f"error: no account for uid {uid}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    plan = plan_linger(
+        on=on,
+        uid=uid,
+        username=username,
+        already_on=_linger_is_on(username),
+        existing=read_record(),
+    )
+    if plan.command is not None:
+        try:
+            result = SubprocessRunner().run(
+                Command(argv=plan.command, description=plan.note, requires_root=True)
+            )
+        except BackendError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_FAILED
+        if not result.ok:
+            print(f"error: {result.stderr.strip() or 'loginctl failed'}", file=sys.stderr)
+            return EXIT_FAILED
+    if plan.remove_record:
+        LINGER_RECORD.unlink(missing_ok=True)
+    elif plan.record is not None:
+        write_record(plan.record)
+    print(plan.note)
+    return EXIT_OK
+
+
 def _time_mode(mode: str) -> int:
     try:
         problems = apply_mode(as_mode(mode))
@@ -339,6 +405,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser(
         "state", help="JSON: every parkable device, attached or kept, and whether it is parked"
     )
+    p_linger = sub.add_parser(
+        "linger", help="keep your user services running after you log out (D-073 §5a)"
+    )
+    p_linger.add_argument("state", choices=("on", "off"))
     p_time = sub.add_parser("time", help="GPS time (D-058): the mode, and what the clock follows")
     time_sub = p_time.add_subparsers(dest="time_verb", required=True)
     p_time_mode = time_sub.add_parser(
@@ -354,6 +424,8 @@ def main(argv: list[str] | None = None) -> int:
         return _time_mode(args.mode)
     if args.verb == "state":
         return _state()
+    if args.verb == "linger":
+        return _linger(args.state == "on")
     verb: str = args.verb
     return _do(verb, args.name, keep=not getattr(args, "until_reboot", False))
 

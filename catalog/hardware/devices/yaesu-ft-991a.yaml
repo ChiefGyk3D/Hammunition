@@ -1,0 +1,69 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: yaesu-ft-991a
+summary: Yaesu FT-991A — HF/VHF/UHF all-mode transceiver with a built-in USB CAT and audio interface
+vendor: Yaesu
+device_class: rig
+status: untested
+gap_closure: maintainer_hardware
+
+# NOT marked composite, although the FT-991A is physically one product behind a
+# CP2105 (two serial ports) plus a USB audio codec. Declaring composite obliges
+# every identifier to say what it is, and the FT-991A's two port strings, its
+# reports_serial, and its codec identifier are NONE OF THEM MEASURED here —
+# asserting them to satisfy the composite rule would be exactly the guess D-018
+# and D-030 forbid. So the device inherits the class's CP2105 identifier, names
+# what the bench must record, and becomes composite with real strings once the
+# maintainer's own FT-991A has been on a bench (D-073 §12).
+identification_gap: >-
+  Not captured from this radio on a bench. What one scripts/identify-device.sh
+  run with the FT-991A attached must record, to close this and let the entry
+  become composite with measured strings: the two CP2105 serial ports' product
+  strings (which -ifNN- is the Enhanced/CAT port and which is the
+  Standard/PTT port — Yaesu's documentation says CAT is the Enhanced port,
+  unmeasured here), whether the CP2105 reports a per-unit serial
+  (reports_serial, the value never recorded, only whether), and the USB audio
+  codec's identifier (a TI/Burr-Brown codec per docs/guides/audio-routing.md,
+  identifier not measured).
+
+# The radio's Linux-side needs, from hamlib and from Yaesu's documentation.
+rig:
+  hamlib_model: 1035          # `rigctl -l`: FT-991/FT-991A is 1035 in hamlib 4.7.2
+  cat:
+    kind: usb_cp2105_dual     # the FT-991A's built-in CP2105, two serial ports
+    interface: "00"           # -if00- is the Enhanced port = CAT (Yaesu docs; not measured)
+    baud: [4800, 38400]       # from `rigctl -m 1035 -u`: serial_speed 4800..38400
+    handshake: hardware       # from `rigctl -m 1035 -u`: CTS/RTS hardware handshake
+  audio: builtin_usb_codec    # the radio's own USB audio codec (identifier not measured)
+  ptt: [cat, rts, dtr]        # CAT PTT is the default; RTS/DTR available on the Standard port
+  ptt_interface: "01"         # -if01- is the Standard port, for RTS/DTR keying (not measured)
+
+documentation:
+  what_it_is: >-
+    A Yaesu FT-991A, a single-box HF/50/144/430 MHz all-mode transceiver with a
+    USB port that presents both its CAT control channel and its sound-card
+    audio over one cable, through a Silicon Labs CP2105 dual serial bridge and
+    a built-in USB audio codec.
+  what_you_can_do_with_it: >-
+    Run every digital mode and log with full computer control: frequency, mode
+    and PTT over CAT, and transmit/receive audio over the same USB cable, with
+    no external interface. Select it as the station's rig and one shared
+    rigctld carries it to WSJT-X, fldigi, JS8Call, Pat and the rest.
+  setup_steps: >-
+    Attach the radio and switch it on. In the radio's menu, set the CAT RATE
+    and note it (hamlib defaults 1035 to 38400, but the menu is what counts).
+    `hammunition station set --rig yaesu-ft-991a --rig-device
+    /dev/serial/by-id/usb-Silicon_Labs_CP2105_...-if00-port0 --rig-baud <your
+    CAT rate>`, then install `rig-service`. Join `dialout` and log out and
+    back in. See docs/guides/rig-control.md.
+  known_problems: >-
+    The CP2105 presents two serial ports and only one is CAT; the other keys
+    RTS/DTR. They are told apart by the -ifNN- suffix of the
+    /dev/serial/by-id/ path, not by the USB identifier, which is the same for
+    both. A CAT RATE in the radio's menu that does not match --rig-baud reads
+    as a dead or erratic radio rather than an error — the speed in the menu
+    cannot be read from the computer. This entry is untested here: nothing
+    about the radio's behaviour is claimed until the bench has run (D-073 §12).
+  upstream_url: https://www.yaesu.com/

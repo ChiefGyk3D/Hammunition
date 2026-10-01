@@ -81,6 +81,22 @@ stores or writes any of these, and they never belong in a shared screenshot.
   safe and private.
 - **QRZ.com or HamQTH logins** for callsign lookups in the loggers.
 
+## The radio is a station value too
+
+Alongside the callsign, `station set` takes the radio on the station — which
+rig, on which port, at what speed — so one shared `rigctld` carries it to every
+program instead of each one opening the serial port itself:
+
+```sh
+hammunition station set --rig yaesu-ft-991a \
+    --rig-device /dev/serial/by-id/usb-...-if00-port0 --rig-baud 38400
+hammunition install rig-service
+```
+
+The full walk-through, the program-by-program settings, radios with no CAT, the
+flrig alternative and the unattended-station option are in
+[Rig control](rig-control.md) (**D-073**).
+
 ## What was measured
 
 The `station` commands and the file they write were run against this

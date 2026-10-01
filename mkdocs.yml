@@ -179,6 +179,9 @@ nav:
           - USRP: hardware/usrp.md
           - KrakenSDR: hardware/krakensdr.md
       - Radios, GPS and mesh:
+          - Transceivers (rig control): hardware/rig-class.md
+          - Yaesu FT-991A: hardware/yaesu-ft-991a.md
+          - BTECH UV-50PRO: hardware/btech-uv-50pro.md
           - DMR radios: hardware/dmr-radio-class.md
           - GPS receivers: hardware/gps-receiver-class.md
           - Meshtastic nodes: hardware/meshtastic.md
