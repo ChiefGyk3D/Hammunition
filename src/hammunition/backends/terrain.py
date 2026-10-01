@@ -57,6 +57,23 @@ WARP_SCRATCH_FACTOR = 1.0
 #: One tile's contour GeoPackage, removed once rasterised: 97,812,480 bytes
 #: on that tile, the largest a tile is expected to need.
 CONTOUR_SCRATCH_BYTES = 98_000_000
+#: The same two for a USGS 3DEP 1/3" tile (D-068, amended 2026-10-01): the
+#: spike's n39w079 traced to a 212 MB GeoPackage at a 20 m interval, and its
+#: raster at 10,812 pixels is the 5.0 MB measured at 7,200 scaled by the
+#: pixel count, until Task 10's live tile measures it.
+CONTOUR_BYTES_3DEP = 11_300_000
+CONTOUR_SCRATCH_BYTES_3DEP = 212_000_000
+
+
+def contour_bytes(provider: str) -> int:
+    """One tile's rasterised contours, by elevation provider."""
+    return CONTOUR_BYTES_3DEP if provider == "usgs-3dep" else CONTOUR_BYTES
+
+
+def contour_scratch(provider: str) -> int:
+    """One tile's contour GeoPackage scratch, by elevation provider."""
+    return CONTOUR_SCRATCH_BYTES_3DEP if provider == "usgs-3dep" else CONTOUR_SCRATCH_BYTES
+
 
 #: BRouter's routing files against the sum of the ``.osm.pbf`` files they are
 #: built from: Delaware's 3.3 MB of ``.rd5`` (with elevation) against its

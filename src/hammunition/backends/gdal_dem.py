@@ -53,18 +53,20 @@ from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
 
-from ..copernicus import square_of
 from ..manifest.schema import DerivedDataInstall, PackageManifest
+from ..usgs3dep import PIXELS as THREEDEP_PIXELS
+from ..usgs3dep import TILE as THREEDEP_TILE
+from ..usgs3dep import dem_square
 from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
 from .dem import TIF, DemResolution
 from .regions import SOURCE, data_root, installed_converter, prefix_writer, removal_steps
 from .staging import REFUSED, Staging
 from .terrain import (
-    CONTOUR_BYTES,
-    CONTOUR_SCRATCH_BYTES,
     MEASURED,
     TerrainLedger,
+    contour_bytes,
+    contour_scratch,
     tile_key,
 )
 from .verified import PrefixWriter
@@ -86,8 +88,16 @@ def contour_argv(tile: Path, gpkg: Path) -> list[str]:
     return ["gdal_contour", "-q", "-i", str(INTERVAL), "-a", "elev", str(tile), str(gpkg)]
 
 
+def pixels_for(name: str) -> int:
+    """The contour raster's width and height for tile *name*: 7,200 for a
+    Copernicus tile, 10,812 for a USGS 3DEP 1/3" one, whose detail 7,200
+    would throw a third of away (the spike, 2026-09-29)."""
+    return THREEDEP_PIXELS if THREEDEP_TILE.fullmatch(name) else PIXELS
+
+
 def rasterize_argv(gpkg: Path, out: Path, name: str) -> list[str]:
-    lat, lon = square_of(name)
+    lat, lon = dem_square(name)
+    pixels = pixels_for(name)
     return [
         "gdal_rasterize",
         "-q",
@@ -107,8 +117,8 @@ def rasterize_argv(gpkg: Path, out: Path, name: str) -> list[str]:
         str(lon + 1),
         str(lat + 1),
         "-ts",
-        str(PIXELS),
-        str(PIXELS),
+        str(pixels),
+        str(pixels),
         "-co",
         "COMPRESS=DEFLATE",
         "-of",
@@ -122,8 +132,13 @@ def buildvrt_argv(vrt: Path, inputs: Sequence[Path]) -> list[str]:
     return ["gdalbuildvrt", "-q", str(vrt), *map(str, inputs)]
 
 
-def render_record(tiles: Sequence[str]) -> str:
-    return "".join(f"{t}\n" for t in tiles) + f"converter: {CONVERTER}\n"
+def render_record(tiles: Sequence[str], provider: str = "copernicus-glo30") -> str:
+    """The tiles both rasters were built over and the converter. A 3DEP build
+    also names its provider (D-068, amended 2026-10-01), so a change of
+    ``dem_source`` never reads as current; a Copernicus record is byte for
+    byte what it was, so no existing install is rebuilt for it."""
+    elevation = "" if provider == "copernicus-glo30" else f"elevation: {provider}\n"
+    return "".join(f"{t}\n" for t in tiles) + elevation + f"converter: {CONVERTER}\n"
 
 
 def _tail(text: str) -> str:
@@ -150,6 +165,13 @@ class GdalDemConverter:
     runner: CommandRunner | None = None
     euid: int | None = None
     privileged: bool | None = None
+    source_unit: str | None = None
+    """The ``dem-tiles`` unit the tiles are read from instead of the block's
+    ``source``: its ``alternative`` when the station chose that provider
+    (D-068, amended 2026-10-01)."""
+    provider: str = "copernicus-glo30"
+    """The provider :attr:`resolution` is for; it picks the estimates and
+    the record's ``elevation:`` line."""
 
     @property
     def writer(self) -> PrefixWriter:
@@ -189,14 +211,14 @@ class GdalDemConverter:
         except OSError:
             return False
         return (
-            recorded == render_record(self.resolution.tiles)
+            recorded == render_record(self.resolution.tiles, self.provider)
             and (out / "dem" / "dem.vrt").is_file()
             and (out / "contours" / "contours.vrt").is_file()
         )
 
     def steps(self, manifest: PackageManifest, block: DerivedDataInstall) -> list[Action | Command]:
         out = self.data_dir(manifest)
-        source = data_root(self.prefix) / block.source
+        source = data_root(self.prefix) / (self.source_unit or block.source)
         writer = self.writer
         contours = out / "contours"
         work = self.work
@@ -217,8 +239,8 @@ class GdalDemConverter:
                         f"Draw {INTERVAL} m contours for terrain tile {name}, as the operator, "
                         f"in {work}: {shlex.join(contour_argv(tile, gpkg))}, "
                         f"then {shlex.join(rasterize_argv(gpkg, staged, name))}; output about "
-                        f"{human_size(CONTOUR_BYTES)} and up to "
-                        f"{human_size(CONTOUR_SCRATCH_BYTES)} of scratch ({MEASURED})"
+                        f"{human_size(contour_bytes(self.provider))} and up to "
+                        f"{human_size(contour_scratch(self.provider))} of scratch ({MEASURED})"
                     ),
                     detail=str(staged),
                     perform=partial(self._draw, name, tile, gpkg, staged, drawn),
@@ -376,7 +398,7 @@ class GdalDemConverter:
         # Recorded only when every tile made it into both: a missing one is
         # built next run.
         if len(tiles) == len(wanted) == len(drawn):
-            writer.write_text(out / RECORD, render_record(wanted))
+            writer.write_text(out / RECORD, render_record(wanted, self.provider))
         done = _with("built " + " and ".join(built), self.staging.who())
         if scratch:
             return self.ledger.fail(KEY, f"{done}, but {scratch}")
