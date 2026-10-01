@@ -1,0 +1,139 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: morse-runner
+version: "1.68z"
+summary: CW contest simulator, the native Lazarus port of VE3NEA's Morse Runner
+categories: [morse-training, cw]
+
+# CARRY, under the maintainer's 2026-08-25 conditional on AHRL's `morse_runner`
+# ("If Morse Runner CE or a native alternative builds, carry that and drop the
+# Wine prefix from 1.0"), tested 2026-09-30 (Q-022 #5, gap analysis A8):
+#
+# - Morse Runner Community Edition (w7sst/MorseRunner, MPL-2.0, v1.86 released
+#   2026-09-25) does NOT build natively. Its tree has a Delphi project and no
+#   Lazarus one, and fpc stops at `Main.pas(15,3) Fatal: Can't find unit
+#   Windows`; the README lists a Linux port as a goal, not a feature.
+# - This port, Zach Metzinger's Lazarus/FPC conversion of VE3NEA's 1.68
+#   codebase, DOES: built on Debian 13 in a rootless container, started under
+#   Xvfb, drew its window, and wrote non-silent audio into an ALSA file sink
+#   once a run was started. So the conditional's second clause holds, and this
+#   is what it said to carry. dispositions.md has the measurements.
+install:
+  - when:
+      # Kali is left out on a measurement: Debian's lazbuild builds for the
+      # GTK2 widgetset by default and Kali carries no lcl-gtk2, so the build
+      # stops at "Can't find unit Interfaces" (2026-09-30). x86_64 only
+      # because the arm64 build has not been run; tree_marker names the
+      # x86_64 output directory.
+      distro: [debian, parrot, ubuntu, linuxmint, pop]
+      arch: [x86_64]
+    install:
+      method: git
+      repo: https://github.com/zmetzing/MorseRunner
+      # No tag has been cut, so a commit pin with a review beside it (D-024).
+      ref: 29590a6719c725bc95730e72213a00ef92cfa489
+      # The Makefile's one rule is `lazbuild MorseRunner.lpr`; there is no
+      # install rule.
+      build_system: make
+      provides_install_target: false
+      # The program looks for Master.dta beside itself and then in the current
+      # directory, and writes MorseRunner.ini beside its own executable, so it
+      # runs from its tree, handed to the operator (D-043).
+      install_tree: true
+      tree_marker: lib/x86_64-linux/MorseRunner
+      pin_review:
+        last_reviewed: 2026-09-30
+        reviewed_by: hammunition-maintainers
+        basis: own_choice
+        rationale: >-
+          The default branch's head (D-032), 29590a67, 2022-05-23, "Linux
+          buffer size fix" -- the last of 22 commits whose second half fixes
+          the Linux audio path and a GUI crash, so the head is the only
+          revision that plays sound reliably. No tag exists. Checked for a
+          distribution to follow and found none: no archive packages Morse
+          Runner in any form (2026-09-30). The same commit is mirrored as the
+          `zmetzing-master` branch of the Community Edition's repository.
+        cadence_days: 365
+    build_depends:
+      - build-essential
+      - fpc
+      # lazbuild is in lcl-utils, not lazarus-ide (measured on Debian 13).
+      - lcl-utils
+      - lcl-units
+      - lcl-gtk2
+      # Free Pascal's SDL 1.2 unit; Debian 13 satisfies it with sdl12-compat.
+      - libsdl1.2-dev
+    note: >-
+      Built on 2026-09-30 in a debian:13 rootless Podman container the way
+      this block runs it -- `make -j 2` in the checkout, as an unprivileged
+      user, with exactly the build_depends above -- exit 0, about 10 s and
+      284 MB peak for lazbuild; the executable is 29.7 MB with debug
+      information and links GTK2 and libSDL-1.2. The build dependencies
+      came to 368 packages and 1.8 GB on a bare debian:13 image, which is
+      why the `morse` profile names this unit rather than including it. The
+      engine's dry run plans it; it has not been installed through the
+      engine on any target, and not built on Parrot, Ubuntu, Mint or arm64.
+
+launchers:
+  - name: morse-runner
+    title: Morse Runner
+    exec: ./lib/x86_64-linux/MorseRunner
+    working_directory: /usr/local/share/hammunition/morse-runner
+
+update:
+  probe:
+    method: none
+  strategy: rebuild
+  cadence_hint: >-
+    The port's last commit is 2022-05-23 and nothing has been tagged. The
+    yearly pin review is for noticing two things: a commit here, or a Linux
+    build in the Community Edition (w7sst/MorseRunner), whose README lists
+    "integrate a recent Linux port" as a goal. The day CE builds natively it
+    supersedes this unit.
+
+documentation:
+  what_it_does: >-
+    Simulates the operator's side of a CW contest pile-up. Stations call you
+    in Morse at the speed you set, with QRM, QRN, QSB, flutter and the
+    occasional lid, and you work them with the function keys -- F1 for CQ, F2
+    for the exchange, F3 for thanks -- while the program scores what you
+    copied against what was sent. Pile-Up, Single Calls, WPX Competition and
+    HST Competition modes, a recorded score and an optional WAV of the session.
+  why_you_want_it: >-
+    Nothing else in this catalog trains contest copying. qrq, xcwcp,
+    ebook2cwgui and wordsworth teach and drill Morse; this is the step after
+    them, copying callsigns out of a crowd at speed. Under AHRL it was a
+    Windows binary under Wine on x86_64 only. This is the same program
+    compiled natively, so there is no Wine.
+  prerequisites: >-
+    A desktop session and working audio. No radio: it generates every signal
+    itself. Set your own callsign in the Station panel first; the default is
+    VE3NEA, the author's.
+  known_problems: >-
+    **This is Morse Runner 1.68 (2006), not the Community Edition.** CE's
+    contests -- CWT, ARRL DX, Field Day, Sweepstakes, CQ WW, NAQP, IARU, the
+    JARL contests, SST -- are in a Windows-only Delphi tree that does not
+    build here (measured 2026-09-30); this port has the original's WPX-style
+    exchange and HST. **Settings are saved beside the executable**, so the
+    installed tree is handed to the operator (D-043) and one account's
+    settings are the machine's. **It prints a debug line for every audio
+    buffer** ("BufferDone ...") to standard output, which a desktop session
+    sends to its log; in the container's unpaced null sink that was
+    hundreds of thousands of lines in a few seconds, and the rate against a
+    real sound card is unmeasured. Audio goes through SDL 1.2, which Debian
+    13 provides as sdl12-compat over SDL2; playback through PipeWire or a
+    real sound card has not been heard. After a run started under Xvfb the
+    bottom of the window was not redrawn in the screenshot, which may be the
+    virtual display and may not. **Not on Kali** (no GTK2 LCL in its
+    archive) and not yet on arm64.
+  upstream_url: https://github.com/zmetzing/MorseRunner
+  upstream_support: >-
+    Zach Metzinger's port, issues at the URL above; the port's last commit is
+    2022-05-23, so expect none. The program is Alex Shovkoplyas's (VE3NEA).
+    Licence: the source files carry Mozilla Public License 2.0 headers; the
+    port's tree has no LICENSE file and its Readme still says "freeware" from
+    the 2006 original (read 2026-09-30). The Community Edition, which shares
+    the code, ships MPL-2.0 as LICENSE.md. For contest-simulation questions
+    the Community Edition's project (github.com/w7sst/MorseRunner) is where
+    the Morse Runner community is.

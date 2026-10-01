@@ -21,13 +21,13 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 | | |
 |---|---:|
 | Units in the six-source union | **161** |
-| …that owe a manifest (C, S, R, A) | **124** |
-| …covered | **110** |
+| …that owe a manifest (C, S, R, A) | **125** |
+| …covered | **111** |
 | …outstanding, with a recorded reason | **14** |
 | …outstanding, unexplained | **0** |
-| Manifests in the catalog | **283** |
+| Manifests in the catalog | **284** |
 
-Coverage of what is owed: **110/124** (88%).
+Coverage of what is owed: **111/125** (88%).
 
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
@@ -62,13 +62,13 @@ Absent on purpose. Each names what it waits on.
 
 | Disposition | Units | Covered |
 |---|---:|---:|
-| CARRY | 68 | 67 |
+| CARRY | 69 | 68 |
 | SUPERSEDE | 15 | 10 |
 | REVIVE | 6 | 4 |
 | ADD | 35 | 29 |
 | RETIRE | 30 | — |
 | NEEDS-DECISION | 1 | — |
-| reserved to maintainer | 6 | — |
+| reserved to maintainer | 5 | — |
 
 RETIRE, NEEDS-DECISION and reserved units show no coverage figure because
 they owe nothing. Some carry a manifest anyway: `noaa-apt` is RETIRE and
@@ -168,7 +168,7 @@ catalog is where an operator would look for it.
 | `mbtileserver` | ADD | — *waiting, see above* |
 | `mbutil` | RETIRE | — |
 | `mfc_gpl` | RETIRE | — |
-| `morse_runner` | reserved to maintainer | — |
+| `morse_runner` | CARRY | `morse-runner` |
 | `MSHV` | CARRY | `mshv` |
 | `mvoice` | REVIVE | — *waiting, see above* |
 | `nanovna-saver` | CARRY | `nanovna-saver` |

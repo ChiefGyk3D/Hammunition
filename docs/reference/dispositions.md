@@ -30,13 +30,13 @@ depending on distro package state is marked *(verify in container)*.
 
 | Disposition | AHRL | 73Linux delta | Skywave delta | DragonOS T1* | ETC delta | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| CARRY | 67 | 1 | 0 | 0 | 0 | 68 |
+| CARRY | 68 | 1 | 0 | 0 | 0 | 69 |
 | SUPERSEDE | 13 | 1 | 1 | 0 | 0 | 15 |
 | REVIVE | 6 | 0 | 0 | 0 | 0 | 6 |
 | RETIRE | 13 | 15 | 0 | 0 | 2 | 30 |
 | ADD | — | 11 | 8 | 8 | 8 | 35 |
 | NEEDS-DECISION | 0 | 0 | 0 | 0 | 1 | 1 |
-| Reserved to maintainer | 6 | 0 | 0 | 0 | 0 | 6 |
+| Reserved to maintainer | 5 | 0 | 0 | 0 | 0 | 5 |
 | **Total** | **105** | **28** | **9** | **8** | **11** | **161** |
 
 \* **DragonOS Tier 1 is 24 units; only the 8 genuinely-new ones are counted
@@ -465,6 +465,72 @@ Either way Wine leaves the 1.0 core: it exists in AHRL solely for this unit, and
 VARA reintroduces it post-1.0 regardless. Disposition stays `M` pending the build
 attempt — this is a testable condition, not an open opinion.
 
+### Tested 2026-09-30 — the second clause holds: CARRY the native port
+
+The maintainer ruled on **Q-022** #5 ("all three as stated") that the
+conditional be tested, from the gap analysis (`catalog-gaps-2026-09.md` A8).
+Each clause, against what was measured:
+
+**"If Morse Runner CE … builds"** — **no.** The Community Edition is
+`w7sst/MorseRunner`: MPL-2.0 (`LICENSE.md`), default branch `main` head
+2026-09-25 "Roll version number for final 1.86 build" (D-032), and v1.86 is
+a full release that day — no longer "in preparation". Its tree at v1.86 has
+`MorseRunner.dpr` and `.dproj` and **no Lazarus project**; `lazbuild` will
+not take the `.dproj`, and `fpc -Mdelphi` with every Lazarus unit path set
+stops at `Main.pas(15,3) Fatal: Can't find unit Windows` (Debian 13, FPC
+3.2.2). That is CE's code, not a missing path: `Main.pas` uses `Windows`
+and `Messages` and calls `Windows.PostMessage`, and the whole audio layer
+(`VCL/SndCustm.pas`, `SndOut.pas`, `SndTypes.pas`, `WavFile.pas`) is built
+on `MMSystem`, the Windows multimedia API.
+The README lists "Integrate a recent Linux port" under *Goals*: the gap
+analysis's "has a Linux port" was wrong, and is corrected here rather than
+carried forward (D-018).
+
+**"… or a native alternative builds"** — **yes.** The Linux port the CE
+README names is Zach Metzinger's Lazarus/FPC conversion of VE3NEA's 1.68
+(`zmetzing/MorseRunner`, default branch `master`, head `29590a67`
+2022-05-23, 22 commits, no tag; the CE repository mirrors it as a branch).
+Measured in rootless `debian:13` containers, never on the host:
+
+- **Build:** `lazbuild` exit 0 in about 10 s, 284 MB peak RSS; then again the
+  way the manifest runs it — `make -j 2` in the checkout as an unprivileged
+  user with only `build-essential fpc lcl-utils lcl-units lcl-gtk2
+  libsdl1.2-dev` — exit 0. A 29.7 MB x86-64 executable linking GTK2 and
+  libSDL-1.2 (sdl12-compat). `lazbuild` lives in `lcl-utils`, not
+  `lazarus-ide`, which a first attempt found the hard way.
+- **Window:** started under Xvfb, it drew its main form — the Morse Runner
+  1.68 banner, the Station, Band Conditions and Run panels, the F1–F8
+  keys. A click on Run switched it to a Pile-Up run with the log columns
+  showing.
+- **Audio:** with the ALSA default device pointed at a file over the null
+  plugin, the run wrote non-silent samples (7.9 million non-zero bytes).
+  The null device has no clock, so the program ran unpaced: it wrote
+  1.7 GB in about twelve seconds, and printed a debug line per buffer.
+  That proves it produces audio, not how it sounds or how fast it logs
+  against a real sound card.
+- **Kali:** the same build fails at `Can't find unit Interfaces`, because
+  Debian's `lazbuild` targets GTK2 and Kali carries no `lcl-gtk2`
+  (`lcl-qt5` only). The seven-target sweep: `fpc`, `lcl-utils`,
+  `lcl-units`, `libsdl1.2-dev` on all seven; `lcl-gtk2` on all but Kali.
+- **Licence:** the source files carry MPL-2.0 headers; the port has no
+  LICENSE file and its Readme still says "freeware" from 2006.
+
+**"…carry that and drop the Wine prefix from 1.0"** — Wine left the 1.0
+core on 2026-08-30 (Q-015 decision 5) and nothing here brings it back.
+
+**Decision: CARRY**, as `catalog/packages/morse-runner.yaml` — the port at
+its head commit with an `own_choice` pin review (D-024), x86-64 on every
+target but Kali, installed as a tree handed to the operator (D-043, because
+it saves `MorseRunner.ini` beside its executable), with a launcher. It is in
+no profile: the build dependencies came to 1.8 GB on a bare Debian 13
+image, against a `morse` profile under 100 MB, so that profile names it
+instead. The CE's later contests are not in this program, and the manifest
+says so first.
+
+**Unmeasured:** an install through the engine on any target (the dry run
+plans it); a build on Parrot, Ubuntu, Mint or arm64; playback heard through
+PipeWire or a real card; the debug output's rate in real time.
+
 ---
 
 ## 73Linux delta — 28 units
@@ -772,7 +838,7 @@ under AHRL or covered by the Blend, and are not re-indexed here.
 `glfer` C · `gnuradio` C · `gpredict` C · `gpsman` S · `gqrx` C ·
 `GridTracker2` C · `grig` S · `gsmc` C · `gspiceui` M · `hamclock_next` R ·
 `ibp` R · `js8call` C · `js8spotter` C · `jtdx` C · `kicad` M · `klog` C ·
-`libhamlib4` S · `linpac` C · `linrad` C · `mfc_gpl` X · `morse_runner` M ·
+`libhamlib4` S · `linpac` C · `linrad` C · `mfc_gpl` X · `morse_runner` C ·
 `MSHV` C · `mvoice` R · `nanovna-saver` C · `ngspice` M · `noaa-apt` X ·
 `not1mm` C · `notepadqq` X · `owx` S · `pipx` C · `putty` C · `pyautogui` X ·
 `qgrid` C · `QLog` C · `qrq` C · `qsstv` C · `qtel` C · `QtTinySA` C ·

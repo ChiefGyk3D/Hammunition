@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**283 programs and packages** from the catalog, laid out the way the
+**284 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -587,6 +587,7 @@ Licence exam practice, Morse training and reference material.
 | [ebook2cw](packages/ebook2cw.md) | Converts a text file or ebook into Morse code audio at a chosen speed | [fkurz.net/ham/ebook2cw.html](https://fkurz.net/ham/ebook2cw.html) |
 | [ebook2cwgui](packages/ebook2cwgui.md) | Graphical front end for ebook2cw | [fkurz.net/ham/ebook2cw.html](https://fkurz.net/ham/ebook2cw.html#gui) |
 | [morse-classic](packages/morse-classic.md) | Text-to-Morse sounder and trainer, Eric Raymond's morse-classic | [gitlab.com/esr/morse-classic](https://gitlab.com/esr/morse-classic) |
+| [morse-runner](packages/morse-runner.md) | CW contest simulator, the native Lazarus port of VE3NEA's Morse Runner | [github.com/zmetzing/MorseRunner](https://github.com/zmetzing/MorseRunner) |
 | [qrq](packages/qrq.md) | High-speed Morse trainer that pushes your callsign copy to its limit | [fkurz.net/ham/qrq.html](https://fkurz.net/ham/qrq.html) |
 | [wordsworth](packages/wordsworth.md) | Generate Morse practice text the Wordsworth way — words, not characters | [sourceforge.net/projects/kb1oiq-k1ig-wordsworth](https://sourceforge.net/projects/kb1oiq-k1ig-wordsworth/) |
 | [xcwcp](packages/xcwcp.md) | Qt Morse tutor that both sends practice and reads your keying | [unixcw.sourceforge.net](https://unixcw.sourceforge.net/) |

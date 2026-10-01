@@ -76,8 +76,9 @@ RETIRED: dict[str, tuple[str, str]] = {
     "wine": (
         "AHRL",
         "Ruled out of the 1.0 core 2026-08-30 (Q-015 decision 5): its only "
-        "AHRL consumer, Morse Runner, is reserved and no 1.0 profile needs "
-        "Windows-compatibility machinery. VARA brings a *configured Wine "
+        "AHRL consumer was Morse Runner, which is carried natively since "
+        "2026-09-30 (`morse-runner`, the Lazarus port), and no 1.0 profile "
+        "needs Windows-compatibility machinery. VARA brings a *configured Wine "
         "prefix* back post-1.0 as its own prerequisite — a dependency of "
         "that unit, never a catalog unit of its own.",
     ),
@@ -399,16 +400,6 @@ RESOLVED_NOT_CARRIED: dict[str, tuple[str, str, str]] = {
         "Resolved 2026-08-25: not carried. The Debian `arduino` package is "
         "Arduino IDE 1.x, deprecated upstream, and shipping a deprecated IDE "
         "is worse than shipping nothing. Install IDE 2.x from arduino.cc.",
-    ),
-    "morse_runner": (
-        "M",
-        "AHRL",
-        "Resolved 2026-08-25, conditional: a Windows binary under Wine, "
-        "x86_64-only — ARM users already got nothing. If Morse Runner CE or "
-        "a native alternative builds, that is carried and Wine leaves the "
-        "1.0 core; otherwise it defers post-1.0 alongside VARA. Either way "
-        "no Wine prefix ships in 1.0 for one CW trainer. Native CW trainers "
-        "carried today: `qrq`, `xcwcp`, `ebook2cwgui`, `wordsworth`.",
     ),
 }
 

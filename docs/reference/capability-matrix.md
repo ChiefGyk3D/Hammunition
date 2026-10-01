@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 76 | 2 | 205 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 76 | 2 | 205 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 74 | 2 | 207 |
-| kali-rolling *(unswept)* | 0 | 0 | 71 | 0 | 212 |
-| parrot *(unswept)* | 0 | 0 | 74 | 2 | 207 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 74 | 2 | 207 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 73 | 5 | 205 |
+| debian-13 *(unswept)* | 0 | 0 | 77 | 2 | 205 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 77 | 2 | 205 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 75 | 2 | 207 |
+| kali-rolling *(unswept)* | 0 | 0 | 71 | 1 | 212 |
+| parrot *(unswept)* | 0 | 0 | 75 | 2 | 207 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 75 | 2 | 207 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 73 | 6 | 205 |
 
-**283 manifests** against **7 targets**.
+**284 manifests** against **7 targets**.
 
 ---
 
@@ -206,6 +206,7 @@ build HAS been run in a container say so in their own install notes.
 | `mkgmap-splitter` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `mlat-client-adsbfi` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `morse-classic` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `morse-runner` | git | git | git | — | git | git | — |
 | `morse2ascii` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `mshv` | source | source | source | source | source | source | source |
 | `multimon` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

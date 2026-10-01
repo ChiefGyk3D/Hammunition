@@ -22,7 +22,7 @@ Morse is a skill before it is a mode, and everything here is either practice, se
 
 ## What it deliberately excludes
 
-fldigi, which decodes CW among twenty other modes and belongs in `digital-modes`. Contest loggers, which key CW through `cwdaemon` and live in `logging`. Nothing here needs a radio: every trainer generates its own audio, which is the point.
+fldigi, which decodes CW among twenty other modes and belongs in `digital-modes`. Contest loggers, which key CW through `cwdaemon` and live in `logging`. `morse-runner`, the CW contest simulator, is carried and installs by name (`hammunition install morse-runner`) rather than with this profile: it is a source build whose Free Pascal and Lazarus build dependencies came to 1.8 GB on a bare Debian 13 image, against a profile that is otherwise under 100 MB, and it is not offered on Kali. Nothing here needs a radio: every trainer generates its own audio, which is the point.
 
 ## What you configure by hand afterward
 

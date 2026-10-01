@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**283 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**284 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -104,7 +104,7 @@ Contest loggers, scoring, duplicate checking, keying and the country file.
 - [tlf](tlf.md) — Console contest logger built for speed, driven from the keyboard
 - [tucnak](tucnak.md) — VHF and above contest logger, built around locator scoring and networking
 
-### `cw` — 17
+### `cw` — 18
 
 Keying, decoding and sending Morse on the air, keyers and beacons.
 
@@ -118,6 +118,7 @@ Keying, decoding and sending Morse on the air, keyers and beacons.
 - [flwkey](flwkey.md) — Control panel for the Winkeyer hardware CW keyer
 - [ibp](ibp.md) — Shows which NCDXF/IARU beacon is transmitting right now, on which band
 - [morse-classic](morse-classic.md) — Text-to-Morse sounder and trainer, Eric Raymond's morse-classic
+- [morse-runner](morse-runner.md) — CW contest simulator, the native Lazarus port of VE3NEA's Morse Runner
 - [morse2ascii](morse2ascii.md) — Decodes Morse out of a recorded WAV file
 - [qrq](qrq.md) — High-speed Morse trainer that pushes your callsign copy to its limit
 - [tlf](tlf.md) — Console contest logger built for speed, driven from the keyboard
@@ -287,7 +288,7 @@ Meshtastic, MeshCore and Reticulum: off-grid text over LoRa.
 - [gtk-meshtastic-client](gtk-meshtastic-client.md) — Desktop GUI for Meshtastic nodes
 - [python3-meshtastic](python3-meshtastic.md) — Meshtastic command-line client and Python API
 
-### `morse-training` — 10
+### `morse-training` — 11
 
 Koch trainers, callsign drills, text-to-Morse converters and practice generators.
 
@@ -298,6 +299,7 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [ebook2cw](ebook2cw.md) — Converts a text file or ebook into Morse code audio at a chosen speed
 - [ebook2cwgui](ebook2cwgui.md) — Graphical front end for ebook2cw
 - [morse-classic](morse-classic.md) — Text-to-Morse sounder and trainer, Eric Raymond's morse-classic
+- [morse-runner](morse-runner.md) — CW contest simulator, the native Lazarus port of VE3NEA's Morse Runner
 - [qrq](qrq.md) — High-speed Morse trainer that pushes your callsign copy to its limit
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
@@ -830,6 +832,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [mkgmap-splitter](mkgmap-splitter.md) | Cuts OpenStreetMap data into tiles sized for mkgmap | apt |
 | [mlat-client-adsbfi](mlat-client-adsbfi.md) | Contributes ADS-B timing data so a network can locate aircraft by multilateration | apt |
 | [morse-classic](morse-classic.md) | Text-to-Morse sounder and trainer, Eric Raymond's morse-classic | apt |
+| [morse-runner](morse-runner.md) | CW contest simulator, the native Lazarus port of VE3NEA's Morse Runner | git |
 | [morse2ascii](morse2ascii.md) | Decodes Morse out of a recorded WAV file | apt |
 | [mshv](mshv.md) | Multi-mode weak-signal application with multi-stream FT8 decoding | source |
 | [multimon](multimon.md) | The original multimon decoder, kept for the modes its successor dropped | apt |
