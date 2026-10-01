@@ -644,10 +644,67 @@ def _resolve_rig_flags(args: argparse.Namespace, current: Station) -> _RigFlags 
     return _RigFlags(rig, rig_device, rig_baud, ptt_line, owner, ["rig"], notes)
 
 
+def _enabled_user_units() -> tuple[str, ...]:
+    """The operator's enabled user units, for the disclosure. Best-effort: an
+    empty tuple when the user manager cannot be asked."""
+    try:
+        result = SubprocessRunner().run(
+            Command(
+                argv=(
+                    "systemctl",
+                    "--user",
+                    "list-unit-files",
+                    "--state=enabled",
+                    "--no-legend",
+                    "--plain",
+                ),
+                description="List the operator's enabled user units",
+            )
+        )
+    except BackendError:
+        return ()
+    if not result.ok:
+        return ()
+    return tuple(line.split()[0] for line in result.stdout.splitlines() if line.strip())
+
+
 def _apply_unattended(args: argparse.Namespace, station: Station, user: str) -> int:
-    """Placeholder completed in Task 12 (D-073 §5a: opt-in linger)."""
-    del args, station, user
-    return EXIT_OK
+    """Opt-in linger for the station operator, through the devctl helper. D-073 §5a.
+
+    ``--unattended`` enables linger; ``--no-unattended`` disables it, but only
+    if Hammunition turned it on (the helper reads its own record). The plan
+    states what linger keeps alive after logout before the prompt.
+    """
+    del station
+    on = bool(args.unattended)
+    code = _helper_ready()
+    if code is not None:
+        return code
+    if on:
+        print("\nKeeping your services running after you log out (linger):")
+        units = _enabled_user_units()
+        if units:
+            print("  linger starts your user manager at boot and keeps it after logout, so")
+            print("  every user service you have enabled keeps running — not only the rig:")
+            for unit in units:
+                print(f"    {unit}")
+        else:
+            print("  linger starts your user manager at boot and keeps every enabled user")
+            print("  service running after you log out.")
+        print(
+            "  With the rig service among them, the transmitter is keyable through "
+            "127.0.0.1:4532 with nobody at the machine."
+        )
+    verb_state = "on" if on else "off"
+    command = Command(
+        argv=("pkexec", HELPER_PATH, "linger", verb_state),
+        description=f"Turn linger {verb_state} for {user or 'this account'}",
+    )
+    print(f"\n  # {command.description}\n  $ {command.display()}")
+    if getattr(args, "dry_run", False):
+        print("\nDry run: nothing above was executed.")
+        return EXIT_OK
+    return _run_helper(command, f"Linger is {verb_state}.")
 
 
 def _apt_lists_note(apt: AptBackend) -> str:
@@ -4017,6 +4074,14 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         print("Nothing to do: every recorded artefact is already gone.")
         return EXIT_OK
 
+    # Linger (D-073 §5a): disable it and remove its record, but only when the
+    # record says Hammunition turned it on — linger that was on already is not
+    # ours. Run directly as root here (unapply escalates its own commands), so
+    # it does not depend on the helper that this same command removes.
+    from hammunition.hardware.linger import LINGER_RECORD, read_record
+
+    linger_record = read_record()
+    linger_ours = linger_record is not None and linger_record.enabled_by_us
     commands = [
         Command(
             argv=("rm", "-f", path),
@@ -4025,6 +4090,22 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         )
         for path in present
     ]
+    if linger_ours:
+        commands.insert(
+            0,
+            Command(
+                argv=("loginctl", "disable-linger", user),
+                description=f"Turn off linger for {user} (Hammunition turned it on)",
+                requires_root=True,
+            ),
+        )
+        commands.append(
+            Command(
+                argv=("rm", "-f", str(LINGER_RECORD)),
+                description="Remove Hammunition's linger record",
+                requires_root=True,
+            )
+        )
     if kept_present:
         commands.append(
             Command(

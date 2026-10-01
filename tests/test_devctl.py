@@ -529,3 +529,46 @@ def test_time_mode_problems_are_exit_1(
     monkeypatch.setattr(devctl, "apply_mode", lambda mode: ["ntpsec did not restart"])
     assert main(["time", "mode", "auto"]) == 1
     assert "unverified: ntpsec did not restart" in capsys.readouterr().err
+
+
+# --- linger (D-073 §5a) ------------------------------------------------------
+
+
+def test_caller_uid_prefers_pkexec_then_sudo_then_self(monkeypatch: pytest.MonkeyPatch) -> None:
+    from hammunition.cli.devctl import caller_uid
+
+    monkeypatch.setenv("PKEXEC_UID", "1001")
+    monkeypatch.setenv("SUDO_UID", "1002")
+    assert caller_uid() == 1001
+    monkeypatch.delenv("PKEXEC_UID")
+    assert caller_uid() == 1002
+    monkeypatch.delenv("SUDO_UID")
+    assert caller_uid() == os.getuid()
+
+
+def test_linger_handler_uses_the_plan(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """`linger on` when it is off runs loginctl enable-linger for the caller's
+    own account and writes an ours=True record — without touching real systemd."""
+    import hammunition.cli.devctl as devctl
+    from hammunition.backends.base import CommandResult
+    from hammunition.hardware import linger as linger_mod
+
+    record = tmp_path / "linger.yaml"
+    monkeypatch.setattr(linger_mod, "LINGER_RECORD", record)
+    monkeypatch.setattr(devctl, "LINGER_RECORD", record)
+    monkeypatch.setattr(devctl, "caller_uid", lambda: os.getuid())
+    monkeypatch.setattr(devctl, "_linger_is_on", lambda _u: False)
+
+    ran: list[tuple[str, ...]] = []
+
+    def fake_run(self: object, command: Any) -> CommandResult:
+        ran.append(command.argv)
+        return CommandResult(argv=command.argv, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(devctl.SubprocessRunner, "run", fake_run)
+
+    rc = devctl.main(["linger", "on"])
+    assert rc == 0
+    assert any(a[:2] == ("loginctl", "enable-linger") for a in ran)
+    back = linger_mod.read_record(path=record)
+    assert back is not None and back.enabled_by_us is True
