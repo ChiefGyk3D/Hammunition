@@ -11,7 +11,24 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
-Nothing yet.
+- **A generated launcher no longer takes a PATH binary's name** (issue
+  #174). `~/.local/bin/rigctl`, libhamlib-utils' launcher, ran ahead of
+  hamlib's `/usr/bin/rigctl`, ignored its arguments and opened the
+  dummy-rig shell, so every guide's `rigctl -l | grep …` waited for Enter.
+  Sixteen more catalog launchers had the same shape, and `gpa`'s
+  `exec gpa` ran itself. All seventeen are renamed for what they do, titles
+  kept (D-054): `rigctl-dummy`, `hackrf_info-check`, `rtl_test-tuner`,
+  `yagiuda-input`, `axlisten-all`, `mheard-stations`, `bladeRF-cli-shell`,
+  `cgps-fix`, `gpsctl-device`, `grgsm_livemon-window`,
+  `osmocom_fft-spectrum`, `gr_satellites-list`, `nfc-list-check`,
+  `st-info-probe`, `ubertooth-util-version`, `gpa-window` and
+  `hamclock-next-window` (the last two gain titles). The schema refuses a
+  launcher named like the bare command it runs or a binary its manifest
+  installs; the generator refuses, at plan time and again when it writes, a
+  name found on the PATH outside `~/.local/bin` or in the unit's apt file
+  list. `hammunition menus apply` removes a generated launcher that shadows
+  a PATH binary, with its menu entry, and writes the renamed one; `doctor`'s
+  launchers check names one. After merge: `hammunition menus apply`.
 
 ## v0.18.0 — 2026-10-01 — the 2026-09 gap analysis: guides, station config for the packet units, GPS time, chrony, Kismet, the HF modems, six apt units, three re-rulings
 

@@ -109,6 +109,20 @@ They are flat tags (**D-003**). They overlap freely and never nest, so give a
 manifest every tag that is true of it rather than choosing the most important
 one.
 
+## A launcher is named for what it does, never for the tool
+
+A `launchers` entry becomes a file in `~/.local/bin`, which comes before
+`/usr/bin` on the operator's `PATH`. Name it `rigctl` and every terminal's
+`rigctl` is your launcher, arguments ignored (issue #174). Put the tool's name
+first and what the launcher does after it — `rigctl-dummy`,
+`hackrf_info-check`, `yagiuda-input` — and give it a `title` in the D-054
+shape, *what it does (command)*, which is what the menu shows. The schema
+refuses a launcher named like the bare command it runs or a binary the
+manifest installs; the generator refuses a name it finds on the `PATH` or in
+the unit's apt file list; `tests/test_launcher_shadowing.py` checks the whole
+catalog. The rule and the repair are in
+[the CLI reference](../reference/cli.md#launchers-and-menu-entries).
+
 ## The documentation block is not optional
 
 `CLAUDE.md` makes it a hard rule and the schema enforces the shape, but the
