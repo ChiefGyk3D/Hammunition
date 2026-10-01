@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**298 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**300 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -311,7 +311,7 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 29
+### `navigation-maps` — 31
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
@@ -325,6 +325,8 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [dem-copernicus](dem-copernicus.md) — Copernicus GLO-30 elevation tiles for your map regions, verified
 - [dem-qmapshack](dem-qmapshack.md) — Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles
 - [gdal-bin](gdal-bin.md) — GDAL's command-line tools for rasters and elevation data
+- [graphhopper](graphhopper.md) — GraphHopper, the offline router behind the browser map's car, bike, foot and hiking routes
+- [graphhopper-graph](graphhopper-graph.md) — GraphHopper's route graph built from your own regions, for routes on the browser map
 - [mapsforge-map](mapsforge-map.md) — Mapsforge vector maps of your OpenStreetMap regions, for phone map apps
 - [mapsforge-poi](mapsforge-poi.md) — Mapsforge points-of-interest files of your regions, for searching on a phone
 - [mkgmap](mkgmap.md) — Builds Garmin-format maps from OpenStreetMap data
@@ -809,6 +811,8 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [gr-osmosdr](gr-osmosdr.md) | One GNU Radio source block that speaks to nearly every SDR | apt |
 | [gr-rds](gr-rds.md) | Decodes the data carried alongside broadcast FM — station names, traffic | apt |
 | [gr-satellites](gr-satellites.md) | Decoders for the telemetry of hundreds of amateur satellites | apt |
+| [graphhopper](graphhopper.md) | GraphHopper, the offline router behind the browser map's car, bike, foot and hiking routes | binary |
+| [graphhopper-graph](graphhopper-graph.md) | GraphHopper's route graph built from your own regions, for routes on the browser map | derived |
 | [gridtracker2](gridtracker2.md) | Live map of FT8/JS8 activity, fed by WSJT-X and JS8Call | binary |
 | [gsmc](gsmc.md) | Interactive Smith chart for designing impedance matching networks | source |
 | [gtk-meshtastic-client](gtk-meshtastic-client.md) | Desktop GUI for Meshtastic nodes | apt |

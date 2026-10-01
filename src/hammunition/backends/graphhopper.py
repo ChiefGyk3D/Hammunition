@@ -42,8 +42,12 @@ from pathlib import Path
 
 from ..geofabrik import RegionFile
 from ..graphhopper import (
+    FACTOR,
+    MEASURED,
+    MEMORY,
     PROPERTIES,
     RECORD,
+    estimate,
     find_jar,
     import_argv,
     import_config,
@@ -66,26 +70,8 @@ CONFIG = "config.yml"
 GRAPH = "graph"
 #: The suffix a graph file is published under before the set is renamed in.
 NEW = ".new"
-MEASURED = "measured on one region"
-#: The graph against the downloads it was built from: 78 MB from Delaware's
-#: 22.1 MB (the routing spike, 2026-09-29), 3.5x, rounded up to 3.7 in case
-#: the spike's MB were MiB.
-FACTOR = 3.7
-#: The import's memory, from the same single measurement.
-MEMORY = (
-    "about 1.2 GB of memory on Delaware's 22.1 MB, the one region measured; "
-    "Java's heap is capped at 4 GB"
-)
-GRAPH_NOTE = (
-    f"the route graph at {FACTOR}x all the downloads together ({MEASURED}), twice over "
-    f"while it builds and installs"
-)
 #: How the operator's ``find`` marks each file it lists.
 _FOUND = "found:"
-
-
-def estimate(total: int) -> int:
-    return round(total * FACTOR)
 
 
 def _tail(text: str) -> str:
@@ -501,4 +487,4 @@ class GraphConverter:
         return None
 
 
-__all__ = ["FACTOR", "GRAPH_NOTE", "GraphConverter", "GraphLedger", "estimate"]
+__all__ = ["GraphConverter", "GraphLedger"]

@@ -23,6 +23,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ..graphhopper import GRAPH_NOTE
 from .base import Action, BackendError
 from .data import human_size
 from .mapsforge import PHONE_NOTE
@@ -280,16 +281,19 @@ def combined_shortfall(
     *,
     phone: Mapping[Path, int] | None = None,
     tiles: Mapping[Path, int] | None = None,
+    graph: Mapping[Path, int] | None = None,
     free_at: Callable[[Path], int] = free_bytes_at,
     device_of: Callable[[Path], int] = device_at,
 ) -> str | None:
     """Piece 1's disk refusal over piece 1's, piece 2's, the phone
-    converters' (D-067) and the vector-tile converter's (D-071) needs
-    together, saying what each added part was estimated from when it counted."""
+    converters' (D-067), the vector-tile converter's (D-071) and the route
+    graph's (D-076) needs together, saying what each added part was
+    estimated from when it counted."""
     phone = phone or {}
     tiles = tiles or {}
+    graph = graph or {}
     merged = dict(map_needs)
-    for extra in (terrain, phone, tiles):
+    for extra in (terrain, phone, tiles, graph):
         for path, amount in extra.items():
             merged[path] = merged.get(path, 0) + amount
     short = disk_shortfall(merged, free_at=free_at, device_of=device_of)
@@ -297,7 +301,12 @@ def combined_shortfall(
         return short
     notes = [
         note
-        for note, part in ((TERRAIN_NOTE, terrain), (PHONE_NOTE, phone), (TILES_NOTE, tiles))
+        for note, part in (
+            (TERRAIN_NOTE, terrain),
+            (PHONE_NOTE, phone),
+            (TILES_NOTE, tiles),
+            (GRAPH_NOTE, graph),
+        )
         if any(part.values())
     ]
     if not notes:

@@ -1,0 +1,94 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: graphhopper
+version: "11.1"
+summary: GraphHopper, the offline router behind the browser map's car, bike, foot and hiking routes
+categories: [navigation-maps]
+
+# D-076. Not in any Debian or Ubuntu archive (the routing spike, 2026-09-29),
+# so the pin is our own, from upstream's release (D-024). The jar is Maven
+# Central's graphhopper-web 11.1, the release the spike measured: 47,331,301
+# bytes; the sha256 below equals Central's .sha256 beside the jar and
+# GitHub's digest for the 11.1 release asset, and Central's .sha512 matched
+# too (downloaded once on 2026-10-01). Central also serves an .asc signature
+# by key ID 11FA9E0B0E2FBADB (issuer fingerprint
+# 43BFB8BF924D7792531DC63F11FA9E0B0E2FBADB), whose owner was not verified;
+# the engine records it and does not check it, and the plan says so. The
+# jar's manifest says Build-Jdk 17.0.20.1 and its classes are major 61, so
+# Java 17 is the floor; Debian 13's default JRE is 21.
+#
+# One file, installed as a tree under its own name: it is not a program the
+# shell runs, so it does not go in bin/. No launcher: `hammunition reference
+# serve` starts it on 127.0.0.1 while the browser map is open, and the
+# graph is built by `graphhopper-graph`.
+depends: [default-jre-headless]
+
+install:
+  - install:
+      method: binary
+      artifact:
+        url: https://repo1.maven.org/maven2/com/graphhopper/graphhopper-web/11.1/graphhopper-web-11.1.jar
+        sha256: 8462f758d9ea49edaded557cec5c687a0a24f004ec371cd4daaeb0534824ea33
+        signature_url: https://repo1.maven.org/maven2/com/graphhopper/graphhopper-web/11.1/graphhopper-web-11.1.jar.asc
+      format: executable
+      install_tree: true
+      tree_marker: graphhopper-web-11.1.jar
+    note: >-
+      Lands as /usr/local/share/hammunition/graphhopper/graphhopper-web-11.1.jar,
+      mode 0644.
+
+update:
+  probe:
+    method: github_release
+    repo: graphhopper/graphhopper
+  strategy: reinstall
+  cadence_hint: >-
+    A few releases a year. A new release is a new jar on Maven Central:
+    download it once, check its sha256 against Central's .sha256 beside it,
+    and bump the URL, the digest, the signature URL, the tree marker (the
+    jar is named by version) and `version`. The route graph is rebuilt on
+    the next install, because its record names the jar that built it, and a
+    graph from another jar is never served.
+
+documentation:
+  what_it_does: >-
+    Installs GraphHopper, an offline route planner, as one Java file under
+    /usr/local/share/hammunition/graphhopper/. `hammunition reference serve`
+    runs it on this machine only while the browser map is open, over the
+    route graph `graphhopper-graph` builds from your map regions, and the
+    map's Route control draws its car, bike, foot and hiking routes, with
+    turn-by-turn directions. Its hiking profile reads how hard a trail is
+    (`sac_scale`), and its foot profile keeps off mountain paths.
+  why_you_want_it: >-
+    The browser map shows where things are; this lets it say how to get
+    there, from your GPS position when the tether is running, with no
+    network. It is the offline alternative to GraphHopper's own website and
+    to a phone's map app. On the desktop, QMapShack's routers (Routino and
+    BRouter) and CoMaps' own routing do the same job in their programs;
+    this is the one for the browser page.
+  prerequisites: >-
+    Java (default-jre-headless, installed with it). The route graph from
+    `graphhopper-graph`, which needs your map regions set in station
+    config. Then `hammunition reference serve` and the map at
+    http://127.0.0.1:8480/map/; the tether (`hammunition maps gps-tether`)
+    for routes from where you are.
+  known_problems: >-
+    GraphHopper's own server answers every web page with
+    `Access-Control-Allow-Origin: *` and checks no Host header (measured on
+    11.1). It listens on 127.0.0.1 only, on a port the system chooses each
+    time `reference serve` starts, and the map reaches it through the
+    reference server, which checks both; but while it runs, a web page from
+    elsewhere in your browser that found that port could ask it for routes
+    over your regions. Stop `reference serve` when you are not using the
+    map. GraphHopper's own page at /maps/ on that port loads online base
+    maps and is not used. Routes are flat: GraphHopper's elevation sources
+    are downloaded online, and none reads the Copernicus tiles Hammunition
+    installs. Not yet confirmed on hardware: a route drawn in a desktop
+    browser on the field laptop; it was run on the development host over a
+    synthetic region.
+  upstream_url: https://github.com/graphhopper/graphhopper
+  upstream_support: >-
+    The project's GitHub issues and its forum, https://discuss.graphhopper.com/;
+    the profiles and custom models are documented in the repository's docs/
+    directory.

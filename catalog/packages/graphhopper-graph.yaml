@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: graphhopper-graph
+version: "station"
+summary: GraphHopper's route graph built from your own regions, for routes on the browser map
+categories: [navigation-maps]
+
+# Derived data (D-076): the engine runs the `graphhopper-import` converter,
+# an enum it implements, over every region osm-regions installed, with the
+# jar the `graphhopper` unit installs. Nothing is downloaded here. The
+# profiles (car, bike, foot, hike) and the configuration are the engine's,
+# because GraphHopper refuses to serve a graph whose profiles changed and the
+# server's configuration must match the import's. osmium-tool merges two
+# regions or more into the import's one input (it is not a catalog unit, so
+# apt installs it, as for brouter-segments).
+#
+# Installed by name only, never in a profile (D-076): the graph is 3.7 times
+# the downloads, the largest factor of any map unit, the import took 1.2 GB
+# of memory on Delaware and is unmeasured on anything larger, and the
+# `navigation` profile already carries three offline routers.
+depends:
+  - osm-regions
+  - graphhopper
+  - osmium-tool
+
+install:
+  - install:
+      method: derived
+      converter: graphhopper-import
+      source: osm-regions
+      program: graphhopper
+      licence: ODbL-1.0
+      licence_url: https://www.openstreetmap.org/copyright
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Rebuilt whenever the set of regions, a region's snapshot, GraphHopper's
+    jar or the converter changes; otherwise left as it is.
+
+documentation:
+  what_it_does: >-
+    Builds one GraphHopper route graph over every map region you have set,
+    with four profiles (car, bike, foot and hike), and installs it under
+    /usr/local/share/hammunition/data/graphhopper-graph/. It runs
+    GraphHopper's own import as the operator in a staging directory, the
+    regions merged into one input when there are two or more, so a route
+    may cross from one region into the next. `hammunition reference serve`
+    serves it to the browser map's Route control.
+  why_you_want_it: >-
+    GraphHopper routes only over a graph built for it, and nobody publishes
+    one to download; this one is built on your machine from the map data
+    Hammunition already downloaded and verified, and covers exactly your
+    regions.
+  prerequisites: >-
+    `osm-regions` with at least one region set; with none, this unit is
+    deferred by name. `graphhopper` (installed with it). Install it by
+    name: `hammunition install graphhopper-graph`; it is in no profile.
+  known_problems: >-
+    Measured on Delaware, a public example state, by the routing spike on
+    2026-09-29: the import took 58 seconds on a busy 8-core host and 1.2 GB
+    of memory, and the graph took 78 MB from a 22.1 MB download. The plan
+    counts the graph at 3.7 times all the downloads together, once in the
+    staging directory while it builds and again under /usr/local; memory on
+    anything larger than Delaware is not measured, and Java's heap is
+    capped at 4 GB, so a very large region may fail for memory, by name.
+    One region that fails fails the whole build, and the installed graph is
+    left as it was. Every step's command was run on the development host
+    against the pinned jar with synthetic regions, and GraphHopper routed
+    over the result. Not yet run: a real region through `hammunition
+    install`.
+  upstream_url: https://github.com/graphhopper/graphhopper
+  upstream_support: >-
+    The import is GraphHopper's own `import` command; issues about it go to
+    GraphHopper's GitHub issues or its forum, https://discuss.graphhopper.com/.

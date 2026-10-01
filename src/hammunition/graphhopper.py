@@ -66,6 +66,26 @@ HOST = "127.0.0.1"
 LOCK = "gh.lock"
 
 
+MEASURED = "measured on one region"
+#: The graph against the downloads it was built from: 78 MB from Delaware's
+#: 22.1 MB (the routing spike, 2026-09-29), 3.5x, rounded up to 3.7 in case
+#: the spike's MB were MiB.
+FACTOR = 3.7
+#: The import's memory, from the same single measurement.
+MEMORY = (
+    "about 1.2 GB of memory on Delaware's 22.1 MB, the one region measured; "
+    "Java's heap is capped at 4 GB"
+)
+GRAPH_NOTE = (
+    f"the route graph at {FACTOR}x all the downloads together ({MEASURED}), twice over "
+    f"while it builds and installs"
+)
+
+
+def estimate(total: int) -> int:
+    return round(total * FACTOR)
+
+
 def _q(value: object) -> str:
     """A YAML scalar: JSON's quoting, which YAML reads as a string."""
     return json.dumps(str(value))

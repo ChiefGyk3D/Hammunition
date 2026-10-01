@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 83 | 2 | 213 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 83 | 2 | 213 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 81 | 2 | 215 |
-| kali-rolling *(unswept)* | 0 | 0 | 76 | 1 | 221 |
-| parrot *(unswept)* | 0 | 0 | 81 | 2 | 215 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 81 | 2 | 215 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 78 | 7 | 213 |
+| debian-13 *(unswept)* | 0 | 0 | 85 | 2 | 213 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 85 | 2 | 213 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 83 | 2 | 215 |
+| kali-rolling *(unswept)* | 0 | 0 | 78 | 1 | 221 |
+| parrot *(unswept)* | 0 | 0 | 83 | 2 | 215 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 83 | 2 | 215 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 80 | 7 | 213 |
 
-**298 manifests** against **7 targets**.
+**300 manifests** against **7 targets**.
 
 ---
 
@@ -161,6 +161,8 @@ build HAS been run in a container say so in their own install notes.
 | `gr-osmosdr` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gr-rds` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gr-satellites` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `graphhopper` | binary | binary | binary | binary | binary | binary | binary |
+| `graphhopper-graph` | derived | derived | derived | derived | derived | derived | derived |
 | `gridtracker2` | binary | binary | binary | binary | binary | binary | binary |
 | `gsmc` | source | source | source | source | source | source | source |
 | `gtk-meshtastic-client` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
