@@ -36,6 +36,7 @@ import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Protocol
 
 from . import s3etag
 from .copernicus import UNPINNED, Ring, S3Probe, TileProbe, squares_touching
@@ -157,7 +158,25 @@ def parse_row(line: str, number: int = 1) -> Quad:
     return Quad(south, west, north, east, size, etag, path)
 
 
-def _cells(quad: Quad) -> Iterable[tuple[int, int]]:
+class Boxed(Protocol):
+    """Anything with a box in degrees: a US Topo or an FSTopo quad."""
+
+    @property
+    def south(self) -> float: ...
+    @property
+    def west(self) -> float: ...
+    @property
+    def north(self) -> float: ...
+    @property
+    def east(self) -> float: ...
+
+
+def boxed_cells(quad: Boxed) -> Iterable[tuple[int, int]]:
+    """The 1/8-degree cells *quad*'s box overlaps with some area."""
+    return _cells(quad)
+
+
+def _cells(quad: Boxed) -> Iterable[tuple[int, int]]:
     """The 1/8-degree cells *quad*'s box overlaps with some area."""
     rows = range(
         math.floor(quad.south * CELLS_PER_DEGREE + _EPSILON),
@@ -189,10 +208,15 @@ class QuadIndex:
                 cells.setdefault(cell, []).append(quad)
         return cls(tuple(quads), {cell: tuple(found) for cell, found in cells.items()})
 
+    @staticmethod
+    def touched(outer: Sequence[Ring], holes: Sequence[Ring] = ()) -> frozenset[tuple[int, int]]:
+        """The 1/8-degree cells an outline touches."""
+        return squares_touching(outer, holes, per_degree=CELLS_PER_DEGREE)
+
     def select(self, outer: Sequence[Ring], holes: Sequence[Ring] = ()) -> tuple[Quad, ...]:
         """Every quad whose box overlaps a cell the outline touches, by path."""
         found: dict[str, Quad] = {}
-        for cell in squares_touching(outer, holes, per_degree=CELLS_PER_DEGREE):
+        for cell in self.touched(outer, holes):
             for quad in self.by_cell.get(cell, ()):
                 found[quad.path] = quad
         return tuple(found[path] for path in sorted(found))

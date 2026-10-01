@@ -243,6 +243,11 @@ jobs:
       # bucket's current/ prefix (six pages) and fail naming each carried tile
       # that is gone or whose size or ETag changed. Nothing is downloaded.
       - run: python scripts/gen_3dep_tiles.py --check
+      # The FSTopo quad index (D-068, amended 2026-10-01): the GTAC index layer
+      # again (about 19 pages), failing naming each carried quad that is gone
+      # or whose box changed. No sheet is downloaded; the pins are grown by
+      # hand with --pin, which does download.
+      - run: python scripts/gen_fstopo_index.py --check
       # The Kiwix book pins (D-066): each pinned file's .meta4 again, about
       # 5 KB a book. Kiwix keeps two dated files per book, so a pin goes about
       # two publications after it is made and this goes red naming it and the

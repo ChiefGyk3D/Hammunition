@@ -1073,6 +1073,28 @@ def test_the_ustopo_index_is_well_formed_offline() -> None:
     assert "well formed" in result.stdout
 
 
+FSTOPO = REPO_ROOT / "catalog" / "data" / "fstopo-quads.txt"
+
+
+def test_the_fstopo_index_and_pins_are_well_formed_offline() -> None:
+    before = FSTOPO.stat().st_mtime_ns
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "gen_fstopo_index.py"),
+            "--check",
+            "--offline",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert FSTOPO.stat().st_mtime_ns == before, "--check wrote a file"
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    assert "well formed" in result.stdout
+
+
 THREEDEP = REPO_ROOT / "catalog" / "data" / "usgs-3dep-tiles.txt"
 
 
