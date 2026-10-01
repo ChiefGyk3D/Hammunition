@@ -18,7 +18,7 @@ It made hardware TNCs optional. A radio, a cheap sound interface and this is a c
 
 ## Before it will work
 
-Audio in and out to the radio, and a way to key the transmitter -- a serial control line, a GPIO pin on a Pi, or VOX. A configuration file naming your callsign, the audio device and the PTT method. That callsign is the station-configuration question this catalog has open; the file is yours to write for now, and the shipped example is heavily commented.
+Audio in and out to the radio, and a way to key the transmitter -- a serial control line, a GPIO pin on a Pi, or VOX. A configuration file naming your callsign, the audio device and the PTT method. That callsign is the station-configuration question this catalog has open; the file is yours to write for now, and the shipped example is heavily commented. Direwolf is an ALSA program: `docs/guides/audio-routing.md` says how to name the radio's sound card in `ADEVICE` and what changes between the `plughw:` and `default` routes on a PipeWire desktop.
 
 ## How it installs
 

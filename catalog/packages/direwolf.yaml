@@ -42,6 +42,9 @@ documentation:
     naming your callsign, the audio device and the PTT method. That callsign is
     the station-configuration question this catalog has open; the file is yours
     to write for now, and the shipped example is heavily commented.
+    Direwolf is an ALSA program: `docs/guides/audio-routing.md` says how to name the radio's sound
+    card in `ADEVICE` and what changes between the `plughw:` and `default`
+    routes on a PipeWire desktop.
   known_problems: >-
     Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it is the
     userspace modem, and its KISS and AGW ports are what the other packet

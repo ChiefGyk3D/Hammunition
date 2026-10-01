@@ -49,9 +49,13 @@ documentation:
     The web interface binds to localhost by default; exposing it to a network
     exposes your mailbox and your Winlink credentials, and there is no
     authentication in front of it. Winlink messages traverse a system with
-    published policies about content and are not private. HF forwarding needs
-    ARDOP or VARA, neither of which is in this catalog yet -- VARA is post-1.0
-    and runs under Wine -- so the honest state today is telnet and packet.
+    published policies about content and are not private. HF needs a modem:
+    `ardopcf` for ARDOP (`ardop://`), or `mercury` through the `varahf://`
+    transport, whose default `localhost:8300` is Mercury's port. Mercury
+    speaks VARA's TCP interface, not VARA's waveform, so it reaches other
+    Mercury stations and not VARA-only gateways; that pair was measured peer
+    to peer with Debian's 0.16.0 and Mercury 1.9.15 on 2026-09-30, with no
+    radio. VARA itself is post-1.0 and runs under Wine.
   upstream_url: https://getpat.io
   upstream_support: >-
     LA5NTA and contributors. GitHub issues and a wiki linked from the site;

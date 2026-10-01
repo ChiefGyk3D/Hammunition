@@ -653,6 +653,20 @@ or it is not written.
 
 ---
 
+## Beyond the six sources — the 2026-09 gap analysis
+
+Units the gap analysis (`catalog-gaps-2026-09.md`) found in the field rather
+than in any of the six inventories. They are ADD by the maintainer's ruling on
+**Q-022**, recorded here so each has a disposition, and kept out of the
+six-source summary and index above, whose counts are the inventories'.
+
+| Unit | Decided | How | What was measured (2026-09-30) |
+|---|---|---|---|
+| **mercury** | ADD — `catalog/packages/mercury.yaml`, `packet` profile (Q-022 #6) | apt on Kali (1.9.13+ds-1); elsewhere a `make` build of tag v1.9.15, the release Debian unstable packages (D-024) | GPL-3.0 LICENSE; default branch `mercuryv2` head 2026-09-30 (D-032). Built on Parrot in 8 s, 156 MiB peak. Debian's pat 0.16.0 carried a message peer to peer through two Mercury 1.9.15 instances wired back to back, with no radio and no sound card. Upstream's own apt repository is not used: its https certificate does not verify. |
+| **freedata** | ADD — `catalog/packages/freedata.yaml`, `packet` profile (Q-022 #6) | venv, the 0.18.2 wheel and 68 dependencies hash-pinned; x86-64 only | GPL-3.0 LICENSE; default branch `main` head 2026-07-27, which is the v0.18.2 tag (D-032). No target packages it. The wheel carries the built web interface and its own libcodec2, so no Node step and no codec2 build. The pinned set installed into a Python 3.13 venv and the codec2 binding loaded; the server was not started. |
+
+---
+
 ## REVIVE — verification log
 
 Three of the six REVIVE units were tested on **2026-08-28** in a Debian 13

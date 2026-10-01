@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 73 | 2 | 206 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 73 | 2 | 206 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 71 | 2 | 208 |
-| kali-rolling *(unswept)* | 0 | 0 | 68 | 0 | 213 |
-| parrot *(unswept)* | 0 | 0 | 71 | 2 | 208 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 71 | 2 | 208 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 70 | 5 | 206 |
+| debian-13 *(unswept)* | 0 | 0 | 79 | 2 | 206 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 79 | 2 | 206 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 77 | 2 | 208 |
+| kali-rolling *(unswept)* | 0 | 0 | 73 | 0 | 214 |
+| parrot *(unswept)* | 0 | 0 | 77 | 2 | 208 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 77 | 2 | 208 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 75 | 6 | 206 |
 
-**281 manifests** against **7 targets**.
+**287 manifests** against **7 targets**.
 
 ---
 
@@ -88,6 +88,8 @@ build HAS been run in a container say so in their own install notes.
 | `code` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `codium` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `coil64` | git | git | git | git | git | git | git |
+| `comaps` | git | git | git | git | git | git | git |
+| `comaps-maps` | mwm-regions | mwm-regions | mwm-regions | mwm-regions | mwm-regions | mwm-regions | mwm-regions |
 | `comptext` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `comptty` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `country-boundaries` | data | data | data | data | data | data | data |
@@ -130,6 +132,7 @@ build HAS been run in a container say so in their own install notes.
 | `flrig` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `flwkey` | source | source | source | source | source | source | source |
 | `flwrap` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `freedata` | venv | venv | venv | venv | venv | venv | — |
 | `freedv` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `garim` | source | source | source | source | source | source | source |
 | `gdal-bin` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -196,6 +199,7 @@ build HAS been run in a container say so in their own install notes.
 | `m2kcli` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `mapsforge-map` | derived | derived | derived | derived | derived | derived | derived |
 | `mapsforge-poi` | derived | derived | derived | derived | derived | derived | derived |
+| `mercury` | git | git | git | apt ? | git | git | git |
 | `mfcuk` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `mfoc` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `minicom` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -223,6 +227,7 @@ build HAS been run in a container say so in their own install notes.
 | `openocd` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `osm-garmin` | derived | derived | derived | derived | derived | derived | derived |
 | `osm-navit` | derived | derived | derived | derived | derived | derived | derived |
+| `osm-pmtiles` | derived | derived | derived | derived | derived | derived | derived |
 | `osm-regions` | osm-regions | osm-regions | osm-regions | osm-regions | osm-regions | osm-regions | osm-regions |
 | `osm-routino` | derived | derived | derived | derived | derived | derived | derived |
 | `osmo-sdr` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -313,6 +318,7 @@ build HAS been run in a container say so in their own install notes.
 | `usbutils` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `usgs-ustopo` | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads |
 | `ustopo-qmapshack` | derived | derived | derived | derived | derived | derived | derived |
+| `vector-map-kit` | data | data | data | data | data | data | data |
 | `voacapl` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `welle-io` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `wfview` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

@@ -28,7 +28,8 @@ hammunition station show
 ```
 
 From then on, `hammunition install` asks the mirror first for every data
-download — each `data` unit's files, each map region, each terrain tile —
+download — each `data` unit's files, each map region, each terrain tile,
+each of CoMaps' maps (`comaps-maps/<version>/<id>.mwm`, D-069) —
 at `<mirror>/<unit>/<name>`, for example
 `http://bunker.lan:8080/osm-regions/north-america/us/vermont`. Anything else
 the install fetches (a source tarball, a prebuilt binary) still comes from

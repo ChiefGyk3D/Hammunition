@@ -1,0 +1,75 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: osm-pmtiles
+version: "station"
+summary: Vector-tile maps of your OpenStreetMap regions, for the offline browser map
+categories: [navigation-maps]
+
+# Derived data (D-071): the engine runs the `tilemaker-pmtiles` converter, an
+# enum it implements, over each region osm-regions installed, with the
+# profile and Natural Earth layers from vector-map-kit. tilemaker and GDAL are
+# the archive's: `apt-cache policy` on Parrot 7 (echo), 2026-09-29: tilemaker
+# 3.0.0-1, gdal-bin 3.10.3+dfsg-1. Debian forky/sid carry tilemaker 3.2.0,
+# Ubuntu 26.04 3.1.0 and Ubuntu 24.04 2.4.0, which writes no PMTiles: the plan
+# reads the version on offer and defers or refuses this unit below 3.0.
+depends: [osm-regions, vector-map-kit, tilemaker, gdal-bin]
+
+install:
+  - install:
+      method: derived
+      converter: tilemaker-pmtiles
+      source: osm-regions
+      kit: vector-map-kit
+      licence: ODbL-1.0
+      licence_url: https://www.openstreetmap.org/copyright
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Follows osm-regions: a region whose downloaded file changed is built
+    again on the next install, and one that did not is skipped.
+
+documentation:
+  what_it_does: >-
+    Builds one PMTiles file of vector tiles per region `osm-regions`
+    downloaded, with the archive's tilemaker and tilemaker's own
+    OpenMapTiles profile, as the operator in a staging directory. The files
+    land under /usr/local/share/hammunition/data/osm-pmtiles/, and
+    `hammunition reference serve` shows them as a map in a browser at
+    http://127.0.0.1:8480/map/, drawn with the OSM Bright style, with your
+    position from `hammunition maps gps-tether`.
+  why_you_want_it: >-
+    A map anyone can open in a browser, with no program to learn, and no
+    network: streets, labels, water, parks and buildings to zoom 14 of every
+    region you chose, drawn on this machine. It is the offline stand-in for
+    an online web map, and a tile source the rest of the station can read
+    later. Navit and QMapShack stay the navigators; this is the map to
+    glance at.
+  prerequisites: >-
+    `osm-regions` with at least one region set in station config,
+    `vector-map-kit`, and the archive's `tilemaker` 3.0 or newer and
+    `gdal-bin`; all install first. With no regions set this unit is deferred
+    by name. Ubuntu 24.04 and the releases built on it carry tilemaker 2.4,
+    which cannot write PMTiles; the plan defers this unit there by name.
+  known_problems: >-
+    Measured by the spike on one region, Delaware (22 MB download), on
+    2026-09-29, with osmdata's simplified water polygons as the ocean:
+    10 to 37 s, 0.49 GB of memory with tilemaker's --store (which the engine
+    passes) against 2.8 GB without it, and a PMTiles file 0.91 times the
+    download, zooms 0 to 14. The engine's own run, with Natural Earth's
+    ocean, has not been run with a real tilemaker yet (none was installed on
+    the development host); the scratch that --store writes was not measured,
+    so the plan allows three times the download. Coasts at street zoom follow
+    Natural Earth's 1:10m line. tilemaker writes one output per run, so no
+    .mbtiles is made: AIS-catcher reads .mbtiles itself and is not served by
+    this. The file carries the Open Database License obligations of the
+    data, and the page draws the credit the OpenMapTiles schema's CC-BY
+    licence requires.
+  upstream_url: https://github.com/systemed/tilemaker
+  upstream_support: >-
+    tilemaker's GitHub issues (https://github.com/systemed/tilemaker/issues)
+    for the conversion; problems in the map data are fixed in OpenStreetMap
+    (https://www.openstreetmap.org/fixthemap).

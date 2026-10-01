@@ -106,6 +106,19 @@ def _machine(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Any:
     from test_json_install import cli
 
     json_machine(monkeypatch, tmp_path)
+    # The archive's tilemaker as Debian 13 carries it: osm-pmtiles needs 3.0 (D-071).
+    from hammunition.backends import AptBackend, AptPackageState
+
+    monkeypatch.setattr(
+        AptBackend,
+        "probe",
+        lambda self, pkgs: {
+            p: AptPackageState(
+                name=p, installed=None, candidate="3.0.0-1" if p == "tilemaker" else "1.0"
+            )
+            for p in pkgs
+        },
+    )
     save_station(
         Station(callsign="N0TST", map_regions=(OCEANIA.region,)),
         path=tmp_path / "xdg_config_home" / "hammunition" / "station.yml",

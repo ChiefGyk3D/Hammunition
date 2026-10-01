@@ -21,8 +21,17 @@ import json
 import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import date
 from urllib.parse import urlparse
 
+from hammunition.comaps import (
+    ComapsError,
+    ComapsPins,
+    gone,
+    map_url,
+    published,
+    version_date,
+)
 from hammunition.kiwix import BookFile, BookPin, KiwixError, KiwixGone, current_file, file_date
 from hammunition.manifest.schema import GitInstall, PackageManifest, SourceInstall
 
@@ -31,6 +40,7 @@ NEWER_UPSTREAM = "newer upstream"
 DIFFERS = "differs"
 UNANSWERED = "unanswered"
 EXPIRED = "pin expired"
+EXPIRING = "pin expiring"
 NOT_UPSTREAM = "not an upstream probe"
 
 Http = Callable[[str], str]
@@ -243,6 +253,61 @@ def probe_kiwix(
     return rows
 
 
+#: How old a CoMaps map version is when ``update --upstream`` starts warning.
+#: Organic Maps' CDN, the same software, kept about four months of versions on
+#: 2026-09-29 (250101 to 260501 gone, 260527 onward kept); CoMaps' own
+#: retention is unmeasured, so the warning comes a month early.
+EXPIRY_WARNING_DAYS = 90
+COMAPS_REGENERATE = (
+    "move comaps.yaml to a newer CoMaps tag and regenerate the map pins with "
+    "scripts/gen_comaps_pins.py"
+)
+
+
+def probe_comaps_maps(
+    unit: str, pins: ComapsPins, *, head: Callable[[str], tuple[int, int]], today: date
+) -> UpstreamRow:
+    """Whether CoMaps' CDN still publishes the pinned map version (D-069).
+
+    One ``HEAD``, of the pinned ``World.mwm``: a version is published or
+    dropped as a whole, and asking about the world map says nothing about
+    the station's regions. It must answer 200 **with the pinned size**; a
+    mirror answers a missing file with 200 and a web page.
+    """
+    catalog = str(pins.version)
+    made = version_date(pins.version)
+    url = map_url(pins, "World")
+
+    def row(upstream: str | None, state: str, detail: str) -> UpstreamRow:
+        return UpstreamRow(unit, "comaps_maps", catalog, upstream, state, detail)
+
+    try:
+        status, size = head(url)
+    except ComapsError as exc:
+        return row(None, UNANSWERED, f"{exc}"[:200])
+    if not published(status, size, pins.maps["World"]):
+        if not gone(status, size, pins.maps["World"]):
+            return row(None, UNANSWERED, f"{url} answered HTTP {status}, not 200")
+        return row(
+            None,
+            EXPIRED,
+            f"{url} answered {status} with {size} bytes: CoMaps' CDN no longer publishes "
+            f"map version {pins.version} ({made}), and an install will refuse the maps; "
+            f"{COMAPS_REGENERATE}",
+        )
+    age = (today - made).days
+    if age >= EXPIRY_WARNING_DAYS:
+        return row(
+            catalog,
+            EXPIRING,
+            f"map version {pins.version} is from {made}, {age} days ago, and still "
+            f"published; the CDN keeps a version about four months (measured on Organic "
+            f"Maps' CDN; CoMaps' own retention is unmeasured), so {COMAPS_REGENERATE} "
+            f"before it goes",
+        )
+    return row(catalog, CURRENT, f"map version {pins.version} ({made}) is published")
+
+
 def render(rows: Sequence[UpstreamRow]) -> str:
     asked = [r for r in rows if r.state != NOT_UPSTREAM]
     out = [f"Upstream ({len(asked)} asked):"]
@@ -256,14 +321,15 @@ def render(rows: Sequence[UpstreamRow]) -> str:
         )
     counts = {
         s: sum(1 for r in asked if r.state == s)
-        for s in (CURRENT, NEWER_UPSTREAM, DIFFERS, UNANSWERED, EXPIRED)
+        for s in (CURRENT, NEWER_UPSTREAM, DIFFERS, UNANSWERED, EXPIRED, EXPIRING)
     }
     out.append("")
     expired = f", {counts[EXPIRED]} pin(s) expired" if counts[EXPIRED] else ""
+    expiring = f", {counts[EXPIRING]} pin(s) expiring" if counts[EXPIRING] else ""
     out.append(
         f"{counts[CURRENT]} current, {counts[NEWER_UPSTREAM]} with a newer upstream, "
         f"{counts[DIFFERS]} differing in a way the numbers do not order, "
-        f"{counts[UNANSWERED]} unanswered{expired}."
+        f"{counts[UNANSWERED]} unanswered{expired}{expiring}."
     )
     newer = [r.unit for r in asked if r.state == NEWER_UPSTREAM and r.method != "kiwix"]
     if newer:
@@ -287,7 +353,7 @@ def render(rows: Sequence[UpstreamRow]) -> str:
         )
         out.append(f"`hammunition install {' '.join(books)}` fetches the newly pinned files.")
     out.append(
-        "Answers came from GitHub, git hosts, PyPI, Kiwix or a version file; nothing was "
+        "Answers came from GitHub, git hosts, PyPI, Kiwix, CoMaps' CDN or a version file; nothing was "
         "downloaded or written."
     )
     return "\n".join(out)

@@ -101,6 +101,14 @@ The desktop reader, `kiwix`, opens the same files by name from
 `/usr/local/share/hammunition/data/kiwix-library/`, if you prefer a window
 to a browser tab.
 
+The same page carries the offline map when `osm-pmtiles` is installed
+(**D-071**): <http://127.0.0.1:8480/map/> draws your map regions in the
+browser, and shows your position while `hammunition maps gps-tether` runs.
+The page's *Map* section links to it, or says what to install.
+[Offline navigation](offline-navigation.md#16-a-map-in-the-browser)
+describes it. The server answers only requests that name 127.0.0.1 or
+localhost, so another site cannot read which regions you carry.
+
 ## 4. Dictionaries
 
 `dictionaries` installs dictd with four databases: GCIDE (English), WordNet
