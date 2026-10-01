@@ -56,3 +56,20 @@ def test_record_absent_reads_none(tmp_path: Path) -> None:
 def test_the_polkit_action_wording_covers_keeping_services_running() -> None:
     xml = policy_xml()
     assert "log out" in xml or "logout" in xml or "logged out" in xml
+
+
+def test_re_enabling_when_already_ours_keeps_it_ours() -> None:
+    """Review I3: running --unattended twice must not flip the record to
+    not-ours, which would make --no-unattended a no-op."""
+    ours = LingerRecord(uid=1000, enabled_by_us=True)
+    plan = plan_linger(on=True, uid=1000, username="op", already_on=True, existing=ours)
+    assert plan.record is not None and plan.record.enabled_by_us is True
+
+
+def test_off_only_disables_when_the_record_is_this_uid() -> None:
+    """Review I3: the record is keyed by uid; user B's off must not disable
+    B's own linger (which we never set) nor delete A's record."""
+    a_record = LingerRecord(uid=1000, enabled_by_us=True)
+    plan = plan_linger(on=False, uid=2000, username="userb", already_on=True, existing=a_record)
+    assert plan.command is None
+    assert plan.remove_record is False

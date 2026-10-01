@@ -80,15 +80,21 @@ def plan_linger(
     ``already_on`` is logind's current linger state for the account;
     ``existing`` is our record of whether we turned it on.
     """
+    ours_already = existing is not None and existing.uid == uid and existing.enabled_by_us
     if on:
         if already_on:
-            # Already lingering, by somebody or something else: record it as not
-            # ours so a later `off` leaves it alone, and run nothing.
+            # Already lingering. If Hammunition set it (our record, this uid),
+            # keep that — re-running --unattended must not flip it to not-ours,
+            # or --no-unattended would then refuse to turn it off (review I3).
             return LingerPlan(
                 command=None,
-                record=LingerRecord(uid=uid, enabled_by_us=False),
+                record=LingerRecord(uid=uid, enabled_by_us=ours_already),
                 remove_record=False,
-                note="linger is already on for this account; left as it was (not ours to undo)",
+                note=(
+                    "linger is already on and was turned on by Hammunition"
+                    if ours_already
+                    else "linger is already on for this account; left as it was (not ours to undo)"
+                ),
             )
         return LingerPlan(
             command=enable_command(username),
@@ -96,8 +102,8 @@ def plan_linger(
             remove_record=False,
             note="linger enabled: user services will keep running after you log out",
         )
-    # off
-    if existing is not None and existing.enabled_by_us:
+    # off: disable only the linger this very uid's record says Hammunition set.
+    if ours_already:
         return LingerPlan(
             command=disable_command(username),
             record=None,
@@ -108,7 +114,7 @@ def plan_linger(
         command=None,
         record=None,
         remove_record=False,
-        note="linger left on: Hammunition did not turn it on, so it is not ours to undo",
+        note="linger left on: Hammunition did not turn it on for this account, not ours to undo",
     )
 
 

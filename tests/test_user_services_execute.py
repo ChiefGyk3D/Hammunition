@@ -120,3 +120,49 @@ def test_user_config_base_is_dot_config_not_the_app_subdir(
     unit = _user_unit_path(base, "hammunition-rigctld")
     assert unit == tmp_path / ".config" / "systemd" / "user" / "hammunition-rigctld.service"
     assert "hammunition/systemd" not in str(unit)
+
+
+def test_removal_skips_a_name_whose_unit_file_is_absent(tmp_path: Path) -> None:
+    """Review I2: disable --now on a never-written unit would exit non-zero and
+    stop the removal; a name with no file on disk yields no steps at all."""
+    steps = user_service_removal_steps(["hammunition-rigctld"], home=tmp_path)
+    assert steps == []
+
+
+def test_removal_acts_on_a_present_unit(tmp_path: Path) -> None:
+    unit_dir = tmp_path / "systemd" / "user"
+    unit_dir.mkdir(parents=True)
+    (unit_dir / "hammunition-rigctld.service").write_text(HEADER + "\n")
+    steps = user_service_removal_steps(["hammunition-rigctld"], home=tmp_path)
+    argvs = [s.argv for s in steps if isinstance(s, Command)]
+    assert ("systemctl", "--user", "disable", "--now", "hammunition-rigctld.service") in argvs
+
+
+def test_install_removes_a_stale_rig_service_when_now_skipped(tmp_path: Path) -> None:
+    """Review I1: switching to flrig (so no rig service is planned) disables and
+    removes the rigctld unit left running from before."""
+    from hammunition.backends import AptBackend, RecordingRunner
+    from hammunition.distro import Target
+    from hammunition.execute import commands_for
+    from hammunition.manifest.load import load_catalog
+    from hammunition.plan import InstallPlan, PlannedPackage
+
+    root = Path(__file__).resolve().parent.parent
+    rig_service = load_catalog(root / "catalog" / "packages")["rig-service"]
+    block = rig_service.install[0]
+
+    unit_dir = tmp_path / "systemd" / "user"
+    unit_dir.mkdir(parents=True)
+    (unit_dir / "hammunition-rigctld.service").write_text(HEADER + "\n")
+
+    target = Target(distro="debian", version="13", arch="x86_64")
+    plan = InstallPlan(
+        target=target,
+        packages=(PlannedPackage(manifest=rig_service, block=block, apt_packages=()),),
+        user_services=(),  # flrig: nothing planned this run
+    )
+    commands = commands_for(
+        plan, apt=AptBackend(RecordingRunner()), user_services_home=tmp_path
+    )
+    argvs = [c.argv for c in commands if isinstance(c, Command)]
+    assert ("systemctl", "--user", "disable", "--now", "hammunition-rigctld.service") in argvs

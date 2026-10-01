@@ -569,10 +569,19 @@ def _remove_user_unit_if_ours(path: Path) -> str:
 def user_service_removal_steps(
     names: Sequence[str], *, home: Path, machine: str | None = None
 ) -> list[Step]:
-    """Disable each named user service and remove its file if it is ours, then
-    reload.  D-073 §6d."""
+    """Disable each named user service whose unit file exists, remove it if it
+    is ours, then reload.  D-073 §6d.
+
+    Only a name whose unit file is present now is touched: ``systemctl --user
+    disable`` on a unit that was never written exits non-zero and would stop a
+    removal at its first step (review I2), and a deferred install wrote no file.
+    This also lets a reinstall that now skips a service (flrig, VOX) or a
+    cleared rig disable and remove the one left running (review I1): the file is
+    present though the service is no longer planned.
+    """
+    present = [name for name in names if _user_unit_path(home, name).exists()]
     steps: list[Step] = []
-    for name in names:
+    for name in present:
         steps.append(
             Command(
                 argv=_systemctl(machine, "disable", "--now", f"{name}.service"),
@@ -588,7 +597,7 @@ def user_service_removal_steps(
                 perform=partial(_remove_user_unit_if_ours, path),
             )
         )
-    if names:
+    if present:
         steps.append(
             Command(
                 argv=_systemctl(machine, "daemon-reload"),
@@ -1023,10 +1032,30 @@ def commands_for(
     # User services after the software and its configuration exist, and only
     # when the caller supplied the operator's home — a caller that does not
     # (older tests, bare planning) plans exactly as before (D-073 §6c).
-    if user_services_home is not None and plan.user_services:
-        commands.extend(
-            user_service_steps(plan, home=user_services_home, machine=user_services_machine)
+    if user_services_home is not None:
+        if plan.user_services:
+            commands.extend(
+                user_service_steps(plan, home=user_services_home, machine=user_services_machine)
+            )
+        # A unit a manifest in this transaction can produce but is NOT writing
+        # this run — the rig was switched to flrig or VOX, or cleared — is
+        # disabled and removed if its file is still present (review I1). The
+        # removal step no-ops on a name whose file is absent.
+        planned_names = {svc.name for svc in plan.user_services}
+        stale = sorted(
+            {
+                svc.name
+                for pkg in plan.packages
+                for svc in pkg.manifest.user_services
+                if svc.name not in planned_names
+            }
         )
+        if stale:
+            commands.extend(
+                user_service_removal_steps(
+                    stale, home=user_services_home, machine=user_services_machine
+                )
+            )
 
     # Launchers after the software and its configuration exist. Generated
     # only when the caller supplies the per-user directories -- a caller that

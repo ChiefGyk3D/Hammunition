@@ -12,6 +12,7 @@ from hammunition.manifest.load import load_catalog, load_hardware
 from hammunition.manifest.schema import PackageManifest
 from hammunition.station import Station
 from hammunition.userservice import (
+    PlannedUserService,
     device_unit_name,
     plan_user_services,
 )
@@ -35,7 +36,7 @@ def test_device_unit_name_matches_systemd_escaping() -> None:
     )
 
 
-def _named(planned: list, name: str):  # type: ignore[no-untyped-def]
+def _named(planned: list[PlannedUserService], name: str) -> PlannedUserService:
     return next(s for s in planned if s.name == name)
 
 

@@ -3159,10 +3159,20 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
     # remove its file only if it still carries our header; a file the operator
     # rewrote is left and named. Linger is untouched — it is a station setting
     # with its own reversal (§5a).
+    # Expand a profile name to its members before looking for user services:
+    # `uninstall station` must reach rig-service, not just a package literally
+    # named "station" (review I2). The removal step itself no-ops on a unit
+    # whose file is absent, so a deferred install leaves nothing to disable.
+    uninstall_units: list[str] = []
+    for name in args.names:
+        if name in profiles:
+            uninstall_units.extend(profiles[name].packages)
+        else:
+            uninstall_units.append(name)
     user_service_names = list(
         dict.fromkeys(
             svc.name
-            for unit in args.names
+            for unit in uninstall_units
             if (unit_manifest := packages.get(unit)) is not None
             for svc in unit_manifest.user_services
         )
@@ -4085,10 +4095,21 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     # record says Hammunition turned it on — linger that was on already is not
     # ours. Run directly as root here (unapply escalates its own commands), so
     # it does not depend on the helper that this same command removes.
+    import pwd as _pwd
+
     from hammunition.hardware.linger import LINGER_RECORD, read_record
 
     linger_record = read_record()
     linger_ours = linger_record is not None and linger_record.enabled_by_us
+    # Act on the uid the record names, not on operator(args): the record is the
+    # account Hammunition turned linger on for, which may not be whoever runs
+    # unapply (review I3).
+    linger_name: str | None = None
+    if linger_ours and linger_record is not None:
+        try:
+            linger_name = _pwd.getpwuid(linger_record.uid).pw_name
+        except KeyError:
+            linger_ours = False
     commands = [
         Command(
             argv=("rm", "-f", path),
@@ -4097,12 +4118,12 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         )
         for path in present
     ]
-    if linger_ours:
+    if linger_ours and linger_name is not None:
         commands.insert(
             0,
             Command(
-                argv=("loginctl", "disable-linger", user),
-                description=f"Turn off linger for {user} (Hammunition turned it on)",
+                argv=("loginctl", "disable-linger", linger_name),
+                description=f"Turn off linger for {linger_name} (Hammunition turned it on)",
                 requires_root=True,
             ),
         )
