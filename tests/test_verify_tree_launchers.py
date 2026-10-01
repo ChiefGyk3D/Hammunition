@@ -364,6 +364,7 @@ def test_every_catalog_launcher_working_directory_is_under_the_shared_prefix() -
         "mshv": ("mshv",),
         "navit": ("navit-offline",),
         "openhamclock": ("openhamclock",),
+        "pihpsdr": ("pihpsdr-window",),
         "pygpsclient": ("pygpsclient",),
         "qmapshack": ("qmapshack-offline", "gps-tether"),
         "radiosonde-auto-rx": ("radiosonde-auto-rx",),
