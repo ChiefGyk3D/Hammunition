@@ -34,6 +34,9 @@ from hammunition.backends.terrain import (
     GARMIN_FACTOR,
     MEASURED,
     ROUTINO_FACTOR,
+    SDF_BYTES,
+    SDF_MEASURED,
+    SDF_SCRATCH_BYTES,
     WARP_FACTOR,
     brouter_estimate,
     contour_bytes,
@@ -162,6 +165,7 @@ def plan_state(
                 "routino-planetsplitter": not terrain.routino_regions,
                 "gdal-dem": not terrain.drawing,
                 "brouter-mapcreator": not terrain.brouter_regions,
+                "splat-sdf": not terrain.splat_building,
             }
             if quiet.get(method.converter, False):
                 return "already installed"
@@ -509,6 +513,12 @@ class TerrainSectionView(Strict):
         "Forest Service FSTopo quads and their map (D-068, amended 2026-10-01); null when "
         "neither is planned"
     )
+    splat_tiles: int = described(
+        "tiles SPLAT's terrain (SDF files) is made for this run, for SPLAT! and Signal-Server "
+        "(D-061, amended 2026-10-02)"
+    )
+    splat_estimate: int = described("bytes those files are estimated to take")
+    splat_estimate_human: str = described("as the text prints it")
 
 
 @dataclass(frozen=True)
@@ -943,7 +953,8 @@ def _terrain_section(terrain: TerrainDisclosure | None) -> TerrainSectionView | 
     routino = routino_estimate(terrain.routino_total)
     contours = terrain.contours * contour_bytes(terrain.elevation)
     brouter = brouter_estimate(terrain.brouter_total)
-    disk = download + sum(g.estimate for g in garmin) + routino + contours + brouter
+    splat = terrain.splat_tiles * SDF_BYTES
+    disk = download + sum(g.estimate for g in garmin) + routino + contours + brouter + splat
     return TerrainSectionView(
         regions=tuple(
             TerrainRegionLine(
@@ -985,6 +996,9 @@ def _terrain_section(terrain: TerrainDisclosure | None) -> TerrainSectionView | 
         contours_from=terrain.elevation,
         bare_earth=_bare_earth_section(terrain.bare_earth),
         fstopo=_fstopo_section(terrain.fstopo),
+        splat_tiles=terrain.splat_tiles,
+        splat_estimate=splat,
+        splat_estimate_human=human_size(splat),
     )
 
 
@@ -1562,6 +1576,13 @@ def _render_terrain(terrain: TerrainSectionView) -> list[str]:
     if built:
         lines.append(f"  Built for QMapShack (sizes an estimate, {terrain.estimate_note}):")
         lines.extend(built)
+    if terrain.splat_tiles:
+        lines.append(f"  Built for SPLAT! and Signal-Server (sizes an estimate, {SDF_MEASURED}):")
+        lines.append(
+            f"    SDF terrain for {terrain.splat_tiles} tile(s)  about "
+            f"{terrain.splat_estimate_human} (both resolutions, bzip2), with up to "
+            f"{human_size(SDF_SCRATCH_BYTES)} of scratch at a time"
+        )
     lines.append(
         f"      about {terrain.disk_total_human} of disk for terrain and QMapShack's maps "
         f"({terrain.estimate_note})"

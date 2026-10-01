@@ -241,6 +241,7 @@ class SourceInstall(Strict):
     @classmethod
     def _project_file_inside_the_tree(cls, value: str | None) -> str | None:
         return _project_file_inside(value)
+
     patches: list[Patch] = Field(default_factory=list)
     build_dir: str | None = None
     autoreconf: bool = Field(
@@ -403,8 +404,7 @@ def _project_file_inside(value: str | None) -> str | None:
     configures ``<tree>/<project_file>`` (D-061, amended 2026-10-02)."""
     if value is not None and not _inside_tree(value):
         raise ManifestError(
-            f"project_file must be a relative path inside the source tree, with no '..': "
-            f"{value!r}"
+            f"project_file must be a relative path inside the source tree, with no '..': {value!r}"
         )
     return value
 
@@ -531,6 +531,7 @@ class GitInstall(Strict):
     @classmethod
     def _project_file_inside_the_tree(cls, value: str | None) -> str | None:
         return _project_file_inside(value)
+
     build_args: list[str] = Field(default_factory=list)
     autoreconf: bool = Field(
         default=False,

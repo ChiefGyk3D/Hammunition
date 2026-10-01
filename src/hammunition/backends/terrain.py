@@ -207,6 +207,8 @@ class TerrainWork:
     """The sheet size of each FSTopo sheet ``ustopo-mosaic`` converts."""
     elevation: str = "copernicus-glo30"
     """The provider the contours are drawn from, for their estimates."""
+    splat_tiles: int = 0
+    """How many tiles get SPLAT's terrain made (D-061, amended 2026-10-02)."""
 
     def any(self) -> bool:
         return bool(
@@ -220,6 +222,7 @@ class TerrainWork:
             or self.bare_earth
             or self.sheets
             or self.convert
+            or self.splat_tiles
         )
 
 
@@ -233,6 +236,7 @@ def terrain_needs(
     prefix: Path,
     brouter_staging: Path | None = None,
     mosaic_staging: Path | None = None,
+    splat_staging: Path | None = None,
 ) -> dict[Path, int]:
     """Bytes each location needs: each tile and sheet in the fetch cache and
     under the prefix; the largest Garmin build's scratch (they run one at a
@@ -242,13 +246,16 @@ def terrain_needs(
     again under the prefix. BRouter's build (D-063): its allowance of scratch,
     the merged input when there are two regions or more, one square's
     ``.hgt`` files and every square's ``.bef`` in its staging directory, and
-    its routing files under the prefix."""
+    its routing files under the prefix. SPLAT's terrain (D-061, amended
+    2026-10-02): one tile's scratch at a time in its staging directory, and
+    every tile's files under the prefix."""
     garmin_out = sum(garmin_estimate(size) for size in work.garmin)
     routino_out = routino_estimate(work.routino)
     brouter_out = brouter_estimate(work.brouter)
     contours = work.contour_tiles * contour_bytes(work.elevation)
     warped = round(sum(work.warp) * WARP_FACTOR)
     converted = round(sum(work.convert) * FSTOPO_FACTOR)
+    splat_out = work.splat_tiles * SDF_BYTES
     downloads = work.tiles + work.quads + work.bare_earth + work.sheets
     brouter_scratch = (
         BROUTER_SCRATCH_FACTOR * work.brouter
@@ -280,8 +287,19 @@ def terrain_needs(
             ),
         ),
         (
+            splat_staging or contour_staging,
+            SDF_SCRATCH_BYTES if work.splat_tiles else 0,
+        ),
+        (
             prefix,
-            downloads + garmin_out + routino_out + contours + brouter_out + warped + converted,
+            downloads
+            + garmin_out
+            + routino_out
+            + contours
+            + brouter_out
+            + warped
+            + converted
+            + splat_out,
         ),
     ):
         needs[where] = needs.get(where, 0) + round(amount)

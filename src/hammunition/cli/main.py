@@ -183,6 +183,7 @@ from hammunition.terrain_plan import (
     contour_source,
     resolve_station_3dep,
     resolve_station_terrain,
+    splat_source,
 )
 from hammunition.tiles_plan import build_tiles_run
 from hammunition.topo_plan import (
@@ -2785,6 +2786,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         dem_source=station.elevation,
         contour_source=contour_source(plan),
         fstopo=fstopo_resolution,
+        splat_source=splat_source(plan),
     )
     # D-067: the phone converters, from the same regions, as the operator.
     phone = build_phone_run(
