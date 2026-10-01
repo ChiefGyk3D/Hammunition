@@ -3639,12 +3639,13 @@ this command runs, and only then; nothing here is the operator's.
 
 ### repeaters
 
-A repeater layer written from the operator's own export, or from
-hearham's list on request. Counts and paths only: no repeater's callsign
-or position is carried.
+A repeater layer written from the operator's own export, hearham's
+list on request (D-064), or one of D-074's sources. Counts and paths
+only: no repeater's callsign or position, and no region, is carried.
 
 | field | type | meaning |
 |---|---|---|
+| `layer_id` | string | `export` (D-064's layer), `open-repeater`, `osm`, `etcc`, `brandmeister` or `aprs-heard` (D-074) |
 | `layer` | string | the layer's name, as QMapShack's project and POI file show it |
 | `exported` | string | YYYY-MM-DD: `--exported`, else the oldest input's modification date; a fetch's own date |
 | `licences` | list of string | each source's licence text, printed before anything |
@@ -3654,8 +3655,9 @@ or position is carried.
 | `merged` | integer | rows merged into another: same callsign, output frequency and position to 0.01 degree |
 | `written` | integer | repeaters in the layer |
 | `directory` | string | where the layer's files are, mode 0700 |
-| `files` | list of string | the files written, mode 0600: GPX, POI, Navit textfile |
-| `registered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order |
+| `files` | list of string | the files written, mode 0600: GPX, POI, Navit textfile and the rows as data |
+| `registered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order, for every layer present |
+| `all_sources` | [`AllSourcesView`](#allsourcesview) | the all-sources file, rebuilt after the write |
 
 #### `InputView`
 
@@ -3663,12 +3665,12 @@ One file read.
 
 | field | type | meaning |
 |---|---|---|
-| `path` | string | the file as given |
-| `format` | string | `repeaterbook-gpx`, `repeaterbook-csv`, `hearham-json` or `hand-csv` |
-| `read` | integer | rows, objects or waypoints in it |
-| `used` | integer | of those, the ones with a position and a callsign |
+| `path` | string | the file as given; a fetch's URL; for `osm-extract`, the directory of the region extracts, never a region's name |
+| `format` | string | `repeaterbook-gpx`, `repeaterbook-csv`, `hearham-json` or `hand-csv` (D-064); `open-repeater-json`, `osm-extract`, `etcc-csv`, `brandmeister-json` or `direwolf-log` (D-074) |
+| `read` | integer | rows, objects, devices or waypoints in it |
+| `used` | integer | of those, the ones kept: a position and a callsign or frequency |
 | `skipped` | list of [`SkipView`](#skipview) | the rest, by reason |
-| `sha256` | string | the digest of the file as read |
+| `sha256` | string | the digest of what was read (several logs: of their bytes in order); empty for `osm-extract`, whose extracts' digests would name the regions |
 
 #### `SkipView`
 
@@ -3691,11 +3693,86 @@ What a program was told about the layer.
 | `outcome` | string | `added`, `already there`, `written`, `removed`, `not there`, `not written` or `refused` |
 | `detail` | string | the sentence the text prints after the outcome |
 
+#### `AllSourcesView`
+
+``repeaters-all.gpx``: the directory layers joined (D-074).
+
+| field | type | meaning |
+|---|---|---|
+| `file` | string or null | the file, mode 0600; null when fewer than two directory layers could be read, and the file is then absent |
+| `name` | string | its name, `Repeaters (all sources, YYYY-MM-DD)`; empty when null |
+| `layers` | list of string | the layer ids joined, in precedence order |
+| `written` | integer | repeaters in it |
+| `merged` | integer | rows joined to another source's: same output frequency and the same callsign or within 0.02 degree |
+| `skipped` | list of [`LayerSkipView`](#layerskipview) | layers that could not be read |
+
+#### `LayerSkipView`
+
+A layer the all-sources file could not read.
+
+| field | type | meaning |
+|---|---|---|
+| `layer` | string | the layer's id |
+| `reason` | string | why it was left out |
+
 <details><summary>JSON Schema</summary>
 
 ```json
 {
   "$defs": {
+    "AllSourcesView": {
+      "additionalProperties": false,
+      "description": "``repeaters-all.gpx``: the directory layers joined (D-074).",
+      "properties": {
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "File"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "layers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Layers",
+          "type": "array"
+        },
+        "written": {
+          "title": "Written",
+          "type": "integer"
+        },
+        "merged": {
+          "title": "Merged",
+          "type": "integer"
+        },
+        "skipped": {
+          "items": {
+            "$ref": "#/$defs/LayerSkipView"
+          },
+          "title": "Skipped",
+          "type": "array"
+        }
+      },
+      "required": [
+        "file",
+        "name",
+        "layers",
+        "written",
+        "merged",
+        "skipped"
+      ],
+      "title": "AllSourcesView",
+      "type": "object"
+    },
     "InputView": {
       "additionalProperties": false,
       "description": "One file read.",
@@ -3737,6 +3814,26 @@ What a program was told about the layer.
         "sha256"
       ],
       "title": "InputView",
+      "type": "object"
+    },
+    "LayerSkipView": {
+      "additionalProperties": false,
+      "description": "A layer the all-sources file could not read.",
+      "properties": {
+        "layer": {
+          "title": "Layer",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "layer",
+        "reason"
+      ],
+      "title": "LayerSkipView",
       "type": "object"
     },
     "RegistrationView": {
@@ -3799,8 +3896,12 @@ What a program was told about the layer.
     }
   },
   "additionalProperties": false,
-  "description": "A repeater layer written from the operator's own export, or from\nhearham's list on request. Counts and paths only: no repeater's callsign\nor position is carried.",
+  "description": "A repeater layer written from the operator's own export, hearham's\nlist on request (D-064), or one of D-074's sources. Counts and paths\nonly: no repeater's callsign or position, and no region, is carried.",
   "properties": {
+    "layer_id": {
+      "title": "Layer Id",
+      "type": "string"
+    },
     "layer": {
       "title": "Layer",
       "type": "string"
@@ -3856,9 +3957,13 @@ What a program was told about the layer.
       },
       "title": "Registered",
       "type": "array"
+    },
+    "all_sources": {
+      "$ref": "#/$defs/AllSourcesView"
     }
   },
   "required": [
+    "layer_id",
     "layer",
     "exported",
     "licences",
@@ -3869,7 +3974,8 @@ What a program was told about the layer.
     "written",
     "directory",
     "files",
-    "registered"
+    "registered",
+    "all_sources"
   ],
   "title": "RepeatersDocument",
   "type": "object"
@@ -3880,20 +3986,95 @@ What a program was told about the layer.
 
 ### repeaters-removed
 
-The repeater layer deleted and unregistered. Removing nothing is not
-an error: every list is then empty.
+Repeater layers deleted and unregistered. Removing nothing is not an
+error: every list is then empty.
 
 | field | type | meaning |
 |---|---|---|
-| `directory` | string | where the layer was |
+| `directory` | string | where the layers are |
+| `layers` | list of string | the layer ids asked for: the one `--layer` named, else every layer |
 | `removed` | list of string | the files deleted |
-| `unregistered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order |
+| `unregistered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order, for the layers left |
+| `all_sources` | [`AllSourcesView`](#allsourcesview) | the all-sources file, rebuilt from what is left |
 
 <details><summary>JSON Schema</summary>
 
 ```json
 {
   "$defs": {
+    "AllSourcesView": {
+      "additionalProperties": false,
+      "description": "``repeaters-all.gpx``: the directory layers joined (D-074).",
+      "properties": {
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "File"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "layers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Layers",
+          "type": "array"
+        },
+        "written": {
+          "title": "Written",
+          "type": "integer"
+        },
+        "merged": {
+          "title": "Merged",
+          "type": "integer"
+        },
+        "skipped": {
+          "items": {
+            "$ref": "#/$defs/LayerSkipView"
+          },
+          "title": "Skipped",
+          "type": "array"
+        }
+      },
+      "required": [
+        "file",
+        "name",
+        "layers",
+        "written",
+        "merged",
+        "skipped"
+      ],
+      "title": "AllSourcesView",
+      "type": "object"
+    },
+    "LayerSkipView": {
+      "additionalProperties": false,
+      "description": "A layer the all-sources file could not read.",
+      "properties": {
+        "layer": {
+          "title": "Layer",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "layer",
+        "reason"
+      ],
+      "title": "LayerSkipView",
+      "type": "object"
+    },
     "RegistrationView": {
       "additionalProperties": false,
       "description": "What a program was told about the layer.",
@@ -3926,11 +4107,18 @@ an error: every list is then empty.
     }
   },
   "additionalProperties": false,
-  "description": "The repeater layer deleted and unregistered. Removing nothing is not\nan error: every list is then empty.",
+  "description": "Repeater layers deleted and unregistered. Removing nothing is not an\nerror: every list is then empty.",
   "properties": {
     "directory": {
       "title": "Directory",
       "type": "string"
+    },
+    "layers": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Layers",
+      "type": "array"
     },
     "removed": {
       "items": {
@@ -3945,12 +4133,17 @@ an error: every list is then empty.
       },
       "title": "Unregistered",
       "type": "array"
+    },
+    "all_sources": {
+      "$ref": "#/$defs/AllSourcesView"
     }
   },
   "required": [
     "directory",
+    "layers",
     "removed",
-    "unregistered"
+    "unregistered",
+    "all_sources"
   ],
   "title": "RepeatersRemovedDocument",
   "type": "object"
