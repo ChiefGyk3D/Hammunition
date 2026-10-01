@@ -253,7 +253,7 @@ def test_osm_json_document_names_the_directory_with_no_digest(
 def test_direwolf_logs_are_their_own_heard_layer_and_never_in_all_sources(
     station: Station, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    one, two = station.copy("direwolf-2026-10-01.log"), station.copy("direwolf-2026-10-02.log")
+    one, two = station.copy("direwolf-2026-10-01.csv"), station.copy("direwolf-2026-10-02.csv")
     hand = station.copy("hand.csv")
     assert cli.main(["maps", "repeaters", "import", str(hand)]) == 0
     capsys.readouterr()

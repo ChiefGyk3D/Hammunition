@@ -145,7 +145,7 @@ def test_what_is_not_brandmeisters_device_list_is_refused() -> None:
 
 
 def test_direwolf_log_keeps_objects_in_a_repeater_band() -> None:
-    parsed = rs.read_direwolf_logs([FIXTURES / "direwolf-2026-10-01.log"])
+    parsed = rs.read_direwolf_logs([FIXTURES / "direwolf-2026-10-01.csv"])
     assert parsed.format == repeaters.DIREWOLF and parsed.read == 8
     by_name = {r.label or r.callsign: r for r in parsed.rows}
     assert set(by_name) == {"146.940NE", "147.000-N", "N0TST-R", "N0TST", "443.100+N", "224.580"}
@@ -163,7 +163,7 @@ def test_direwolf_log_keeps_objects_in_a_repeater_band() -> None:
 
 def test_direwolf_logs_heard_again_merge_to_the_newest_hearing() -> None:
     parsed = rs.read_direwolf_logs(
-        [FIXTURES / "direwolf-2026-10-01.log", FIXTURES / "direwolf-2026-10-02.log"]
+        [FIXTURES / "direwolf-2026-10-01.csv", FIXTURES / "direwolf-2026-10-02.csv"]
     )
     assert parsed.read == 11
     assert _reasons(parsed) == {
@@ -193,7 +193,7 @@ def test_a_file_that_is_not_a_direwolf_log_is_refused(tmp_path: Path) -> None:
     [
         ("open-repeater.json", "--from-open-repeater"),
         ("etcc.csv", "fetch-etcc"),
-        ("direwolf-2026-10-01.log", "--from-direwolf-log"),
+        ("direwolf-2026-10-01.csv", "--from-direwolf-log"),
     ],
 )
 def test_the_export_import_names_the_route_for_a_new_source(name: str, says: str) -> None:
