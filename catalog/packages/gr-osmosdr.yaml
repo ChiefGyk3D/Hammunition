@@ -17,7 +17,7 @@ install:
 # `menus apply` could not pick one without guessing. This is the pick: the
 # entry an operator opens first. Terminal launchers hold their window.
 launchers:
-  - name: osmocom_fft
+  - name: osmocom_fft-spectrum
     exec: osmocom_fft
     title: SDR spectrum display (osmocom_fft)
     terminal: true

@@ -15,7 +15,7 @@ install:
 # `menus apply` could not pick one without guessing. This is the pick: the
 # entry an operator opens first. Terminal launchers hold their window.
 launchers:
-  - name: st-info
+  - name: st-info-probe
     exec: st-info --probe
     title: ST-Link probe (st-info)
     terminal: true

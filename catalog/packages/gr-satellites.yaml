@@ -17,7 +17,7 @@ install:
 # `menus apply` could not pick one without guessing. This is the pick: the
 # entry an operator opens first. Terminal launchers hold their window.
 launchers:
-  - name: gr_satellites
+  - name: gr_satellites-list
     exec: gr_satellites --list_satellites
     title: gr-satellites decoder list (gr_satellites)
     terminal: true

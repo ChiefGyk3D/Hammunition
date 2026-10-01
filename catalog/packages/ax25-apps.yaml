@@ -20,7 +20,7 @@ install:
 # `menus apply` could not pick one without guessing. This is the pick: the
 # entry an operator opens first. Terminal launchers hold their window.
 launchers:
-  - name: axlisten
+  - name: axlisten-all
     exec: axlisten -a
     title: AX.25 channel monitor (axlisten)
     terminal: true

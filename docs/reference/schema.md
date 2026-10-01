@@ -264,9 +264,9 @@ A generated wrapper script. 14 AHRL units need one.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `name` | `str` | **yes** | The wrapper's filename under <prefix>/bin, so the launcher is also what a shell finds by that name. |
+| `name` | `str` | **yes** | The wrapper's filename in ~/.local/bin, so the launcher is also what a shell finds by that name -- ahead of /usr/bin. It therefore never takes the name of the command it runs, of a binary the manifest installs, or of anything on the system PATH or in the unit's apt file list: name it for what it does (rigctl-dummy, hackrf_info-check; issue #174). |
 | `exec` | `str` | **yes** | Command template. May reference {endpoint:NAME}. A line starting with `hammunition` runs the engine, written into the wrapper as the absolute path of the hammunition that generated it (issue #145). |
-| `title` | `str \| None` | no | What the desktop menu shows for this launcher. Defaults to `name`, which is fine when the name is the tool's known name (rigctl, hackrf_info) and not when it is a bare word (yagiuda's `input`). The convention is what it does, then the command in parentheses. |
+| `title` | `str \| None` | no | What the desktop menu shows for this launcher. Defaults to `name`, which a file name rarely says well (`rigctl-dummy`). The convention is what it does, then the command in parentheses (D-054). |
 | `working_directory` | `str \| None` | no |  |
 | `terminal` | `bool` | no (default `False`) |  |
 

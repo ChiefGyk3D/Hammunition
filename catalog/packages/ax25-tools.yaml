@@ -16,7 +16,7 @@ install:
 # `menus apply` could not pick one without guessing. This is the pick: the
 # entry an operator opens first. Terminal launchers hold their window.
 launchers:
-  - name: mheard
+  - name: mheard-stations
     exec: mheard
     title: AX.25 stations heard (mheard)
     terminal: true

@@ -1493,8 +1493,11 @@ class Launcher(Strict):
 
     name: str = Field(
         description=(
-            "The wrapper's filename under <prefix>/bin, so the launcher is also "
-            "what a shell finds by that name."
+            "The wrapper's filename in ~/.local/bin, so the launcher is also what a "
+            "shell finds by that name -- ahead of /usr/bin. It therefore never takes "
+            "the name of the command it runs, of a binary the manifest installs, or "
+            "of anything on the system PATH or in the unit's apt file list: name it "
+            "for what it does (rigctl-dummy, hackrf_info-check; issue #174)."
         ),
     )
     exec: str = Field(
@@ -1508,9 +1511,8 @@ class Launcher(Strict):
         default=None,
         description=(
             "What the desktop menu shows for this launcher. Defaults to `name`, "
-            "which is fine when the name is the tool's known name (rigctl, "
-            "hackrf_info) and not when it is a bare word (yagiuda's `input`). "
-            "The convention is what it does, then the command in parentheses."
+            "which a file name rarely says well (`rigctl-dummy`). The convention "
+            "is what it does, then the command in parentheses (D-054)."
         ),
     )
     working_directory: str | None = None
@@ -2190,6 +2192,43 @@ class PackageManifest(Strict):
                     f"{self.name}: launcher {launcher.name!r} has the same name as the "
                     f"node wrapper it would overwrite in ~/.local/bin — name the "
                     f"launcher differently or set the node block's `command`"
+                )
+        return self
+
+    @model_validator(mode="after")
+    def _launcher_does_not_shadow_its_command(self) -> PackageManifest:
+        """A launcher is never named like the program it runs (issue #174).
+
+        The wrapper is written to ``~/.local/bin``, which comes before
+        ``/usr/bin`` on Debian's PATH, so a launcher called ``rigctl`` *is*
+        ``rigctl`` to every shell: it swallowed ``rigctl -l`` and opened the
+        dummy-rig shell on the field laptop, and ``gpa``'s ``exec gpa`` ran
+        itself until killed. The same holds for a name the manifest's own
+        ``binaries`` install. The generator also refuses a name it finds on
+        the system PATH or in the unit's apt file list; this is the half that
+        needs no machine to measure.
+        """
+        installed = {b.install_as for b in self.binaries}
+        for launcher in self.launchers:
+            words = launcher.exec.split()
+            if words[:1] == ["exec"]:
+                words = words[1:]
+            command = words[0] if words else ""
+            # A bare name is found on PATH, where the launcher now comes
+            # first. A path ({venv}/bin/pygpsclient) runs that file; whether
+            # the path is on PATH is the generator's measurement, not this.
+            if "/" not in command and launcher.name == command:
+                raise ManifestError(
+                    f"{self.name}: launcher {launcher.name!r} is named like the command it "
+                    f"runs; the wrapper lands in ~/.local/bin, ahead of /usr/bin on PATH, so "
+                    f"it would shadow the real {command} and swallow its arguments -- rename "
+                    f"the launcher to say what it does (e.g. {command}-<what>) and keep its title"
+                )
+            if launcher.name in installed:
+                raise ManifestError(
+                    f"{self.name}: launcher {launcher.name!r} is named like a binary this "
+                    f"manifest's `binaries` install, which it would shadow from ~/.local/bin "
+                    f"-- rename the launcher to say what it does and keep its title"
                 )
         return self
 

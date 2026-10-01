@@ -15,7 +15,7 @@ install:
 # `menus apply` could not pick one without guessing. This is the pick: the
 # entry an operator opens first. Terminal launchers hold their window.
 launchers:
-  - name: input
+  - name: yagiuda-input
     exec: input
     title: Yagi-Uda design input (input)
     terminal: true

@@ -88,6 +88,7 @@ def run_checks(
     launchers_ok: tuple[str, ...] = (),
     launchers_bare: tuple[str, ...] = (),
     launchers_broken: tuple[tuple[str, str], ...] = (),
+    launchers_shadowing: tuple[tuple[str, str], ...] = (),
 ) -> list[Check]:
     """Every check, in the order a person should read them. Pure; see module docstring."""
     checks: list[Check] = []
@@ -358,7 +359,10 @@ def run_checks(
     # ~/.local/bin on PATH. One written before that says bare `hammunition`;
     # one whose checkout moved names a path that is gone. Either fails from
     # the menu with "not found", status 127, and nothing else says so.
-    if launchers_broken or launchers_bare:
+    # Issue #174: a generated launcher named like a binary on the PATH runs
+    # in that binary's place from every shell -- `rigctl -l` opened the
+    # dummy-rig shell on the field laptop.
+    if launchers_broken or launchers_bare or launchers_shadowing:
         parts = [
             f"{launcher} runs {target}, which is gone or not executable"
             for launcher, target in launchers_broken
@@ -368,15 +372,26 @@ def run_checks(
             f"reports as not found"
             for launcher in launchers_bare
         ]
+        parts += [
+            f"{launcher} shadows {binary}: a shell typing `{Path(launcher).name}` runs "
+            f"the launcher, which ignores its arguments"
+            for launcher, binary in launchers_shadowing
+        ]
+        fixes: list[str] = []
         if launchers_broken:
-            fix = (
+            fixes.append(
                 "run ./bootstrap.sh in the checkout you use (it relinks "
                 "~/.local/bin/hammunition), then `hammunition menus apply`, which "
                 "rewrites the launchers with that engine's path"
             )
-        else:
-            fix = "hammunition menus apply (it rewrites them with the engine's full path)"
-        checks.append(Check("launchers", "warn", "; ".join(parts), fix))
+        elif launchers_bare:
+            fixes.append("hammunition menus apply (it rewrites them with the engine's full path)")
+        if launchers_shadowing:
+            fixes.append(
+                "hammunition menus apply (it removes a launcher that shadows a PATH binary "
+                "and writes the catalog's renamed one)"
+            )
+        checks.append(Check("launchers", "warn", "; ".join(parts), "; ".join(fixes)))
     elif launchers_ok:
         count = len(launchers_ok)
         noun = "launcher runs" if count == 1 else "launchers run"

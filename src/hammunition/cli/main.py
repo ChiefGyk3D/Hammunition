@@ -3059,12 +3059,17 @@ def refresh_menus_after_install(catalog_root: Path) -> list[str]:
         groups=vocabulary.groups,
     )
     steps += cli_entry_steps(generated, applications, vocabulary.icons)
-    steps += missing_launcher_steps(
-        manifests.values(),
-        bin_dir=user_bin_dir(None),
-        applications_dir=applications,
-        prefix=DEFAULT_PREFIX,
-    )
+    # Issue #174: a launcher the catalog renamed is written under its new
+    # name here; removing the old one is `menus apply`'s, which prints it.
+    try:
+        steps += missing_launcher_steps(
+            manifests.values(),
+            bin_dir=user_bin_dir(None),
+            applications_dir=applications,
+            prefix=DEFAULT_PREFIX,
+        )
+    except BackendError as exc:
+        return [f"Menu: not re-applied -- {exc}"]
     steps += refresh_launcher_entries(manifests.values(), applications)
     steps += decorate_entries(applications, vocabulary.icons)
     for step in steps:
@@ -3082,6 +3087,7 @@ def refresh_menus_after_install(catalog_root: Path) -> list[str]:
 
 def cmd_menus_apply(args: argparse.Namespace) -> int:
 
+    from hammunition.launchers import shadowing_launcher_steps
     from hammunition.menus import (
         APPLICATIONS_DIR,
         LOCAL_APPLICATIONS_DIR,
@@ -3139,14 +3145,21 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
         cli_entry_steps(generated, paths.directories_dir.parent / "applications", vocabulary.icons)
     )
     applications = paths.directories_dir.parent / "applications"
-    steps.extend(
-        missing_launcher_steps(
-            manifests.values(),
-            bin_dir=user_bin_dir(None),
-            applications_dir=applications,
-            prefix=DEFAULT_PREFIX,
+    # Issue #174: a generated launcher named like a PATH binary is removed
+    # first, and the catalog's renamed one is written below; both print.
+    steps.extend(shadowing_launcher_steps(user_bin_dir(None), applications))
+    try:
+        steps.extend(
+            missing_launcher_steps(
+                manifests.values(),
+                bin_dir=user_bin_dir(None),
+                applications_dir=applications,
+                prefix=DEFAULT_PREFIX,
+            )
         )
-    )
+    except BackendError as exc:
+        print(f"Refusing to write a launcher: {exc}", file=sys.stderr)
+        return EXIT_FAILED
     steps.extend(refresh_launcher_entries(manifests.values(), applications))
     steps.extend(decorate_entries(applications, vocabulary.icons))
 
@@ -4296,10 +4309,12 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     except (OSError, CatalogError, SystemExit):
         time_state = None
 
-    from hammunition.launchers import survey_engine_launchers
+    from hammunition.launchers import survey_engine_launchers, survey_shadowing_launchers
 
     # Issue #145: every generated launcher that runs the engine can reach it.
     engine_launchers = survey_engine_launchers(Path(local_bin))
+    # Issue #174: and none is named like a binary the PATH already has.
+    shadowing_launchers = survey_shadowing_launchers(Path(local_bin))
 
     sessions = scan_sessions()
     checks = run_checks(
@@ -4333,6 +4348,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         launchers_ok=engine_launchers.ok,
         launchers_bare=engine_launchers.bare,
         launchers_broken=engine_launchers.broken,
+        launchers_shadowing=shadowing_launchers,
     )
 
     from hammunition.interface.doctor import build_doctor, render_doctor

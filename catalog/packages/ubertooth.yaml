@@ -16,7 +16,7 @@ install:
 # `menus apply` could not pick one without guessing. This is the pick: the
 # entry an operator opens first. Terminal launchers hold their window.
 launchers:
-  - name: ubertooth-util
+  - name: ubertooth-util-version
     exec: ubertooth-util -v
     title: Ubertooth board check (ubertooth-util)
     terminal: true

@@ -16,7 +16,7 @@ install:
 # `menus apply` could not pick one without guessing. This is the pick: the
 # entry an operator opens first. Terminal launchers hold their window.
 launchers:
-  - name: nfc-list
+  - name: nfc-list-check
     exec: nfc-list
     title: NFC reader and tag check (nfc-list)
     terminal: true
