@@ -1,0 +1,50 @@
+{
+  "schema": "hammunition/1",
+  "kind": "artifacts",
+  "engine": "<engine>",
+  "map_regions": [],
+  "map_freshness": "yearly",
+  "reference_books": [
+    "ham.stackexchange.com_en_all",
+    "wikipedia_en_medicine_nopic",
+    "no.such.book_en_all"
+  ],
+  "units": [
+    "kiwix-library"
+  ],
+  "artifacts": [
+    {
+      "unit": "kiwix-library",
+      "name": "ham.stackexchange.com_en_all",
+      "url": "https://download.kiwix.org/zim/stack_exchange/ham.stackexchange.com_en_all_2026-08.zim",
+      "check": "sha256",
+      "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "checksum_url": null,
+      "size": 76000000,
+      "licence": "CC BY-SA",
+      "deferred": null
+    },
+    {
+      "unit": "kiwix-library",
+      "name": "wikipedia_en_medicine_nopic",
+      "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_en_medicine_nopic_2026-07.zim",
+      "check": "sha256",
+      "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "checksum_url": null,
+      "size": 1100000000,
+      "licence": "CC BY-SA 4.0 (text; media individually licensed)",
+      "deferred": null
+    },
+    {
+      "unit": "kiwix-library",
+      "name": "no.such.book_en_all",
+      "url": null,
+      "check": null,
+      "digest": null,
+      "checksum_url": null,
+      "size": null,
+      "licence": "each book's own, from catalog/data/kiwix-books.yaml",
+      "deferred": "not in the catalog's book list: no.such.book_en_all. `hammunition reference books` lists the books the catalog offers; a book not on it has no licence the catalog can print, so it is not offered"
+    }
+  ]
+}

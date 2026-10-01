@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 205 | 8 | 82 | 2 | 0 |
-| ubuntu-26.04 | 207 | 6 | 82 | 2 | 0 |
-| ubuntu-24.04 | 200 | 15 | 79 | 3 | 0 |
-| kali-rolling | 213 | 8 | 75 | 1 | 0 |
-| parrot | 210 | 5 | 80 | 2 | 0 |
-| linuxmint-22.3 | 200 | 15 | 79 | 3 | 0 |
-| debian-13-arm64 | 204 | 9 | 77 | 7 | 0 |
+| debian-13 | 205 | 8 | 83 | 2 | 0 |
+| ubuntu-26.04 | 207 | 6 | 83 | 2 | 0 |
+| ubuntu-24.04 | 200 | 15 | 80 | 3 | 0 |
+| kali-rolling | 213 | 8 | 76 | 1 | 0 |
+| parrot | 210 | 5 | 81 | 2 | 0 |
+| linuxmint-22.3 | 200 | 15 | 80 | 3 | 0 |
+| debian-13-arm64 | 204 | 9 | 78 | 7 | 0 |
 
-**297 manifests** against **7 targets**.
+**298 manifests** against **7 targets**.
 
 ---
 
@@ -304,6 +304,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `odr-dabmod` | apt | apt | apt | apt | apt | apt | apt |
 | `odr-dabmux` | apt | apt | apt | apt | apt | apt | apt |
 | `odr-padenc` | apt | apt | apt | apt | apt | apt | apt |
+| `open-repeater` | data | data | data | data | data | data | data |
 | `opencpn` | apt | apt | apt | apt | apt | apt | apt |
 | `openfpgaloader` | apt | apt | apt | apt | apt | apt | apt |
 | `openhamclock` | node | node | node | node | node | node | node |

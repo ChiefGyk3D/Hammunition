@@ -55,8 +55,8 @@ import zipfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from hammunition.fetch import Fetcher, operator_dir, remove_tree
 from hammunition.manifest.schema import (
     Binary,
     InstallBlock,
@@ -67,6 +67,16 @@ from hammunition.manifest.schema import (
 )
 
 from .base import Action, BackendError, Command
+
+if TYPE_CHECKING:
+    # Type-only: `hammunition.backends/__init__.py` imports this module
+    # eagerly, and `hammunition.fetch` imports `hammunition.backends.base`,
+    # so a module-level import here is the other half of #158's cycle.
+    # `Fetcher` is only ever used in an annotation, which `from __future__
+    # import annotations` defers, so it never needs a real import.
+    # `operator_dir` and `remove_tree` are real runtime dependencies, unlike
+    # `Fetcher`, and are imported locally where they are used instead.
+    from hammunition.fetch import Fetcher
 
 __all__ = [
     "DEFAULT_PREFIX",
@@ -216,6 +226,11 @@ def prepare_tree(destination: Path) -> str:
     directory afterwards, which an operator-uid process can race; that is a
     separate, open issue, not solved here.
     """
+    # Late import: see the TYPE_CHECKING comment at the top of this module
+    # (#158's cycle) -- hammunition.fetch has finished loading by the time any
+    # backend actually runs, so this costs a sys.modules lookup, not a reload.
+    from hammunition.fetch import operator_dir, remove_tree
+
     # The build root and the unit's directory are the operator's even under
     # sudo, or the operator's own later steps there fail with EACCES.
     with operator_dir(destination.parent) as parent_fd:
@@ -268,6 +283,11 @@ def extract(archive: Path, destination: Path, *, members: Sequence[str] | None =
     than one top-level entry it is unpacked as-is, and the root is still
     ``destination``.
     """
+    # Late import: see the TYPE_CHECKING comment at the top of this module
+    # (#158's cycle) -- hammunition.fetch has finished loading by the time any
+    # backend actually runs, so this costs a sys.modules lookup, not a reload.
+    from hammunition.fetch import operator_dir, remove_tree
+
     staging = destination.parent / (destination.name + ".unpack")
     # Idempotent: a re-run rebuilds from a clean tree rather than layering a
     # new archive over a half-built one, where a stale object file outlives

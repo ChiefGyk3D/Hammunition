@@ -30,6 +30,7 @@ from pathlib import Path
 
 from hammunition.gpstime.grants import TimeGrants, plan_time_grants
 from hammunition.hardware.detect import AttachedDevice, Match, match_catalog, read_usb_bus
+from hammunition.hardware.gps_resume import GpsResume, plan_gps_resume
 from hammunition.hardware.polkit import PolkitArtifacts, plan_polkit
 from hammunition.hardware.udev import RULES_PATH, Omission, rules_file
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
@@ -70,6 +71,10 @@ class HardwarePlan:
     time: TimeGrants | None = None
     """GPS time's grants (D-058), or None when the caller did not ask for them."""
 
+    gps_resume: GpsResume | None = None
+    """The GPS receiver's resume step (issue #177), or None when the caller did
+    not ask for it or no catalog entry declares one."""
+
     @property
     def is_noop(self) -> bool:
         return (
@@ -77,6 +82,7 @@ class HardwarePlan:
             and not self.groups_to_add
             and self.polkit.is_noop
             and (self.time is None or self.time.is_noop)
+            and (self.gps_resume is None or self.gps_resume.is_noop)
         )
 
 
@@ -108,6 +114,7 @@ def plan_hardware(
     sysfs_root: Path | None = None,
     polkit: PolkitArtifacts | None = None,
     with_time: bool = False,
+    with_gps_resume: bool = False,
 ) -> HardwarePlan:
     """Resolve a hardware plan. Reads sysfs and the current rules file; writes nothing.
 
@@ -125,6 +132,12 @@ def plan_hardware(
     ``with_time``: `hardware apply` passes True, and the plan carries GPS
     time's grants (D-058); `list` and `doctor` leave it off, so neither asks
     dpkg anything.
+
+    ``with_gps_resume``: `hardware apply` passes True unless `--no-gps-resume`,
+    and the plan carries the resume step (issue #177) when an entry declares
+    ``resume: {step: gpsd_reopen}``. Raises
+    :class:`~hammunition.hardware.gps_resume.GpsResumeError` on a file at the
+    step's path that Hammunition did not write.
     """
     all_entries: list[DeviceClass | DeviceManifest] = [*classes.values(), *devices.values()]
     content, omissions = rules_file(all_entries)
@@ -155,4 +168,11 @@ def plan_hardware(
         unrecognised=unrecognised,
         polkit=polkit if polkit is not None else plan_polkit(),
         time=plan_time_grants() if with_time else None,
+        gps_resume=_resume_step(all_entries) if with_gps_resume else None,
     )
+
+
+def _resume_step(entries: list[DeviceClass | DeviceManifest]) -> GpsResume | None:
+    """The resume step, when any catalog entry asks for it by name."""
+    wanted = any(e.resume is not None and e.resume.step == "gpsd_reopen" for e in entries)
+    return plan_gps_resume() if wanted else None

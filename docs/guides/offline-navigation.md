@@ -911,7 +911,12 @@ work, not what has been seen to.
 Your own repeater list, converted on this machine into a layer QMapShack and
 Navit both show (**D-064**). Hammunition fetches nothing from RepeaterBook
 and ships no repeater data: you export it with your own account, and the
-conversion happens here, offline.
+conversion happens here, offline. Five more sources each make a layer of
+their own beside it (**D-074**): Open Repeater's open list, the repeaters
+tagged in your OpenStreetMap regions, the UK's ETCC list, Brandmeister's
+DMR repeaters, and the repeater objects your own station heard on APRS.
+Every layer says where it came from, its date and its licence in its name
+and description, so a wrong entry can be traced and a source dropped.
 
 ### Get an export
 
@@ -957,8 +962,8 @@ keep the files to your own machines. Positions are approximate: a map
 overlay to find a machine to talk through, not directions to a repeater
 site.
 
-A new import replaces the layer. To refresh it, export again and import
-again.
+A new import replaces this layer and leaves the other sources' layers as
+they are. To refresh it, export again and import again.
 
 ### See it
 
@@ -990,24 +995,138 @@ other life-and-death operations". To combine it with your RepeaterBook
 export, save hearham's JSON yourself and give both files to one
 `maps repeaters import`.
 
+### More sources, one layer each
+
+What was measured on 2026-10-01 is blunt: open bulk repeater data for the
+US barely exists. Across Delaware, Vermont and the Shenandoah valley these
+sources together added about one repeater to hearham's list. They earn
+their place elsewhere: outside the US, in the UK, on DMR, and in what your
+own radio hears.
+
+**Open Repeater (CC0).** The only bulk directory found under an open
+licence. Its rows today are in Sweden, Malaysia and India, with one in
+Canada.
+
+```
+hammunition install open-repeater
+hammunition maps repeaters import --from-open-repeater
+```
+
+The first installs Open Repeater's whole list (about 241 kB), checked
+against the digest the catalog pinned; a LAN mirror (`docs/guides/lan-mirror.md`)
+can serve it. The second makes the layer *Repeaters (Open Repeater
+YYYY-MM-DD, CC0)*, dated by the newest entry's verification. A copy you
+downloaded yourself works too: `--from-open-repeater ~/Downloads/file.json`.
+Open Repeater's download address carries no date, so the catalog's pin goes
+stale whenever the site changes; the install then refuses the file by its
+digest until the pin is regenerated (the weekly check says when).
+
+**Your OpenStreetMap regions.** No download at all: the repeaters tagged in
+the region extracts you already installed for the maps.
+
+```
+hammunition maps repeaters import --from-osm
+```
+
+It needs `osmium` (the `osmium-tool` package, which `osm-navit` brings).
+Mappers have tagged under a thousand repeaters worldwide, few in the US, so
+expect a short list or none; the layer is *Repeaters (OpenStreetMap, ODbL,
+YYYY-MM-DD)*, dated by your oldest extract. Mappers write the frequency in
+several ways (`146.685`, `146685`, `145350000` and, for 146.61 MHz,
+`1466100000` were all found); the import tries each unit and takes the one
+that lands in a repeater band. The data is under the ODbL: if you share
+the layer, its share-alike terms apply to it.
+
+**The UK's ETCC list (RSGB).**
+
+```
+hammunition maps repeaters fetch-etcc
+```
+
+fetches ukrepeater.net's whole list (about 62 kB) when you run it. It
+states no licence, so the layer is marked *unverified* with the digest of
+what arrived. Its positions are Maidenhead locators, and a four-character
+locator puts a repeater at the centre of its square, which can be tens of
+kilometres from the hill it is on: each repeater's description says which
+locator it came from.
+
+**Brandmeister's DMR repeaters.**
+
+```
+hammunition maps repeaters fetch-brandmeister
+```
+
+fetches Brandmeister's device list (about 9.5 MB). **Most of that list is
+hotspots: somebody's house.** Only repeaters are kept, a 6-digit id whose
+transmit and receive frequencies differ; every hotspot is dropped before
+anything is written, and only how many is printed. No terms are published,
+so this layer is *unverified* too. hearham already carries most of
+Brandmeister's repeaters; this mainly adds colour codes.
+
+**What your station heard.** Direwolf decodes the APRS repeater objects
+local digipeaters send (one or two per area, the machines a traveller is
+pointed to). Start Direwolf with `-l ~/direwolf-logs` (or `-L file`) to keep
+its log, then:
+
+```
+hammunition maps repeaters import --from-direwolf-log ~/direwolf-logs/*.log
+```
+
+makes *Repeaters heard off the air (APRS objects, YYYY-MM-DD)*, dated by
+the last hearing. Nothing is fetched and no login is used. Direwolf's log
+does not say whether an object was withdrawn, so one that was is still
+shown. This layer stays apart from the directories: it is evidence of what
+you heard, not a listing.
+
+### All sources in one file
+
+With two directory layers or more, every import, fetch and remove rebuilds
+`repeaters-all.gpx` in the same folder: each repeater once, for a phone or
+QMapShack's *File → Load*. Two entries from different sources are the same
+repeater when their output frequency matches and they are within about
+2 km, or carry the same callsign within about 25 km. Where they disagree,
+the better source wins: your own export or list, then the ETCC, Open
+Repeater, hearham, Brandmeister, OpenStreetMap; a detail the winner lacks
+(an offset, a tone) is filled from the next. Each entry says every source
+that listed it, and the import prints how many were joined. The APRS layer
+is never in it. QMapShack and Navit show every layer anyway, so in them the
+same repeater can appear once per source.
+
 ### Remove it
 
 ```
 hammunition maps repeaters remove
+hammunition maps repeaters remove --layer osm
 ```
 
-deletes the layer's files and takes the directory out of QMapShack's
-settings. Navit goes back to the generated configuration at its next start.
+The first deletes every layer and the all-sources file and takes the
+directory out of QMapShack's settings; Navit goes back to the generated
+configuration at its next start. The second deletes one layer
+(`export`, `open-repeater`, `osm`, `etcc`, `brandmeister` or `aprs-heard`)
+and rebuilds the rest.
 
 ### Not carried
 
 - Anything fetched from RepeaterBook. Its API needs approval, and its
   data-use terms forbid bulk extraction and offline bundling without written
-  permission.
+  permission. The ARRL's directory is RepeaterBook's data under the same
+  terms.
 - Xastir, whose point layers live in a root-owned map directory, and YAAC,
   whose importer makes APRS objects it can transmit (a D-021 matter, not a
   map).
-- The FCC's licence database, which has no coordinates.
+- The FCC's licence database: US repeaters are not licensed individually,
+  and its records carry a mailing address, not a site.
+- RadioReference (private viewing only without a licence), RFinder (a paid
+  app with no bulk data), RadioID (its terms exclude mapping, and its list
+  has no positions), the WIA's CSV (all rights reserved, no positions),
+  repeatermap.de (a token on request only), and the D-STAR, YSF and NXDN
+  lists (personal-use pages, or internet reflectors without positions).
+- Australia's ACMA register is open and has positions, but it is a 67.5 MB
+  daily file for about 500 repeaters; it is a route named for a later data
+  unit, not built yet.
+- An APRS-IS capture, and the US coordinators' and Brandmeister's lists
+  under an explicit licence: those wait on the maintainer's decision
+  (D-074).
 
 ---
 
