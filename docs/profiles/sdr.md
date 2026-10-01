@@ -8,23 +8,23 @@
 
 ## What it installs
 
-Three general-purpose receivers with waterfalls, GNU Radio and the block that lets a flow graph talk to almost any radio, fosphor's GPU-drawn spectrum and waterfall blocks for it, the SoapySDR tools and the RTL-SDR driver stack, the client and server halves of network SDR sharing, an offline signal visualiser, an RDS decoder, a transceiver application for hardware that transmits, and a complete GPS receiver in software.
+Three general-purpose receivers with waterfalls, GNU Radio and the block that lets a flow graph talk to almost any radio, fosphor's GPU-drawn spectrum and waterfall blocks for it, the SoapySDR tools and the RTL-SDR driver stack, the client and server halves of network SDR sharing, an offline signal visualiser, an RDS decoder, two transceiver applications for hardware that transmits -- Quisk, and piHPSDR for OpenHPSDR radios such as the ANAN and the Hermes Lite 2 -- and a complete GPS receiver in software.
 
-**Disk footprint:** Around 1.5 GB, most of it GNU Radio and its Python stack. Without GNU Radio the rest is roughly 300 MB. `gr-fosphor` (added 2026-09-30) also pulls `gnuradio-dev`, GNU Radio's development headers; what that adds has not been measured.
+**Disk footprint:** Around 1.5 GB, most of it GNU Radio and its Python stack. Without GNU Radio the rest is roughly 300 MB. `gr-fosphor` (added 2026-09-30) also pulls `gnuradio-dev`, GNU Radio's development headers; what that adds has not been measured. `pihpsdr` (added 2026-10-01) is a source build whose GTK 3 development dependencies came to about 1.0 GB on a bare debian:13 image. Its first start spends minutes to an hour computing FFTW wisdom; see its package page.
 
 ## Why these belong together
 
 Everything here works with one cheap dongle, and the driver layer is what makes the applications interchangeable — software written against SoapySDR reaches your radio through a module, which is why installing the right one is usually the difference between an application listing your radio and showing an empty device list.
 **The network pair is worth the two packages.** Run the server where the antenna is and the client where you are sitting, and every SoapySDR program reaches the remote radio unchanged. Getting the antenna away from a modern house is the single biggest improvement available to most receivers.
 
-## Packages (15)
+## Packages (16)
 
-[`gqrx-sdr`](../packages/gqrx-sdr.md), [`sdrpp`](../packages/sdrpp.md), [`cubicsdr`](../packages/cubicsdr.md), [`gnuradio`](../packages/gnuradio.md), [`gr-osmosdr`](../packages/gr-osmosdr.md), [`gr-fosphor`](../packages/gr-fosphor.md), [`soapysdr-tools`](../packages/soapysdr-tools.md), [`soapysdr-module-rtlsdr`](../packages/soapysdr-module-rtlsdr.md), [`rtl-sdr`](../packages/rtl-sdr.md), [`soapyremote-server`](../packages/soapyremote-server.md), [`soapysdr-module-remote`](../packages/soapysdr-module-remote.md), [`inspectrum`](../packages/inspectrum.md), [`gr-rds`](../packages/gr-rds.md), [`quisk`](../packages/quisk.md), [`gnss-sdr`](../packages/gnss-sdr.md)
+[`gqrx-sdr`](../packages/gqrx-sdr.md), [`sdrpp`](../packages/sdrpp.md), [`cubicsdr`](../packages/cubicsdr.md), [`gnuradio`](../packages/gnuradio.md), [`gr-osmosdr`](../packages/gr-osmosdr.md), [`gr-fosphor`](../packages/gr-fosphor.md), [`soapysdr-tools`](../packages/soapysdr-tools.md), [`soapysdr-module-rtlsdr`](../packages/soapysdr-module-rtlsdr.md), [`rtl-sdr`](../packages/rtl-sdr.md), [`soapyremote-server`](../packages/soapyremote-server.md), [`soapysdr-module-remote`](../packages/soapysdr-module-remote.md), [`inspectrum`](../packages/inspectrum.md), [`gr-rds`](../packages/gr-rds.md), [`quisk`](../packages/quisk.md), [`pihpsdr`](../packages/pihpsdr.md), [`gnss-sdr`](../packages/gnss-sdr.md)
 
 ## What it deliberately excludes
 
 **Eleven of the twelve per-device SoapySDR modules.** Airspy, bladeRF, LimeSDR, MiriSDR, PlutoSDR, Red Pitaya, RFSpace, USRP, OsmoSDR, audio and the FUNcube all have manifests and none is installed here, because a one-dongle user needs one module and installing twelve to be safe is exactly what D-020 exists to avoid. Install the one matching your hardware by name. `soapysdr-module-rtlsdr` is the exception on frequency grounds rather than principle: an RTL-SDR is what most people have.
-Also excludes transmit-capable and interception tooling, which is `rf-security` and the consent-gated `rf-research`; the DAB transmit chain, which emits into a broadcast band; and the aeronautical and utility decoders, which are `listening`.
+Also excludes transmit-capable research and interception tooling, which is `rf-security` and the consent-gated `rf-research`. The two transceiver programs here, `quisk` and `pihpsdr`, transmit the way a station transceiver does: when you key them, on the frequency shown, and a licence and the band plan apply. Installing them transmits nothing; the profile also excludes the DAB transmit chain, which emits into a broadcast band; and the aeronautical and utility decoders, which are `listening`.
 
 ## What you configure by hand afterward
 

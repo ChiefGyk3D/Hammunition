@@ -29,6 +29,29 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   Measured on one Copernicus tile and in a container; not yet run through
   an install on a real region.
 
+- **The rig is station data: one shared `rigctld` for every program**
+  (**D-073**, status proposed, bench owed). A `rig` hardware class and a
+  `rig` block on a radio's manifest describe the radio — a hamlib model and
+  CAT port, or a `ptt_only` shape for a radio with no CAT — and five station
+  values (`rig`, `rig_device`, `rig_baud`, `rig_ptt_line`, `rig_owner`),
+  checked against the catalog and this machine's hamlib as you set them, say
+  which radio is on the station. A new `rig-service` unit in the `station`
+  profile carries a `user_services` manifest block: the engine renders one
+  `rigctld` as a systemd **user** service bound to `127.0.0.1:4532`, enables
+  it, discloses the unit file and the no-password warning in the plan, and
+  removes only its own file on uninstall. A missing value defers the service
+  and the rest installs (D-035); `rig_owner: flrig` and VOX skip it. The
+  FT-991A (CAT) and the UV-50PRO (PTT-only) ship `untested`. Opt-in
+  `hammunition station set --unattended` keeps user services running after
+  logout through a new `hammunition-devctl linger` verb behind the existing
+  polkit action. A browser-producible HTTP POST was measured to key hamlib's
+  dummy model over loopback, so a small loopback filter (`hammunition.rigproxy`)
+  sits in front: `rigctld` binds `127.0.0.1:4632` and the filter binds the port
+  programs use, 4532, dropping any connection that opens with an HTTP request
+  line; a regression test guards it. `doctor` checks both services read-only and
+  never keys the transmitter. gpredict's radio file is written for the shared
+  `rigctld`; `docs/guides/rig-control.md` is rewritten around the service.
+
 - **Forest Service FSTopo sheets and USGS 3DEP bare-earth elevation**
   (D-068, amended 2026-10-01). `usfs-fstopo` installs the FSTopo
   7.5-minute sheets, with trail numbers, for the station's regions over
@@ -175,6 +198,22 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   comaps --dry-run` shows whether the two new packages are planned (not
   checked on a machine with CoMaps at its pin); if they are not,
   `sudo apt install geoclue-2.0 libqt6positioning6-plugins` adds them.
+- **piHPSDR and DroidStar are carried; FreeDV 2.x is not yet** (gap
+  analysis D.10, first batch; Q-022 says these need a D-032 check and a
+  measured build, not a ruling). `pihpsdr` is the operating program for
+  OpenHPSDR transceivers (ANAN, Hermes Lite 2), a `make` build of DL1YCF's
+  tag v3.0 in the `sdr` profile beside Quisk. `droidstar` is a reflector
+  client for M17, DMR, D-STAR, Fusion, P25 and NXDN with its vocoders
+  compiled in, an own-choice commit pin in `digital-modes` beside `qtel`, on
+  Debian 13, Parrot, Kali and Ubuntu 26.04 (Ubuntu 24.04 and Mint have Qt
+  6.4, below its floor); a two-line patch turns off its ARM-only MD-380
+  firmware vocoder, and only its executable is installed because its
+  install rule deploys Qt into the prefix. Both transmit when keyed, and
+  their pages and profiles say so. FreeDV 2.4.0 builds, but fetches RADE's
+  C port and RNNoise from `main` while building: `source-build-gaps.md` #9,
+  a row in `not-carried.md` (whose generator now validates the
+  gap-analysis "Not added" rows too), and a note on `freedv`, which is
+  1.8.11 without RADE on every target.
 
 - **`CHECKS` now names `sha1-publisher`** (**D-070**, **D-069**). The
   `artifacts` document's `check` field was already described as able to

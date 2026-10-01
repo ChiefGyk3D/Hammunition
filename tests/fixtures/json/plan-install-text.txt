@@ -54,6 +54,17 @@ Consent gates that will be presented:
 Configuration that will be written:
   /etc/fixture-apt.conf  (written, mode 0644, existing file backed up)  [fixture-apt]  fills callsign
 
+User services (D-073), run as you, not root:
+  rig-service: hammunition-rigctld
+    writes   ~/.config/systemd/user/hammunition-rigctld.service
+    runs     /usr/bin/rigctld -m 1035 -r /dev/serial/by-id/usb-Silicon_Labs_CP2105_…-if00-port0 -s 38400 -T 127.0.0.1 -t 4532
+    filled from: rig, rig_baud, rig_device
+    listens  127.0.0.1:4532 — any program on this machine can key the transmitter through it; it has no password (rigctld -A is not implemented)
+    then     systemctl --user daemon-reload
+             systemctl --user enable hammunition-rigctld.service
+             (restart deferred: hammunition-rigctld starts when the radio's port appears)
+    reverse  hammunition uninstall rig-service
+
 Desktops read from session files (/usr/share/xsessions, /usr/share/wayland-sessions and the same under /usr/local/share):
   Xfce; also sway.desktop, which names no desktop the catalog knows
 

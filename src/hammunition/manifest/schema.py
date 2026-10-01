@@ -43,6 +43,8 @@ __all__ = [
     "RiskCategory",
     "Selector",
     "Status",
+    "UserService",
+    "UserServiceListen",
     "derived_source_method_problem",
     "effective_binaries",
 ]
@@ -1750,6 +1752,145 @@ class ConfigFile(Strict):
         return self
 
 
+#: Names the engine derives at plan time from the catalog, not stored on the
+#: station, and so not in `TEMPLATE_VARIABLES`: the hamlib model and kind come
+#: from the selected rig's manifest, the uppercase PTT line from `rig_ptt_line`
+#: (D-073 §5, §6a). A `user_services` block may reference these in its `exec`;
+#: the rig planning layer fills them.
+RIG_DERIVED_AT_PLAN = frozenset({"rig_hamlib_model", "rig_kind", "rig_ptt_line_hamlib"})
+
+#: What may not appear in a `user_services` exec element after station
+#: substitution: shell metacharacters and any whitespace. A unit file's
+#: `ExecStart=` is split on whitespace by systemd, so an element carrying a
+#: space would silently become two arguments; a `;`, `|`, `&`, `$`, backtick,
+#: `%`, `<` or `>` would be an injection point if the file were ever run
+#: through a shell. The block forbids them at load and the plan re-checks after
+#: substitution (D-073 §6a).
+_EXEC_FORBIDDEN = set(" \t\n\r;|&$`%<>")
+
+
+class UserServiceListen(Strict):
+    """One address a user service binds. Loopback only, refused otherwise."""
+
+    protocol: Literal["tcp"] = "tcp"
+    address: str
+    port: int = Field(ge=1, le=65535)
+
+    @model_validator(mode="after")
+    def _loopback(self) -> UserServiceListen:
+        if self.address not in ("127.0.0.1", "::1"):
+            raise ManifestError(
+                f"user service listens on {self.address}:{self.port}; a rig control "
+                f"port must bind loopback (127.0.0.1 or ::1), never a routable address, "
+                f"because rigctld has no password and anyone it is reachable by can key "
+                f"the transmitter (D-073 §11)"
+            )
+        return self
+
+
+class UserService(Strict):
+    """A systemd *user* service the engine renders from station values.  D-073 §6.
+
+    Not a ``config_files`` path into ``~/.config/systemd/user/``: something must
+    also tell systemd to read it, enable it, and stop it on uninstall, and the
+    catalog would then carry free-form unit text — the place a command line
+    quietly grows a ``sh -c``. Not a ``system_modifications`` kind either: those
+    are descriptions the engine does not render, and a user service lives in one
+    operator's home and needs no root. A block of its own keeps the D-035
+    deferral, the ``~/`` writer and the plan's disclosure, and adds enable,
+    start, stop and disable.
+
+    ``when_station``/``unless_station`` select the entry by station value, so two
+    entries can share a ``name`` as long as their conditions cannot both hold —
+    the CAT service and the PTT-only service are two complete services chosen by
+    ``rig_kind``, never one file written two ways (ruling 4).
+    """
+
+    name: str
+    description: str
+    when_station: dict[str, str] = Field(default_factory=dict)
+    unless_station: dict[str, str] = Field(default_factory=dict)
+    exec: list[str] = Field(min_length=1)
+    binds_to_device: str | None = None
+    listens: list[UserServiceListen] = Field(default_factory=list)
+
+    @property
+    def station_variables(self) -> set[str]:
+        """Every ``{station.*}`` name referenced in ``exec`` or ``binds_to_device``."""
+        found: set[str] = set()
+        for word in self.exec:
+            found |= set(STATION_REF.findall(word))
+        if self.binds_to_device:
+            found |= set(STATION_REF.findall(self.binds_to_device))
+        return found
+
+    @model_validator(mode="after")
+    def _check(self) -> UserService:
+        if not SLUG.match(self.name):
+            raise ManifestError(
+                f"user service name {self.name!r} must be a lowercase unit-file base name"
+            )
+        # exec[0] is an absolute path, or the engine placeholder {python} (the
+        # interpreter that rendered the unit, as a launcher embeds the engine
+        # path, #145). Nothing else: a bare name resolves against systemd's own
+        # PATH, not ours.
+        if self.exec[0] != "{python}" and not self.exec[0].startswith("/"):
+            raise ManifestError(
+                f"user service {self.name!r}: exec[0] {self.exec[0]!r} must be an absolute path "
+                f"or {{python}}"
+            )
+        for word in self.exec:
+            # A {station.*} reference stands in for a value re-checked after
+            # substitution (D-073 §4, §6a); strip it before the word check so a
+            # legitimate reference is not mistaken for a metacharacter. {python}
+            # is likewise an engine placeholder, not a shell token.
+            bare = STATION_REF.sub("X", word).replace("{python}", "X")
+            if any(c in bare for c in _EXEC_FORBIDDEN):
+                raise ManifestError(
+                    f"user service {self.name!r}: exec element {word!r} is not one argv word; "
+                    f"no whitespace and no shell metacharacter reaches the unit file (D-073 §6a)"
+                )
+        # The loopback guarantee is not declarative-only (final review I4): a
+        # hamlib rigctld service must actually bind the address and port it
+        # declares, or a dropped `-T` would bind every interface while the plan
+        # still printed "listens 127.0.0.1:…".
+        if self.exec[0].endswith("rigctld") and self.listens:
+            want = self.listens[0]
+            joined = " ".join(self.exec)
+            if f"-T {want.address}" not in joined or f"-t {want.port}" not in joined:
+                raise ManifestError(
+                    f"user service {self.name!r} runs rigctld and declares it listens on "
+                    f"{want.address}:{want.port}, but its exec does not pass "
+                    f"-T {want.address} -t {want.port} (D-073 §11, review I4)"
+                )
+        return self
+
+
+def _user_services_names_are_exclusive(services: list[UserService]) -> None:
+    """Two entries sharing a ``name`` must have conditions that cannot both hold.
+
+    The only disjointness the catalog can prove without the station is a shared
+    key in ``when_station`` with different required values — ``rig_kind: cat``
+    against ``rig_kind: ptt_only``. Same name, same ``when_station``: refused,
+    because both would select at once and the engine would render one file
+    twice (ruling 4, D-073 §6a).
+    """
+    by_name: dict[str, list[UserService]] = {}
+    for svc in services:
+        by_name.setdefault(svc.name, []).append(svc)
+    for name, group in by_name.items():
+        for i, first in enumerate(group):
+            for second in group[i + 1 :]:
+                shared = set(first.when_station) & set(second.when_station)
+                if not any(first.when_station[k] != second.when_station[k] for k in shared):
+                    raise ManifestError(
+                        f"two user services named {name!r} have conditions that can both "
+                        f"hold; give them when_station values that disagree (e.g. "
+                        f"rig_kind: cat vs rig_kind: ptt_only), never one file written "
+                        f"two ways (D-073 §6a, ruling 4)"
+                    )
+
+
 _REPO_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 _FINGERPRINT = re.compile(r"^(?:[0-9A-F]{40}|[0-9A-F]{64})$")
 
@@ -2012,6 +2153,15 @@ class PackageManifest(Strict):
     apt_repos: list[AptRepo] = Field(default_factory=list)
     system_modifications: list[SystemModification] = Field(default_factory=list)
     config_files: list[ConfigFile] = Field(default_factory=list)
+    user_services: list[UserService] = Field(
+        default_factory=list,
+        description=(
+            "systemd user services the engine renders from station values, "
+            "enables, and reverses on uninstall (D-073 §6). Rendered into the "
+            "operator's ~/.config/systemd/user/; deferred when a station value "
+            "is missing, like config_files."
+        ),
+    )
     debconf_selections: list[str] = Field(
         default_factory=list,
         description=(
@@ -2060,6 +2210,12 @@ class PackageManifest(Strict):
             value = getattr(self, field)
             if value is not None and not value.strip():
                 raise ManifestError(f"{field} is blank; omit it or give the menu something to show")
+        return self
+
+    @model_validator(mode="after")
+    def _user_services_names_exclusive(self) -> PackageManifest:
+        if self.user_services:
+            _user_services_names_are_exclusive(self.user_services)
         return self
 
     @model_validator(mode="after")

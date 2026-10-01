@@ -7,7 +7,7 @@ regenerate. The reasons live in that script and are validated against
 the complete index in `docs/reference/dispositions.md`: a disposition
 added there without a reason here fails generation by name.
 
-**Generated:** 2026-09-30
+**Generated:** 2026-10-01
 
 If you came here from Andy's Ham Radio Linux or 73Linux and something
 you used is missing, this page says why. `PARITY-POLICY.md` promises
@@ -111,6 +111,17 @@ resolution is not to carry them.
 | Unit | From | Resolution |
 |---|---|---|
 | `arduino` | AHRL | Resolved 2026-08-25: not carried. The Debian `arduino` package is Arduino IDE 1.x, deprecated upstream, and shipping a deprecated IDE is worse than shipping nothing. Install IDE 2.x from arduino.cc. |
+
+## Found by the 2026-09 gap analysis — not added
+
+Units from outside the six sources that the gap analysis
+(`catalog-gaps-2026-09.md`) recommended and that measurement or the
+decision record ruled out. Each says what would change the answer.
+
+| Unit | Ruled out by | Why |
+|---|---|---|
+| `freedv-rade` | Measured build, 2026-10-01 | FreeDV 2.x, the release with the RADE neural voice mode, is in no target's archive (all seven carry 1.8.11, which is the catalog's `freedv` and has the pre-RADE modes), and its build cannot be pinned from outside. v2.4.0 builds on Debian 13, but its CMake fetches its own dependencies while building: `freedv-backend` at a tag, and underneath it RADE's C port (`freedv/rade_c`) and RNNoise from their `main` branches, and Opus as an unhashed archive. Two of those are moving branches, which the security rules refuse, and the engine cannot pin a fetch made inside someone else's build (`source-build-gaps.md` #9). The install rule also leaves out the `librade` library the binary links. Upstream's Linux binary is an AppImage, which is refused by name. It is carried when a distribution packages FreeDV 2.x or upstream pins those fetches. |
+| `gpsprune` | D-061 | Offered on all seven targets, and not carried: D-061 measured it on 2026-09-28 and left it out because it draws its maps from online tiles, which is what the `navigation` profile's exclusions say. Carrying it needs the maintainer to amend D-061. |
 
 ---
 

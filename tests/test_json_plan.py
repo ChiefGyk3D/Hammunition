@@ -23,6 +23,7 @@ from hammunition.desktop import Desktop
 from hammunition.distro import Target
 from hammunition.manifest.schema import AptRepo, ConfigFile, ConsentGate, PackageManifest
 from hammunition.plan import Deferral, GroupMembership, InstallPlan, PlannedPackage, RepoAddition
+from hammunition.userservice import HEADER, PlannedUserService
 from json_support import assert_golden_text
 
 cli = importlib.import_module("hammunition.cli.main")
@@ -158,6 +159,29 @@ def rich_plan() -> tuple[InstallPlan, list[Any]]:
                 "fixture-apt",
                 ConfigFile(path="/etc/fixture-apt.conf", template="call {station.callsign}"),
                 "call N0TST",
+            ),
+        ),
+        user_services=(
+            PlannedUserService(
+                name="hammunition-rigctld",
+                description="hamlib rigctld for the station's rig",
+                exec_argv=(
+                    "/usr/bin/rigctld",
+                    "-m",
+                    "1035",
+                    "-r",
+                    "/dev/serial/by-id/usb-Silicon_Labs_CP2105_...-if00-port0",
+                    "-s",
+                    "38400",
+                    "-T",
+                    "127.0.0.1",
+                    "-t",
+                    "4532",
+                ),
+                unit_body=HEADER + "\n[Service]\nExecStart=/usr/bin/rigctld\n",
+                device_path="/dev/serial/by-id/usb-Silicon_Labs_CP2105_...-if00-port0",
+                filled_from=("rig", "rig_baud", "rig_device"),
+                listens=(("127.0.0.1", 4532),),
             ),
         ),
         apt_release="trixie-backports",

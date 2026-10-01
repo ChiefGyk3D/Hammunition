@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**300 programs and packages** from the catalog, laid out the way the
+**303 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -33,6 +33,8 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 | [icom](packages/icom.md) | Minimal CI-V control for Icom radios from the command line | [tracker.debian.org/pkg/icom](https://tracker.debian.org/pkg/icom) — *Debian package page* |
 | [kappanhang](packages/kappanhang.md) | Opens an Icom network radio as an ordinary sound card and serial port | [github.com/nonoo/kappanhang](https://github.com/nonoo/kappanhang) |
 | [libhamlib-utils](packages/libhamlib-utils.md) | The command-line tools for hamlib — test a radio before blaming software | [hamlib.org](http://www.hamlib.org) |
+| [pihpsdr](packages/pihpsdr.md) | Operator program for OpenHPSDR transceivers -- ANAN, Hermes Lite 2 and their kin | [github.com/dl1ycf/pihpsdr](https://github.com/dl1ycf/pihpsdr) |
+| [rig-service](packages/rig-service.md) | One shared rigctld for the station's rig, as a systemd user service | [hamlib.github.io](https://hamlib.github.io/) |
 | [wfview](packages/wfview.md) | Control a modern Icom radio, waterfall and all, over USB or the network | [wfview.org](https://wfview.org/) |
 
 ### Logbooks & QSL
@@ -173,6 +175,7 @@ FT8 and the weak-signal modes, keyboard modes, NBEMS, digital voice, SSTV and am
 
 | Project | What it is | Its home |
 |---|---|---|
+| [droidstar](packages/droidstar.md) | M17, DMR, D-STAR, Fusion, P25 and NXDN over reflectors, with software vocoders and no radio | [github.com/nostar/DroidStar](https://github.com/nostar/DroidStar) |
 | [dsdcc](packages/dsdcc.md) | Decodes digital voice protocols from demodulated audio | [github.com/f4exb/dsdcc](https://github.com/f4exb/dsdcc) |
 | [freedv](packages/freedv.md) | Digital voice over HF in the bandwidth of an SSB signal | [freedv.org](https://freedv.org/) |
 

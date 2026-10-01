@@ -1,0 +1,141 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: rig-service
+version: "1.0"
+summary: One shared rigctld for the station's rig, as a systemd user service
+categories: [rig-control]
+
+# A carrying unit with no software of its own beyond hamlib: its whole job is
+# the user_services block below, which the engine renders from the station's
+# rig values into the operator's ~/.config/systemd/user/ (D-073 §5, §6). It is
+# its own unit, not the service on libhamlib-utils, so an operator who installs
+# hamlib for an SDR or as FreeDATA's dependency, and owns no radio, never sees a
+# deferral for it (ruling 2). depends on libhamlib-utils so rigctld is present.
+install:
+  - install:
+      method: apt
+      packages: [libhamlib-utils]
+
+depends: [libhamlib-utils]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+# Two complete rigctld services selected by a station value — the CAT rig and
+# the PTT-only rig — never one file written two ways (ruling 4). The engine
+# renders each to a unit file, substituting the station's values and the
+# catalog-derived ones ({station.rig_hamlib_model}, {station.rig_kind},
+# {station.rig_ptt_line_hamlib}); a missing value defers the service and the
+# rest of the transaction installs (D-035).
+#
+# rigctld binds 127.0.0.1:4632, and a loopback filter (hammunition.rigproxy)
+# binds the port programs use, 127.0.0.1:4532, and forwards to it — dropping any
+# connection that opens with an HTTP request line. A web page's request to 4532
+# was measured to reach rigctld's command parser and key the dummy, and rigctld
+# has no password (its -A is not implemented), so ruling 8 requires the filter
+# (D-073 §11). {python} is the engine's own interpreter, filled at render time
+# as the launchers embed the engine path (#145).
+user_services:
+  - name: hammunition-rigctld
+    description: hamlib rigctld for the station's rig
+    when_station: {rig_kind: cat}
+    unless_station: {rig_owner: flrig}
+    exec:
+      - /usr/bin/rigctld
+      - -m
+      - "{station.rig_hamlib_model}"
+      - -r
+      - "{station.rig_device}"
+      - -s
+      - "{station.rig_baud}"
+      - -T
+      - 127.0.0.1
+      - -t
+      - "4632"
+    binds_to_device: "{station.rig_device}"
+    listens:
+      - {protocol: tcp, address: 127.0.0.1, port: 4632}
+  - name: hammunition-rigctld
+    description: hamlib rigctld keying the station's PTT-only rig
+    when_station: {rig_kind: ptt_only}
+    unless_station: {rig_ptt_line: vox}
+    exec:
+      - /usr/bin/rigctld
+      - -m
+      - "1"
+      - -p
+      - "{station.rig_device}"
+      - -P
+      - "{station.rig_ptt_line_hamlib}"
+      - -T
+      - 127.0.0.1
+      - -t
+      - "4632"
+    binds_to_device: "{station.rig_device}"
+    listens:
+      - {protocol: tcp, address: 127.0.0.1, port: 4632}
+  - name: hammunition-rig-proxy
+    description: loopback filter in front of rigctld (drops HTTP, D-073 §11)
+    when_station: {rig_kind: cat}
+    unless_station: {rig_owner: flrig}
+    exec:
+      - "{python}"
+      - -m
+      - hammunition.rigproxy
+      - --listen
+      - "4532"
+      - --target
+      - "4632"
+    listens:
+      - {protocol: tcp, address: 127.0.0.1, port: 4532}
+  - name: hammunition-rig-proxy
+    description: loopback filter in front of rigctld keying the PTT-only rig
+    when_station: {rig_kind: ptt_only}
+    unless_station: {rig_ptt_line: vox}
+    exec:
+      - "{python}"
+      - -m
+      - hammunition.rigproxy
+      - --listen
+      - "4532"
+      - --target
+      - "4632"
+    listens:
+      - {protocol: tcp, address: 127.0.0.1, port: 4532}
+
+documentation:
+  what_it_does: >-
+    Runs one hamlib `rigctld` for the operator, a systemd *user* service bound
+    to 127.0.0.1:4532, carrying the station's radio. Every program that speaks
+    hamlib's NET rigctl — WSJT-X, fldigi, JS8Call, Pat, gpredict and the rest —
+    points at that one port instead of each opening the serial port itself. For
+    a radio with no CAT it runs hamlib's dummy model keying an RTS or DTR line,
+    so those programs are configured for it exactly as for a CAT rig.
+  why_you_want_it: >-
+    One program owns the serial port; every other program shares it. Two
+    programs opening the port directly is the classic digital-modes failure,
+    and its symptom is erratic behaviour rather than an error. This settles it
+    once: say which radio is on the station with `hammunition station set
+    --rig`, and the service is there at every login.
+  prerequisites: >-
+    The station's rig values (`hammunition station set --rig …`). Membership of
+    `dialout`, which the rig hardware class adds — log out completely
+    afterwards, because a group added mid-session does not reach the user
+    manager. With the rig values unset the service is deferred and the rest of
+    an install proceeds (D-035).
+  known_problems: >-
+    Loopback is not per-user: any local account and any local process can
+    connect to 127.0.0.1:4532 and key the transmitter, and `rigctld` has no
+    password (its `-A` option is "not implemented"). On a single-operator
+    laptop that is the operator's own software; on a shared machine it is a
+    transmitter anyone logged in can key. Two operators logged in at once would
+    each try to start a rigctld on 4532 and the second fails to bind — the
+    station is one operator's. Changing a rig value reaches the service only
+    through a reinstall of this unit, which `station set` prints when it
+    changes one.
+  upstream_url: https://hamlib.github.io/
+  upstream_support: >-
+    The Hamlib project's mailing list for rigctld and backend questions.
