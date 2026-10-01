@@ -30,6 +30,13 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   a PATH binary, with its menu entry, and writes the renamed one; `doctor`'s
   launchers check names one. After merge: `hammunition menus apply`.
 
+- **`CHECKS` now names `sha1-publisher`** (**D-070**, **D-069**). The
+  `artifacts` document's `check` field was already described as able to
+  carry `sha1-publisher` — the SHA-1 and size `comaps-maps` reads from
+  CoMaps' own map index — but the `CHECKS` tuple Hammunition Bunker imports
+  as the enumeration of valid values never listed it, so a `comaps-maps`
+  entry carried a value its own published contract did not name.
+
 ## v0.18.0 — 2026-10-01 — the 2026-09 gap analysis: guides, station config for the packet units, GPS time, chrony, Kismet, the HF modems, six apt units, three re-rulings
 
 Ten pull requests since v0.17.0 (#149, #153, #124, #162, #165, #167, #168, #170, #171, #172), 7 entries.
