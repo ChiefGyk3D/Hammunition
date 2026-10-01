@@ -112,6 +112,8 @@ MIRROR_TIMEOUT = 10.0
 DEFAULT_MAX_BYTES = 512 * 1024 * 1024
 
 _CHUNK = 64 * 1024
+#: A classic or BigTIFF header, either byte order.
+TIFF_MAGIC = frozenset({b"II*\x00", b"MM\x00*", b"II+\x00", b"MM\x00+"})
 
 
 class VerificationError(BackendError):
@@ -204,16 +206,21 @@ class UrllibTransport:
     *which* artifact was fetched, so https is preferred in manifests.
     """
 
-    def __init__(self, *, timeout: float = 60.0) -> None:
+    def __init__(self, *, timeout: float = 60.0, follow_redirects: bool = True) -> None:
         self.timeout = timeout
         director = urllib.request.OpenerDirector()
-        for handler in (
+        # A transport that follows no redirect answers a 30x as an HTTP error
+        # (D-068, amended 2026-10-01: an FSTopo sheet is fetched from the
+        # Location the plan checked, and nowhere a second redirect points).
+        handlers: list[urllib.request.BaseHandler] = [
             urllib.request.HTTPHandler(),
             urllib.request.HTTPSHandler(),
-            urllib.request.HTTPRedirectHandler(),
             urllib.request.HTTPErrorProcessor(),
             urllib.request.HTTPDefaultErrorHandler(),
-        ):
+        ]
+        if follow_redirects:
+            handlers.append(urllib.request.HTTPRedirectHandler())
+        for handler in handlers:
             director.add_handler(handler)
         self._opener = director
 
@@ -448,6 +455,11 @@ class Fetcher:
             self.mirror_transport = transport
         else:
             self.mirror_transport = UrllibTransport(timeout=MIRROR_TIMEOUT)
+        #: For :meth:`fetch_sized`: the injected transport, else one that
+        #: follows no redirect (final review, I1).
+        self.strict_transport: Transport = (
+            transport if transport is not None else UrllibTransport(follow_redirects=False)
+        )
         self._mirror_down: str | None = None
 
     def sources_for(self, url: str, mirror: MirrorPath | None) -> tuple[tuple[str, str], ...]:
@@ -758,6 +770,50 @@ class Fetcher:
                     f"{url} does not match the ETag its publisher lists.\n"
                     f"  expected ETag: {etag}\n"
                     f"No part size reproduces it. The download has been discarded."
+                )
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+        os.replace(temporary, final)
+        return FetchResult(path=final, sha256=sha, from_cache=False, size=size)
+
+    def sized_path_for(self, url: str, size: int) -> Path:
+        """Where a size-checked file lands (:meth:`fetch_sized`). Pure."""
+        return self.cache_dir / f"sized-{size}-{_safe_name(url)}"
+
+    def fetch_sized(self, url: str, *, expected_size: int) -> FetchResult:
+        """A file nobody publishes a checksum for and Hammunition has not
+        pinned (D-068, amended 2026-10-01: FSTopo sheets): only its size, as
+        the server announced it at plan time, and its first bytes being a
+        TIFF are checked. The weakest fetch here, and the plan says
+        "unverified" beside every file it is used for. A cached copy is never
+        reused, since nothing could tell a damaged one from a good one; the
+        sha256 of what arrived is returned for the transaction log and the
+        install's own re-check. No redirect is followed: the URL is the one
+        the plan located and checked.
+        """
+        make_dir(self.cache_dir)
+        final = self.sized_path_for(url, expected_size)
+        final.unlink(missing_ok=True)
+        temporary = final.with_name(final.name + f".part.{os.getpid()}")
+        try:
+            sha, size, _ = self._download(
+                url,
+                temporary,
+                max_bytes=expected_size + 1024 * 1024,
+                transport=self.strict_transport,
+            )
+            if size != expected_size:
+                raise VerificationError(
+                    f"{url}: the server announced {expected_size} bytes and {size} arrived; "
+                    f"the size check failed"
+                )
+            with temporary.open("rb") as handle:
+                magic = handle.read(4)
+            if magic not in TIFF_MAGIC:
+                raise VerificationError(
+                    f"{url} is not a TIFF (it starts {magic!r}); a gateway that answers "
+                    f"with a web page is not a map sheet. The download has been discarded."
                 )
         except BaseException:
             temporary.unlink(missing_ok=True)

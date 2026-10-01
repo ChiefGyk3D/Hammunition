@@ -30,6 +30,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ..fetch import Fetcher
 from ..manifest.schema import PackageManifest, TopoQuadsInstall
@@ -39,6 +40,9 @@ from .data import human_size
 from .regions import SOURCE, data_root, prefix_writer, removal_steps
 from .terrain import TerrainLedger
 from .verified import PrefixWriter
+
+if TYPE_CHECKING:
+    from .fstopo import FsTopoBackend
 
 TIF = ".tif"
 QUADS = ".quads"
@@ -189,6 +193,9 @@ class TopoQuadsBackend:
     runner: CommandRunner | None = None
     euid: int | None = None
     privileged: bool | None = None
+    fstopo: FsTopoBackend | None = None
+    """The Forest Service's sheets: a ``usfs-fstopo`` block is handed to it
+    (D-068, amended 2026-10-01), so ``execute.commands_for`` keeps one ``topo``."""
     method = "topo-quads"
 
     @property
@@ -199,6 +206,14 @@ class TopoQuadsBackend:
         return data_root(self.prefix) / manifest.name
 
     def steps(self, manifest: PackageManifest, block: TopoQuadsInstall) -> list[Action | Command]:
+        if block.provider == "usfs-fstopo":
+            if self.fstopo is None:
+                raise BackendError(
+                    f"{manifest.name} installs usfs-fstopo sheets and no FSTopo backend was "
+                    f"supplied. Skipping it would report a successful run that installed "
+                    f"nothing."
+                )
+            return self.fstopo.steps(manifest, block)
         out = self.data_dir(manifest)
         writer = self.writer
         steps: list[Action | Command] = []

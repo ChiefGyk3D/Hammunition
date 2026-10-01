@@ -10,5 +10,6 @@
   "map_regions": [],
   "map_freshness": null,
   "reference_books": [],
-  "mirror": null
+  "mirror": null,
+  "dem_source": "copernicus"
 }

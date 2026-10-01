@@ -1252,7 +1252,7 @@ small region first.
 
 ---
 
-## 15. Official topo sheets: USGS US Topo
+## 15. Official topo: US Topo, FSTopo and 3DEP
 
 For a region in the United States, the `navigation` profile also installs
 the **USGS US Topo** map sheets its outline touches (`usgs-ustopo`) and
@@ -1340,11 +1340,92 @@ since a region's sheets are remembered after its first install.
 - **Park points of interest and boundaries as GPX**: a later piece, once
   there is a checksum to check them by.
 
-Next for the US (**D-068**): the Forest Service's FSTopo sheets, which carry
-trail numbers across the national forests, and USGS 3DEP elevation as an
-opt-in alternative to Copernicus. Copernicus measures the top of the tree
-canopy: in Shenandoah's forest it reads about 12 m above the ground on
-average, so its contours ride the treetops; 3DEP is the bare ground.
+### Forest Service FSTopo sheets: trail numbers
+
+The Forest Service's own 7.5-minute sheets, **FSTopo** (`usfs-fstopo`),
+carry Forest Service trails by their **trail numbers**, forest roads by
+number, 40 ft contours and the forest's boundaries, as the ranger district
+prints them. Public domain. **They are not part of the `navigation`
+profile**, because the Forest Service publishes no checksum for them (see
+below); you install them by name, after reading the plan:
+
+```
+hammunition install usfs-fstopo ustopo-qmapshack --dry-run
+hammunition install usfs-fstopo ustopo-qmapshack
+```
+
+Nothing is set for it beyond your map regions; a region with no National
+Forest land (Delaware, for one) gets `note: no FSTopo quad covers <region>`
+and nothing else happens. The plan's *FSTopo* part lists each region's sheet
+count and download size before anything downloads.
+
+**How much.** About 21 MB a sheet (one George Washington National Forest
+sheet, measured), and about 1.2 times that again once converted for
+QMapShack. The Forest Service's index lists 87 sheets primarily in Vermont
+and 247 in Virginia; about 142 touch the George Washington and Jefferson
+National Forest, roughly 3 GB.
+
+**How each sheet is checked: usually, it is not.** The Forest Service
+publishes no checksum for its sheets. Hammunition carries a pin, a sha256
+the maintainer measured, for the sheets in
+`catalog/data/fstopo-pins.yaml`, and those are checked against it; today
+that list is empty. Every other sheet is fetched **unverified**: only its
+size, as the Forest Service's server announced it when you planned, and its
+being a TIFF image are checked. The plan says so on each sheet's line —
+"unverified: the Forest Service publishes no checksum and Hammunition has
+pinned none; only the size is checked" — and counts them in a warning. A
+damaged or cut-off download is caught; a sheet altered on the Forest
+Service's server is not. That is why the sheets are installed only when you
+name them, never by the profile: Hammunition's rule is that a download
+without a checksum is not installed by default. When every sheet your
+regions need has been pinned, the plan says "every FSTopo quad your regions
+need is pinned by Hammunition", and the unit may then join the profile by a
+recorded decision (**D-068**). Without FSTopo, `ustopo-qmapshack` builds the
+US Topo map alone.
+
+**In QMapShack.** Each sheet's colours are expanded to full colour, tiled,
+and given overviews (they come as one long strip each, with no zoomed-out
+copies, and a mosaic of sheets with different colour tables would show them
+all in the first one's colours), and `FSTopo.vrt` is built over them in the
+same directory as `ustopo.vrt`. The *Maps* dock lists it as a second map,
+`FSTopo`; tick it and order it against `ustopo` and the Garmin maps as you
+like. **Not measured yet: QMapShack drawing it**, any more than US Topo.
+
+**A new vintage.** When the carried index lists a sheet at a newer vintage,
+`hammunition update` counts it and
+`hammunition install usfs-fstopo ustopo-qmapshack` fetches it and removes
+the older one once the new one is on disk.
+
+### USGS 3DEP: bare-earth elevation, if you want it
+
+QMapShack's hillshade, slope and contours come from Copernicus GLO-30 by
+default. Copernicus is a *surface* model: under trees it measures the top of
+the canopy. Over a forested window in Shenandoah National Park it read
+11.8 m above USGS's bare-earth 3DEP on average (measured 2026-09-29), so its
+contours ride the treetops. **3DEP** is the ground, at about 10 m rather than
+30 m. It is also about ten times the size: a 3DEP tile is about 480 MB where
+Copernicus's is about 46 MB for the same square degree (Shenandoah one tile,
+Delaware two, about 0.9 GB, Vermont twelve, about 4.4 GB). That size is why
+Copernicus stays the default. To choose 3DEP:
+
+```
+hammunition station set --dem-source 3dep
+hammunition install navigation --dry-run
+```
+
+The plan's *USGS 3DEP* part then lists each region's tiles and what each
+region downloads, before you confirm; each tile is checked against the
+checksum USGS's storage keeps for it ("MD5 from the publisher's object
+metadata; not pinned by Hammunition"). `dem-qmapshack` redraws the
+contours from 3DEP at its full detail (one tile measured: 17 s and a 212 MB
+temporary file to trace, 8.4 MB of contours). Copernicus stays installed:
+BRouter's routing elevation reads it. 3DEP covers the United States only; a
+region elsewhere gets a warning that QMapShack has no elevation for it while
+3DEP is chosen.
+
+To go back: `hammunition station set --dem-source copernicus`, then install
+again. The 3DEP tiles are removed and the contours redrawn from Copernicus.
+QMapShack drawing hillshade from 3DEP has not been measured yet.
 
 ---
 
@@ -1442,13 +1523,12 @@ places and postcodes from an index inside each map file, and routes by
 car, bike, on foot and by public transport, all offline. It reads its own
 map format, not Geofabrik's, so it has its own map unit (**D-069**).
 
-**What it cannot do on the laptop yet: show where you are.** CoMaps on
-Linux asks for its position from GeoClue2 only, the desktop's location
-service, by name. It has no gpsd client and no NMEA reader, so neither
-gpsd nor the GPS tether reaches it. Use it to find a place and plan a
-route; use Navit (section 4) or QMapShack with the tether (section 11) to
-see yourself move. The route to a position is in "Giving CoMaps a
-position" below, and none of it is done by Hammunition.
+**Where you are comes from GeoClue.** CoMaps on Linux asks for its
+position from GeoClue2 only, the desktop's location service, by name. It
+has no gpsd client and no NMEA reader. So Hammunition hands GeoClue the GPS
+tether's NMEA on a socket (one `hardware apply`, then the tether running);
+"Giving CoMaps a position" below is the whole of it, with what it changes,
+what it costs and what has not been measured yet on a real desktop.
 
 ### Install it
 
@@ -1526,22 +1606,135 @@ says whether every map your regions need is installed at that version;
 once it is gone (a busy server is reported as unanswered, not expired). A new version comes with a new CoMaps release in the
 catalog; until then the maps you have keep working offline.
 
-### Giving CoMaps a position (not done, not measured)
+### Giving CoMaps a position
 
-The route, for anyone who wants to try it by hand:
+The chain is gpsd → the GPS tether (section 11) → a unix socket → GeoClue's
+**network-NMEA** source → Qt's `geoclue2` plugin → CoMaps. No CoMaps patch
+and no Avahi. `comaps` depends on `geoclue-2.0` and
+`libqt6positioning6-plugins`, so installing it brings both.
 
-1. Feed the GPS to GeoClue. GeoClue's **network-NMEA** source reads NMEA
-   from a network service advertised on the local network; Parrot's
-   `/etc/geoclue/geoclue.conf` has it enabled. Something would have to
-   advertise the tether's NMEA there.
-2. Allow CoMaps. GeoClue asks a desktop agent before it gives an app a
-   position, and Parrot's configuration names no KDE agent. An
-   `[app.comaps.comaps]` section with `allowed=true` in `geoclue.conf` is
-   the usual way.
+**Once:** set GeoClue up with the hardware step, after reading its plan:
 
-Both are changes to the whole machine, neither has been measured here, and
-Hammunition makes neither. Until they are, CoMaps has no "you are here" on
-the laptop.
+```
+hammunition hardware apply --dry-run
+hammunition hardware apply
+```
+
+Where GeoClue is installed, the plan prints two files and writes them as
+root (**D-069**):
+
+- `/etc/geoclue/conf.d/90-hammunition-gps.conf`, a drop-in read after
+  Debian's own `geoclue.conf`, which is not edited:
+
+  ```
+  [network-nmea]
+  enable=true
+  nmea-socket=/run/hammunition-gps/nmea.sock
+  ```
+
+- `/etc/tmpfiles.d/hammunition-gps.conf`, one line,
+  `d /run/hammunition-gps 2750 <you> geoclue -`. `/run` is emptied at every
+  boot; this line has systemd make the directory again each time, and the
+  apply runs `systemd-tmpfiles --create` on it so it exists now. Mode 2750
+  with the setgid bit means the socket the tether makes inside takes
+  GeoClue's group: GeoClue can read it, and no other account can.
+
+It then runs `systemctl try-restart geoclue`, which restarts GeoClue only
+if it is running. No `[app.comaps.comaps]` entry is written: GeoClue treats
+any app that is not a Flatpak as a system app and allows it without one
+(measured in the spike, below). `hammunition hardware apply --no-geoclue`
+skips all of this.
+
+**Every time:** start **GPS position for QMapShack, this machine only**
+from the menu (it runs `hammunition maps gps-tether`), then CoMaps. Once
+the drop-in is there the tether serves
+`/run/hammunition-gps/nmea.sock` beside TCP 10110 with no option, and says
+so when it starts. `--no-nmea-socket` leaves the socket off for one run.
+
+**What to know before agreeing.** The plan says these four things, word
+for word:
+
+- GeoClue reads its configuration only when it starts; it exits after 60 s
+  with no client, and `systemctl try-restart geoclue` applies a change at
+  once.
+- While the tether runs, GeoClue hands the GPS fix to any native
+  (non-Flatpak) app of a user with a GeoClue agent, and Debian's demo agent
+  does not prompt.
+- Stock GeoClue also asks beacondb (nearby Wi-Fi networks, or GeoIP when
+  Wi-Fi is off) whenever CoMaps asks for a position, so with the tether
+  stopped the map shows that coarse network location; only GeoClue's
+  `[static-source]` would stop the GeoIP lookups, and Hammunition does not
+  change it.
+- Qt caches the last fix under `~/.local/share/qtposition-geoclue2`.
+
+The third is the one to remember in the field: a dot with the tether
+stopped is a guess from the network (or the last cached fix), not the
+receiver. With the network down there is nothing to guess from.
+
+**The agent.** GeoClue gives a position only to a user with a GeoClue
+agent running in their session. `geoclue-2.0` starts Debian's demo agent at
+login on every desktop but GNOME (whose shell is its own agent), from
+`/etc/xdg/autostart/geoclue-demo-agent.desktop`, so install CoMaps, then
+log out and back in once. Without an agent, GeoClue holds CoMaps' request
+and Qt gives up after about 25 s: no dot, no error on screen.
+`hammunition doctor` says whether the agent is running (it reads
+`busctl --user list`, which starts nothing).
+
+**Inspect it:**
+
+```
+cat /etc/geoclue/conf.d/90-hammunition-gps.conf /etc/tmpfiles.d/hammunition-gps.conf
+ls -ld /run/hammunition-gps
+journalctl -u geoclue | grep -i nmea
+```
+
+The directory reads `drwxr-s---` with you as owner and `geoclue` as group.
+GeoClue's journal shows only failures here: `Failed to connect to NMEA
+service: No such file or directory` (the tether is not running) or `…
+Connection refused` (a tether that crashed left its socket), repeated every
+5 s while something asks for a position. GeoClue reconnects by itself when
+you start the tether, with no restart. Its success line, `NMEA service
+connected.`, is a debug message the stock service does not log. The sign
+that it worked is in the tether's own terminal: `A client on the socket
+connected`. `hammunition doctor` reports the files, the directory and the
+agent.
+
+One thing `doctor` does not read: another drop-in in
+`/etc/geoclue/conf.d/` sorting after `90-` (a `99-something.conf`) that sets
+`nmea-socket` itself wins over ours. `ls /etc/geoclue/conf.d/` shows whether
+there is one.
+
+**Reverse it:** `hammunition hardware unapply`, which deletes both files
+(each only if it starts with Hammunition's header), removes the socket,
+runs `rmdir /run/hammunition-gps` and `systemctl try-restart geoclue`. Stop
+the tether first. By hand it is the same four steps, with `sudo`. The Qt
+cache in your home is yours: `rm -r ~/.local/share/qtposition-geoclue2`
+forgets the last fix.
+
+**How it was measured, and what is still owed.** The spike of 2026-10-01
+ran Debian's own GeoClue 2.7.2, its demo agent and Qt 6.8.2's `geoclue2`
+plugin, asking exactly as CoMaps does, in a private namespace with no
+network, with a fake NMEA feed of a fixed position (Montpelier, Vermont) on
+the socket: the position reached the client, a stopped feed gave none,
+and a restarted feed was picked up with no GeoClue restart, both over
+Debian's untouched `geoclue.conf` plus the drop-in. Not yet run on the
+field laptop, and owed by the bench:
+
+- the demo agent present in the Plasma session (`busctl --user list`);
+- the real GeoClue, sandboxed as user `geoclue` by its systemd unit,
+  connecting to the socket in `/run`: the tether's `A client on the socket
+  connected` while CoMaps asks, and no `Failed to connect to NMEA service`
+  in the journal (read from the kernel's rules, which exempt sockets from
+  read-only mounts; not seen);
+- CoMaps' dot following the tether, and what it shows with the tether
+  stopped;
+- `/run/hammunition-gps` made again after a reboot;
+- the demo agent autostarting on the Xfce and LXQt VMs.
+
+**What stays a gap.** A Flatpak CoMaps would also need an
+`[app.comaps.comaps]` entry or a desktop that prompts; Hammunition builds
+the native one and writes no entry. Reading NMEA without GeoClue would
+need a CoMaps patch, which the engine refuses and nobody carries.
 
 ### Not measured yet
 
@@ -1629,6 +1822,10 @@ one US-state-sized region:
 | US Topo sheets (US regions) | about 8 MB a sheet | `/usr/local/share/hammunition/data/usgs-ustopo/` | Until uninstall, or no region needs the sheet |
 | The sheets made for QMapShack | about 1× each sheet, measured on one | `/usr/local/share/hammunition/data/ustopo-qmapshack/` | As long as the sheets |
 | Their build scratch | about 1× one sheet at a time | `~/.cache/hammunition/build/ustopo-qmapshack/` | Only while it builds |
+| FSTopo sheets (National Forest land, installed by name only) | about 21 MB a sheet | `/usr/local/share/hammunition/data/usfs-fstopo/` | Until uninstall, or no region needs the sheet |
+| FSTopo sheets made for QMapShack | about 1.2× each sheet, measured on one | `/usr/local/share/hammunition/data/ustopo-qmapshack/fstopo/` | As long as the sheets |
+| 3DEP tiles (only with `--dem-source 3dep`) | about 480 MB a tile, ten times Copernicus | `/usr/local/share/hammunition/data/dem-3dep/` | Until uninstall, the source set back to `copernicus`, or no region needs the tile |
+| 3DEP contour scratch | about 212 MB, one tile at a time | `~/.cache/hammunition/build/dem-qmapshack/` | Only while it builds |
 
 Terrain is the part that grows fastest with a region's area. Measured on
 2026-09-28 over Geofabrik's US state outlines: a region's terrain is tens
@@ -1694,7 +1891,22 @@ carries the checksum the storage service reported when it was built, the
 bucket is asked again before each download, and the download must
 reproduce it. For a sheet uploaded in parts that checksum is the MD5 of each
 part's MD5; Hammunition works out the part size by trying each whole
-megabyte-size part, and a download matching none is refused by name.
+megabyte-size part, and a download matching none is refused by name. USGS
+3DEP tiles (section 15) are checked the same way and get the same wording.
+
+FSTopo sheets (section 15) get one of two others, because the Forest
+Service publishes no checksum at all:
+
+- **"sha256, pinned by Hammunition (the Forest Service publishes no
+  checksum)"**: the sheet has a row in `catalog/data/fstopo-pins.yaml`,
+  measured by the maintainer. A sheet the Forest Service has since re-issued
+  is refused by name until it is measured again.
+- **"unverified: the Forest Service publishes no checksum and Hammunition
+  has pinned none; only the size is checked"**: nothing checks the content.
+  The size the server announced and a TIFF header catch a cut-off download
+  or a web page in its place; nothing catches a sheet altered at the source.
+  Like hearham's repeater list (section 13), it is data Hammunition cannot
+  verify, and the plan counts these sheets in a warning every time.
 
 Today no tile is pinned, so every tile gets the second wording. The pin
 list grows as Hammunition measures tiles, in a fixed order that covers the
@@ -1755,8 +1967,9 @@ sudo apt-get install --reinstall routino-common
 
 ### US Topo is listed but draws nothing
 
-Not yet explained (section 15). Things worth trying, and reporting back
-with what happened:
+Not yet explained (section 15). The same goes for `FSTopo`, whose map is
+`FSTopo.vrt` in the same directory (in NAD83 degrees rather than Web
+Mercator). Things worth trying, and reporting back with what happened:
 
 - Tick `ustopo` in the *Maps* dock, then zoom to a place inside one of your
   US regions: the map draws only over the sheets you have.
@@ -1979,6 +2192,19 @@ overviews). Not yet run:
   belongs in a virtual machine, not on a desktop in use: QMapShack's
   single-instance socket is shared whatever `HOME` is set to.
 - The whole install of the sheets through Hammunition, on any machine.
+
+For FSTopo and 3DEP (**D-068**, amended 2026-10-01), one George Washington
+National Forest FSTopo sheet and one Shenandoah 3DEP tile were downloaded
+through Hammunition's own code on the development host on 2026-10-01 and
+run through the converters' commands: the sheet expanded and given
+overviews in 10.6 s (21.2 MB in, 24.5 MB out), the tile's contours traced
+and drawn in about 21 s (488 MB in, 8.4 MB out). Not yet run:
+
+- **QMapShack drawing `FSTopo.vrt`, or hillshade from 3DEP.** The same
+  caveat as US Topo: in a virtual machine, never on a desktop in use.
+- Whether every sheet in the Forest Service's index has a GeoTIFF at its
+  gateway. A sheet with none refuses the plan by name.
+- The whole install of either through Hammunition, on any machine.
 
 For the browser map (**D-071**), the page was drawn by headless Chromium in
 the test suite from the pinned kit and a synthetic tile, with every

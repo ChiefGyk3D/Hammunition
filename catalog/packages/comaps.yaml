@@ -24,8 +24,15 @@ categories: [navigation-maps]
 # pinned commit). python3-venv is for the build Python.
 #
 # CoMaps reads its position from GeoClue2 only, by the plugin's name: no gpsd
-# client and no NMEA reader. There is no "you are here" on the laptop yet;
-# docs/guides/offline-navigation.md says what the route would be.
+# client and no NMEA reader. The route (D-069, amended 2026-10-01): the GPS
+# tether serves NMEA on a unix socket GeoClue's network-NMEA source reads,
+# set up by `hammunition hardware apply` (two root files, disclosed there and
+# removed by `hardware unapply`). A natively built CoMaps is a system app to
+# GeoClue and needs no [app.comaps.comaps] entry. The two packages below are
+# GeoClue itself, whose package also autostarts the demo agent outside GNOME,
+# and Qt's position plugins, which hold the geoclue2 plugin CoMaps names.
+depends: [geoclue-2.0, libqt6positioning6-plugins]
+
 install:
   - install:
       method: git
@@ -147,12 +154,18 @@ documentation:
     it shows only the World overview. Start it from the menu entry "CoMaps
     with your offline maps", which runs `hammunition maps comaps`.
   known_problems: >-
-    No "you are here" on the laptop yet. CoMaps on Linux reads its position
-    from GeoClue2 only, by name: it has no gpsd client and no NMEA reader,
-    and GeoClue must also be told to allow app.comaps.comaps, which
-    Parrot's GeoClue configuration does not. Feeding the GPS to GeoClue
-    through its network-NMEA source is the route, unmeasured and not done by
-    Hammunition; the navigation guide says what it would take. Built from
+    "You are here" comes from GeoClue, the only position source CoMaps reads
+    on Linux. Run `hammunition hardware apply` once, which tells GeoClue to
+    read the GPS tether's socket, then keep `hammunition maps gps-tether`
+    running (the "GPS position" menu entry) while CoMaps is open. Measured
+    end to end with Debian's GeoClue, its demo agent and Qt's plugin in a
+    private namespace; not yet on the field laptop's own GeoClue, so the
+    dot on a real desktop is unmeasured. With the tether stopped, GeoClue's
+    own network lookup (beacondb, or GeoIP) still answers, and the map
+    shows a coarse location instead; the navigation guide says how to tell
+    them apart and what each disclosure means. Without a GeoClue agent in
+    the session (Debian's demo agent, started at login), CoMaps waits about
+    25 s and shows no position. Built from
     source: a first install downloads the source and its submodules and
     compiles for tens of minutes (about 12 minutes measured on an 8-core
     laptop at two jobs, by hand). Upstream installs its own menu entry,

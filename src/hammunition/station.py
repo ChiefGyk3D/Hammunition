@@ -98,7 +98,13 @@ _MAP_FIELDS = frozenset({"map_regions", "map_freshness"})
 #: Station values that are never a `{station.*}` template variable: the map
 #: settings, the LAN mirror the verified fetch tries first (D-070), and the
 #: Kiwix books chosen for `kiwix-library` (D-066).
-_NOT_TEMPLATES = _MAP_FIELDS | {"mirror", "reference_books"}
+_NOT_TEMPLATES = _MAP_FIELDS | {"mirror", "reference_books", "dem_source"}
+
+#: Where QMapShack's elevation is drawn from (D-068, amended 2026-10-01):
+#: Copernicus GLO-30, a surface model, by default; USGS 3DEP bare earth by
+#: choice. Each names the ``dem-tiles`` provider it selects.
+DEM_SOURCES = ("copernicus", "3dep")
+DEM_PROVIDERS = {"copernicus": "copernicus-glo30", "3dep": "usgs-3dep"}
 
 #: A mirror is fetched by :class:`hammunition.fetch.UrllibTransport`, which
 #: speaks these and nothing else. Plain http is allowed on purpose: the
@@ -166,6 +172,10 @@ class Station:
     mirror: str | None = None
     """A LAN mirror of the catalog's data artifacts, tried before the
     publisher and verified the same way (D-070). Never an internet address."""
+    dem_source: str | None = None
+    """``copernicus`` (the default when unset) or ``3dep``: the elevation
+    QMapShack's hillshade, slope and contours are drawn from (D-068,
+    amended 2026-10-01)."""
 
     def __post_init__(self) -> None:
         if self.callsign is not None:
@@ -218,6 +228,15 @@ class Station:
             )
         if self.mirror is not None:
             object.__setattr__(self, "mirror", _check_mirror(self.mirror))
+        if self.dem_source is not None and self.dem_source not in DEM_SOURCES:
+            raise StationError(
+                f"dem source {self.dem_source!r} is not one of {', '.join(DEM_SOURCES)}"
+            )
+
+    @property
+    def elevation(self) -> str:
+        """The effective elevation source: what is stored, or ``copernicus``."""
+        return self.dem_source or "copernicus"
 
     @property
     def freshness(self) -> str:
@@ -281,6 +300,8 @@ class Station:
             result["reference_books"] = list(self.reference_books)
         if self.mirror is not None:
             result["mirror"] = self.mirror
+        if self.dem_source is not None:
+            result["dem_source"] = self.dem_source
         return result
 
 
@@ -389,6 +410,7 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         map_freshness=_str("map_freshness"),
         reference_books=tuple(str(b) for b in books) if books is not None else (),
         mirror=_str("mirror"),
+        dem_source=_str("dem_source"),
     )
 
 
@@ -433,6 +455,7 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
                     map_freshness=station.map_freshness,
                     reference_books=station.reference_books,
                     mirror=station.mirror,
+                    dem_source=station.dem_source,
                     **{**values, variable: answer},
                 )
             except StationError as exc:
@@ -445,6 +468,7 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
         map_freshness=station.map_freshness,
         reference_books=station.reference_books,
         mirror=station.mirror,
+        dem_source=station.dem_source,
         **values,
     )
 

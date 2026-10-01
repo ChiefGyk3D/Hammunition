@@ -12,5 +12,6 @@
   "reference_books": [
     "ham.stackexchange.com_en_all"
   ],
-  "mirror": null
+  "mirror": null,
+  "dem_source": "copernicus"
 }

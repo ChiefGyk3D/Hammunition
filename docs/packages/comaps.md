@@ -7,6 +7,7 @@
 - **Version recorded:** 2026.08.31-14
 - **Categories:** `navigation-maps`
 - **Upstream:** <https://www.comaps.app/>
+- **Needs first:** `geoclue-2.0`, `libqt6positioning6-plugins`
 
 ## What it does
 
@@ -43,7 +44,7 @@ Files the build's own install rule leaves out, installed by the engine after it 
 
 ## Known problems
 
-No "you are here" on the laptop yet. CoMaps on Linux reads its position from GeoClue2 only, by name: it has no gpsd client and no NMEA reader, and GeoClue must also be told to allow app.comaps.comaps, which Parrot's GeoClue configuration does not. Feeding the GPS to GeoClue through its network-NMEA source is the route, unmeasured and not done by Hammunition; the navigation guide says what it would take. Built from source: a first install downloads the source and its submodules and compiles for tens of minutes (about 12 minutes measured on an 8-core laptop at two jobs, by hand). Upstream installs its own menu entry, "CoMaps", under its own categories; that one starts CoMaps without the launcher's preparation, so its first start shows the licence dialog and it does not see Hammunition's maps. `uninstall` refuses it, as it does every build whose own install rule wrote into /usr/local (the rule leaves no file list to reverse); what it wrote is in the transaction log. US address-search quality has not been measured.
+"You are here" comes from GeoClue, the only position source CoMaps reads on Linux. Run `hammunition hardware apply` once, which tells GeoClue to read the GPS tether's socket, then keep `hammunition maps gps-tether` running (the "GPS position" menu entry) while CoMaps is open. Measured end to end with Debian's GeoClue, its demo agent and Qt's plugin in a private namespace; not yet on the field laptop's own GeoClue, so the dot on a real desktop is unmeasured. With the tether stopped, GeoClue's own network lookup (beacondb, or GeoIP) still answers, and the map shows a coarse location instead; the navigation guide says how to tell them apart and what each disclosure means. Without a GeoClue agent in the session (Debian's demo agent, started at login), CoMaps waits about 25 s and shows no position. Built from source: a first install downloads the source and its submodules and compiles for tens of minutes (about 12 minutes measured on an 8-core laptop at two jobs, by hand). Upstream installs its own menu entry, "CoMaps", under its own categories; that one starts CoMaps without the launcher's preparation, so its first start shows the licence dialog and it does not see Hammunition's maps. `uninstall` refuses it, as it does every build whose own install rule wrote into /usr/local (the rule leaves no file list to reverse); what it wrote is in the transaction log. US address-search quality has not been measured.
 
 ## Keeping it current
 

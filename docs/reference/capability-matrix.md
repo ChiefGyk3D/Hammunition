@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 205 | 8 | 83 | 2 | 0 |
-| ubuntu-26.04 | 207 | 6 | 83 | 2 | 0 |
-| ubuntu-24.04 | 200 | 15 | 80 | 3 | 0 |
-| kali-rolling | 213 | 8 | 76 | 1 | 0 |
-| parrot | 210 | 5 | 81 | 2 | 0 |
-| linuxmint-22.3 | 200 | 15 | 80 | 3 | 0 |
-| debian-13-arm64 | 204 | 9 | 78 | 7 | 0 |
+| debian-13 | 205 | 8 | 85 | 2 | 0 |
+| ubuntu-26.04 | 207 | 6 | 85 | 2 | 0 |
+| ubuntu-24.04 | 200 | 15 | 82 | 3 | 0 |
+| kali-rolling | 213 | 8 | 78 | 1 | 0 |
+| parrot | 210 | 5 | 83 | 2 | 0 |
+| linuxmint-22.3 | 200 | 15 | 82 | 3 | 0 |
+| debian-13-arm64 | 204 | 9 | 80 | 7 | 0 |
 
-**298 manifests** against **7 targets**.
+**300 manifests** against **7 targets**.
 
 ---
 
@@ -180,6 +180,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `cwdaemon` | apt | apt | apt | apt | apt | apt | apt |
 | `cwwav` | git | git | git | git | git | git | git |
 | `dablin` | apt | apt | apt | apt | apt | apt | apt |
+| `dem-3dep` | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles |
 | `dem-copernicus` | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles |
 | `dem-qmapshack` | derived | derived | derived | derived | derived | derived | derived |
 | `dfu-util` | apt | apt | apt | apt | apt | apt | apt |
@@ -404,6 +405,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `uhd-soapysdr` | apt | apt | apt | apt | apt | apt | apt |
 | `uronode` | apt | apt | apt | apt | apt | apt | apt |
 | `usbutils` | apt | apt | apt | apt | apt | apt | apt |
+| `usfs-fstopo` | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads |
 | `usgs-ustopo` | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads |
 | `ustopo-qmapshack` | derived | derived | derived | derived | derived | derived | derived |
 | `vector-map-kit` | data | data | data | data | data | data | data |

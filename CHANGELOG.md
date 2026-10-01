@@ -11,6 +11,29 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Forest Service FSTopo sheets and USGS 3DEP bare-earth elevation**
+  (D-068, amended 2026-10-01). `usfs-fstopo` installs the FSTopo
+  7.5-minute sheets, with trail numbers, for the station's regions over
+  National Forest land, chosen offline from a carried index of 18,187 quads
+  (`scripts/gen_fstopo_index.py`) and located through the raster gateway's
+  one redirect at plan time. The Forest Service publishes no checksum: a
+  sheet the maintainer pinned is checked by its sha256, and every other is
+  fetched **unverified**, its size and TIFF header only, said on its plan
+  line and counted in a warning; the pins file starts empty. So it is in
+  no profile and installs only when typed by name, until every sheet a
+  region needs is pinned and the plan says so. When FSTopo sheets are
+  installed, `ustopo-qmapshack` expands each one's palette to tiled RGB
+  with overviews and builds a second QMapShack map, `FSTopo.vrt`; it never
+  pulls them in, and US Topo works alone. `dem-3dep`, in `navigation`,
+  installs 3DEP 1/3-arc-second tiles, about ten times Copernicus's size,
+  only after `hammunition station set --dem-source 3dep`, checked against
+  each object's S3 ETag from a carried list of 1,449 tiles
+  (`scripts/gen_3dep_tiles.py`); `dem-qmapshack` then draws its elevation
+  and contours from 3DEP at 10,812 pixels a tile, and setting the source
+  back removes the tiles and redraws from Copernicus. Copernicus stays the
+  default and stays installed. The plan prints both, per region, in text
+  and JSON. QMapShack drawing either is not yet measured.
+
 - **`hammunition-tray` and `hammunition-tray-qt` re-pinned to v0.4.0**
   (GPS-time plan Task 11, D-058). Both catalog manifests moved from v0.3.0
   to the v0.4.0 release assets, measured against the published SHA256SUMS:
@@ -113,6 +136,27 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   list. `hammunition menus apply` removes a generated launcher that shadows
   a PATH binary, with its menu entry, and writes the renamed one; `doctor`'s
   launchers check names one. After merge: `hammunition menus apply`.
+- **CoMaps can show "you are here", through GeoClue** (D-069, amended
+  2026-10-01). `hammunition maps gps-tether` gains `--nmea-socket PATH`: a
+  unix socket, mode 0660 in GeoClue's group, fed by the same fan-out as TCP
+  10110; it is on by default once GeoClue is set up, and `--no-nmea-socket`
+  turns it off. `hammunition hardware apply` writes
+  `/etc/geoclue/conf.d/90-hammunition-gps.conf` (GeoClue's network-NMEA
+  source reads that socket) and `/etc/tmpfiles.d/hammunition-gps.conf`
+  (`/run/hammunition-gps`, 2750, setgid `geoclue`), with every file, the
+  inspect and reverse steps and four disclosures in the plan; GeoClue's own
+  beacondb and GeoIP lookups are not changed, and the plan says so.
+  `--no-geoclue` skips it, and `hardware unapply` removes it by content.
+  `doctor` reports the files, the directory and whether GeoClue's demo
+  agent is running. `comaps` depends on `geoclue-2.0` and
+  `libqt6positioning6-plugins`. No `[app.comaps.comaps]` entry: a native
+  CoMaps is a system app to GeoClue. Measured with Debian's GeoClue in a
+  private namespace, not yet on a desktop; the guide's section 17 lists
+  what the bench owes. After merge: `hammunition hardware apply`, then log
+  out and back in. Where CoMaps is already built, `hammunition install
+  comaps --dry-run` shows whether the two new packages are planned (not
+  checked on a machine with CoMaps at its pin); if they are not,
+  `sudo apt install geoclue-2.0 libqt6positioning6-plugins` adds them.
 - **piHPSDR and DroidStar are carried; FreeDV 2.x is not yet** (gap
   analysis D.10, first batch; Q-022 says these need a D-032 check and a
   measured build, not a ruling). `pihpsdr` is the operating program for

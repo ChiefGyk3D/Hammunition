@@ -114,6 +114,8 @@ from hammunition.execute import (
     user_groups,
 )
 from hammunition.fetch import Fetcher
+from hammunition.fstopo import FstopoError, GatewayProbe
+from hammunition.fstopo import load_index as load_fstopo_index
 from hammunition.geofabrik import (
     BASE,
     GeofabrikError,
@@ -175,10 +177,21 @@ from hammunition.station import (
     save_station,
 )
 from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
-from hammunition.terrain_plan import brouter_pins, build_terrain_run, resolve_station_terrain
+from hammunition.terrain_plan import (
+    brouter_pins,
+    build_terrain_run,
+    contour_source,
+    resolve_station_3dep,
+    resolve_station_terrain,
+)
 from hammunition.tiles_plan import build_tiles_run
+from hammunition.topo_plan import (
+    FSTOPO_INDEX,
+    MemoProbe,
+    resolve_station_fstopo,
+    resolve_station_topo,
+)
 from hammunition.topo_plan import INDEX as USTOPO_INDEX
-from hammunition.topo_plan import MemoProbe, resolve_station_topo
 from hammunition.update import (
     UNKNOWN,
     books_state,
@@ -202,6 +215,7 @@ from hammunition.ustopo import bucket_probe as ustopo_probe
 from hammunition.ustopo import load_index as load_ustopo_index
 
 if TYPE_CHECKING:
+    from hammunition.geoclue import GeoClueGrants, GeoClueState
     from hammunition.hardware.power import KeptEntry, Parkable
     from hammunition.interface.repeaters import AllSourcesView, RegistrationView
     from hammunition.qmapshack_config import BRouterSetup
@@ -461,6 +475,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             ("map_freshness", args.map_freshness),
             ("reference_books", args.reference_books),
             ("mirror", args.mirror or args.clear_mirror),
+            ("dem_source", args.dem_source),
         )
         if value
     ]
@@ -468,7 +483,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
         print(
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
             "--node-alias, --map-regions, --map-freshness, --reference-books, --mirror, "
-            "--clear-mirror.",
+            "--clear-mirror, --dem-source.",
             file=sys.stderr,
         )
         return EXIT_FAILED
@@ -481,6 +496,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             map_freshness=args.map_freshness or current.map_freshness,
             reference_books=reference_books,
             mirror=None if args.clear_mirror else (args.mirror or current.mirror),
+            dem_source=args.dem_source or current.dem_source,
         )
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -496,6 +512,8 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             print(f"  {field:<14} {', '.join(station.reference_books)}")
         elif field == "mirror":
             print(f"  {field:<14} {station.mirror or '(cleared)'}")
+        elif field == "dem_source":
+            print(f"  {field:<14} {station.elevation}")
         else:
             print(f"  {field:<14} {station.get(field)}")
     return EXIT_OK
@@ -1299,8 +1317,14 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
     at once, each sent every sentence; only while the operator runs it, and
     never as root. Ctrl-C stops it, exit 0. No ``--json`` form: it is a
     server, not a document (D-059).
+
+    D-069: with ``--nmea-socket PATH``, or by default once ``hardware apply``
+    has written GeoClue's drop-in, it also serves a unix socket GeoClue reads;
+    ``--no-nmea-socket`` leaves it off. The default failing (its directory
+    missing, say) is a note and TCP still serves; a path the operator named
+    failing stops the tether.
     """
-    from hammunition import gps_tether
+    from hammunition import geoclue, gps_tether
 
     try:
         port = gps_tether.PORT if args.port is None else gps_tether.serve_port(args.port)
@@ -1316,6 +1340,8 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
                 f"the map's position stream is on {gps_tether.POSITION_PORT} unless "
                 f"--position-port names another"
             )
+        if args.nmea_socket is not None and args.no_nmea_socket:
+            raise ValueError("--nmea-socket and --no-nmea-socket ask for opposite things")
     except ValueError as exc:
         print(f"error: {exc}.", file=sys.stderr)
         return EXIT_FAILED
@@ -1345,18 +1371,53 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return EXIT_FAILED
-    print(gps_tether.instructions(port, gpsd=gpsd, position_port=position_port), flush=True)
 
     def log(line: str) -> None:
         print(line, file=sys.stderr, flush=True)
 
+    socket_path: str | None = args.nmea_socket
+    if socket_path is None and not args.no_nmea_socket and geoclue.configured():
+        socket_path = geoclue.SOCKET
+    unix = None
+    if socket_path is not None:
+        try:
+            unix = gps_tether.listen_unix(socket_path, group=geoclue.GROUP, log=log)
+        except (OSError, ValueError) as exc:
+            why = exc.strerror if isinstance(exc, OSError) and exc.strerror else str(exc)
+            if args.nmea_socket is not None:
+                listener.close()
+                http.close()
+                print(f"error: cannot listen on {socket_path}: {why}.", file=sys.stderr)
+                return EXIT_FAILED
+            hint = (
+                f" Its directory comes from {geoclue.TMPFILES}; `sudo systemd-tmpfiles "
+                f"--create {geoclue.TMPFILES}` makes it."
+                if isinstance(exc, FileNotFoundError)
+                else ""
+            )
+            log(
+                f"Not serving GeoClue: cannot listen on {socket_path} ({why}).{hint} "
+                f"QMapShack and the map are served as usual."
+            )
+            socket_path = None
+    print(
+        gps_tether.instructions(
+            port, gpsd=gpsd, position_port=position_port, nmea_socket=socket_path
+        ),
+        flush=True,
+    )
+
     try:
-        gps_tether.serve(listener, http=http, gpsd=gpsd, log=log)
+        gps_tether.serve(
+            listener, http=http, unix=None if unix is None else unix[0], gpsd=gpsd, log=log
+        )
     except KeyboardInterrupt:
         log("Stopped.")
     finally:
         listener.close()
         http.close()
+        if unix is not None and socket_path is not None:
+            gps_tether.close_unix(unix[0], socket_path, unix[1])
     return EXIT_OK
 
 
@@ -2305,12 +2366,24 @@ def installed_quad_counts(
     units = [p for p in plan.packages if isinstance(p.block.install, TopoQuadsInstall)]
     if not units:
         return {}
-    try:
-        listed = {q.name for q in load_ustopo_index(catalog_root / USTOPO_INDEX).quads}
-    except UstopoError:
-        listed = None
+
+    def ustopo() -> set[str] | None:
+        try:
+            return {q.name for q in load_ustopo_index(catalog_root / USTOPO_INDEX).quads}
+        except UstopoError:
+            return None
+
+    def fstopo() -> set[str] | None:
+        try:
+            return {q.name for q in load_fstopo_index(catalog_root / FSTOPO_INDEX).quads}
+        except FstopoError:
+            return None
+
     counts: dict[str, tuple[int, int]] = {}
     for planned in units:
+        block = planned.block.install
+        assert isinstance(block, TopoQuadsInstall)
+        listed = fstopo() if block.provider == "usfs-fstopo" else ustopo()
         names = [p.stem for p in (data_root(prefix) / planned.name).glob("*.tif")]
         stale = 0 if listed is None else sum(1 for n in names if n not in listed)
         counts[planned.name] = (len(names), stale)
@@ -2589,6 +2662,38 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("US Topo", str(exc))
         return EXIT_UNPLANNABLE
+    # D-068, amended 2026-10-01: USGS 3DEP when the station chose it (the same
+    # bucket as US Topo, so the same probe), and the Forest Service's FSTopo
+    # sheets, each located through the raster gateway's one redirect.
+    try:
+        bare_resolution, bare_notes = resolve_station_3dep(
+            plan,
+            resolution,
+            catalog_root,
+            prefix=source.prefix,
+            source=station.elevation,
+            region_probe=outlines,
+            tile_probe=ustopo_probe(),
+        )
+    except CopernicusError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        refused("3DEP", str(exc))
+        return EXIT_UNPLANNABLE
+    try:
+        fstopo_resolution, fstopo_notes = resolve_station_fstopo(
+            plan,
+            resolution,
+            catalog_root,
+            prefix=source.prefix,
+            region_probe=outlines,
+            gateway=GatewayProbe(),
+        )
+    except FstopoError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        refused("FSTopo", str(exc))
+        return EXIT_UNPLANNABLE
     # D-066: the chosen Kiwix books, resolved against the book list and its
     # pins, and every one not yet installed HEAD-checked, before the plan
     # prints: each book's size and licence are the disclosure, and a pin
@@ -2613,6 +2718,8 @@ def cmd_install(args: argparse.Namespace) -> int:
     )
     region_notes = list(resolution.notes)
     region_notes.extend(topo_notes)
+    region_notes.extend(bare_notes)
+    region_notes.extend(fstopo_notes)
     # D-069: CoMaps' maps for the same regions, from the carried region table,
     # and every map not yet installed HEAD-checked for its pinned size before
     # the plan prints: each map's size, licence and check are the disclosure,
@@ -2674,6 +2781,10 @@ def cmd_install(args: argparse.Namespace) -> int:
         resolution=dem_resolution,
         pins=brouter_pins(plan),
         topo=topo_resolution,
+        bare_earth=bare_resolution,
+        dem_source=station.elevation,
+        contour_source=contour_source(plan),
+        fstopo=fstopo_resolution,
     )
     # D-067: the phone converters, from the same regions, as the operator.
     phone = build_phone_run(
@@ -3671,6 +3782,28 @@ def cmd_hardware_list(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _geoclue_for_apply(args: argparse.Namespace, user: str) -> GeoClueGrants | None:
+    """GeoClue's half of `hardware apply` (D-069): None under ``--no-geoclue``.
+    Raises GeoClueError, before anything runs, on a file Hammunition did not write."""
+    from hammunition import geoclue
+
+    if getattr(args, "no_geoclue", False):
+        return None
+    return geoclue.plan_geoclue(user)
+
+
+def _geoclue_disclosure(args: argparse.Namespace, geo: GeoClueGrants | None) -> list[str]:
+    from hammunition import geoclue
+
+    if geo is None:
+        return (
+            ["GeoClue (D-069): left alone (--no-geoclue)."]
+            if getattr(args, "no_geoclue", False)
+            else []
+        )
+    return geoclue.disclose(geo)
+
+
 def _disclose_gps_resume(plan: HardwarePlan) -> None:
     """The resume step's disclosure (issue #177), when the plan carries one."""
     if plan.gps_resume is not None:
@@ -3728,6 +3861,16 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     except gps_resume.GpsResumeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNPLANNABLE
+    from hammunition import geoclue
+
+    try:
+        geo = _geoclue_for_apply(args, user)
+    except geoclue.GeoClueError as exc:
+        print(
+            f"error: {exc}\n`--no-geoclue` sets up devices without GeoClue's GPS socket (D-069).",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
 
     print(f"Hardware setup for {user!r}\n")
     if plan.omissions:
@@ -3738,12 +3881,14 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             print(f"  … and {len(plan.omissions) - 8} more")
         print()
 
-    if plan.is_noop:
+    if plan.is_noop and (geo is None or geo.is_noop):
         print(
             "Nothing to do: the rules file already matches, you are in every access "
             "group, the power-control helper and its polkit action are installed, and "
             "GPS time's grants are in place. Hardware setup is complete."
         )
+        if geo is not None and geo.installed:
+            print("GeoClue already reads the GPS tether's socket (D-069).")
         return EXIT_OK
 
     def build_commands(
@@ -3850,9 +3995,13 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     if plan.time is not None:
         for line in disclose(plan.time):
             print(line)
+    for line in _geoclue_disclosure(args, geo):
+        print(line)
     _disclose_gps_resume(plan)
 
     preview_commands, preview_helper, preview_policy, _preview_time = build_commands("<staging>")
+    if geo is not None:
+        preview_commands += geoclue.grant_commands(geo, "<staging>")
     installing_polkit = preview_helper is not None or preview_policy is not None
     """Whether this run installs *either* privileged artefact. Fix round 3:
     the helper and the policy are both routes to the same root-exec, and a
@@ -3919,6 +4068,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     staging_dir = Path(tempfile.mkdtemp(prefix="hammunition-hardware-"))
     try:
         commands, helper_command, policy_command, time_commands = build_commands(str(staging_dir))
+        geo_commands = geoclue.grant_commands(geo, str(staging_dir)) if geo is not None else []
+        commands += geo_commands
 
         if not plan.rules_already_current:
             staging = staging_dir / "udev-staging.rules"
@@ -3934,6 +4085,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             os.chmod(policy_staging, 0o644)
         if plan.time is not None:
             stage_grants(plan.time, staging_dir)
+        if geo is not None:
+            geoclue.stage_grants(geo, staging_dir)
         resume_steps = _stage_gps_resume(plan, staging_dir)
 
         runner = SubprocessRunner()
@@ -3949,6 +4102,15 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                 TransactionLog(owner=user).append(
                     {
                         "event": "time_grants",
+                        "version": 1,
+                        "description": command.description,
+                        "argv": list(command.argv),
+                    }
+                )
+            if any(command is step for step in geo_commands):
+                TransactionLog(owner=user).append(
+                    {
+                        "event": "geoclue_files",
                         "version": 1,
                         "description": command.description,
                         "argv": list(command.argv),
@@ -4039,6 +4201,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                 problems.append(f"{user} is still not in {group}")
         if plan.time is not None:
             problems += verify_grants(plan.time)
+        if geo is not None:
+            problems += geoclue.verify_grants(geo)
         if plan.gps_resume is not None:
             problems += gps_resume.verify(plan.gps_resume)
         if problems:
@@ -4116,6 +4280,10 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNPLANNABLE
     time_present = not removal.is_empty
+    from hammunition import geoclue
+
+    geo_removal = geoclue.plan_geoclue_removal()
+    geo_present = not geo_removal.is_empty
     resume_removal = gps_resume.plan_gps_resume_removal()
     resume_present = not resume_removal.is_empty
     owned = {HELPER_PATH, POLICY_PATH}
@@ -4149,6 +4317,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         and not kept_present
         and not time_present
         and not resume_present
+        and not geo_present
     ):
         print(
             "Nothing to remove: the transaction log records no hardware artefacts "
@@ -4161,7 +4330,13 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             f"Skipped: the log names {path!r}, which this command does not own "
             f"(only the power-control helper and its polkit action are ever removed)."
         )
-    if not recorded and not kept_present and not time_present and not resume_present:
+    if (
+        not recorded
+        and not kept_present
+        and not time_present
+        and not resume_present
+        and not geo_present
+    ):
         print("Nothing to do: no artefact this command owns is recorded.")
         return EXIT_OK
 
@@ -4169,7 +4344,13 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     gone = [p for p in recorded if p not in present]
     for path in gone:
         print(f"Already absent: {path}")
-    if not present and not kept_present and not time_present and not resume_present:
+    if (
+        not present
+        and not kept_present
+        and not time_present
+        and not resume_present
+        and not geo_present
+    ):
         print("Nothing to do: every recorded artefact is already gone.")
         return EXIT_OK
 
@@ -4200,7 +4381,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
 
     time_preview = removal_commands(removal, "<staging>")
     resume_commands = gps_resume.removal_commands(resume_removal)
-    shown = [*commands, *time_preview, *resume_commands]
+    geo_commands = geoclue.removal_commands(geo_removal)
+    shown = [*commands, *time_preview, *resume_commands, *geo_commands]
     euid = os.geteuid()
     print(f"\nCommands ({len(shown)}):")
     for command in shown:
@@ -4216,6 +4398,13 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             f"\nGPS time (D-058): {time_files.NTP_CONF}'s marked lines go back exactly as "
             f"they were before Hammunition edited them, and only Hammunition's block leaves "
             f"{time_files.APPARMOR_LOCAL}; the rest of that file stays."
+        )
+    if geo_present:
+        print(
+            f"\nGeoClue (D-069): only files that start with Hammunition's header are removed; "
+            f"{geoclue.SOCKET_DIR} goes with `rmdir`, which refuses if anything but the "
+            f"tether's socket is in it. Stop `hammunition maps gps-tether` first: GeoClue "
+            f"loses its socket either way, and TCP 10110 keeps serving until you do."
         )
     print(
         f"\nThe device-access rules file, {RULES_PATH}, is not touched: it is "
@@ -4236,6 +4425,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         if staging_dir is not None:
             stage_removal(removal, staging_dir)
             to_run += removal_commands(removal, str(staging_dir))
+        to_run += geo_commands
         to_run += resume_commands
         runner = SubprocessRunner()
         print("\nRunning:")
@@ -4253,6 +4443,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     problems = [f"{p} is still present" for p in present if Path(p).exists()]
     if time_present:
         problems += verify_removal(removal)
+    if geo_present:
+        problems += geoclue.verify_removal(geo_removal)
     problems += gps_resume.verify_removal(resume_removal)
     if problems:
         for problem in problems:
@@ -4268,6 +4460,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         after.append(
             "ntpsec runs on the package's own configuration; `hardware apply` restores GPS time."
         )
+    if geo_present:
+        after.append("GeoClue no longer reads the tether; `hardware apply` sets it up again.")
     if resume_present:
         after.append("`hardware apply` reinstalls the GPS resume step.")
     print("\nDone and verified. " + " ".join(after))
@@ -4537,6 +4731,17 @@ def cmd_time_mode(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _geoclue_state_for_doctor(args: argparse.Namespace) -> GeoClueState | None:
+    """GeoClue's files, directory and agent for `doctor` (D-069), read-only.
+    The agent is asked of this session's bus, so not as root."""
+    from hammunition import geoclue
+
+    try:
+        return geoclue.read_state(operator(args), ask_agent=os.geteuid() != 0)
+    except OSError:
+        return None
+
+
 def _doctor_gps_resume(args: argparse.Namespace) -> gps_resume.ResumeStatus | None:
     """Issue #177: the resume step's state, when a GPS receiver is attached
     (parked or awake) and gpsd is installed; otherwise None, and no check."""
@@ -4672,6 +4877,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     except (OSError, CatalogError, SystemExit):
         time_state = None
 
+    geoclue_state = _geoclue_state_for_doctor(args)
     gps_resume_state = _doctor_gps_resume(args)
 
     from hammunition.launchers import survey_engine_launchers, survey_shadowing_launchers
@@ -4715,6 +4921,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         launchers_bare=engine_launchers.bare,
         launchers_broken=engine_launchers.broken,
         launchers_shadowing=shadowing_launchers,
+        geoclue_state=geoclue_state,
     )
 
     from hammunition.interface.doctor import build_doctor, render_doctor
@@ -4942,6 +5149,19 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="serve the browser map's position stream (GET /position) on 127.0.0.1 port N "
         "(default 10111, D-071)",
+    )
+    p_maps_tether.add_argument(
+        "--nmea-socket",
+        metavar="PATH",
+        default=None,
+        help="also serve NMEA on a unix socket at PATH, mode 0660, for GeoClue (D-069); "
+        "the default is /run/hammunition-gps/nmea.sock once `hardware apply` has set "
+        "GeoClue up, and off otherwise",
+    )
+    p_maps_tether.add_argument(
+        "--no-nmea-socket",
+        action="store_true",
+        help="do not serve GeoClue's socket, even where `hardware apply` has set it up",
     )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
 
@@ -5204,6 +5424,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="leave ntpsec, its grants and fake-hwclock alone (D-058)",
     )
     p_hw_apply.add_argument(
+        "--no-geoclue",
+        action="store_true",
+        help="leave GeoClue alone: no socket drop-in, no tmpfiles line (D-069)",
+    )
+    p_hw_apply.add_argument(
         "--no-gps-resume",
         action="store_true",
         help="leave out the GPS receiver's resume step (issue #177)",
@@ -5304,6 +5529,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="a LAN mirror of the data artifacts, tried before the publisher (D-070)",
     )
     mirror_flags.add_argument("--clear-mirror", action="store_true", help="remove the saved mirror")
+    p_station_set.add_argument(
+        "--dem-source",
+        default=None,
+        choices=("copernicus", "3dep"),
+        help="the elevation QMapShack's hillshade and contours are drawn from: copernicus "
+        "(the default, a surface model) or 3dep (USGS bare earth, about 10x larger) (D-068)",
+    )
     p_station_set.add_argument("--user", default=None, help="whose configuration to write")
     p_station_set.set_defaults(func=cmd_station_set)
 

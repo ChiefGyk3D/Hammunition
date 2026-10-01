@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**298 programs and packages** from the catalog, laid out the way the
+**300 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -104,6 +104,7 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 | [comaps](packages/comaps.md) | Offline vector maps with search and car, bike and foot routing, from CoMaps' own map files | [comaps.app](https://www.comaps.app/) |
 | [comaps-maps](packages/comaps-maps.md) | CoMaps' own map files for your map regions, checked against CoMaps' index | [comaps.app](https://www.comaps.app/) |
 | [country-boundaries](packages/country-boundaries.md) | Natural Earth's world country borders, which let Navit's address search find towns | [naturalearthdata.com](https://www.naturalearthdata.com/) |
+| [dem-3dep](packages/dem-3dep.md) | USGS 3DEP bare-earth elevation for your US map regions, when you choose it | [usgs.gov/3d-elevation-program](https://www.usgs.gov/3d-elevation-program) |
 | [dem-copernicus](packages/dem-copernicus.md) | Copernicus GLO-30 elevation tiles for your map regions, verified | [registry.opendata.aws/copernicus-dem](https://registry.opendata.aws/copernicus-dem/) |
 | [dem-qmapshack](packages/dem-qmapshack.md) | Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles | [gdal.org](https://gdal.org/) |
 | [gdal-bin](packages/gdal-bin.md) | GDAL's command-line tools for rasters and elevation data | [gdal.org](https://gdal.org/) |
@@ -121,6 +122,7 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 | [qmapshack](packages/qmapshack.md) | Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot | [github.com/Maproom/qmapshack](https://github.com/Maproom/qmapshack) |
 | [routino](packages/routino.md) | Offline routing over OpenStreetMap data, on foot, by bike or by car | [routino.org](https://www.routino.org/) |
 | [socat](packages/socat.md) *(retired)* | A relay between two data channels, sockets, files or programs | [dest-unreach.org/socat](http://www.dest-unreach.org/socat/) |
+| [usfs-fstopo](packages/usfs-fstopo.md) | Forest Service FSTopo 7.5-minute sheets for your US map regions, with trail numbers | [data.fs.usda.gov/geodata/rastergateway](https://data.fs.usda.gov/geodata/rastergateway/) |
 | [usgs-ustopo](packages/usgs-ustopo.md) | USGS US Topo 7.5-minute map sheets for your US map regions, verified | [usgs.gov/programs/national-geospatial-program/us-topo-maps-america](https://www.usgs.gov/programs/national-geospatial-program/us-topo-maps-america) |
 | [ustopo-qmapshack](packages/ustopo-qmapshack.md) | The US Topo sheets as one seamless QMapShack map, collars cropped | [gdal.org](https://gdal.org/) |
 | [vector-map-kit](packages/vector-map-kit.md) | The fixed files the offline browser map needs, from their publishers, pinned | [openmaptiles.org](https://openmaptiles.org/) |

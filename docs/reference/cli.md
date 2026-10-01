@@ -391,11 +391,14 @@ or not UTF-8. There is no `--json` form, because it replaces itself with a
 GUI (D-059). Started from the menu entry, which opens no terminal, its lines
 on stderr, the licence answer among them, are not seen; the guide says so.
 
-CoMaps has no position on the laptop: it reads GeoClue2 only, and nothing
-here feeds GeoClue the GPS. The navigation guide says what the route would
-be.
+CoMaps reads its position from GeoClue2 only. Its "you are here" comes from
+the GPS tether's unix socket, which GeoClue reads once `hammunition hardware
+apply` has written its two files (below), while `hammunition maps
+gps-tether` runs (**D-069**, amended 2026-10-01). Not yet measured on the
+field laptop's own GeoClue; the navigation guide, section 17, says what the
+bench owes.
 
-### `hammunition maps gps-tether [--gpsd HOST[:PORT]] [--port N] [--position-port N]`
+### `hammunition maps gps-tether [--gpsd HOST[:PORT]] [--port N] [--position-port N] [--nmea-socket PATH | --no-nmea-socket]`
 
 What the `gps-tether` launcher runs (**D-061**). It watches gpsd's JSON, as
 `xgps` and Navit do, and writes `$GPRMC` and `$GPGGA` for every position
@@ -417,6 +420,26 @@ Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 | `--gpsd HOST[:PORT]` | `127.0.0.1:2947` | The gpsd to read: a host name or address, port 2947 when none is given. An IPv6 address goes in brackets (`[::1]`, `[2001:db8::7]:2947`); a bare one, an unclosed bracket, an empty host or a port outside 1 to 65535 is refused by name. |
 | `--port N` | `10110` | The port to serve on, still on 127.0.0.1 only. 1024 to 65535; below 1024 (only root may listen there, and the tether refuses root) and above 65535 are refused by name, and so is anything that is not a number. |
 | `--position-port N` | `10111` | The port of the browser map's position stream (**D-071**), on 127.0.0.1 only, with the same limits. The same port as `--port` is refused by name, so `--port 10111` needs `--position-port` too. |
+| `--nmea-socket PATH` | off, or `/run/hammunition-gps/nmea.sock` once `hardware apply` has set GeoClue up | Also serve the same NMEA on a unix stream socket at PATH, for GeoClue (**D-069**). An absolute path of at most 107 bytes. |
+| `--no-nmea-socket` | | Do not serve the socket, even where `hardware apply` has set GeoClue up. Given with `--nmea-socket`, refused by name. |
+
+**GeoClue's socket (D-069).** With no option, the tether serves
+`/run/hammunition-gps/nmea.sock` whenever Hammunition's GeoClue drop-in,
+`/etc/geoclue/conf.d/90-hammunition-gps.conf`, is present (the file is the
+marker), so the `gps-tether` launcher needs no second form. The socket is a
+client like any NMEA client: the same sentences from the same gpsd watch,
+counted in the same fan-out, and dropped by the same rules (more than
+64 KiB unsent, or gone). It is mode 0660; the directory `hardware apply`
+makes is setgid `geoclue`, so the socket takes GeoClue's group and no other
+account can open it. Where the group cannot be had, or there is no
+`geoclue` group, a line on stderr says GeoClue cannot read it. A stale
+socket from a tether that crashed is replaced; a live one (another tether)
+is refused, and so is anything at the path that is not a socket, which is
+left alone. The socket is removed when the tether stops, only if it is
+still the one this tether made. The default failing (its directory missing,
+say) is a line on stderr naming the fix, and TCP and the map are served as
+usual; a `--nmea-socket` path that cannot be served stops the tether, exit
+1. The startup text gains a line naming the socket.
 
 **The browser map's position (D-071).** A browser cannot read an NMEA
 socket, so the tether also answers `GET /position` on 127.0.0.1 port 10111
@@ -1084,6 +1107,24 @@ together, with `scripts/gen_ustopo_index.py --fetch`, which regenerates the
 index). Offline, a region whose record names an edition the index has since
 replaced keeps its installed sheets, and a `note:` says so.
 
+**FSTopo and 3DEP (D-068, amended 2026-10-01).** With `dem-3dep` planned the
+Terrain block gains a *USGS 3DEP bare-earth elevation* part: with
+`dem_source` unset or `copernicus` it says 3DEP is not chosen and that any
+installed tile is removed; with `3dep` it lists each region's tiles and what
+each region downloads (about ten times Copernicus), each tile checked by its
+S3 ETag in the US Topo wording. `usfs-fstopo` is in no profile and is planned
+only when typed by name (`hammunition install usfs-fstopo`), because the
+Forest Service publishes no checksum. Its *FSTopo* part lists each region's
+sheets; each sheet's line reads `sha256, pinned by Hammunition (the Forest
+Service publishes no checksum)` when the catalog pins it, or `unverified:
+the Forest Service publishes no checksum and Hammunition has pinned none;
+only the size is checked`; a `warning:` counts the unverified sheets; and
+when every sheet the regions need is pinned the part says `every FSTopo
+quad your regions need is pinned by Hammunition`. `ustopo-qmapshack` reads
+FSTopo sheets that are installed and builds `FSTopo.vrt` beside `ustopo.vrt`;
+it never pulls `usfs-fstopo` into a plan. The JSON carries both parts as
+`terrain.bare_earth` and `terrain.fstopo` ([json-interface.md](json-interface.md)).
+
 **Recommends, per unit (D-052).** Recommends are not suppressed globally —
 that would deviate from what every target distribution does, and several ham
 applications get their runtime data that way. A single manifest may opt its
@@ -1286,7 +1327,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Nineteen checks across four severities:
+one command that fixes it. Twenty-one checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -1354,6 +1395,21 @@ at startup with "The specified translations XML file did not exist" until
 the file is back. It is a warn, with `sudo apt-get install --reinstall
 routino-common` as the fix.
 
+The **geoclue** and **geoclue agent** checks (**D-069**) appear only where
+GeoClue is installed (`/usr/libexec/geoclue`). *geoclue* is ok when both of
+Hammunition's files are in place and `/run/hammunition-gps` exists with mode
+2750, the operator as owner and GeoClue's group; information when neither
+file is there (the fix is `hammunition hardware apply`); a warn when only one
+is, and a warn naming what is wrong when the directory is missing or not as
+made, with `sudo systemd-tmpfiles --create /etc/tmpfiles.d/hammunition-gps.conf`
+as the fix. *geoclue agent* reads `busctl --user list`, which lists the
+session bus's names and starts nothing, for Debian's demo agent
+(`org.freedesktop.GeoClue2.DemoAgent`): ok when it is there, a warn when it
+is not (without an agent GeoClue holds CoMaps' request and Qt gives up after
+about 25 s; GNOME Shell is its own agent and this check does not see it),
+and information when it was not asked (run as root, whose bus is not the
+session's, or `busctl` did not answer).
+
 The **launchers** check (issue #145) reads back every generated launcher in
 `~/.local/bin` that runs `hammunition` itself (today QMapShack's
 `qmapshack-offline` and `gps-tether`). A launcher runs the engine by its
@@ -1403,7 +1459,7 @@ identifier is flagged as a candidate, not a conclusion — **D-028**),
 the udev rules and your access-group membership are already in place.
 Detection drives nothing: it reports, and you decide (**D-020**).
 
-### `hammunition hardware apply [--dry-run] [--yes] [--user NAME] [--no-gps-time] [--no-gps-resume]`
+### `hammunition hardware apply [--dry-run] [--yes] [--user NAME] [--no-gps-time] [--no-gps-resume] [--no-geoclue]`
 
 Writes the whole catalog's udev rules to
 `/etc/udev/rules.d/65-hammunition.rules`, reloads and triggers udev, adds
@@ -1470,6 +1526,26 @@ files contain and what installing them means.
   happens without gpsd installed (there is no GPS time to read), and
   `--no-gps-time` leaves ntpsec, its grants and `fake-hwclock` alone. See
   `docs/guides/gps-time.md`.
+- **GeoClue reads the GPS tether (D-069), where GeoClue is installed.**
+  Writes `/etc/geoclue/conf.d/90-hammunition-gps.conf` (`[network-nmea]`,
+  `enable=true`, `nmea-socket=/run/hammunition-gps/nmea.sock`, a drop-in over
+  the untouched `geoclue.conf`) and `/etc/tmpfiles.d/hammunition-gps.conf`
+  (`d /run/hammunition-gps 2750 <operator> geoclue -`), runs
+  `systemd-tmpfiles --create` on the second so the directory exists now
+  (systemd makes it at every boot), and `systemctl try-restart geoclue` so a
+  running GeoClue reads the drop-in. The plan prints both files, the
+  directory, the four facts the operator should know before agreeing (that
+  GeoClue reads its configuration only at start; that any native app of a
+  user with an agent then gets the fix while the tether runs; that stock
+  GeoClue's own beacondb and GeoIP lookups are unchanged; that Qt caches the
+  last fix), how to inspect it and how to reverse it. A file at either path
+  that does not start with Hammunition's header, or anything but a directory
+  at `/run/hammunition-gps`, refuses the run (exit `2`) before anything
+  runs. Each step is logged (`geoclue_files`), and afterwards both files are
+  read back and the directory's mode, owner and group checked. Nothing of
+  this happens where GeoClue (`/usr/libexec/geoclue` and its `geoclue`
+  group) is not installed; the plan says so. `--no-geoclue` leaves GeoClue
+  alone. See `docs/guides/offline-navigation.md`, section 17.
 - **Installs the GPS receiver's resume step (issue #177)** where gpsd is
   installed: `/usr/local/libexec/hammunition-gps-resume` (`0755`) and
   `/etc/systemd/system/hammunition-gps-resume.service`, a oneshot after and
@@ -1493,8 +1569,8 @@ Removes the power-control helper and its polkit action — the two files
 if present, `/etc/udev/rules.d/66-hammunition-kept.rules`, the kept-off rules
 file `park` writes to by default (**D-056**, amended 2026-09-28). Removing it
 reloads udev, so every device it was holding parked wakes from the next boot
-on. GPS time and the GPS resume step are taken back too (below); nothing
-else is touched.
+on. GPS time, the GPS resume step and GeoClue's tether socket files are
+taken back too (below); nothing else is touched.
 
 - **Not part of `uninstall`.** `uninstall` resolves the names it is given
   against the package and profile catalogs; there is no unit named
@@ -1523,6 +1599,14 @@ else is touched.
   `/etc/apparmor.d/local/usr.sbin.ntpd`, the rest of that file stays; then
   systemd and AppArmor are reloaded and ntpsec restarted. `fake-hwclock`, if
   it was installed, stays; `sudo apt remove fake-hwclock` removes it.
+- **Takes GeoClue's tether socket back (D-069)**, by content too: each of
+  `/etc/geoclue/conf.d/90-hammunition-gps.conf` and
+  `/etc/tmpfiles.d/hammunition-gps.conf` only when it starts with
+  Hammunition's header, `/run/hammunition-gps/nmea.sock` only when it is a
+  socket, then `rmdir /run/hammunition-gps` when the tmpfiles line was ours
+  (it fails, loudly, if anything else is in it) and, while GeoClue is
+  installed, `systemctl try-restart geoclue`. Stop the tether first; TCP
+  10110 keeps serving until you do.
 - **Takes the GPS resume step back (issue #177)**, by content:
   `systemctl disable hammunition-gps-resume.service`, then the unit and
   `/usr/local/libexec/hammunition-gps-resume` are removed, each only when it
@@ -1626,8 +1710,8 @@ the authentication prompt is dismissed.
 ### `hammunition station show` / `hammunition station set`
 
 The values only you can supply — callsign, grid square, packet node alias,
-the regions to carry offline maps for, and the LAN mirror to take their data
-from. Some
+the regions to carry offline maps for, the LAN mirror to take their data
+from, and which elevation QMapShack draws from. Some
 manifests write configuration files templated with them: `linbpq` needs a node
 callsign, AX.25 needs one in `/etc/ax25/axports`, Direwolf needs one in its
 own configuration.
@@ -1647,6 +1731,7 @@ hammunition station show
 | `--reference-books ID[,ID…]` | Kiwix books for `kiwix-library`, by id (`hammunition reference books` lists them). Replaces the whole list; an id the catalog's book list does not name is refused when you type it, and an empty list is refused (uninstall `kiwix-library` to remove the books) (**D-066**) |
 | `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile, a CoMaps map, a reference book) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
 | `--clear-mirror` | Remove the saved mirror |
+| `--dem-source SOURCE` | `copernicus` (the default when unset) or `3dep`: the elevation QMapShack's hillshade, slope and contours are drawn from (**D-068**, amended 2026-10-01). `3dep` makes `dem-3dep` fetch USGS 3DEP 1/3-arc-second bare-earth tiles for the US regions, about ten times Copernicus's size, and `dem-qmapshack` redraw from them; Copernicus stays installed for BRouter and for regions outside the US. Setting it back to `copernicus` removes the 3DEP tiles and redraws from Copernicus on the next install. `station show` prints it |
 
 A region list says where the operator lives or travels, so `station show`
 and `station set` print how many regions are set, never their names; the
