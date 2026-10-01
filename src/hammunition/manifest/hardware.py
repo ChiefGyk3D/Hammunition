@@ -35,8 +35,15 @@ __all__ = [
     "NodeKind",
     "PowerControl",
     "PowerMethod",
+    "PttLine",
     "QuietVerb",
     "RejectedId",
+    "RigAudio",
+    "RigBlock",
+    "RigCat",
+    "RigInterfaceKind",
+    "RigPtt",
+    "RigPttOnly",
     "UdevBinding",
     "UsbAmbiguity",
     "UsbId",
@@ -466,6 +473,116 @@ class PowerControl(Strict):
     )
 
 
+RigInterfaceKind = Literal[
+    "usb_cp2105_dual",
+    "usb_cp210x",
+    "usb_ftdi",
+    "usb_cdc_acm",
+    "usb_ch340",
+    "bluetooth_rfcomm",
+]
+"""How a CAT radio's control port presents on USB (or Bluetooth)."""
+
+RigAudio = Literal["builtin_usb_codec", "external_interface", "none"]
+RigPtt = Literal["cat", "rts", "dtr", "vox"]
+PttLine = Literal["rts", "dtr"]
+
+
+class RigCat(Strict):
+    """How a CAT radio's control port is reached and driven.  D-073 §3b.
+
+    Every value cites where it came from in a manifest comment, as the rest of
+    the hardware catalog does: ``baud`` and ``handshake`` from ``rigctl -m N
+    -u``, ``kind`` from the cable, ``factory_baud`` only when read from the
+    radio (so the station never defaults the speed).
+    """
+
+    kind: RigInterfaceKind
+    interface: str | None = Field(
+        default=None,
+        description="Which -ifNN- port is CAT, when the chip presents several.",
+    )
+    baud: tuple[int, int] = Field(
+        description="The backend's [low, high] serial-speed range, from `rigctl -m N -u`."
+    )
+    factory_baud: int | None = Field(
+        default=None,
+        description="The radio's out-of-box CAT rate, only when read from the radio.",
+    )
+    handshake: Literal["hardware", "software", "none"]
+
+    @model_validator(mode="after")
+    def _check(self) -> RigCat:
+        low, high = self.baud
+        if low <= 0 or high < low:
+            raise ManifestError(
+                f"rig cat baud {list(self.baud)} must be [low, high] with 0 < low <= high"
+            )
+        return self
+
+
+class RigPttOnly(Strict):
+    """A radio hamlib cannot drive: the serial lines that key it.  D-073 §3d.
+
+    Mutually exclusive with ``hamlib_model``/``cat`` on :class:`RigBlock`: a
+    radio either has a hamlib backend and a CAT port, or it has neither and
+    names the lines an interface keys it by.
+    """
+
+    lines: list[PttLine] = Field(
+        min_length=1,
+        description="Serial control lines an interface can key it by (RTS and/or DTR).",
+    )
+    vox: bool = Field(
+        default=False,
+        description="The radio can key itself on audio (VOX) instead of a line.",
+    )
+
+
+class RigBlock(Strict):
+    """What a radio needs from Linux and from hamlib.  D-073 §3b.
+
+    One radio is one of two shapes: a CAT radio with a hamlib model and a
+    control port, or a PTT-only radio with neither, keyed by a serial line.
+    """
+
+    hamlib_model: int | None = Field(
+        default=None,
+        description="`rigctl -l`; the plan checks the target's hamlib lists it.",
+    )
+    cat: RigCat | None = None
+    ptt_only: RigPttOnly | None = None
+    audio: RigAudio
+    ptt: list[RigPtt] = Field(
+        default_factory=list,
+        description="What the radio can be keyed by; the first is the default.",
+    )
+    ptt_interface: str | None = Field(
+        default=None,
+        description="The -ifNN- port for RTS/DTR keying, where it differs from CAT.",
+    )
+
+    @property
+    def kind(self) -> Literal["cat", "ptt_only"]:
+        return "ptt_only" if self.ptt_only is not None else "cat"
+
+    @model_validator(mode="after")
+    def _exclusive(self) -> RigBlock:
+        is_cat = self.hamlib_model is not None or self.cat is not None
+        if is_cat and self.ptt_only is not None:
+            raise ManifestError(
+                "a rig has either a hamlib backend and a CAT port, or ptt_only, never both "
+                "(D-073 §3b)"
+            )
+        if not is_cat and self.ptt_only is None:
+            raise ManifestError(
+                "a rig block must declare either hamlib_model + cat, or ptt_only (D-073 §3b)"
+            )
+        if is_cat and (self.hamlib_model is None or self.cat is None):
+            raise ManifestError("a CAT rig needs both hamlib_model and cat (D-073 §3b)")
+        return self
+
+
 class Firmware(Strict):
     """Flashing or firmware-management tooling for a device."""
 
@@ -523,6 +640,14 @@ class _DeviceCommon(Strict):
         default_factory=list, description="Catalog packages that make it useful."
     )
     firmware: list[Firmware] = Field(default_factory=list)
+    rig: RigBlock | None = Field(
+        default=None,
+        description=(
+            "Present on a radio: what it needs from hamlib and from Linux. The "
+            "operator's selection of this device as the station's rig is station "
+            "configuration, not a property read from the hardware (D-073, D-028)."
+        ),
+    )
     udev: UdevBinding | None = None
     power_control: PowerControl | None = Field(
         default=None,
