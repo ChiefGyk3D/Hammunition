@@ -55,19 +55,21 @@ CONTOUR_BYTES = 5_500_000
 WARP_FACTOR = 1.0
 WARP_SCRATCH_FACTOR = 1.0
 #: An FSTopo sheet expanded to tiled RGB JPEG with overviews, against its
-#: download (D-068, amended 2026-10-01), and its scratch. Set from the
-#: spike's sheet until Task 10's live sheet measures it.
-FSTOPO_FACTOR = 1.0
-FSTOPO_SCRATCH_FACTOR = 1.0
-FSTOPO_MEASURED = "not yet measured; the download's size assumed"
+#: download, and its scratch (D-068, amended 2026-10-01): measured on
+#: 2026-10-01 on one George Washington National Forest sheet, 21,194,737
+#: bytes, gdal_translate 7.0 s and gdaladdo 3.6 s to 24,546,537 bytes,
+#: 1.16, rounded up.
+FSTOPO_FACTOR = 1.2
+FSTOPO_SCRATCH_FACTOR = 1.2
+FSTOPO_MEASURED = "measured on one sheet"
 #: One tile's contour GeoPackage, removed once rasterised: 97,812,480 bytes
 #: on that tile, the largest a tile is expected to need.
 CONTOUR_SCRATCH_BYTES = 98_000_000
-#: The same two for a USGS 3DEP 1/3" tile (D-068, amended 2026-10-01): the
-#: spike's n39w079 traced to a 212 MB GeoPackage at a 20 m interval, and its
-#: raster at 10,812 pixels is the 5.0 MB measured at 7,200 scaled by the
-#: pixel count, until Task 10's live tile measures it.
-CONTOUR_BYTES_3DEP = 11_300_000
+#: The same two for a USGS 3DEP 1/3" tile (D-068, amended 2026-10-01),
+#: measured on 2026-10-01 on Shenandoah's tile, n39w079, with the engine's
+#: own argv: gdal_contour 17.3 s to a 211,509,248-byte GeoPackage,
+#: gdal_rasterize at 10,812 pixels 3.4 s to 8,421,990 bytes; rounded up.
+CONTOUR_BYTES_3DEP = 8_500_000
 CONTOUR_SCRATCH_BYTES_3DEP = 212_000_000
 
 
