@@ -248,7 +248,8 @@ def test_a_launcher_entry_with_stale_markers_is_re_rendered_from_the_manifest(
     assert refresh_launcher_entries([hill], apps) == []
     assert (
         refresh_launcher_entries(
-            [_manifest("ghost", ["aprs"], launchers=[{"name": "ghost", "exec": "ghost"}])], apps
+            [_manifest("ghost", ["aprs"], launchers=[{"name": "ghost-window", "exec": "ghost"}])],
+            apps,
         )
         == []
     )
@@ -292,10 +293,10 @@ def test_a_launcher_declared_after_install_is_written_at_apply_time(tmp_path: Pa
     rtl = _manifest(
         "rtl-sdr",
         ["sdr-hardware"],
-        launchers=[{"name": "rtl_test", "exec": "rtl_test -t", "terminal": True}],
+        launchers=[{"name": "rtl_test-tuner", "exec": "rtl_test -t", "terminal": True}],
     )
     absent = _manifest(
-        "absent", ["sdr-hardware"], launchers=[{"name": "absent_tool", "exec": "absent_tool"}]
+        "absent", ["sdr-hardware"], launchers=[{"name": "absent-launch", "exec": "absent_tool"}]
     )
     steps = missing_launcher_steps(
         [rtl, absent],
@@ -307,7 +308,8 @@ def test_a_launcher_declared_after_install_is_written_at_apply_time(tmp_path: Pa
     assert [s.kind for s in steps] == ["wrapper", "desktop-entry"], "only the installed unit"
     for s in steps:
         s.perform()
-    assert (bins / "rtl_test").is_file() and (apps / "hammunition-rtl_test.desktop").is_file()
+    assert (bins / "rtl_test-tuner").is_file()
+    assert (apps / "hammunition-rtl_test-tuner.desktop").is_file()
     assert (
         missing_launcher_steps(
             [rtl], bin_dir=bins, applications_dir=apps, prefix=prefix, installed=lambda p: True

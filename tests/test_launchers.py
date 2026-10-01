@@ -23,7 +23,7 @@ def manifest(**overrides: Any) -> PackageManifest:
         "summary": "Fixture with a launcher",
         "categories": ["sdr-receivers", "aprs"],
         "install": [{"install": {"method": "apt", "packages": ["launchable"]}}],
-        "launchers": [{"name": "launchable", "exec": "launchable --serve"}],
+        "launchers": [{"name": "launchable", "exec": "launchable-server --serve"}],
         "update": {"probe": {"method": "none"}, "strategy": "manual"},
         "documentation": {
             "what_it_does": "Exists so launcher generation has a unit to plan.",
@@ -69,15 +69,21 @@ def test_desktop_entry_carries_mapped_categories_and_the_marker(tmp_path: Path) 
 def test_desktop_entry_name_is_the_title_when_one_is_given(tmp_path: Path) -> None:
     # yagiuda's interactive program is called `input`; a menu entry called
     # "input" tells nobody what it is. The title is what the menu shows and
-    # the name stays the wrapper's filename, so `type input` still finds it.
+    # the name is the wrapper's filename -- never `input` itself, which is
+    # the program the wrapper runs (issue #174).
     m = manifest(
         launchers=[
-            {"name": "input", "exec": "input", "terminal": True, "title": "Yagi-Uda design (input)"}
+            {
+                "name": "yagiuda-input",
+                "exec": "input",
+                "terminal": True,
+                "title": "Yagi-Uda design (input)",
+            }
         ]
     )
-    entry = desktop_entry(m, m.launchers[0], tmp_path / "bin" / "input")
+    entry = desktop_entry(m, m.launchers[0], tmp_path / "bin" / "yagiuda-input")
     assert "Name=Yagi-Uda design (input)\n" in entry
-    assert "Exec=" + str(tmp_path / "bin" / "input") in entry
+    assert "Exec=" + str(tmp_path / "bin" / "yagiuda-input") in entry
 
 
 def test_desktop_entry_name_falls_back_to_the_launcher_name(tmp_path: Path) -> None:
@@ -90,7 +96,7 @@ def test_a_blank_title_is_refused_rather_than_rendering_an_unnamed_entry() -> No
     from pydantic import ValidationError
 
     with pytest.raises((ValidationError, ManifestError), match="title"):
-        manifest(launchers=[{"name": "l", "exec": "l", "title": "  "}])
+        manifest(launchers=[{"name": "l", "exec": "x", "title": "  "}])
 
 
 def test_steps_write_both_artifacts_and_they_are_real(tmp_path: Path) -> None:
@@ -335,76 +341,10 @@ def test_a_terminal_launcher_may_not_exec_away_the_shell_that_would_hold() -> No
 
 
 # ---------------------------------------------------------------------------
-# A wrapper named like its tool must run the tool, not itself.
+# A wrapper named like its tool ran itself (ubertooth-util, until the process
+# limit) or shadowed the tool from ~/.local/bin (rigctl, issue #174). The
+# name is now refused instead: tests/test_launcher_shadowing.py.
 # ---------------------------------------------------------------------------
-
-
-def _user_task_count() -> int:
-    """What RLIMIT_NPROC is compared against: every thread of every process
-    of this user, not the process count /proc's directory listing gives."""
-    uid = os.getuid()
-    count = 0
-    for entry in os.listdir("/proc"):
-        if not entry.isdigit():
-            continue
-        try:
-            if os.stat(f"/proc/{entry}").st_uid != uid:
-                continue
-            status = Path(f"/proc/{entry}/status").read_text()
-        except OSError:
-            continue
-        for line in status.splitlines():
-            if line.startswith("Threads:"):
-                count += int(line.split()[1])
-                break
-    return count
-
-
-def test_a_wrapper_named_like_its_tool_runs_the_tool_and_not_itself(tmp_path: Path) -> None:
-    """The wrapper lands in ``~/.local/bin`` under the tool's own name, and
-    Debian's ``.profile`` puts that directory first on PATH. Measured on the
-    field laptop: ``~/.local/bin/ubertooth-util`` ran ``ubertooth-util -v``,
-    which resolved to the wrapper again, forever. The wrapper must take its
-    own directory out of PATH before the command line."""
-    import resource
-
-    m = manifest(launchers=[{"name": "tool", "exec": "tool -v", "terminal": True}])
-    bin_dir = tmp_path / "bin"
-    real_dir = tmp_path / "real"
-    bin_dir.mkdir()
-    real_dir.mkdir()
-    (bin_dir / "tool").write_text(wrapper_body(m, m.launchers[0]))
-    (bin_dir / "tool").chmod(0o755)
-    (real_dir / "tool").write_text('#!/bin/sh\necho "real tool ran $*"\n')
-    (real_dir / "tool").chmod(0o755)
-
-    # The unfixed wrapper forks itself without bound. A process-count ceiling
-    # a little above what this user already runs makes that fail fast inside
-    # this subtree only; the process group is killed on timeout regardless.
-    ceiling = _user_task_count() + 40
-
-    def limit() -> None:
-        resource.setrlimit(resource.RLIMIT_NPROC, (ceiling, ceiling))
-
-    proc = subprocess.Popen(
-        ["/bin/sh", str(bin_dir / "tool")],
-        env={"PATH": f"{bin_dir}:{real_dir}"},
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        start_new_session=True,
-        preexec_fn=limit,
-    )
-    try:
-        out, _ = proc.communicate(timeout=20)
-    except subprocess.TimeoutExpired:
-        os.killpg(proc.pid, 9)
-        proc.wait()
-        pytest.fail("the wrapper did not finish: it is calling itself")
-    assert "real tool ran -v" in out, out
-    assert "[exit 0]" in out, out
-    assert out.count("real tool ran") == 1, out
 
 
 # ---------------------------------------------------------------------------
@@ -443,7 +383,7 @@ def _only_argv0(monkeypatch: pytest.MonkeyPatch, argv0: str, tmp_path: Path) -> 
 
     monkeypatch.setattr(sys, "argv", [argv0, "install", "navigation"])
     monkeypatch.setattr(sys, "executable", str(tmp_path / "no-venv" / "bin" / "python3"))
-    monkeypatch.setattr("hammunition.launchers.shutil.which", lambda _name: None)
+    monkeypatch.setattr("hammunition.launchers.shutil.which", lambda _name, **_kw: None)
 
 
 def test_a_launcher_calling_the_engine_names_it_by_absolute_path() -> None:
@@ -525,7 +465,7 @@ def test_run_as_a_module_the_engine_is_the_venvs_entry_point(
     engine = _fake_engine(tmp_path / "venv" / "bin" / "hammunition")
     monkeypatch.setattr(sys, "argv", [str(tmp_path / "src" / "hammunition" / "__main__.py")])
     monkeypatch.setattr(sys, "executable", str(tmp_path / "venv" / "bin" / "python3"))
-    monkeypatch.setattr("hammunition.launchers.shutil.which", lambda _name: None)
+    monkeypatch.setattr("hammunition.launchers.shutil.which", lambda _name, **_kw: None)
     assert engine_path(tmp_path / "bin") == engine
 
 

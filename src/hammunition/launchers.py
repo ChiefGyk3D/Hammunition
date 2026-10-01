@@ -48,6 +48,7 @@ import re
 import shlex
 import shutil
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
@@ -58,14 +59,21 @@ from hammunition.manifest.schema import ENDPOINT_REF, Launcher, PackageManifest
 __all__ = [
     "ENGINE",
     "MARKER",
+    "SYSTEM_DIRS",
     "EngineLaunchers",
+    "ExecutableLister",
     "calls_engine",
     "desktop_entry",
     "engine_call",
     "engine_path",
     "launcher_steps",
     "resolve_endpoints",
+    "search_path_outside",
+    "shadowed_binary",
+    "shadowing_error",
+    "shadowing_launcher_steps",
     "survey_engine_launchers",
+    "survey_shadowing_launchers",
     "wrapper_body",
     "wrapper_step",
 ]
@@ -258,22 +266,6 @@ def wrapper_body(
         exec_line = _ENGINE_CALL.sub(
             lambda m: m.group(1) + shlex.quote(str(engine)), exec_line, count=1
         )
-    if exec_line.split()[:1] == [launcher.name]:
-        # The wrapper is written to ~/.local/bin under the tool's own name,
-        # and Debian's .profile puts that directory first on PATH, so the
-        # command line below would resolve to this file again -- measured on
-        # the field laptop, where ubertooth-util forked itself until the
-        # process limit. Take this directory out of PATH first. Compared
-        # both as written and resolved, so a symlinked home matches either way.
-        # Shell builtins only: PATH is what is being edited.
-        lines += [
-            "case $0 in */*) here=${0%/*} ;; *) here=. ;; esac",
-            'real=$(cd -- "$here" && pwd -P)',
-            "rest=; IFS=:; for dir in $PATH; do",
-            '  [ "$dir" = "$here" ] || [ "$dir" = "$real" ] || rest="${rest:+$rest:}$dir"',
-            "done; unset IFS",
-            "PATH=$rest; export PATH",
-        ]
     lines.append(exec_line)
     if launcher.terminal:
         # A terminal launcher holds its window: the tool's output is the
@@ -326,6 +318,128 @@ def write_launcher(path: Path, body: str, mode: int) -> str:
     return f"wrote {path}"
 
 
+# ---------------------------------------------------------------------------
+# Issue #174: a launcher never shadows a binary on the PATH.
+# ---------------------------------------------------------------------------
+
+#: Searched whatever the caller's PATH says: a launcher named like an admin
+#: tool in /usr/sbin is still a second program by one name, and a PATH
+#: trimmed by sudo or a systemd unit must not make a clash disappear.
+SYSTEM_DIRS = ("/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin")
+
+ExecutableLister = Callable[[str], list[str]]
+"""Given a distribution package, the executables it installed here (empty
+when it is not installed). :func:`hammunition.menus.dpkg_executables` is the
+real one; the tests inject theirs."""
+
+
+def _same_dir(entry: str, bin_dir: Path) -> bool:
+    if not entry:
+        return False
+    if os.path.abspath(entry) == os.path.abspath(bin_dir):
+        return True
+    try:
+        return os.path.realpath(entry) == os.path.realpath(bin_dir)
+    except OSError:
+        return False
+
+
+def search_path_outside(bin_dir: Path, path: str | None = None) -> str:
+    """``PATH`` (the environment's by default) without ``bin_dir``, then the
+    standard system directories it does not already name.
+
+    ``bin_dir`` is compared as written and resolved, so a symlinked home
+    matches either way: what is in it is the launchers themselves, never the
+    thing they would shadow.
+    """
+    entries = (os.environ.get("PATH", "") if path is None else path).split(os.pathsep)
+    kept: list[str] = []
+    for entry in (*entries, *SYSTEM_DIRS):
+        if entry and entry not in kept and not _same_dir(entry, bin_dir):
+            kept.append(entry)
+    return os.pathsep.join(kept)
+
+
+def _which_not_ours(name: str, search_path: str) -> str | None:
+    """``shutil.which`` over ``search_path``, passing over a launcher this
+    engine generated: another account's or another home's ``~/.local/bin``
+    on the PATH holds wrappers, not the binaries they would shadow."""
+    for entry in search_path.split(os.pathsep):
+        found = shutil.which(name, path=entry) if entry else None
+        if found and not _generated(Path(found)):
+            return found
+    return None
+
+
+def _apt_packages(manifest: PackageManifest) -> list[str]:
+    from hammunition.menus import _packages_of
+
+    return sorted(_packages_of(manifest))
+
+
+def shadowed_binary(
+    manifest: PackageManifest,
+    launcher: Launcher,
+    *,
+    bin_dir: Path,
+    search_path: str | None = None,
+    executables: ExecutableLister | None = None,
+) -> str | None:
+    """The binary a launcher by this name would shadow from ``bin_dir``, or None.
+
+    Two measurements: ``shutil.which`` over the PATH with ``bin_dir`` taken
+    out (:func:`search_path_outside`), and the file list of every apt
+    package the manifest names, for a binary that is the unit's own but not
+    on this PATH (``/usr/sbin``, or a package not yet unpacked when the
+    search ran). The schema has already refused the name of the command the
+    launcher runs and of the manifest's own ``binaries``.
+    """
+    if executables is None:
+        from hammunition.menus import dpkg_executables
+
+        executables = dpkg_executables
+    found = _which_not_ours(launcher.name, search_path_outside(bin_dir, search_path))
+    if found:
+        return found
+    for package in _apt_packages(manifest):
+        for executable in executables(package):
+            if Path(executable).name == launcher.name:
+                return executable
+    return None
+
+
+def shadowing_error(manifest: PackageManifest, launcher: Launcher, shadowed: str) -> BackendError:
+    return BackendError(
+        f"{manifest.name}: refusing to write the launcher {launcher.name!r}: "
+        f"{shadowed} already has that name, and ~/.local/bin comes first on PATH, so "
+        f"the launcher would run in its place and swallow its arguments (issue #174). "
+        f"rename the launcher in the manifest to say what it does "
+        f"({launcher.name}-<what>), keeping its title"
+    )
+
+
+def _write_unshadowed(
+    manifest: PackageManifest,
+    launcher: Launcher,
+    path: Path,
+    body: str,
+    *,
+    search_path: str | None,
+    executables: ExecutableLister | None,
+) -> str:
+    """Write the wrapper unless a clash appeared since the plan.
+
+    The plan of a fresh install runs before apt unpacks the package whose
+    binary the launcher would shadow; this asks again after it has.
+    """
+    shadowed = shadowed_binary(
+        manifest, launcher, bin_dir=path.parent, search_path=search_path, executables=executables
+    )
+    if shadowed is not None:
+        raise shadowing_error(manifest, launcher, shadowed)
+    return write_launcher(path, body, 0o755)
+
+
 def wrapper_step(
     manifest: PackageManifest,
     launcher: Launcher,
@@ -335,11 +449,22 @@ def wrapper_step(
     node_wrapper: Path | None = None,
     engine: Path | None = None,
     verb: str = "Generate",
+    search_path: str | None = None,
+    executables: ExecutableLister | None = None,
 ) -> Action:
     """The wrapper script for one launcher. ``engine`` is resolved from
     ``bin_dir`` (:func:`engine_path`) when the launcher runs hammunition and
     none is given, and the plan names it, so the dry run shows what the
-    launcher will run."""
+    launcher will run.
+
+    Refused, at plan time and again when written, when the launcher's name
+    is a binary's already (:func:`shadowed_binary`, issue #174).
+    """
+    shadowed = shadowed_binary(
+        manifest, launcher, bin_dir=bin_dir, search_path=search_path, executables=executables
+    )
+    if shadowed is not None:
+        raise shadowing_error(manifest, launcher, shadowed)
     wrapper = bin_dir / launcher.name
     if engine is None and calls_engine(launcher):
         engine = engine_path(bin_dir)
@@ -355,7 +480,15 @@ def wrapper_step(
         kind="wrapper",
         description=f"{verb} the {launcher.name} launcher for {manifest.name}",
         detail=detail,
-        perform=partial(write_launcher, wrapper, body, 0o755),
+        perform=partial(
+            _write_unshadowed,
+            manifest,
+            launcher,
+            wrapper,
+            body,
+            search_path=search_path,
+            executables=executables,
+        ),
     )
 
 
@@ -367,6 +500,8 @@ def launcher_steps(
     venv_dir: Path | None = None,
     node_wrapper: Path | None = None,
     engine: Path | None = None,
+    search_path: str | None = None,
+    executables: ExecutableLister | None = None,
 ) -> list[Action]:
     """Both artifacts for every launcher the manifest declares."""
     steps: list[Action] = []
@@ -382,6 +517,8 @@ def launcher_steps(
                 venv_dir=venv_dir,
                 node_wrapper=node_wrapper,
                 engine=engine,
+                search_path=search_path,
+                executables=executables,
             )
         )
         entry = applications_dir / f"hammunition-{launcher.name}.desktop"
@@ -395,6 +532,90 @@ def launcher_steps(
                 ),
             )
         )
+    return steps
+
+
+def _generated(path: Path) -> bool:
+    """Whether ``path`` is a wrapper this engine wrote: the marker, near the top."""
+    if path.is_symlink() or not path.is_file():
+        return False
+    try:
+        with path.open(encoding="utf-8", errors="replace") as handle:
+            head = handle.read(4096)
+    except OSError:
+        return False
+    return any(line.startswith(MARKER) for line in head.splitlines()[:3])
+
+
+def survey_shadowing_launchers(
+    bin_dir: Path, search_path: str | None = None
+) -> tuple[tuple[str, str], ...]:
+    """(launcher, binary) for every generated launcher in ``bin_dir`` whose
+    name a binary elsewhere on the PATH also has (issue #174).
+
+    Read from disk, not the catalog: what ``doctor`` reports and ``menus
+    apply`` removes is the file a shell finds today, including one written
+    under a name the catalog has since changed. A file without the generated
+    marker is never ours to report or remove.
+    """
+    try:
+        candidates = sorted(bin_dir.iterdir())
+    except OSError:
+        return ()
+    outside = search_path_outside(bin_dir, search_path)
+    found: list[tuple[str, str]] = []
+    for path in candidates:
+        if not _generated(path):
+            continue
+        shadowed = _which_not_ours(path.name, outside)
+        if shadowed:
+            found.append((str(path), shadowed))
+    return tuple(found)
+
+
+def _remove(path: Path) -> str:
+    path.unlink()
+    return f"removed {path}"
+
+
+def shadowing_launcher_steps(
+    bin_dir: Path, applications_dir: Path, search_path: str | None = None
+) -> list[Action]:
+    """Remove every generated launcher that shadows a PATH binary, and its
+    desktop entry when that carries our package key.
+
+    ``menus apply`` runs this before it writes the launchers a manifest
+    declares, so a launcher renamed in the catalog (``rigctl`` became
+    ``rigctl-dummy``) is replaced in one run: the old file goes, the new one
+    is written, and both lines are printed.
+    """
+    steps: list[Action] = []
+    for wrapper, shadowed in survey_shadowing_launchers(bin_dir, search_path):
+        name = Path(wrapper).name
+        steps.append(
+            Action(
+                kind="wrapper",
+                description=(
+                    f"Remove the generated {name} launcher: it shadows {shadowed} (issue #174)"
+                ),
+                detail=f"{wrapper} (shadows {shadowed}; removed)",
+                perform=partial(_remove, Path(wrapper)),
+            )
+        )
+        entry = applications_dir / f"hammunition-{name}.desktop"
+        try:
+            ours = entry.is_file() and "\nX-Hammunition-Package=" in "\n" + entry.read_text()
+        except (OSError, UnicodeDecodeError):
+            ours = False
+        if ours:
+            steps.append(
+                Action(
+                    kind="desktop-entry",
+                    description=f"Remove {name}'s menu entry with it",
+                    detail=str(entry),
+                    perform=partial(_remove, entry),
+                )
+            )
     return steps
 
 

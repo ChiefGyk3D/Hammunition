@@ -947,6 +947,8 @@ def missing_launcher_steps(
     prefix: Path,
     installed: PackagePresence = dpkg_installed,
     engine: Path | None = None,
+    search_path: str | None = None,
+    executables: ExecutableLister | None = None,
 ) -> list[Action]:
     """Write the launcher a manifest declares for a unit that is installed
     here and has none on disk, and rewrite one that runs the engine by a
@@ -967,6 +969,13 @@ def missing_launcher_steps(
     the icon on it stay with the refresh steps. ``engine`` defaults to
     :func:`hammunition.launchers.engine_path` of ``bin_dir``, resolved only
     when a launcher needs it.
+
+    Issue #174: a launcher whose name a PATH binary already has is refused
+    here as at install (``search_path`` and ``executables`` reach
+    :func:`hammunition.launchers.shadowed_binary`); a launcher the catalog
+    renamed is absent under its new name and written by the first branch,
+    after :func:`hammunition.launchers.shadowing_launcher_steps` has removed
+    the old one.
     """
     from hammunition.launchers import (
         MARKER,
@@ -996,7 +1005,12 @@ def missing_launcher_steps(
         ):
             steps.extend(
                 launcher_steps(
-                    manifest, bin_dir=bin_dir, applications_dir=applications_dir, engine=engine
+                    manifest,
+                    bin_dir=bin_dir,
+                    applications_dir=applications_dir,
+                    engine=engine,
+                    search_path=search_path,
+                    executables=executables,
                 )
             )
             continue
@@ -1015,7 +1029,15 @@ def missing_launcher_steps(
             if current == wrapper_body(manifest, launcher, engine=engine):
                 continue
             steps.append(
-                wrapper_step(manifest, launcher, bin_dir=bin_dir, engine=engine, verb="Rewrite")
+                wrapper_step(
+                    manifest,
+                    launcher,
+                    bin_dir=bin_dir,
+                    engine=engine,
+                    verb="Rewrite",
+                    search_path=search_path,
+                    executables=executables,
+                )
             )
     return steps
 

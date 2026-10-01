@@ -415,5 +415,17 @@ def test_a_launcher_calling_the_engine_by_bare_name_warns_with_menus_apply() -> 
     assert check.fix is not None and "hammunition menus apply" in check.fix
 
 
+def test_a_launcher_shadowing_a_path_binary_warns_naming_both_and_the_fix() -> None:
+    """Issue #174: ``~/.local/bin/rigctl`` ran ahead of hamlib's ``/usr/bin/rigctl``."""
+    checks = _with(
+        launchers_ok=("/home/op/.local/bin/qmapshack-offline",),
+        launchers_shadowing=(("/home/op/.local/bin/rigctl", "/usr/bin/rigctl"),),
+    )
+    check = _by_name(checks)["launchers"]
+    assert check.status == "warn"
+    assert "/home/op/.local/bin/rigctl" in check.detail and "/usr/bin/rigctl" in check.detail
+    assert check.fix is not None and "hammunition menus apply" in check.fix
+
+
 def test_no_engine_launchers_adds_no_check() -> None:
     assert "launchers" not in _by_name(run_checks(**HEALTHY))  # type: ignore[arg-type]

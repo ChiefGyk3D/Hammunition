@@ -233,7 +233,7 @@ def test_desktop_entries_carry_the_catalog_marker_categories(tmp_path: Path) -> 
             "summary": "Fixture proving the marker join",
             "categories": ["packet", "sdr"],
             "install": [{"install": {"method": "apt", "packages": ["markable"]}}],
-            "launchers": [{"name": "markable", "exec": "markable"}],
+            "launchers": [{"name": "markable", "exec": "markable-gui"}],
             "update": {"probe": {"method": "none"}, "strategy": "manual"},
             "documentation": {
                 "what_it_does": "Exists so the marker join is asserted.",
@@ -519,7 +519,7 @@ def test_units_that_already_have_an_entry_or_a_launcher_get_no_cli_entry() -> No
 
     placed = Placement(by_category={"sdr": ("x.desktop",)}, claimed=("x.desktop",), units=("gqrx",))
     with_launcher = _manifest(
-        "hamclock", ["station"], launchers=[{"name": "hamclock", "exec": "hamclock"}]
+        "hamclock", ["station"], launchers=[{"name": "hamclock-window", "exec": "hamclock"}]
     )
     result = cli_entries(
         [_manifest("gqrx", ["sdr"]), with_launcher],
