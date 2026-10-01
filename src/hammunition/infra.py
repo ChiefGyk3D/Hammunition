@@ -54,6 +54,7 @@ __all__ = [
     "SHELTER_NOTE",
     "SUFFIXES",
     "Box",
+    "Gathered",
     "InfraInputError",
     "InfraLayer",
     "Kind",
@@ -307,6 +308,33 @@ class InfraLayer:
     source: str
     day: date
     points: tuple[Point, ...] = field(default=())
+
+
+@dataclass(frozen=True)
+class Gathered:
+    """What one import or fetch read, ready to write: the layers (one with
+    no point is removed rather than written), and what the document
+    reports. ``skipped`` is (reason, count, first numbers)."""
+
+    route: str
+    licences: tuple[str, ...]
+    inputs: tuple[tuple[str, str, str], ...]
+    read: int
+    skipped: tuple[tuple[str, int, tuple[int, ...]], ...]
+    layers: tuple[InfraLayer, ...]
+    outside: int = 0
+    merged: int = 0
+    notes: tuple[str, ...] = ()
+
+
+def skip_counts(
+    skipped: Mapping[str, Sequence[int]], *, numbered: bool = True
+) -> tuple[tuple[str, int, tuple[int, ...]], ...]:
+    """Skips as (reason, count, the first five numbers, or none)."""
+    return tuple(
+        (reason, len(numbers), tuple(numbers[:5]) if numbered else ())
+        for reason, numbers in skipped.items()
+    )
 
 
 # --- reading osmium's output -------------------------------------------------------

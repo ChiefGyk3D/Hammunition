@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import dataclasses
+import hashlib
 import os
 import shutil
 import sqlite3
@@ -204,6 +205,8 @@ from hammunition.ustopo import load_index as load_ustopo_index
 if TYPE_CHECKING:
     from hammunition.geoclue import GeoClueGrants, GeoClueState
     from hammunition.hardware.power import KeptEntry, Parkable
+    from hammunition.infra import Gathered
+    from hammunition.infra_sources import SourceRead
     from hammunition.interface.repeaters import AllSourcesView, RegistrationView
     from hammunition.qmapshack_config import BRouterSetup
     from hammunition.repeaters import ParsedInput
@@ -1058,21 +1061,29 @@ def _replace_atomically(path: Path, text: str, mode: int | None) -> None:
 
 
 def _repeater_poi_paths(text: str) -> tuple[str, bool]:
-    """*text* with the operator's repeater directory in ``[Canvas] poiPaths``
-    while it holds a ``.poi``, and out of it while not; and whether it does.
+    """*text* with each of the operator's overlay directories (repeaters,
+    D-064; infrastructure, D-075) in ``[Canvas] poiPaths`` while it holds a
+    ``.poi``, and out of it while not; and whether any does.
 
-    A QMapShack open during ``maps repeaters import`` writes its own list
-    back when it exits, so the launcher puts the path back before each start
-    (D-064). Raises :class:`~hammunition.qmapshack_config.QmsConfigError`
-    like :func:`~hammunition.qmapshack_config.ensure_paths`."""
+    A QMapShack open during an import writes its own list back when it
+    exits, so the launcher puts the paths back before each start (D-064).
+    Raises :class:`~hammunition.qmapshack_config.QmsConfigError` like
+    :func:`~hammunition.qmapshack_config.ensure_paths`."""
+    from hammunition import infra
     from hammunition.qmapshack_config import Wanted, ensure_paths
     from hammunition.repeaters import overlay_dir
 
-    directory = overlay_dir()
-    want = Wanted("Canvas", "poiPaths", (str(directory),))
-    if _repeater_files(directory, 1):
-        return ensure_paths(text, (want,)), True
-    return ensure_paths(text, (), remove=(want,)), False
+    keep: list[str] = []
+    drop: list[str] = []
+    for directory, present in (
+        (overlay_dir(), bool(_repeater_files(overlay_dir(), 1))),
+        (infra.overlay_dir(), bool(infra.layer_paths(infra.overlay_dir(), 1))),
+    ):
+        (keep if present else drop).append(str(directory))
+    # One Wanted per key each way: ensure_paths edits a key's line once.
+    wants = [Wanted("Canvas", "poiPaths", tuple(keep))] if keep else []
+    gone = [Wanted("Canvas", "poiPaths", tuple(drop))] if drop else []
+    return ensure_paths(text, wants, remove=gone), bool(keep)
 
 
 def _repeater_files(directory: Path, index: int) -> list[Path]:
@@ -1226,7 +1237,7 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
     try:
         data = data_root(DEFAULT_PREFIX)
         with_paths = ensure_paths(text, wanted(data), remove=superseded(data))
-        with_poi, has_poi = _repeater_poi_paths(with_paths)
+        with_poi, _ = _repeater_poi_paths(with_paths)
         selected = select_database(with_poi)
         brouter = _installed_brouter(DEFAULT_PREFIX)
         updated, brouter_notes = (
@@ -1253,8 +1264,8 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
         )
     if with_poi != with_paths:
         print(
-            f"{'adding' if has_poi else 'taking out'} your repeater POI collection "
-            f"{'to' if has_poi else 'of'} [Canvas] poiPaths in {path} (D-064)",
+            f"keeping your overlay POI collections (repeaters, infrastructure) in "
+            f"[Canvas] poiPaths in {path} exactly while they exist (D-064, D-075)",
             file=sys.stderr,
         )
     if selected != with_poi:
@@ -1501,17 +1512,34 @@ def _qmapshack_poi_path(directory: Path, *, present: bool) -> RegistrationView:
     return RegistrationView("qmapshack", str(path), "removed", detail)
 
 
+def _overlay_navit_maps() -> list[Path]:
+    """Every overlay layer's Navit textfile, repeaters first (D-064, D-074),
+    then infrastructure (D-075): the operator's one Navit copy carries all."""
+    from hammunition import infra
+    from hammunition.repeaters import overlay_dir
+
+    return _repeater_files(overlay_dir(), 2) + infra.layer_paths(infra.overlay_dir(), 2)
+
+
 def _register_repeaters(directory: Path) -> tuple[RegistrationView, RegistrationView]:
     """QMapShack and Navit told about every repeater layer left in
-    *directory*: the directory in ``poiPaths`` and the operator's Navit copy
-    with each layer's textfile while any layer is there; both taken out when
-    none is.  D-064, D-074."""
+    *directory*: the directory in ``poiPaths`` while any layer is there, and
+    the operator's Navit copy rewritten from every overlay layer.  D-064,
+    D-074, D-075."""
+    return _register_overlays(directory, present=bool(_repeater_files(directory, 1)))
+
+
+def _register_overlays(
+    directory: Path, *, present: bool
+) -> tuple[RegistrationView, RegistrationView]:
+    """*directory* in QMapShack's ``poiPaths`` exactly while *present*, and
+    the operator's Navit copy carrying every overlay layer's textfile (the
+    repeaters' and the infrastructure's), or deleted when there is none."""
     from hammunition.interface.repeaters import RegistrationView
     from hammunition.repeaters import overlays_root
 
     user = overlays_root() / "navit.xml"
-    maps = _repeater_files(directory, 2)
-    present = bool(_repeater_files(directory, 1))
+    maps = _overlay_navit_maps()
     qmapshack = _qmapshack_poi_path(directory, present=present)
     if maps:
         return qmapshack, _navit_user_config(maps, user, _generated_navit_config())
@@ -2006,6 +2034,360 @@ def cmd_maps_repeaters_remove(args: argparse.Namespace) -> int:
     return code
 
 
+# --- maps infra (D-075) -------------------------------------------------------------
+
+
+def _write_infra(gathered: Gathered, args: argparse.Namespace) -> int:
+    """Write each gathered layer (a layer with no point is removed instead),
+    register every overlay layer, print or emit.  D-075."""
+    from hammunition import infra
+    from hammunition.interface.infra import (
+        InfraDocument,
+        InfraInputView,
+        InfraLayerView,
+        render_infra,
+    )
+    from hammunition.interface.repeaters import SkipView
+
+    directory = infra.overlay_dir()
+    if not any(layer.points for layer in gathered.layers):
+        print(
+            f"error: no point of any layer asked for was found, so the layers in "
+            f"{directory} were left as they are. Nothing was changed.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    views: list[InfraLayerView] = []
+    try:
+        for layer in gathered.layers:
+            if layer.points:
+                files = infra.write_layer(directory, layer)
+                views.append(
+                    InfraLayerView(
+                        layer.layer_id, layer.name, len(layer.points), tuple(map(str, files)), ()
+                    )
+                )
+            else:
+                gone = infra.remove_layer(directory, layer.layer_id)
+                views.append(
+                    InfraLayerView(layer.layer_id, layer.name, 0, (), tuple(map(str, gone)))
+                )
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        print(f"error: cannot write the layers in {directory}: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    registered = _register_overlays(directory, present=bool(infra.layer_paths(directory, 1)))
+    doc = InfraDocument(
+        route=gathered.route,
+        licences=gathered.licences,
+        inputs=tuple(InfraInputView(*item) for item in gathered.inputs),
+        read=gathered.read,
+        skipped=tuple(SkipView(r, c, f) for r, c, f in gathered.skipped),
+        outside=gathered.outside,
+        merged=gathered.merged,
+        notes=gathered.notes,
+        layers=tuple(views),
+        directory=str(directory),
+        registered=registered,
+    )
+    code = EXIT_FAILED if any(r.outcome == "refused" for r in registered) else EXIT_OK
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return code
+    for line in render_infra(doc):
+        print(line)
+    return code
+
+
+def _infra_from_osm(layers: str | None) -> Gathered:
+    """The eight OpenStreetMap layers, or those *layers* names, filtered by
+    osmium out of every installed extract as the operator.  D-075."""
+    from hammunition import infra
+    from hammunition import repeater_sources as rs
+
+    given = [name.strip() for name in (layers or ",".join(infra.OSM_LAYERS)).split(",")]
+    unknown = [name for name in given if name not in infra.OSM_LAYERS]
+    if unknown or not any(given):
+        raise infra.InfraInputError(
+            f"no OpenStreetMap layer {(unknown or [''])[0]!r}; the layers are "
+            f"{', '.join(infra.OSM_LAYERS)}"
+        )
+    wanted = [key for key in infra.OSM_LAYERS if key in given]
+    extracts = rs.installed_extracts(DEFAULT_PREFIX)
+    folder = infra.extracts_dir(DEFAULT_PREFIX)
+    if not extracts:
+        raise infra.InfraInputError(
+            f"no map region is installed in {folder}: `hammunition install osm-regions` "
+            f"fetches your regions, and this filters the layers out of them"
+        )
+    points: dict[str, list[infra.Point]] = {key: [] for key in wanted}
+    seen: set[tuple[str, str, str, float, float]] = set()
+    skipped: dict[str, list[int]] = {}
+    read = merged = 0
+    with tempfile.TemporaryDirectory(prefix="hammunition-osm-infra-") as scratch:
+        for number, (pbf, _) in enumerate(extracts, start=1):
+            label = f"region extract {number} of {len(extracts)}"
+            one = infra.filter_extract(pbf, Path(scratch), wanted, label=label)
+            read += one.read
+            for reason, numbers in one.skipped.items():
+                skipped.setdefault(reason, []).extend(numbers)
+            for key, found in one.points.items():
+                for point in found:
+                    # Neighbouring extracts overlap at their edges.
+                    mark = (key, point.name, point.kind, round(point.lat, 5), round(point.lon, 5))
+                    if mark in seen:
+                        merged += 1
+                        continue
+                    seen.add(mark)
+                    points[key].append(point)
+    day = rs.extracts_date(extracts)
+    return infra.Gathered(
+        route="osm",
+        licences=(infra.OSM_LICENCE,),
+        # One input for the whole directory: a region's name, or its digest,
+        # says where the operator is (D-057).
+        inputs=((str(folder), "osm-extract", ""),),
+        read=read,
+        skipped=infra.skip_counts(skipped, numbered=len(extracts) == 1),
+        layers=tuple(
+            infra.InfraLayer(
+                f"osm-{key}",
+                infra.osm_layer_name(key, day),
+                infra.OSM_LICENCE,
+                infra.OSM_SOURCE,
+                day,
+                tuple(points[key]),
+            )
+            for key in wanted
+        ),
+        merged=merged,
+        notes=(
+            "filtered on this machine from the region extracts already here; nothing downloaded",
+        ),
+    )
+
+
+def _infra_boxes() -> tuple[list[tuple[float, float, float, float]], list[str]]:
+    """The installed extracts' boxes, or InfraInputError naming the unit."""
+    from hammunition import infra
+
+    boxes, notes = infra.region_boxes(DEFAULT_PREFIX)
+    if not boxes:
+        raise infra.InfraInputError(
+            f"no map region with a bounding box is installed in "
+            f"{infra.extracts_dir(DEFAULT_PREFIX)}: `hammunition install osm-regions` "
+            f"fetches your regions, and this keeps what lies in them"
+        )
+    return boxes, notes
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _infra_from_file(route: str) -> Gathered:
+    """``--from-nasr``, ``--from-eia`` or ``--from-wri``: the installed data
+    unit's file, kept to the regions' boxes.  D-075."""
+    from hammunition import infra
+    from hammunition import infra_sources as src
+
+    unit = src.UNITS[route]
+    path = data_root(DEFAULT_PREFIX) / unit.file
+    if not path.is_file():
+        raise infra.InfraInputError(
+            f"no {unit.what} at {path}: `hammunition install {unit.unit}` installs it "
+            f"({unit.size}, {unit.licence_short})"
+        )
+    boxes, notes = _infra_boxes()
+    found = unit.read(path, boxes)
+    return _gathered(route, found, str(path), unit.format, _file_sha256(path), notes)
+
+
+def _gathered(
+    route: str,
+    found: SourceRead,
+    where: str,
+    fmt: str,
+    sha256: str,
+    notes: Sequence[str],
+) -> Gathered:
+    from hammunition import infra
+
+    return infra.Gathered(
+        route=route,
+        licences=(found.licence,),
+        inputs=((where, fmt, sha256),),
+        read=found.read,
+        skipped=infra.skip_counts(found.skipped),
+        layers=(
+            infra.InfraLayer(
+                found.layer_id, found.name, found.licence, found.source, found.day, found.points
+            ),
+        ),
+        outside=found.outside,
+        notes=(*notes, *found.notes),
+    )
+
+
+@envelope.json_capable()
+def cmd_maps_infra_import(args: argparse.Namespace) -> int:
+    """Infrastructure and EMCOMM layers from one source.  D-075.
+
+    ``--from-osm`` filters the installed region extracts with osmium as the
+    operator (eight layers, or ``--layers``), downloading nothing;
+    ``--from-nasr``, ``--from-eia`` and ``--from-wri`` read the installed
+    ``faa-nasr-airports``, ``eia-860m`` and ``wri-power-plants`` data units
+    and keep what lies in the regions' boxes. Each source writes its own
+    layers and leaves the others. Refused as root: the files are the
+    operator's."""
+    from hammunition import infra
+
+    if _refuse_root("infrastructure overlays"):
+        return EXIT_FAILED
+    route = (
+        "osm" if args.from_osm else "nasr" if args.from_nasr else "eia" if args.from_eia else "wri"
+    )
+    if args.layers is not None and route != "osm":
+        print(
+            "error: --layers picks OpenStreetMap layers; it goes with --from-osm. "
+            "Nothing was written.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    try:
+        gathered = _infra_from_osm(args.layers) if route == "osm" else _infra_from_file(route)
+    except infra.InfraInputError as exc:
+        print(f"error: {exc}\nNothing was changed in {infra.overlay_dir()}.", file=sys.stderr)
+        return EXIT_FAILED
+    return _write_infra(gathered, args)
+
+
+def _fetch_infra(
+    *,
+    route: str,
+    url: str,
+    limit: int,
+    disclosure: str,
+    parse: Callable[..., SourceRead],
+    fmt: str,
+    args: argparse.Namespace,
+) -> int:
+    """A file fetched on request through D-064's fetch (bounded, HTTPS-only
+    redirects), parsed from memory, kept to the regions' boxes and written
+    as its own layer, marked unverified with its observed sha256.  D-075."""
+    from hammunition import infra, repeaters
+
+    if _refuse_root("infrastructure overlays"):
+        return EXIT_FAILED
+    try:
+        boxes, notes = _infra_boxes()
+    except infra.InfraInputError as exc:
+        print(f"error: {exc}. Nothing was fetched.", file=sys.stderr)
+        return EXIT_FAILED
+    print(disclosure, flush=True)
+    try:
+        body, digest, when = repeaters.fetch_list(url, limit=limit)
+    except repeaters.RepeaterFetchError as exc:
+        print(f"error: {exc}. Nothing was written.", file=sys.stderr)
+        return EXIT_FAILED
+    try:
+        found = parse(body, url, boxes, fetched=when, sha256=digest)
+    except infra.InfraInputError as exc:
+        print(f"error: {exc}. Nothing was written.", file=sys.stderr)
+        return EXIT_FAILED
+    finally:
+        del body  # never kept: FCC's archive carries owners' contact details
+    return _write_infra(_gathered(route, found, url, fmt, digest, notes), args)
+
+
+def cmd_maps_infra_fetch_fcc_asr(args: argparse.Namespace) -> int:
+    """Fetch the FCC's Antenna Structure Registration file, on request.  D-075.
+
+    Ruling of 2026-10-01: fetched when asked, unverified, with its observed
+    sha256, like the ETCC (D-074), not a data unit whose pin dies weekly.
+    Only ``RA.dat`` and ``CO.dat`` are read; ``EN.dat``, the owners'
+    contact details, is never opened. No ``--json`` form."""
+    from hammunition import infra_sources as src
+
+    return _fetch_infra(
+        route="fcc-asr",
+        url=src.FCC_ASR_URL,
+        limit=src.FCC_ASR_LIMIT,
+        disclosure=(
+            f"This fetches the FCC's weekly Antenna Structure Registration file from "
+            f"{src.FCC_ASR_URL} (about 38 MB), now and only now, and converts it on this "
+            f"machine. Only its registration and coordinate records are read; the owners' "
+            f"contact records are never opened. The FCC publishes no checksum, so what "
+            f"arrives is recorded by its sha256 and marked unverified."
+        ),
+        parse=src.parse_fcc_asr,
+        fmt="fcc-asr",
+        args=args,
+    )
+
+
+def cmd_maps_infra_fetch_nwr(args: argparse.Namespace) -> int:
+    """Fetch NOAA Weather Radio's transmitter list, on request.  D-075.
+
+    Frequency, power and every county's SAME code are kept; the live
+    status is dropped before anything is written (it changes on every
+    outage). Unverified, with its observed sha256. No ``--json`` form."""
+    from hammunition import infra_sources as src
+
+    return _fetch_infra(
+        route="nwr",
+        url=src.NWR_URL,
+        limit=src.NWR_LIMIT,
+        disclosure=(
+            f"This fetches NOAA Weather Radio's transmitter list from {src.NWR_URL} (about "
+            f"755 kB), now and only now, and converts it on this machine. Each transmitter's "
+            f"frequency, power and counties' SAME codes are kept; its live status is dropped. "
+            f"NWS publishes no checksum, so what arrives is recorded by its sha256 and "
+            f"marked unverified."
+        ),
+        parse=src.parse_nwr,
+        fmt="nwr-ccl",
+        args=args,
+    )
+
+
+@envelope.json_capable()
+def cmd_maps_infra_remove(args: argparse.Namespace) -> int:
+    """Delete infrastructure layers and unregister what is gone.  D-075.
+
+    Every layer by default, one with ``--layer ID``. QMapShack's
+    ``poiPaths`` and the operator's Navit copy follow what remains of every
+    overlay. Idempotent: nothing to remove is exit 0."""
+    from hammunition import infra
+    from hammunition.interface.infra import InfraRemovedDocument, render_infra_removed
+
+    if _refuse_root("infrastructure overlays"):
+        return EXIT_FAILED
+    directory = infra.overlay_dir()
+    try:
+        removed = infra.remove_layer(directory, args.layer)
+    except OSError as exc:
+        print(f"error: {exc}. Nothing more was removed.", file=sys.stderr)
+        return EXIT_FAILED
+    registered = _register_overlays(directory, present=bool(infra.layer_paths(directory, 1)))
+    doc = InfraRemovedDocument(
+        directory=str(directory),
+        layers=(args.layer,) if args.layer else tuple(infra.LAYERS),
+        removed=tuple(str(p) for p in removed),
+        unregistered=registered,
+    )
+    code = EXIT_FAILED if any(r.outcome == "refused" for r in registered) else EXIT_OK
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return code
+    for line in render_infra_removed(doc):
+        print(line)
+    return code
+
+
 def cmd_maps_navit(args: argparse.Namespace) -> int:
     """Start Navit on the offline maps, with the operator's overlays.  D-064.
 
@@ -2015,7 +2397,7 @@ def cmd_maps_navit(args: argparse.Namespace) -> int:
     and Navit opens that; with none, Navit opens the generated file and a
     stale copy of ours is removed. Under root it opens the generated file and
     writes nothing. No ``--json`` form: it replaces itself with a GUI."""
-    from hammunition.repeaters import overlay_dir, overlays_root
+    from hammunition.repeaters import overlays_root
 
     generated = _generated_navit_config()
     if not generated.is_file():
@@ -2027,7 +2409,7 @@ def cmd_maps_navit(args: argparse.Namespace) -> int:
         return EXIT_FAILED
     target = generated
     if os.geteuid() != 0:
-        overlays = _repeater_files(overlay_dir(), 2)
+        overlays = _overlay_navit_maps()
         user = overlays_root() / "navit.xml"
         if overlays:
             view = _navit_user_config(overlays, user, generated)
@@ -5206,6 +5588,71 @@ def build_parser() -> argparse.ArgumentParser:
         help="remove only this layer (default: every layer and the all-sources file)",
     )
     p_rep_remove.set_defaults(func=cmd_maps_repeaters_remove)
+
+    from hammunition import infra as infra_layers
+
+    p_maps_infra = maps_sub.add_parser(
+        "infra",
+        help="infrastructure and EMCOMM points on the map, one layer per source (D-075)",
+    )
+    infra_sub = p_maps_infra.add_subparsers(dest="maps_infra_command", required=True)
+    p_inf_import = infra_sub.add_parser(
+        "import",
+        help="write layers from the map regions installed here (--from-osm) or an installed "
+        "data unit (--from-nasr, --from-eia, --from-wri); offline",
+    )
+    inf_from = p_inf_import.add_mutually_exclusive_group(required=True)
+    inf_from.add_argument(
+        "--from-osm",
+        action="store_true",
+        help="medical, responders, supply, shelter candidates, transport, power, telecom and "
+        "water from your region extracts, filtered by osmium; downloads nothing",
+    )
+    inf_from.add_argument(
+        "--from-nasr",
+        action="store_true",
+        help="airports and heliports from the installed faa-nasr-airports unit",
+    )
+    inf_from.add_argument(
+        "--from-eia",
+        action="store_true",
+        help="US power plants from the installed eia-860m unit",
+    )
+    inf_from.add_argument(
+        "--from-wri",
+        action="store_true",
+        help="power plants outside the US from the installed wri-power-plants unit",
+    )
+    p_inf_import.add_argument(
+        "--layers",
+        metavar="LAYER,LAYER",
+        default=None,
+        help="with --from-osm, only these: medical, responders, supply, shelter-candidates, "
+        "transport, power, telecom, water",
+    )
+    p_inf_import.set_defaults(func=cmd_maps_infra_import)
+    p_inf_fcc = infra_sub.add_parser(
+        "fetch-fcc-asr",
+        help="fetch the FCC's antenna structure registrations now (38 MB) and keep your "
+        "regions' towers; recorded as unverified",
+    )
+    p_inf_fcc.set_defaults(func=cmd_maps_infra_fetch_fcc_asr)
+    p_inf_nwr = infra_sub.add_parser(
+        "fetch-nwr",
+        help="fetch NOAA Weather Radio's transmitter list now; live status dropped, recorded "
+        "as unverified",
+    )
+    p_inf_nwr.set_defaults(func=cmd_maps_infra_fetch_nwr)
+    p_inf_remove = infra_sub.add_parser(
+        "remove", help="delete infrastructure layers and take them out of QMapShack and Navit"
+    )
+    p_inf_remove.add_argument(
+        "--layer",
+        choices=tuple(infra_layers.LAYERS),
+        default=None,
+        help="remove only this layer (default: every layer)",
+    )
+    p_inf_remove.set_defaults(func=cmd_maps_infra_remove)
 
     p_reference = sub.add_parser(
         "reference", help="the offline reference: Kiwix books, ICS forms, dictionaries (D-066)"
