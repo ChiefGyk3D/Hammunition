@@ -5142,11 +5142,12 @@ serving time to the LAN are out of scope.
 
 ### The tray
 
-`hammunition-tray` gains a Time section (its 0.3.0) that reads through
+`hammunition-tray` gains a Time section (its 0.4.0, corrected 2026-10-01 --
+first written here as 0.3.0 before the section shipped) that reads through
 `hammunition-devctl time state` without `pkexec` and changes the mode only
 through `pkexec hammunition-devctl time mode MODE`, from a fixed list of the
 four. It is built in its own repository, and the catalog's
-`hammunition-tray` manifest is re-pinned to it once released.
+`hammunition-tray` manifest was re-pinned to it once released.
 
 ### Not yet measured
 
