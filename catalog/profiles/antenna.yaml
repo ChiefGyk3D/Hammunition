@@ -35,7 +35,10 @@ documentation:
     General propagation prediction, which is `propagation` — VOACAP answers
     "will this band be open", and this profile answers "what does my antenna
     do". They are different questions and both are optional. Rotator control
-    lives in `station` with the rest of hamlib.
+    lives in `station` with the rest of hamlib. LibreVNA-GUI is in
+    `electronics` rather than here: it is a 14-minute source build of a
+    bench instrument's program, and an antenna analyser is not the only
+    thing it measures.
   manual_configuration: >-
     **SPLAT! needs terrain data and will run without it**, assuming a flat
     earth and producing plausible output that is worthless. Download SRTM tiles

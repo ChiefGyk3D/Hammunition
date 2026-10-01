@@ -17,6 +17,7 @@ One page per catalogued device: what it is, how it identifies itself on USB, wha
 | [hackrf-one](hackrf-one.md) | supported | — | Half-duplex 1 MHz - 6 GHz software defined radio, transmit capable |
 | [hackrf-pro](hackrf-pro.md) | supported | ✅ | HackRF Pro — Great Scott Gadgets' successor to the HackRF One |
 | [krakensdr](krakensdr.md) | untested | — | KrakenSDR — five coherent RTL-SDR receivers for direction finding |
+| [librevna](librevna.md) | untested | — | LibreVNA — open-hardware two-port vector network analyser, 100 kHz to 6 GHz, over USB |
 | [limesdr](limesdr.md) | supported | — | LimeSDR USB and Mini — full-duplex transmit-capable SDR |
 | [meshtastic](meshtastic.md) | supported | — | Meshtastic LoRa nodes — T-Deck, T-Echo, RAK and WisMesh boards |
 | [minino](minino.md) | supported | ✅ | Electronic Cats Minino — 802.15.4 and Zigbee analysis board |
