@@ -1,0 +1,8 @@
+chan,utime,isotime,source,heard,level,error,dti,name,symbol,latitude,longitude,speed,course,altitude,frequency,offset,tone,system,status,telemetry,comment
+
+0,1790947925,2026-10-02T13:32:05Z,N0TST,N0TST,50(14/14),0,;,146.940NE,/r,39.766667,-89.650000,,,,146.940,-600,100.0,WB2OSZ DireWolf,,,net Tuesdays
+
+0,1790947926,2026-10-02T13:32:06Z,N0TST,N0TST,50(14/14),0,;,BADFREQ,/r,39.766667,-89.650000,,,,12.345,,,WB2OSZ DireWolf,,,
+
+0,1790947927,2026-10-02T13:32:07Z,N0TST,N0TST,50(14/14),0,;,147.330,/r,,,,,,147.330,+600,,WB2OSZ DireWolf,,,
+

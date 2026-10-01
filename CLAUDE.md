@@ -240,6 +240,7 @@ Do not re-litigate these without being asked:
 | Official topo maps | USGS US Topo sheets for the station's US regions, chosen offline from a carried generated index (`catalog/data/ustopo-quads.txt`), each checked against the publisher's S3 ETag (multipart reproduced by part size), disclosed as "not pinned by Hammunition"; warped to EPSG:3857 collar-cropped and one `ustopo.vrt` for QMapShack; FSTopo and 3DEP next; official trail lines as a second layer not carried | OSM already has 97.5 % of Shenandoah's official trail mileage; the sheet adds the official names and look. QMapShack drawing the mosaic is unmeasured and belongs in a VM (**D-068**) |
 | LAN mirror and `artifacts` | `station set --mirror URL` names a LAN machine each data download (data files, map regions, terrain tiles) asks first at `<mirror>/<unit>/<name>`, the publisher on any failure, the same digest checked either way; plain http allowed, LAN-only documented not enforced; the plan names both sources in order, `--no-mirror` ignores it for a run, `action_end` records the actual source; `hammunition artifacts --json` lists every data artifact for an explicit selection with no station read | Hammunition Bunker keeps a verified copy on a NAS and needs the engine to say what to keep and to take from it without trusting it (**D-070**) |
 | Offline browser map | `osm-pmtiles` builds one PMTiles file per region with the archive's tilemaker (floor 3.0 read from the probe: deferred or refused below it) and `vector-map-kit`'s pinned profile, Natural Earth layers, MapLibre, pmtiles.js and OSM Bright; `reference serve` serves `/map/` with byte ranges, by exact name, refusing any Host but 127.0.0.1/localhost; the page draws the OpenMapTiles/OSM credit; the tether's `GET /position` is an SSE stream on 127.0.0.1:10111 | The daily water polygons changed size overnight, so Natural Earth's ocean is clipped per region instead; `http.server` ignores `Range` and pmtiles.js fails on it; an event stream rides the tether's fan-out where a poll would need a gpsd watch of its own (**D-071**) |
+| Repeater sources beyond RepeaterBook | One layer per source beside D-064's: `open-repeater` a CC0 data unit pinned into its manifest by `scripts/gen_open-repeater-pin.py`; `import --from-osm` filters the installed extracts with osmium, downloading nothing; `fetch-etcc` and `fetch-brandmeister` on request, unverified, Brandmeister kept to 6-digit ids with tx ≠ rx; `--from-direwolf-log` its own heard layer, never merged; `repeaters-all.gpx` joins other layers' rows on frequency and 0.02°, or callsign and 0.25° | Open bulk US data barely exists (about one repeater gained over hearham in three states); hotspots are houses; the spike's unbounded callsign match joined two sites 120 km apart (**D-074**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
@@ -503,7 +504,7 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 295
+  packages/        # one YAML per piece of software          ✅ 296
   profiles/        # named bundles referencing packages      ✅ 19
   hardware/
     classes/       # device families with shared Linux needs ✅ 5
