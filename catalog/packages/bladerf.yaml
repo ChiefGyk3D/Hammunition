@@ -15,7 +15,7 @@ install:
 # `menus apply` could not pick one without guessing. This is the pick: the
 # entry an operator opens first. Terminal launchers hold their window.
 launchers:
-  - name: bladeRF-cli
+  - name: bladeRF-cli-shell
     exec: bladeRF-cli -i
     title: bladeRF interactive shell (bladeRF-cli)
     terminal: true

@@ -18,7 +18,7 @@ install:
 # `menus apply` could not pick one without guessing. This is the pick: the
 # entry an operator opens first. Terminal launchers hold their window.
 launchers:
-  - name: cgps
+  - name: cgps-fix
     exec: cgps
     title: GPS fix monitor (cgps)
     terminal: true

@@ -333,42 +333,49 @@ def test_every_catalog_launcher_working_directory_is_under_the_shared_prefix() -
     catalog's values must be paths the run actually creates: under
     /usr/local/share/hammunition/<name>, never a home directory or a guess."""
     catalog = load_catalog(CATALOG)
-    launcher_units = {name for name, m in catalog.items() if m.launchers}
-    assert launcher_units == {
-        "comaps",
-        "ais-catcher",
-        "artemis",
-        "ax25-apps",
-        "ax25-tools",
-        "bladerf",
-        "gpa",
-        "gpsd",
-        "gpsd-tools",
-        "gr-gsm",
-        "gr-osmosdr",
-        "gr-satellites",
-        "hackrf",
-        "hamclock-next",
-        "hammunition-hill",
-        "js8spotter",
-        "libhamlib-utils",
-        "libiio-utils",
-        "libnfc-bin",
-        "morse-runner",
-        "mshv",
-        "navit",
-        "openhamclock",
-        "pygpsclient",
-        "qmapshack",
-        "radiosonde-auto-rx",
-        "rtl-sdr",
-        "skid-finder",
-        "stlink-tools",
-        "supersdr",
-        "ubertooth",
-        "yaac",
-        "yagiuda",
-    }, "a unit gained or lost launchers; update this pin"
+    # Issue #174: pinned by name too, because a launcher's name is what a
+    # shell finds ahead of /usr/bin; a rename is a decision, not a diff.
+    launcher_names = {
+        name: tuple(launcher.name for launcher in m.launchers)
+        for name, m in catalog.items()
+        if m.launchers
+    }
+    assert launcher_names == {
+        "comaps": ("comaps-offline",),
+        "ais-catcher": ("ais-catcher-web",),
+        "artemis": ("artemis",),
+        "ax25-apps": ("axlisten-all",),
+        "ax25-tools": ("mheard-stations",),
+        "bladerf": ("bladeRF-cli-shell",),
+        "gpa": ("gpa-window",),
+        "gpsd": ("gpsctl-device",),
+        "gpsd-tools": ("cgps-fix",),
+        "gr-gsm": ("grgsm_livemon-window",),
+        "gr-osmosdr": ("osmocom_fft-spectrum",),
+        "gr-satellites": ("gr_satellites-list",),
+        "hackrf": ("hackrf_info-check",),
+        "hamclock-next": ("hamclock-next-window",),
+        "hammunition-hill": ("hammunition-hill",),
+        "js8spotter": ("js8spotter",),
+        "libhamlib-utils": ("rigctl-dummy",),
+        "libiio-utils": ("iio_scan",),
+        "libnfc-bin": ("nfc-list-check",),
+        "morse-runner": ("morse-runner",),
+        "mshv": ("mshv",),
+        "navit": ("navit-offline",),
+        "openhamclock": ("openhamclock",),
+        "pygpsclient": ("pygpsclient",),
+        "qmapshack": ("qmapshack-offline", "gps-tether"),
+        "radiosonde-auto-rx": ("radiosonde-auto-rx",),
+        "rtl-sdr": ("rtl_test-tuner",),
+        "skid-finder": ("skid-finder",),
+        "stlink-tools": ("st-info-probe",),
+        "supersdr": ("supersdr",),
+        "ubertooth": ("ubertooth-util-version",),
+        "yaac": ("yaac",),
+        "yagiuda": ("yagiuda-input",),
+    }, "a unit gained, lost or renamed a launcher; update this pin"
+    launcher_units = set(launcher_names)
     for name in launcher_units:
         for launcher in catalog[name].launchers:
             if launcher.working_directory is None:

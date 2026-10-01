@@ -16,7 +16,7 @@ install:
 # `menus apply` could not pick one without guessing. This is the pick: the
 # entry an operator opens first. Terminal launchers hold their window.
 launchers:
-  - name: hackrf_info
+  - name: hackrf_info-check
     exec: hackrf_info
     title: HackRF board info (hackrf_info)
     terminal: true

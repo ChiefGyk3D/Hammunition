@@ -22,7 +22,7 @@ depends: [gnuradio]
 # `menus apply` could not pick one without guessing. This is the pick: the
 # entry an operator opens first. Terminal launchers hold their window.
 launchers:
-  - name: grgsm_livemon
+  - name: grgsm_livemon-window
     exec: grgsm_livemon
     title: GSM live monitor (grgsm_livemon)
     terminal: true

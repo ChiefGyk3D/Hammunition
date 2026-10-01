@@ -53,7 +53,8 @@ binaries:
 depends: [gnupg]
 
 launchers:
-  - name: gpa
+  - name: gpa-window
+    title: Signing and encryption keys (gpa)
     exec: exec gpa
 
 update:

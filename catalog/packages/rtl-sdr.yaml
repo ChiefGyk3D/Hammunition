@@ -16,7 +16,7 @@ install:
 # `menus apply` could not pick one without guessing. This is the pick: the
 # entry an operator opens first. Terminal launchers hold their window.
 launchers:
-  - name: rtl_test
+  - name: rtl_test-tuner
     exec: rtl_test -t
     title: RTL-SDR device test (rtl_test)
     terminal: true

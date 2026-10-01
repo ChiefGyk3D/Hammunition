@@ -16,7 +16,7 @@ install:
 # `menus apply` could not pick one without guessing. This is the pick: the
 # entry an operator opens first. Terminal launchers hold their window.
 launchers:
-  - name: rigctl
+  - name: rigctl-dummy
     exec: rigctl -m 1
     title: Rig control shell (rigctl)
     terminal: true

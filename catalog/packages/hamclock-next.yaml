@@ -100,7 +100,8 @@ service_endpoints:
       Someone should confirm before relying on this.
 
 launchers:
-  - name: hamclock-next
+  - name: hamclock-next-window
+    title: HamClock station clock (hamclock-next)
     exec: hamclock-next --backend {endpoint:backend}
     terminal: false
 
