@@ -101,6 +101,7 @@ from hammunition.copernicus import CopernicusError, S3Probe
 from hammunition.country_boundaries import BoundarySource, CountryBoundaryError, boundary_source
 from hammunition.desktop import current_desktop, scan_sessions
 from hammunition.distro import DetectionError, Target
+from hammunition.doctor import RigStatus
 from hammunition.execute import (
     ExecutionReport,
     Step,
@@ -4457,6 +4458,114 @@ def cmd_time_mode(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _user_unit_state(name: str) -> str:
+    """``absent``/``disabled``/``active``/``failed`` for a user unit, read-only."""
+    runner = SubprocessRunner()
+
+    def ask(verb: str) -> tuple[int, str]:
+        try:
+            r = runner.run(
+                Command(
+                    argv=("systemctl", "--user", verb, f"{name}.service"),
+                    description=f"Read the {name} unit's {verb}",
+                )
+            )
+        except BackendError:
+            return 1, ""
+        return r.returncode, r.stdout.strip()
+
+    enabled_rc, enabled = ask("is-enabled")
+    if enabled in ("not-found", "") and enabled_rc != 0:
+        return "absent"
+    _active_rc, active = ask("is-active")
+    if active == "failed":
+        return "failed"
+    if active == "active":
+        return "active"
+    if enabled == "enabled":
+        return "disabled" if active != "active" else "active"
+    return "disabled"
+
+
+def _dump_state_answers() -> bool:
+    """Whether rigctld answers \\dump_state on 127.0.0.1:4532. Read-only, never keys."""
+    import socket
+
+    from hammunition.rig import parse_dump_state_model
+
+    try:
+        conn = socket.create_connection(("127.0.0.1", 4532), timeout=1.0)
+    except OSError:
+        return False
+    try:
+        conn.sendall(b"\\dump_state\n")
+        conn.settimeout(1.0)
+        reply = conn.recv(4096)
+    except OSError:
+        return False
+    finally:
+        conn.close()
+    return parse_dump_state_model(reply.decode(errors="replace")) is not None
+
+
+def _linger_state_for_doctor(user: str) -> str | None:
+    from hammunition.hardware.linger import read_record
+
+    try:
+        result = SubprocessRunner().run(
+            Command(
+                argv=("loginctl", "show-user", user or "", "--property=Linger", "--value"),
+                description="Read linger state",
+            )
+        )
+    except BackendError:
+        return None
+    if not result.ok:
+        return None
+    on = result.stdout.strip().lower() in ("yes", "1", "true")
+    if not on:
+        return "off"
+    record = read_record()
+    return "ours" if record is not None and record.enabled_by_us else "theirs"
+
+
+def _gather_rig_status(
+    args: argparse.Namespace,
+    station: Station,
+    devices: dict[str, DeviceClass] | dict[str, DeviceManifest] | Mapping[str, object],
+) -> RigStatus | None:
+    """Read-only facts about the rig service for doctor (D-073 §9). Never keys."""
+    from hammunition.rig import RigError, resolve_rig
+
+    if station.rig is None:
+        return RigStatus(configured=False)
+    kind: str | None = None
+    uncatalogued = False
+    try:
+        res = resolve_rig(station.rig, dict(devices))  # type: ignore[arg-type]
+        kind, uncatalogued = res.kind, res.uncatalogued
+    except RigError:
+        kind = None
+    needed = ("rig_device", "rig_baud") if kind == "cat" else ("rig_device", "rig_ptt_line")
+    missing = tuple(v for v in needed if getattr(station, v) in (None, "")) if kind else ()
+    state = _user_unit_state("hammunition-rigctld")
+    answering = _dump_state_answers() if state == "active" else None
+    device_present = (
+        Path(station.rig_device).exists() if station.rig_device is not None else None
+    )
+    linger = _linger_state_for_doctor(operator(args))
+    return RigStatus(
+        configured=True,
+        missing=missing,
+        uncatalogued=uncatalogued,
+        kind=kind,
+        service_state=state,
+        answering=answering,
+        device_present=device_present,
+        linger=linger,
+    )
+
+
 @envelope.json_capable()
 def cmd_doctor(args: argparse.Namespace) -> int:
     """Report what is ready and what is not yet set up. Changes nothing."""
@@ -4586,6 +4695,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     shadowing_launchers = survey_shadowing_launchers(Path(local_bin))
 
     sessions = scan_sessions()
+    rig_status = _gather_rig_status(args, station, devices)
     checks = run_checks(
         target_describe=target_describe,
         is_debian_family=is_debian,
@@ -4618,6 +4728,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         launchers_bare=engine_launchers.bare,
         launchers_broken=engine_launchers.broken,
         launchers_shadowing=shadowing_launchers,
+        rig=rig_status,
     )
 
     from hammunition.interface.doctor import build_doctor, render_doctor

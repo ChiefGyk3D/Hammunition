@@ -429,3 +429,50 @@ def test_a_launcher_shadowing_a_path_binary_warns_naming_both_and_the_fix() -> N
 
 def test_no_engine_launchers_adds_no_check() -> None:
     assert "launchers" not in _by_name(run_checks(**HEALTHY))  # type: ignore[arg-type]
+
+
+# --- rig checks (D-073 §9) ---------------------------------------------------
+
+
+def test_rig_checks_report_a_missing_value() -> None:
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(RigStatus(configured=True, missing=("rig_device",), kind="cat"))
+    assert any(c.name == "rig" and c.status == "warn" and "rig_device" in c.detail for c in checks)
+
+
+def test_rig_checks_are_quiet_when_nothing_is_set() -> None:
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(RigStatus(configured=False))
+    assert len(checks) == 1 and checks[0].status == "info"
+
+
+def test_rig_checks_healthy_when_active_and_answering() -> None:
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(
+        RigStatus(configured=True, kind="cat", service_state="active", answering=True)
+    )
+    assert any(c.status == "ok" and "active" in c.detail for c in checks)
+    assert any(c.status == "ok" and "answers" in c.detail for c in checks)
+
+
+def test_rig_checks_flag_an_argument_mismatch() -> None:
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(
+        RigStatus(configured=True, kind="cat", service_state="active", args_match=False)
+    )
+    assert any("do not match" in c.detail and c.status == "warn" for c in checks)
+
+
+def test_rig_checks_never_key() -> None:
+    # The checks describe only reads; none names a keying command.
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(
+        RigStatus(configured=True, kind="ptt_only", service_state="active", answering=True)
+    )
+    for c in checks:
+        assert "set_ptt" not in (c.fix or "") and "\\set" not in (c.fix or "")

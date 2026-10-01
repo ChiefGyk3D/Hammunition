@@ -43,7 +43,7 @@ ROUTINO_TRANSLATIONS = "/usr/share/routino/translations.xml"
 # What scripts/path-link.sh links to: a link ending here is ours (D-059).
 ENGINE_LINK_SUFFIX = "/.venv/bin/hammunition"
 
-__all__ = ["Check", "Status", "run_checks", "summarize", "writable_or_creatable"]
+__all__ = ["Check", "RigStatus", "Status", "rig_checks", "run_checks", "summarize", "writable_or_creatable"]
 
 Status = Literal["ok", "warn", "fail", "info"]
 
@@ -56,6 +56,111 @@ class Check:
     status: Status
     detail: str
     fix: str | None = None
+
+
+@dataclass(frozen=True)
+class RigStatus:
+    """What the CLI gathered about the rig service, read-only.  D-073 §9.
+
+    Every field is a fact read without keying the transmitter; the CLI fills
+    them (systemctl --user, /proc, a \\dump_state probe), and :func:`rig_checks`
+    turns them into checks. Fields are None when not applicable or not read.
+    """
+
+    configured: bool
+    """Whether the station names a rig at all."""
+    missing: tuple[str, ...] = ()
+    """Station values the rig's kind needs that are unset."""
+    uncatalogued: bool = False
+    kind: str | None = None
+    """``cat`` or ``ptt_only`` when known."""
+    service_state: str | None = None
+    """``absent``, ``disabled``, ``active`` or ``failed``; None when not read."""
+    args_match: bool | None = None
+    """Whether the running rigctld's arguments match the station; None if not running."""
+    answering: bool | None = None
+    """Whether \\dump_state got a reply on 127.0.0.1:4532; None if not probed."""
+    device_present: bool | None = None
+    """Whether the rig_device path resolves to a node now; None if not checked."""
+    linger: str | None = None
+    """``off``, ``ours`` or ``theirs``; None when not read."""
+
+
+def rig_checks(status: RigStatus | None) -> list[Check]:
+    """The rig service's health, read-only and never keying.  D-073 §9."""
+    if status is None:
+        return []
+    if not status.configured:
+        return [
+            Check(
+                "rig",
+                "info",
+                "no station rig is set; the shared rigctld is not configured",
+                "hammunition station set --rig <device> --rig-device <path> …",
+            )
+        ]
+    checks: list[Check] = []
+    if status.missing:
+        checks.append(
+            Check(
+                "rig",
+                "warn",
+                f"the rig is set but these values are not: {', '.join(status.missing)}",
+                "hammunition station set "
+                + " ".join(f"--{m.replace('_', '-')} …" for m in status.missing),
+            )
+        )
+    if status.uncatalogued:
+        checks.append(
+            Check("rig", "info", "the rig is a hamlib:<model> value, unmeasured here", None)
+        )
+    state = status.service_state
+    if state == "absent":
+        checks.append(
+            Check("rig", "warn", "hammunition-rigctld is not installed", "hammunition install rig-service")
+        )
+    elif state == "disabled":
+        checks.append(
+            Check("rig", "warn", "hammunition-rigctld is disabled", "hammunition install rig-service")
+        )
+    elif state == "failed":
+        checks.append(
+            Check(
+                "rig",
+                "warn",
+                "hammunition-rigctld failed",
+                "journalctl --user -u hammunition-rigctld -n 20",
+            )
+        )
+    elif state == "active":
+        checks.append(Check("rig", "ok", "hammunition-rigctld is active"))
+    if status.args_match is False:
+        checks.append(
+            Check(
+                "rig",
+                "warn",
+                "the running rigctld's arguments do not match the station",
+                "reinstall rig-service: hammunition install rig-service",
+            )
+        )
+    if status.answering is True:
+        checks.append(Check("rig", "ok", "rigctld answers on 127.0.0.1:4532"))
+    elif status.answering is False and state == "active":
+        checks.append(
+            Check(
+                "rig",
+                "warn",
+                "rigctld is active but did not answer \\dump_state on 127.0.0.1:4532",
+                "journalctl --user -u hammunition-rigctld -n 20",
+            )
+        )
+    if status.device_present is False:
+        checks.append(Check("rig", "info", "the rig's device is not present now", "switch the radio on"))
+    if status.linger == "ours":
+        checks.append(Check("rig", "info", "linger is on (Hammunition turned it on)"))
+    elif status.linger == "theirs":
+        checks.append(Check("rig", "info", "linger is on (not turned on by Hammunition)"))
+    return checks
 
 
 def run_checks(
@@ -89,6 +194,7 @@ def run_checks(
     launchers_bare: tuple[str, ...] = (),
     launchers_broken: tuple[tuple[str, str], ...] = (),
     launchers_shadowing: tuple[tuple[str, str], ...] = (),
+    rig: RigStatus | None = None,
 ) -> list[Check]:
     """Every check, in the order a person should read them. Pure; see module docstring."""
     checks: list[Check] = []
@@ -409,6 +515,7 @@ def run_checks(
             )
         )
 
+    checks.extend(rig_checks(rig))
     return checks
 
 

@@ -171,10 +171,10 @@ def parse_dump_state_model(reply: str) -> int | None:
     confirm the daemon answers, checked against a dummy rigctld in the suite.
     """
     lines = [line.strip() for line in reply.splitlines() if line.strip()]
-    for line in lines:
+    # The reply opens with the protocol version on line 0; the model number is
+    # the next bare-integer line. Skip line 0 by position, not by value — the
+    # dummy model's version and model are both ``1``.
+    for line in lines[1:]:
         if line.isdigit():
-            # The first bare-integer line after the version is the model.
-            if line == lines[0]:
-                continue
             return int(line)
     return None
