@@ -23,6 +23,21 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   and it is now among the default units. The `artifacts` document gains
   `reference_books`. Books are the largest data the catalog fetches, up to
   127 GB.
+- **`import hammunition.fetch` no longer raises a circular `ImportError`
+  when it is the first `hammunition` import in the process** (issue #158).
+  `src/hammunition/backends/__init__.py` eagerly imports every backend, six of
+  which (`apt_repo`, `binary`, `data`, `git`, `node`, `regions`, `source`,
+  `venv`) named `hammunition.fetch` symbols at module scope purely for type
+  annotations or late-needed helpers; `hammunition.cli.main`'s own import
+  order happened to prime `sys.modules` around it, which is why the engine's
+  CLI never hit it while Hammunition Bunker's `enginelib.py` did. Those
+  imports now move under `TYPE_CHECKING` (annotations, deferred by
+  `from __future__ import annotations` anyway) or become local imports at
+  their one or two call sites (`MirrorPath`, `fetch_disclosure`,
+  `record_fetch`, `safe_name`, `operator_dir`, `remove_tree`,
+  `UrllibTransport`) — never a bare `try`/`except ImportError`.
+  `tests/test_import_isolation.py` imports every `hammunition` module alone
+  in a fresh subprocess so this cannot come back silently.
 
 - **A generated launcher no longer takes a PATH binary's name** (issue
   #174). `~/.local/bin/rigctl`, libhamlib-utils' launcher, ran ahead of

@@ -40,9 +40,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 from functools import partial
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hammunition.backends.base import Action, BackendError, Command
-from hammunition.fetch import Transport, UrllibTransport
 from hammunition.manifest.schema import AptRepo
 from hammunition.openpgp import (
     KeyFileError,
@@ -51,6 +51,15 @@ from hammunition.openpgp import (
     primary_fingerprints,
 )
 from hammunition.paths import artifact_cache_dir
+
+if TYPE_CHECKING:
+    # Type-only: `hammunition.fetch` imports `hammunition.backends.base`
+    # (for BackendError), and `hammunition.backends/__init__.py` imports this
+    # module eagerly, so a module-level `from hammunition.fetch import
+    # Transport` here is the other half of the cycle in #158. `Transport` is
+    # only ever used in an annotation, which `from __future__ import
+    # annotations` defers, so it does not need a real import at all.
+    from hammunition.fetch import Transport
 
 __all__ = ["AptRepoBackend", "RepoFiles", "RepoState", "render_sources"]
 
@@ -113,7 +122,17 @@ class AptRepoBackend:
         self.staging_dir = staging_dir if staging_dir is not None else self.cache_dir / "apt-repos"
         self.sources_dir = sources_dir
         self.keyrings_dir = keyrings_dir
-        self.transport: Transport = transport if transport is not None else UrllibTransport()
+        if transport is not None:
+            self.transport: Transport = transport
+        else:
+            # Late import, not a module-level one: see the TYPE_CHECKING
+            # comment above (#158's cycle). UrllibTransport is a real runtime
+            # dependency, unlike the Transport annotation, so it cannot move
+            # under TYPE_CHECKING too -- it has to be imported here instead,
+            # after hammunition.fetch has finished loading.
+            from hammunition.fetch import UrllibTransport
+
+            self.transport = UrllibTransport()
 
     # -- where things go, pure --------------------------------------------
 

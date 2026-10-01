@@ -23,12 +23,23 @@ import os
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from ..fetch import Fetcher, MirrorPath, fetch_disclosure, record_fetch, safe_name
 from ..manifest.schema import DataArtifact, DataInstall, PackageManifest
 from .base import Action, BackendError, Command, CommandRunner
 from .source import extract, needs_root_for
 from .verified import PrefixWriter
+
+if TYPE_CHECKING:
+    # Type-only: `hammunition.backends/__init__.py` imports this module
+    # eagerly, and `hammunition.fetch` imports `hammunition.backends.base`,
+    # so a module-level import here is the other half of #158's cycle.
+    # `Fetcher` is only ever used in an annotation, which `from __future__
+    # import annotations` defers, so it never needs a real import.
+    # `fetch_disclosure`, `record_fetch` and `safe_name` are real runtime
+    # dependencies, unlike `Fetcher` and `MirrorPath`, and are imported
+    # locally where they are used instead.
+    from ..fetch import Fetcher, MirrorPath
 
 
 def human_size(size: int) -> str:
@@ -45,6 +56,11 @@ def data_name(artifact: DataArtifact) -> str:
     """The artifact's stable name within its unit, as ``hammunition
     artifacts`` lists it and a LAN mirror serves it (D-070): the name it is
     installed under, or for an archive the file name its URL ends in."""
+    # Late import: see the TYPE_CHECKING comment at the top of this module
+    # (#158's cycle) -- hammunition.fetch has finished loading by the time any
+    # backend actually runs, so this costs a sys.modules lookup, not a reload.
+    from ..fetch import safe_name
+
     return artifact.install_as or safe_name(artifact.url)
 
 
@@ -62,6 +78,12 @@ class DataBackend:
         return self.prefix / "share" / "hammunition" / "data" / manifest.name
 
     def steps(self, manifest: PackageManifest, block: DataInstall) -> list[Action | Command]:
+        # Late import: see the TYPE_CHECKING comment at the top of this
+        # module (#158's cycle) -- hammunition.fetch has finished loading by
+        # the time any backend actually runs, so this costs a sys.modules
+        # lookup, not a reload.
+        from ..fetch import MirrorPath, fetch_disclosure
+
         steps: list[Action | Command] = []
         target_dir = self.data_dir(manifest)
         for artifact in block.artifacts:
@@ -117,6 +139,12 @@ class DataBackend:
         where: MirrorPath,
         facts: dict[str, str],
     ) -> str:
+        # Late import: see the TYPE_CHECKING comment at the top of this
+        # module (#158's cycle) -- hammunition.fetch has finished loading by
+        # the time any backend actually runs, so this costs a sys.modules
+        # lookup, not a reload.
+        from ..fetch import record_fetch
+
         result = self.fetcher.fetch(artifact, mirror=where)
         source = record_fetch(result, facts, mirrored=bool(self.fetcher.mirror))
         if result.size != artifact.size:
