@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**283 programs and packages** from the catalog, laid out the way the
+**285 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -220,6 +220,8 @@ AX.25 packet, soundcard modems, nodes and BBS, Winlink, APRS, LoRa mesh and the 
 |---|---|---|
 | [ardopcf](packages/ardopcf.md) | HF data modem for Winlink and packet over poor paths | [github.com/pflarue/ardop](https://github.com/pflarue/ardop) |
 | [direwolf](packages/direwolf.md) | Software TNC — turns a sound card into an APRS and packet modem | [github.com/wb2osz/direwolf](https://github.com/wb2osz/direwolf) |
+| [freedata](packages/freedata.md) | HF messaging and file transfer over codec2 modems, with a browser interface | [freedata.app](https://freedata.app) |
+| [mercury](packages/mercury.md) | Open HF data modem that speaks VARA's TCP interface, so pat uses it unchanged | [github.com/Rhizomatica/mercury](https://github.com/Rhizomatica/mercury) |
 | [qtsoundmodem](packages/qtsoundmodem.md) | Soundcard packet modem with a scope — an alternative to Direwolf | [github.com/g8bpq/QtSoundModem](https://github.com/g8bpq/QtSoundModem) |
 | [tmd710-tncsetup](packages/tmd710-tncsetup.md) | Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios | [github.com/fmarier/tmd710_tncsetup](https://github.com/fmarier/tmd710_tncsetup) |
 

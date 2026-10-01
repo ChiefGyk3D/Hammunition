@@ -188,6 +188,36 @@ passes. SatDump is *decoding* what it transmits. An operator needs both.
 
 ---
 
+## 6. HF data modems
+
+Added 2026-09-30 from the gap analysis (`catalog-gaps-2026-09.md` section B,
+Group 3; Q-022 #6). Unlike the five sections above, this one is decided:
+Mercury and FreeDATA are carried beside `ardopcf` in the `packet` profile.
+Availability here is the seven-target `apt-cache policy` sweep of that day.
+
+| Modem | What it is | Interface it offers | What Pat uses | Licence | Availability |
+|---|---|---|---|---|---|
+| `ardopcf` | ARDOP ARQ modem | ARDOP host TCP (8515) and a web view | `ardop://` | MIT | source build, every target |
+| `mercury` | OFDM ARQ modem, FreeDV-derived modes | VARA HF's TCP interface (8300/8301) and a KISS broadcast port | `varahf://`, unchanged (measured peer to peer, no radio) | GPL-3.0-or-later | apt on Kali (1.9.13); source build elsewhere |
+| `freedata` | codec2 messaging and file transfer with a browser interface | its own REST and WebSocket API (5000) | none: not a Winlink path | GPL-3.0-or-later | venv from PyPI, x86-64 only |
+| VARA HF | closed ARQ modem, Windows | VARA's TCP interface | `varahf://` | proprietary | not carried; post-1.0 Wine prefix, optional |
+
+### Recommended: `ardopcf` or `mercury` for Winlink, `freedata` for station to station
+
+**No single default.** The choice is decided by what the station at the other
+end runs, because none of these interoperate on the air: an ARDOP gateway
+needs `ardopcf`, a Mercury station needs `mercury`, a VARA-only gateway needs
+VARA. Mercury does not make a VARA gateway reachable; it makes Pat's VARA
+transport useful with free software at both ends. FreeDATA answers a
+different question, messages and files between two FreeDATA stations with no
+Winlink account.
+
+**What VARA still buys** is the gateways that run only VARA. That is why its
+Wine prefix stays post-1.0 rather than being retired, and why it is now
+optional rather than the only HF upgrade over ARDOP (`SCOPE.md`).
+
+---
+
 ## Also overlapping, already raised
 
 Not in this queue item, but they are the same class of problem and each already
