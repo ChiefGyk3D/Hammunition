@@ -1,0 +1,86 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: class
+name: rig
+summary: Transceivers with CAT or PTT control — one shared rigctld for every program
+
+# A radio is a device manifest; the class carries what every radio shares. That
+# is D-042's wording and the shape the hardware catalog already has for GPS
+# receivers and badges: a device names its device_class and inherits the
+# class's groups, packages and identifiers.
+#
+# THE CHIP DOES NOT SAY WHICH RADIO IT IS. A CP2105 behind an FT-991A is the
+# same CP2105 that is behind an FTX-1 or a Digirig cable; nothing in this design
+# reads a radio's identity from its USB identifiers, and the operator's
+# selection — `hammunition station set --rig` — is what decides which radio is
+# on the station. Two radios on one CP2105 identifier are told apart by their
+# /dev/serial/by-id/ paths, and the station names one of them (D-028).
+
+# NO udev RULE AND NO SYMLINK. A CAT port needs access, not a name: serial nodes
+# are already `dialout` from the distribution's own 50-udev-default.rules
+# (KERNEL=="tty[A-Z]*[0-9]|...", GROUP="dialout", read on the field laptop),
+# and systemd's 60-serial.rules already gives every USB-serial device a stable
+# /dev/serial/by-id/ path. There is nothing for us to add (D-028, D-029).
+distribution_naming: "/dev/serial/by-id/, from systemd's own 60-serial.rules"
+
+usb_ids:
+  - vendor: "10c4"
+    product: "ea70"
+    description: Silicon Labs CP2105 dual UART bridge, as carried by the FT-991A
+    evidence: >-
+      The kernel's cp210x driver table (drivers/usb/serial/cp210x.c) binds
+      10c4:ea70 to the CP2105, and modules.alias on the field laptop lists the
+      pair under cp210x. D-042's reading of EmComm Tools' et-cat rules names
+      the same CP2105 behind the FT-991A's CAT cable. Confirmed as *a CP2105*
+      by the kernel table; confirmed as *an FT-991A's* only by the bench, which
+      is why yaesu-ft-991a carries an identification_gap (D-030, D-073 §3a).
+    confirmed: true
+    node_kind: serial
+    ports: 2
+    ambiguity:
+      basis: kernel_generic_driver
+      evidence: >-
+        The kernel binds 10c4:ea70 to the general-purpose cp210x USB-serial
+        bridge driver, not to any radio — it is a chip, not a product. It is on
+        the generated list in docs/reference/usb-ambiguity.md. A CP2105
+        presents two independent serial ports, which is why ports is 2 and the
+        CAT and PTT interfaces are told apart by their -ifNN- suffix, never by
+        the pair.
+      also_used_by:
+        - Yaesu FTX-1 (shares the CP2105 cable, per D-042)
+        - Digirig DR-891 and other interfaces built on a CP2105 (D-042)
+
+groups: [dialout]
+packages: [libhamlib-utils, flrig]
+
+documentation:
+  what_it_is: >-
+    Amateur transceivers as a family: a radio reached over CAT (computer-aided
+    transceiver control) through a serial port, or a radio with no CAT at all
+    that is keyed by a serial control line through an interface. One class
+    because what Linux needs — serial access through `dialout` and a stable
+    port path — is the same for all of them, and the radio-specific detail
+    (hamlib model, port, speed, how it is keyed) lives in each radio's own
+    manifest.
+  what_you_can_do_with_it: >-
+    Run one hamlib `rigctld` for the whole station and point every program —
+    WSJT-X, fldigi, JS8Call, Pat, gpredict and the rest — at it, so they share
+    one serial port instead of fighting over it. See docs/guides/rig-control.md.
+  setup_steps: >-
+    Join `dialout` and log out and back in — group membership does not reach a
+    session already open. Say which radio is on the station with `hammunition
+    station set --rig <device> --rig-device <by-id path> --rig-baud <rate>`,
+    then install the `rig-service` unit (it ships in the `station` profile).
+    There is no udev rule to write: /dev/serial/by-id/ already names the port.
+  known_problems: >-
+    THE CHIP DOES NOT SAY WHICH RADIO IT IS. The same CP2105 identifier belongs
+    to an FT-991A, an FTX-1 and a Digirig cable alike; the operator's selection
+    through `station set --rig` decides which radio is on the station, and
+    nothing here reads a radio's identity from its USB identifiers (D-028). Two
+    radios on one CP2105 are told apart by their /dev/serial/by-id/ paths, and
+    the station names one of them. Further bridges — a CP2102 on an Icom radio,
+    an FTDI, the interface a PTT-only radio is keyed through — join this class
+    only when a radio that presents them is added, with its evidence, never
+    ahead of it.
+  upstream_url: https://hamlib.github.io/

@@ -8,6 +8,7 @@ One page per catalogued device: what it is, how it identifies itself on USB, wha
 |---|---|---|---|
 | [airspy](airspy.md) | supported | — | Airspy R2, Mini and HF+ — receive-only SDRs with better dynamic range than an RTL dongle |
 | [bladerf](bladerf.md) | supported | — | Nuand bladeRF — full-duplex transmit-capable SDR with an on-board FPGA |
+| [btech-uv-50pro](btech-uv-50pro.md) | untested | — | BTECH UV-50PRO — dual-band mobile with no CAT, keyed through an external interface |
 | [c5-wardriver](c5-wardriver.md) | supported | ✅ | C5 Wardriver v1.1 — justcallmekoko's ESP32 survey board, runs Marauder-family firmware |
 | [catsniffer-v3](catsniffer-v3.md) | supported | ✅ | Electronic Cats CatSniffer v3 — multiprotocol sub-GHz, BLE and 802.15.4 |
 | [clip-boy](clip-boy.md) | supported | ✅ | Open-source DEF CON badge — ESP32-S3 with an LVGL touch UI |
@@ -30,6 +31,7 @@ One page per catalogued device: what it is, how it identifies itself on USB, wha
 | [uconsole](uconsole.md) | planned | — | ClockworkPi uConsole — portable handheld Linux terminal used as a field radio host |
 | [usrp](usrp.md) | supported | — | Ettus USRP — the research-grade SDR family, B200/B210 and older USB models |
 | [wi-spy](wi-spy.md) | supported | — | MetaGeek Wi-Spy family — USB spectrum analyzers for 2.4 GHz, dual-band and 900 MHz |
+| [yaesu-ft-991a](yaesu-ft-991a.md) | untested | — | Yaesu FT-991A — HF/VHF/UHF all-mode transceiver with a built-in USB CAT and audio interface |
 
 ## Device classes
 
@@ -40,5 +42,6 @@ Families with shared Linux needs; a device in a class inherits its rules and too
 - [gps-receiver](gps-receiver-class.md) — USB GNSS receivers — position for APRS and grid squares, and time for FT8
 - [nfc-reader](nfc-reader-class.md) — PN53x-based NFC readers — the contactless equivalent of the badgelife class
 - [programmer](programmer-class.md) — In-circuit programmers and debug probes — JTAG, SWD, SPI flash, AVR and FPGA
+- [rig](rig-class.md) — Transceivers with CAT or PTT control — one shared rigctld for every program
 
 Own hardware that is not here, or is marked untested? [Closing a gap takes one lsusb](../contributing/hardware.md).
