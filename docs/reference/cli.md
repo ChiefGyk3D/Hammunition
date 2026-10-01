@@ -251,11 +251,12 @@ With `--json`, prints a `regions` document
 ([json-interface.md](json-interface.md)): the filter and the matching region
 paths. It is Geofabrik's list, nothing of yours.
 
-### `hammunition artifacts [--map-regions R[,R…]] [--map-freshness MODE] [--units U[,U…]]`
+### `hammunition artifacts [--map-regions R[,R…]] [--map-freshness MODE] [--reference-books ID[,ID…]] [--units U[,U…]]`
 
 Every remote data artifact the engine would fetch for the selection on the
 command line (**D-070**): each `data` unit's files, the Geofabrik extract of
-each region, and the Copernicus tiles each region's outline touches. It
+each region, the Copernicus tiles each region's outline touches, and each
+Kiwix book given (**D-066**, the 2026-10-01 amendment of D-070). It
 reads no station file and nothing installed on this machine, and installs
 nothing; the answer is the same on every machine. It is what
 [Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker), a
@@ -269,7 +270,8 @@ $ hammunition artifacts --map-regions north-america/us/vermont --units osm-regio
 |---|---|
 | `--map-regions R[,R…]` | Geofabrik region paths, as `station set --map-regions` takes them. None defers the map units |
 | `--map-freshness MODE` | `yearly` (the default), `monthly` or `latest`: which dated file each region resolves to and how it is verified, exactly as in the plan |
-| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions`, `dem-tiles` or `mwm-regions` install block. A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
+| `--reference-books ID[,ID…]` | Kiwix book ids, as `station set --reference-books` takes them (`hammunition reference books` lists them). Each is listed by its id with the pinned URL, `sha256`, size and the book's own licence line, from the carried pins with no network asked. An id the book list or the pins do not carry is listed as deferred; a malformed one, or an empty list, exits 2. None defers `kiwix-library` as *no books selected* |
+| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions`, `dem-tiles`, `mwm-regions` or `kiwix-books` install block. A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
 
 The network is asked as the plan asks it, and only for what the selection
 names: Geofabrik for a region's dated file, its `.md5` and its `.poly`
@@ -284,7 +286,8 @@ With `--json`, prints an `artifacts` document
 name within the unit (what a mirror serves at `<mirror>/<unit>/<name>`), the
 publisher URL, the check (`sha256`, `md5-publisher`, `etag-md5`, `sha1-publisher` for CoMaps' maps, D-069), the
 expected digest, where a publisher checksum was read, the size, the licence,
-and `deferred`. It carries the regions given, and nothing of the station's.
+and `deferred`. It carries the regions and books given, and nothing of the
+station's.
 
 ### `hammunition maps qmapshack [--configure-only]`
 
@@ -1201,7 +1204,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Twenty checks across four severities:
+one command that fixes it. Twenty-one checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -1232,6 +1235,13 @@ configuration. A machine with no battery-backed hardware clock (`/sys/class/rtc`
 empty) is warned on any target, naming the fix: fit an RTC module. On a target
 whose time daemon is not ntpsec the line is information naming the gap. See
 `docs/guides/gps-time.md`.
+
+The **gps-resume** check (issue #177) appears only when a GPS receiver is
+attached (parked or awake) and gpsd is installed. It is ok when the resume
+step `hardware apply` installs is in place as this engine writes it, enabled
+for the four sleep targets, and warns, naming `hammunition hardware apply`,
+when it is missing, from an older engine, or not enabled. See
+`docs/hardware/power-control.md`, "After suspend".
 
 The **hammunition** check (**D-059**) asks whether `hammunition` resolves on
 your `PATH`, and to the checkout `doctor` is running from. `./bootstrap.sh`
@@ -1326,7 +1336,7 @@ identifier is flagged as a candidate, not a conclusion — **D-028**),
 the udev rules and your access-group membership are already in place.
 Detection drives nothing: it reports, and you decide (**D-020**).
 
-### `hammunition hardware apply [--dry-run] [--yes] [--user NAME] [--no-gps-time] [--no-geoclue]`
+### `hammunition hardware apply [--dry-run] [--yes] [--user NAME] [--no-gps-time] [--no-gps-resume] [--no-geoclue]`
 
 Writes the whole catalog's udev rules to
 `/etc/udev/rules.d/65-hammunition.rules`, reloads and triggers udev, adds
@@ -1413,6 +1423,20 @@ files contain and what installing them means.
   this happens where GeoClue (`/usr/libexec/geoclue` and its `geoclue`
   group) is not installed; the plan says so. `--no-geoclue` leaves GeoClue
   alone. See `docs/guides/offline-navigation.md`, section 17.
+- **Installs the GPS receiver's resume step (issue #177)** where gpsd is
+  installed: `/usr/local/libexec/hammunition-gps-resume` (`0755`) and
+  `/etc/systemd/system/hammunition-gps-resume.service`, a oneshot after and
+  wanted by the four sleep targets, enabled and not started. After each
+  resume it runs `gpsdctl remove` and `add` for each `/dev/gpsN`, and
+  `systemctl try-restart gpsd.service` if gpsd then reports no device; with
+  no `/dev/gpsN` it does nothing, and it never parks or wakes anything. The
+  plan prints both files whole, with how to inspect them
+  (`systemctl status hammunition-gps-resume`,
+  `journalctl -u hammunition-gps-resume`) and reverse them. Each step is
+  logged (`gps_resume`), and both files and the four `.wants` links are read
+  back afterwards. A file at either path without Hammunition's header refuses
+  the plan (exit `2`). `--no-gps-resume` leaves the step out; `--no-gps-time`
+  does not. See `docs/hardware/power-control.md`, "After suspend".
 
 ### `hammunition hardware unapply [--dry-run] [--yes] [--user NAME]`
 
@@ -1422,7 +1446,8 @@ Removes the power-control helper and its polkit action — the two files
 if present, `/etc/udev/rules.d/66-hammunition-kept.rules`, the kept-off rules
 file `park` writes to by default (**D-056**, amended 2026-09-28). Removing it
 reloads udev, so every device it was holding parked wakes from the next boot
-on. Nothing else is touched.
+on. GPS time, the GPS resume step and GeoClue's tether socket files are
+taken back too (below); nothing else is touched.
 
 - **Not part of `uninstall`.** `uninstall` resolves the names it is given
   against the package and profile catalogs; there is no unit named
@@ -1458,6 +1483,11 @@ on. Nothing else is touched.
   socket, then `rmdir /run/hammunition-gps` (which fails, loudly, if
   anything else is in it) and `systemctl try-restart geoclue`. Stop the
   tether first; TCP 10110 keeps serving until you do.
+- **Takes the GPS resume step back (issue #177)**, by content:
+  `systemctl disable hammunition-gps-resume.service`, then the unit and
+  `/usr/local/libexec/hammunition-gps-resume` are removed, each only when it
+  starts with the header Hammunition writes, and systemd is reloaded. The
+  files and the four `.wants` links are re-checked for absence afterwards.
 
 Exit codes: `0` for a removal that verified absent, nothing recorded to
 remove, every recorded artefact already gone, a `--dry-run`, or declining the
@@ -1575,7 +1605,7 @@ hammunition station show
 | `--map-regions R[,R…]` | Geofabrik region paths for offline maps, e.g. `north-america/us/vermont,north-america/us/new-hampshire`. Replaces the whole list. Checked for shape only (lowercase words joined by `/`); whether Geofabrik has the region is checked at plan time (**D-057**) |
 | `--map-freshness MODE` | `yearly` (the default when unset), `monthly` or `latest`: which dated file each region resolves to, and so how it can be verified |
 | `--reference-books ID[,ID…]` | Kiwix books for `kiwix-library`, by id (`hammunition reference books` lists them). Replaces the whole list; an id the catalog's book list does not name is refused when you type it, and an empty list is refused (uninstall `kiwix-library` to remove the books) (**D-066**) |
-| `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
+| `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile, a CoMaps map, a reference book) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
 | `--clear-mirror` | Remove the saved mirror |
 
 A region list says where the operator lives or travels, so `station show`

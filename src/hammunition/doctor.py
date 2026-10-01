@@ -38,6 +38,7 @@ from hammunition.desktop import Desktop, describe, describe_set
 from hammunition.geoclue import GeoClueState
 from hammunition.gpstime.mode import GPS_MODES
 from hammunition.gpstime.state import HOLDOVER_WARN_SECONDS, TimeState, format_duration
+from hammunition.hardware.gps_resume import ResumeStatus
 
 #: routino-common's file QMapShack reads at startup (D-061).
 ROUTINO_TRANSLATIONS = "/usr/share/routino/translations.xml"
@@ -87,6 +88,7 @@ def run_checks(
     sessions_unrecognised: tuple[str, ...] = (),
     qmapshack_without_translations: bool = False,
     time_state: TimeState | None = None,
+    gps_resume: ResumeStatus | None = None,
     launchers_ok: tuple[str, ...] = (),
     launchers_bare: tuple[str, ...] = (),
     launchers_broken: tuple[tuple[str, str], ...] = (),
@@ -359,6 +361,10 @@ def run_checks(
 
     if geoclue_state is not None:
         checks += _geoclue_checks(geoclue_state)
+    # Issue #177: with a GPS receiver attached and gpsd installed, whether the
+    # resume step `hardware apply` installs is there. None: not applicable.
+    if gps_resume is not None:
+        checks.append(_gps_resume_check(gps_resume))
 
     # Issue #145: a generated launcher runs the engine by absolute path,
     # because a menu entry started as a systemd user service has no
@@ -473,6 +479,26 @@ def _geoclue_checks(g: GeoClueState) -> list[Check]:
             )
         )
     return checks
+
+
+def _gps_resume_check(state: ResumeStatus) -> Check:
+    if state == "installed":
+        return Check(
+            "gps-resume",
+            "ok",
+            "the resume step is installed: gpsd gets a fresh open of the receiver after a suspend",
+        )
+    detail = (
+        "a GPS receiver is attached and its resume step is not installed"
+        if state == "absent"
+        else "the GPS resume step is not as this engine writes it, or is not enabled"
+    )
+    return Check(
+        "gps-resume",
+        "warn",
+        f"{detail}: after a suspend gpsd can keep a receiver that has gone quiet (issue #177)",
+        "hammunition hardware apply",
+    )
 
 
 def _held(t: TimeState) -> str:

@@ -39,15 +39,26 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ..country_boundaries import BoundarySource
-from ..fetch import Fetcher, MirrorPath, fetch_disclosure, record_fetch
 from ..geofabrik import RegionFile
 from ..manifest.schema import PackageManifest, RegionalDataInstall, RemoteArtifact
 from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
 from .source import needs_root_for
 from .verified import PrefixWriter
+
+if TYPE_CHECKING:
+    # Type-only: `hammunition.backends/__init__.py` imports this module
+    # eagerly, and `hammunition.fetch` imports `hammunition.backends.base`,
+    # so a module-level import here is the other half of #158's cycle.
+    # `Fetcher` is only ever used in an annotation, which `from __future__
+    # import annotations` defers, so it never needs a real import.
+    # `fetch_disclosure` and `record_fetch` are real runtime dependencies,
+    # unlike `Fetcher` and `MirrorPath`, and are imported locally where they
+    # are used instead.
+    from ..fetch import Fetcher, MirrorPath
 
 MIB = 1024 * 1024
 PBF = ".osm.pbf"
@@ -415,6 +426,12 @@ class RegionsBackend:
     def steps(
         self, manifest: PackageManifest, block: RegionalDataInstall
     ) -> list[Action | Command]:
+        # Late import: see the TYPE_CHECKING comment at the top of this
+        # module (#158's cycle) -- hammunition.fetch has finished loading by
+        # the time any backend actually runs, so this costs a sys.modules
+        # lookup, not a reload.
+        from ..fetch import MirrorPath, fetch_disclosure
+
         out = self.data_dir(manifest)
         writer = self.writer
         steps: list[Action | Command] = []
@@ -481,6 +498,12 @@ class RegionsBackend:
         where: MirrorPath | None = None,
         facts: dict[str, str] | None = None,
     ) -> str:
+        # Late import: see the TYPE_CHECKING comment at the top of this
+        # module (#158's cycle) -- hammunition.fetch has finished loading by
+        # the time any backend actually runs, so this costs a sys.modules
+        # lookup, not a reload.
+        from ..fetch import record_fetch
+
         try:
             if region.sha256 is not None:
                 # The cap is raised to the declared size plus a margin, never

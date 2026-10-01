@@ -400,7 +400,8 @@ foreign line to a file of its own and try again.
   switch can park or wake anything on this machine until `hammunition
   hardware apply` reinstalls the helper. It does not wake a device that is
   currently parked in sysfs right now — do that with `wake` or a reboot
-  first if you want a clean state immediately.
+  first if you want a clean state immediately. It also removes the GPS
+  receiver's resume step ("After suspend" below).
 
 ## Removing the authentication prompt for the active session (optional, never installed by us)
 
@@ -435,6 +436,91 @@ active session — this rule only removes the password on top of that, it does
 not widen who qualifies. Deleting the file (or reverting to the packaged
 default, since nothing under `/etc/polkit-1/rules.d/` is ours to manage) puts
 the prompt back.
+
+## After suspend
+
+**The symptom.** The laptop sleeps and wakes, and the GPS has no fix:
+`cgps` or `xgps` shows satellites stop updating or never come back, and
+the map tether shows no position. Parking and waking the receiver brings it
+back.
+
+**Why** (issue #177, measured read-only on the field laptop, 2026-10-01).
+Across 19 suspends in one boot the USB receiver was never re-enumerated: the
+same USB device number throughout, and its `connected_duration` equal to the
+time the machine was awake. Nothing unplugs it, so gpsd's USB hot-plug
+(`USBAUTO`, `gpsdctl@`) never fires, and gpsd can keep a tty that has gone
+quiet. Every recovery that worked gave gpsd a fresh open of the receiver.
+The fault needs something watching across the suspend: `cgps`, `xgps`, the
+map tether, or gpsd running with `-n` for [GPS time](../guides/gps-time.md).
+Without a watcher, gpsd closes the receiver before the sleep and opens it
+fresh afterwards. Power control plays no part: the kept-off rule was not
+present and nothing writes `power/control` for this device.
+
+**What `hardware apply` installs for it.** The `gps-receiver` class asks for
+a resume step (`resume: {step: gpsd_reopen}`), and where gpsd is installed
+`hammunition hardware apply` adds two root-owned files, each printed whole
+in the plan before anything runs:
+
+- `/usr/local/libexec/hammunition-gps-resume`, mode `0755`, a short Python
+  script (standard library only, run by `/usr/bin/python3 -I`, which gpsd's
+  own package depends on). It logs one line per action:
+  1. no `/dev/gpsN` (gpsd's own udev rule makes them): nothing. A parked or
+     unplugged receiver is never woken;
+  2. no gpsd control socket (`/run/gpsd.sock`): nothing, because
+     `gpsdctl add` would otherwise start a gpsd of its own outside systemd;
+  3. for each receiver, `gpsdctl remove` then `gpsdctl add`, by the path
+     gpsd reports for it (the tty, as `gpsdctl@` registers it, or
+     `/dev/gpsN` where gpsd was configured with that name);
+  4. `?DEVICES;` to gpsd on `127.0.0.1:2947`, two seconds at most. No
+     device or no answer: `systemctl try-restart gpsd.service`, which
+     restarts gpsd only if it is running. Clients then have to reconnect.
+     This catches gpsd losing the device or not answering. It does not
+     catch a receiver that gpsd still lists but that stays silent after
+     the re-add: the script does not check for data, so that case needs
+     the manual steps below.
+
+  The unit reports failure (`systemctl status`) when the restart or any
+  `gpsdctl add` failed.
+- `/etc/systemd/system/hammunition-gps-resume.service`, a oneshot ordered
+  `After=` and `WantedBy=` `suspend.target`, `hibernate.target`,
+  `hybrid-sleep.target` and `suspend-then-hibernate.target`. It is enabled,
+  never started: it runs after each resume and at no other time.
+
+A file at either path that does not start with Hammunition's header refuses
+the plan, and is never overwritten. `hammunition hardware apply
+--no-gps-resume` leaves the step out.
+
+**The rest is yours.** The resume step never restarts a gpsd that still
+lists the receiver, and it never parks or wakes anything. If the fix still
+does not come back after a resume, restart gpsd (session 12's measured
+recovery, a fix within 1 s), and if that does not do it, park and wake the
+receiver, the heaviest recovery (a 3D fix took 74 s from a wake in bench
+session 10):
+
+```
+sudo systemctl restart gpsd.socket gpsd
+hammunition hardware park gps-receiver
+hammunition hardware wake gps-receiver
+```
+
+**Inspect it.** `systemctl cat hammunition-gps-resume` shows the unit,
+`systemctl status hammunition-gps-resume` the last run, and
+`journalctl -u hammunition-gps-resume` every run's lines (reading the
+system journal may need `sudo` or membership of `systemd-journal`).
+`hammunition doctor` reports whether the step is installed when a GPS
+receiver is attached and gpsd is installed.
+
+**Reverse it.** `hammunition hardware unapply` runs `systemctl disable` on
+the unit and removes both files, each only when it starts with Hammunition's
+header, then reloads systemd and checks that the files and the four
+`.wants` links are gone.
+
+**Not yet measured.** Whether `gpsdctl remove` and `add` bring the fix back
+after a real suspend is what the bench steps on issue #177 measure. If they
+do not, a gpsd that still lists the receiver is not restarted
+automatically, and the manual steps above are what recovers it. Until the
+bench steps are run this is the design the measurement points to, not a
+measured recovery.
 
 ## The tray applet
 

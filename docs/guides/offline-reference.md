@@ -77,6 +77,18 @@ when it was downloaded, and again when it is copied into
 `kiwix-library` is deferred by name and the readers, dictionaries and forms
 install anyway.
 
+**From a LAN mirror.** Books are the largest data the catalog fetches, and
+the one a [LAN mirror](lan-mirror.md) saves most on: with `hammunition
+station set --mirror http://bunker.lan:8080/`, each book is asked of
+`<mirror>/kiwix-library/<book id>` first and of Kiwix second, checked
+against the same pinned size and sha256 whichever answers, and the plan
+line says so (`— the LAN mirror first, then the publisher; the sha256 is
+checked either way`). A mirror holding an older date of a book fails that
+check and Kiwix is asked instead. For a mirror to hold your books, give
+them to it: `hammunition artifacts --units kiwix-library --reference-books
+ham.stackexchange.com_en_all,wikipedia_en_medicine_nopic` is the listing
+Hammunition Bunker keeps (D-070).
+
 ## 3. Open it: `hammunition reference serve`
 
 ```
@@ -189,6 +201,9 @@ books` prints the current pin for every book.
 | English Wikipedia, introductions only | 14.4 GB |
 | English Wikipedia, no pictures | 52.7 GB |
 | English Wikipedia, with pictures | 127 GB |
+
+At these sizes a LAN mirror is worth having before a rebuild: see
+[A LAN mirror for offline data](lan-mirror.md).
 
 The readers and dictionaries are small (kiwix-tools about 11.4 MB with its
 dependencies, the dictionaries about 32 MB); kiwix and goldendict-ng are
