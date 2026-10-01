@@ -7,11 +7,11 @@
 - **Version recorded:** station
 - **Categories:** `navigation-maps`
 - **Upstream:** <https://gdal.org/>
-- **Needs first:** `usgs-ustopo`, `gdal-bin`
+- **Needs first:** `usgs-ustopo`, `usfs-fstopo`, `gdal-bin`
 
 ## What it does
 
-Turns the US Topo sheets into one map QMapShack can open, under /usr/local/share/hammunition/data/ustopo-qmapshack/: each sheet reprojected to Web Mercator and cropped to its own quadrangle, so the white margin and legend around every printed sheet are gone and neighbouring sheets meet edge to edge, with overviews so it draws quickly zoomed out; then `ustopo.vrt`, one virtual raster over all of them, which the `qmapshack-offline` launcher adds to QMapShack's map list.
+Turns the US Topo sheets into one map QMapShack can open, under /usr/local/share/hammunition/data/ustopo-qmapshack/: each sheet reprojected to Web Mercator and cropped to its own quadrangle, so the white margin and legend around every printed sheet are gone and neighbouring sheets meet edge to edge, with overviews so it draws quickly zoomed out; then `ustopo.vrt`, one virtual raster over all of them, which the `qmapshack-offline` launcher adds to QMapShack's map list. The Forest Service's FSTopo sheets, where your regions have any, become a second map in the same directory, `FSTopo.vrt`: each sheet's colour palette expanded to RGB, tiled and given overviews (the sheets come as strips with no overviews, and a mosaic of differing palettes keeps only the first one's colours).
 
 ## Why you would want it
 
@@ -19,7 +19,7 @@ A US Topo GeoTIFF is the whole printed page, each in its own projection; QMapSha
 
 ## Before it will work
 
-`usgs-ustopo` and `gdal-bin`, which install first.
+`usgs-ustopo`, `usfs-fstopo` and `gdal-bin`, which install first.
 
 ## How it installs
 
@@ -27,7 +27,7 @@ A US Topo GeoTIFF is the whole printed page, each in its own projection; QMapSha
 
 ## Known problems
 
-Measured on one Delaware sheet on 2026-09-29: 2.5 s to warp a 9.2 MB sheet to 6.0 MB and 0.9 s to add overviews, 8.9 MB in all; the plan estimates the same size as the download, measured on one quad. Keeping the downloaded sheets and the warped ones about doubles the disk the sheets take. QMapShack showing this map has not been measured yet: in the one run so far QMapShack opened the VRT and listed it, and the map area stayed blank for a reason not found. If it stays blank for you, see the guide's troubleshooting.
+Measured on one Delaware sheet on 2026-09-29: 2.5 s to warp a 9.2 MB sheet to 6.0 MB and 0.9 s to add overviews, 8.9 MB in all; the plan estimates the same size as the download, measured on one quad. Keeping the downloaded sheets and the warped ones about doubles the disk the sheets take. QMapShack showing this map has not been measured yet: in the one run so far QMapShack opened the VRT and listed it, and the map area stayed blank for a reason not found. If it stays blank for you, see the guide's troubleshooting. FSTopo, measured on one sheet on 2026-10-01: 7.0 s to expand a 21.2 MB sheet and 3.6 s for overviews, 24.5 MB, about 1.2 times the download; QMapShack drawing `FSTopo.vrt` has not been measured either.
 
 ## Keeping it current
 

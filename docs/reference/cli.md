@@ -1491,8 +1491,8 @@ the authentication prompt is dismissed.
 ### `hammunition station show` / `hammunition station set`
 
 The values only you can supply — callsign, grid square, packet node alias,
-the regions to carry offline maps for, and the LAN mirror to take their data
-from. Some
+the regions to carry offline maps for, the LAN mirror to take their data
+from, and which elevation QMapShack draws from. Some
 manifests write configuration files templated with them: `linbpq` needs a node
 callsign, AX.25 needs one in `/etc/ax25/axports`, Direwolf needs one in its
 own configuration.
@@ -1512,6 +1512,7 @@ hammunition station show
 | `--reference-books ID[,ID…]` | Kiwix books for `kiwix-library`, by id (`hammunition reference books` lists them). Replaces the whole list; an id the catalog's book list does not name is refused when you type it, and an empty list is refused (uninstall `kiwix-library` to remove the books) (**D-066**) |
 | `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
 | `--clear-mirror` | Remove the saved mirror |
+| `--dem-source SOURCE` | `copernicus` (the default when unset) or `3dep`: the elevation QMapShack's hillshade, slope and contours are drawn from (**D-068**, amended 2026-10-01). `3dep` makes `dem-3dep` fetch USGS 3DEP 1/3-arc-second bare-earth tiles for the US regions, about ten times Copernicus's size, and `dem-qmapshack` redraw from them; Copernicus stays installed for BRouter and for regions outside the US. Setting it back to `copernicus` removes the 3DEP tiles and redraws from Copernicus on the next install. `station show` prints it |
 
 A region list says where the operator lives or travels, so `station show`
 and `station set` print how many regions are set, never their names; the
