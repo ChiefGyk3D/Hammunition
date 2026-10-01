@@ -79,6 +79,6 @@ Group membership required: `plugdev` — added at install, applies at next login
 
 ## Software that makes it useful
 
-[`gqrx-sdr`](../packages/gqrx-sdr.md), [`multimon-ng`](../packages/multimon-ng.md), [`nrsc5`](../packages/nrsc5.md), [`rtl-433`](../packages/rtl-433.md), [`rtl-sdr`](../packages/rtl-sdr.md), [`soapysdr-module-rtlsdr`](../packages/soapysdr-module-rtlsdr.md)
+[`dump978-fa`](../packages/dump978-fa.md), [`gqrx-sdr`](../packages/gqrx-sdr.md), [`multimon-ng`](../packages/multimon-ng.md), [`nrsc5`](../packages/nrsc5.md), [`rtl-433`](../packages/rtl-433.md), [`rtl-sdr`](../packages/rtl-sdr.md), [`soapysdr-module-rtlsdr`](../packages/soapysdr-module-rtlsdr.md)
 
 **Upstream:** <https://osmocom.org/projects/rtl-sdr/wiki>
