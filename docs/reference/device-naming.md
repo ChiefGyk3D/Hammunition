@@ -2,7 +2,7 @@
 
 # Device naming: what `/dev/serial/by-id/` covers, and what it does not
 
-Generated 2026-10-01 from `catalog/hardware/`. 25 devices.
+Generated 2026-10-01 from `catalog/hardware/`. 27 devices.
 
 This project's stated highest-value hardware feature was persistent udev
 symlinks by serial. A Proxmark3 capture put that in doubt, because
@@ -17,11 +17,11 @@ device, and the third column is the one that changed the plan.
 
 | | Devices |
 |---|---|
-| Get a `/dev/serial/by-id/` path for every confirmed identifier | **5** |
+| Get a `/dev/serial/by-id/` path for every confirmed identifier | **7** |
 | Get one for some identifiers and not others | **3** |
 | Get none at all — nothing they present is a serial interface | **11** |
 | Not yet recorded either way | **6** |
-| **Where by-id is insufficient for at least one reason** | **21 of 25** |
+| **Where by-id is insufficient for at least one reason** | **23 of 27** |
 | Carry a udev symlink from this catalog | **5** |
 | …of which duplicate a path by-id would have given anyway | **0** |
 
@@ -40,7 +40,7 @@ A device can hit more than one, so these do not sum to the row above.
 |---|---|---|
 | `no-serial-subsystem` | 14 | No `/dev/serial/` entry exists. The device is claimed by libusb, or by a storage/HID class driver, and systemd's serial rule never sees it. |
 | `no-unit-serial` | 1 | It is a serial device, but supplies no per-unit serial. by-id composes its path from manufacturer, product and serial, so two of these collide *there* exactly as they would under a naive symlink. |
-| `unlabelled-ports` | 1 | One interface presents several ports. by-id hands out a stable path for each and labels none of them; a stable path to a port you cannot identify is not an answer. |
+| `unlabelled-ports` | 3 | One interface presents several ports. by-id hands out a stable path for each and labels none of them; a stable path to a port you cannot identify is not an answer. |
 | `unrecorded` | 6 | Nobody has recorded what kind of interface this is, so the question cannot be answered yet. Counted as uncovered rather than assumed away. |
 
 ## Per device
@@ -53,6 +53,7 @@ and we should not be inventing work.
 |---|---|---|---|
 | `airspy` | no | symlink `/dev/airspy`, access, packages | `no-serial-subsystem` |
 | `bladerf` | no | symlink `/dev/bladerf`, access, packages, firmware mode | `no-serial-subsystem` |
+| `btech-uv-50pro` | yes | (distro names it: /dev/serial/by-id/, from systemd's own 60-serial.rules), access, packages, documented gap | `unlabelled-ports` |
 | `c5-wardriver` | yes | access, packages, firmware mode | — |
 | `catsniffer-v3` | yes | access, packages, documented gap | — |
 | `clip-boy` | yes | access, packages, firmware mode | — |
@@ -76,6 +77,7 @@ and we should not be inventing work.
 | `uconsole` | unknown | documented gap | `unrecorded` |
 | `usrp` | no | access, packages | `no-serial-subsystem` |
 | `wi-spy` | no | access, packages | `no-serial-subsystem` |
+| `yaesu-ft-991a` | yes | (distro names it: /dev/serial/by-id/, from systemd's own 60-serial.rules), access, packages, documented gap | `unlabelled-ports` |
 
 ## Classes
 
@@ -90,6 +92,7 @@ that drives them.
 | `gps-receiver` | yes | the distribution — `/dev/gpsN, from gpsd's own 60-gpsd.rules` | 0 |
 | `nfc-reader` | no | us — `/dev/nfc` | 0 |
 | `programmer` | no | nothing device-specific | 0 |
+| `rig` | yes | the distribution — `/dev/serial/by-id/, from systemd's own 60-serial.rules` | 2 |
 
 ## What this changes
 

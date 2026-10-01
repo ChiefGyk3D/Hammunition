@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 205 | 8 | 90 | 2 | 0 |
-| ubuntu-26.04 | 207 | 6 | 90 | 2 | 0 |
-| ubuntu-24.04 | 200 | 15 | 87 | 3 | 0 |
-| kali-rolling | 213 | 8 | 83 | 1 | 0 |
-| parrot | 210 | 5 | 88 | 2 | 0 |
-| linuxmint-22.3 | 200 | 15 | 87 | 3 | 0 |
-| debian-13-arm64 | 204 | 9 | 85 | 7 | 0 |
+| debian-13 | 206 | 8 | 90 | 2 | 0 |
+| ubuntu-26.04 | 208 | 6 | 90 | 2 | 0 |
+| ubuntu-24.04 | 201 | 15 | 87 | 3 | 0 |
+| kali-rolling | 214 | 8 | 83 | 1 | 0 |
+| parrot | 211 | 5 | 88 | 2 | 0 |
+| linuxmint-22.3 | 201 | 15 | 87 | 3 | 0 |
+| debian-13-arm64 | 205 | 9 | 85 | 7 | 0 |
 
-**305 manifests** against **7 targets**.
+**306 manifests** against **7 targets**.
 
 ---
 
@@ -356,6 +356,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `rayhunter` | binary | binary | binary | binary | binary | binary | binary |
 | `readsb` | apt | apt | apt ✗ | apt | apt | apt ✗ | apt |
 | `remotetrx` | apt | apt | apt | apt | apt | apt | apt |
+| `rig-service` | apt | apt | apt | apt | apt | apt | apt |
 | `routino` | apt | apt | apt | apt | apt | apt | apt |
 | `rtl-433` | apt | apt | apt | apt | apt | apt | apt |
 | `rtl-ais` | apt | apt | apt ✗ | apt | apt | apt ✗ | apt |

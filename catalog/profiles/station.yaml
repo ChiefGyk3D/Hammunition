@@ -13,6 +13,10 @@ stage: "1.0"
 packages:
   - libhamlib-utils
   - flrig
+  # One shared rigctld for the station's rig, as a systemd user service (D-073).
+  # Deferred by name when no rig is set, so an operator who owns no radio sees a
+  # deferral here rather than on hamlib itself.
+  - rig-service
   - chirp
   - gpsd
   - gpsd-clients

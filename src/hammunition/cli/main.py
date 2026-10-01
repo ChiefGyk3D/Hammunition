@@ -101,6 +101,7 @@ from hammunition.copernicus import CopernicusError, S3Probe
 from hammunition.country_boundaries import BoundarySource, CountryBoundaryError, boundary_source
 from hammunition.desktop import current_desktop, scan_sessions
 from hammunition.distro import DetectionError, Target
+from hammunition.doctor import RigStatus
 from hammunition.execute import (
     ExecutionReport,
     Step,
@@ -112,6 +113,7 @@ from hammunition.execute import (
     execute,
     run_removal,
     user_groups,
+    user_service_removal_steps,
 )
 from hammunition.fetch import Fetcher
 from hammunition.fstopo import FstopoError, GatewayProbe
@@ -155,7 +157,14 @@ from hammunition.manifest.schema import (
     RegionalDataInstall,
     TopoQuadsInstall,
 )
-from hammunition.paths import applications_dir, build_root, node_root, user_bin_dir, venv_root
+from hammunition.paths import (
+    applications_dir,
+    build_root,
+    node_root,
+    user_bin_dir,
+    user_config_base,
+    venv_root,
+)
 from hammunition.phone_plan import build_phone_run
 from hammunition.plan import NO_MAP_REGIONS, Blocker, InstallPlan, PlanError, resolve
 from hammunition.state import (
@@ -465,6 +474,16 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             return EXIT_FAILED
     else:
         reference_books = current.reference_books
+
+    # The rig values (D-073 §4): resolved against the catalog here, so the
+    # station module stays free of it. Returns the resolved kwargs and the
+    # field names set, or an exit code on a refusal.
+    rig_result = _resolve_rig_flags(args, current)
+    if isinstance(rig_result, int):
+        return rig_result
+    rig_fields = rig_result.fields_set
+    rig_notes = rig_result.notes
+
     set_fields = [
         field
         for field, value in (
@@ -478,12 +497,13 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             ("dem_source", args.dem_source),
         )
         if value
-    ]
-    if not set_fields:
+    ] + rig_fields
+    if not set_fields and args.unattended is None:
         print(
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
             "--node-alias, --map-regions, --map-freshness, --reference-books, --mirror, "
-            "--clear-mirror, --dem-source.",
+            "--clear-mirror, --dem-source, --rig, --rig-device, --rig-baud, "
+            "--rig-ptt-line, --rig-owner, --clear-rig, --unattended.",
             file=sys.stderr,
         )
         return EXIT_FAILED
@@ -496,6 +516,11 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             map_freshness=args.map_freshness or current.map_freshness,
             reference_books=reference_books,
             mirror=None if args.clear_mirror else (args.mirror or current.mirror),
+            rig=rig_result.rig,
+            rig_device=rig_result.rig_device,
+            rig_baud=rig_result.rig_baud,
+            rig_ptt_line=rig_result.rig_ptt_line,
+            rig_owner=rig_result.rig_owner,
             dem_source=args.dem_source or current.dem_source,
         )
     except StationError as exc:
@@ -512,11 +537,212 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             print(f"  {field:<14} {', '.join(station.reference_books)}")
         elif field == "mirror":
             print(f"  {field:<14} {station.mirror or '(cleared)'}")
+        elif field == "rig":
+            # Echo every rig value that is set, not just `rig` (review minor).
+            for rig_field in ("rig", "rig_device", "rig_baud", "rig_ptt_line", "rig_owner"):
+                value = getattr(station, rig_field)
+                if value is not None:
+                    print(f"  {rig_field:<14} {value}")
         elif field == "dem_source":
             print(f"  {field:<14} {station.elevation}")
         else:
             print(f"  {field:<14} {station.get(field)}")
+    for note in rig_notes:
+        print(note)
+    if "rig" in set_fields and station.rig is not None:
+        # A changed rig value reaches the running service only through a
+        # reinstall, which rewrites the unit and restarts it (D-073 §6c). Say so
+        # here, since rig-service's docs promise this reminder.
+        print("  → run `hammunition install rig-service` to apply this to the running service")
+    if args.unattended is not None:
+        code = _apply_unattended(args, station, user)
+        if code != EXIT_OK:
+            return code
     return EXIT_OK
+
+
+@dataclasses.dataclass(frozen=True)
+class _RigFlags:
+    rig: str | None
+    rig_device: str | None
+    rig_baud: int | None
+    rig_ptt_line: str | None
+    rig_owner: str | None
+    fields_set: list[str]
+    notes: list[str]
+
+
+def _resolve_rig_flags(args: argparse.Namespace, current: Station) -> _RigFlags | int:
+    """Validate the rig flags against the catalog, enforcing the §4 table.
+
+    Returns the resolved values and operator notes, or an exit code on a
+    refusal. The station module checks only the shape a value needs; the
+    catalog cross-checks — is it a rig, is the baud in range, does the kind
+    allow this flag — are here (D-073 §4).
+    """
+    if args.clear_rig:
+        return _RigFlags(None, None, None, None, None, ["rig"], ["  rig            (cleared)"])
+
+    rig: str | None = args.rig or current.rig
+    rig_device: str | None = args.rig_device or current.rig_device
+    rig_baud: int | None = args.rig_baud if args.rig_baud is not None else current.rig_baud
+    ptt_line: str | None = args.rig_ptt_line or current.rig_ptt_line
+    owner: str | None = args.rig_owner or current.rig_owner
+
+    touched = any(
+        v is not None
+        for v in (args.rig, args.rig_device, args.rig_baud, args.rig_ptt_line, args.rig_owner)
+    )
+    if not touched:
+        return _RigFlags(rig, rig_device, rig_baud, ptt_line, owner, [], [])
+
+    notes: list[str] = []
+    if rig is None:
+        print(
+            "error: set --rig first (the device or hamlib:<model>); the other rig "
+            "values describe the radio it names.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+
+    from hammunition.rig import RigError, check_rig_baud, elide_serial, resolve_rig
+
+    try:
+        _classes, devices = _load_hardware_catalog(args)
+        res = resolve_rig(rig, devices)
+    except (CatalogError, RigError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+
+    if res.kind == "cat":
+        if ptt_line is not None:
+            print(
+                "error: --rig-ptt-line is for a radio with no CAT; this rig keys over CAT.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        if res.uncatalogued and rig_baud is None:
+            print(
+                f"error: {rig} has no manifest, so --rig-baud is required — there is no "
+                f"range in the catalog to take it from. Give the speed from the radio's "
+                f"CAT RATE menu.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        if rig_baud is not None and res.baud_range is not None:
+            problem = check_rig_baud(rig_baud, res.baud_range)
+            if problem is not None:
+                print(f"error: {problem}", file=sys.stderr)
+                return EXIT_FAILED
+        if res.uncatalogued:
+            notes.append(
+                f"  note: radio {rig} has no manifest; its USB shape, ports and known "
+                f"problems are unmeasured here."
+            )
+        elif res.baud_range is not None:
+            lo, hi = res.baud_range
+            notes.append(
+                f"  note: this backend's CAT speed range is {lo}..{hi}; set --rig-baud to "
+                f"the rate in the radio's CAT RATE menu."
+            )
+    else:  # ptt_only
+        if rig_baud is not None:
+            print(
+                "error: --rig-baud is refused for a radio with no CAT — no data crosses the line.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        if ptt_line is None:
+            print(
+                "error: --rig-ptt-line is required for a radio with no CAT (rts, dtr, or "
+                "vox): the catalog cannot know which line your interface keys it on.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        if owner == "flrig":
+            print(
+                "error: --rig-owner flrig needs a CAT rig for flrig to drive; this radio "
+                "has no CAT.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+
+    if rig_device is not None:
+        if "/dev/serial/by-id/" not in rig_device:
+            notes.append(
+                "  warning: the rig device is not a /dev/serial/by-id/ path; a /dev/ttyUSB "
+                "number changes with plug order."
+            )
+        elif not Path(rig_device).exists():
+            notes.append(
+                f"  warning: {elide_serial(rig_device)} does not exist right now (the radio may "
+                f"simply be off)."
+            )
+
+    return _RigFlags(rig, rig_device, rig_baud, ptt_line, owner, ["rig"], notes)
+
+
+def _enabled_user_units() -> tuple[str, ...]:
+    """The operator's enabled user units, for the disclosure. Best-effort: an
+    empty tuple when the user manager cannot be asked."""
+    try:
+        result = SubprocessRunner().run(
+            Command(
+                argv=(
+                    "systemctl",
+                    "--user",
+                    "list-unit-files",
+                    "--state=enabled",
+                    "--no-legend",
+                    "--plain",
+                ),
+                description="List the operator's enabled user units",
+            )
+        )
+    except BackendError:
+        return ()
+    if not result.ok:
+        return ()
+    return tuple(line.split()[0] for line in result.stdout.splitlines() if line.strip())
+
+
+def _apply_unattended(args: argparse.Namespace, station: Station, user: str) -> int:
+    """Opt-in linger for the station operator, through the devctl helper. D-073 §5a.
+
+    ``--unattended`` enables linger; ``--no-unattended`` disables it, but only
+    if Hammunition turned it on (the helper reads its own record). The plan
+    states what linger keeps alive after logout before the prompt.
+    """
+    del station
+    on = bool(args.unattended)
+    code = _helper_ready()
+    if code is not None:
+        return code
+    if on:
+        print("\nKeeping your services running after you log out (linger):")
+        units = _enabled_user_units()
+        if units:
+            print("  linger starts your user manager at boot and keeps it after logout, so")
+            print("  every user service you have enabled keeps running — not only the rig:")
+            for unit in units:
+                print(f"    {unit}")
+        else:
+            print("  linger starts your user manager at boot and keeps every enabled user")
+            print("  service running after you log out.")
+        print(
+            "  With the rig service among them, the transmitter is keyable through "
+            "127.0.0.1:4532 with nobody at the machine."
+        )
+    verb_state = "on" if on else "off"
+    command = Command(
+        argv=("pkexec", HELPER_PATH, "linger", verb_state),
+        description=f"Turn linger {verb_state} for {user or 'this account'}",
+    )
+    print(f"\n  # {command.description}\n  $ {command.display()}")
+    if getattr(args, "dry_run", False):
+        print("\nDry run: nothing above was executed.")
+        return EXIT_OK
+    return _run_helper(command, f"Linger is {verb_state}.")
 
 
 def _apt_lists_note(apt: AptBackend) -> str:
@@ -2523,6 +2749,18 @@ def cmd_install(args: argparse.Namespace) -> int:
     repos = AptRepoBackend(owner=user or None)
 
     read_log = TransactionLog(owner=user or None)  # read-only until the plan is confirmed
+    # The hardware catalog, for resolving a rig-carrying unit's user service
+    # (D-073). A malformed hardware manifest is a catalog error reported like
+    # any other, never an uncaught crash of every install (review minor).
+    try:
+        _rig_classes, _rig_device_catalog = _load_hardware_catalog(args)
+    except CatalogError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    rig_devices: dict[str, DeviceClass | DeviceManifest] = {
+        **_rig_classes,
+        **_rig_device_catalog,
+    }
     try:
         plan = resolve(
             [*args.names, *suggested],
@@ -2533,6 +2771,10 @@ def cmd_install(args: argparse.Namespace) -> int:
             user=user,
             refresh=args.refresh,
             station=station,
+            # The hardware catalog, so a rig-carrying unit's user service can be
+            # resolved against the station's rig (D-073); loaded here, not read
+            # in the planner, so the answer is the same under sudo and in a test.
+            devices=rig_devices,
             repos=repos,
             # The running kernel is a fact about this machine, not the target
             # (one Pop!_OS 24.04 VM has AX.25 under 7.0.11 and not under 7.1.5).
@@ -2940,6 +3182,11 @@ def cmd_install(args: argparse.Namespace) -> int:
         config_staging=builds,
         launcher_bin=user_bin_dir(user or None),
         launcher_applications=applications_dir(user or None),
+        # The operator's XDG config home, where ~/.config/systemd/user/ lives
+        # (D-073 §6c). Under sudo (euid 0) with a known operator, the
+        # systemctl --user steps target their manager with --machine.
+        user_services_home=user_config_base(user or None),
+        user_services_machine=(user if os.geteuid() == 0 and user and user != "root" else None),
     )
     # Disclose the log destination in the plan itself, so the file write (and,
     # under sudo, the chown to the operator) is shown before it happens rather
@@ -3333,6 +3580,39 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
 
     euid = os.geteuid()
     commands: list[Step] = list(apt.remove_commands(plan.apt_packages))
+    # User services the removed units wrote (D-073 §6d): disable each, then
+    # remove its file only if it still carries our header; a file the operator
+    # rewrote is left and named. Linger is untouched — it is a station setting
+    # with its own reversal (§5a).
+    # Expand a profile name to its members before looking for user services:
+    # `uninstall station` must reach rig-service, not just a package literally
+    # named "station" (review I2). The removal step itself no-ops on a unit
+    # whose file is absent, so a deferred install leaves nothing to disable.
+    uninstall_units: list[str] = []
+    for name in args.names:
+        if name in profiles:
+            uninstall_units.extend(profiles[name].packages)
+        else:
+            uninstall_units.append(name)
+    user_service_names = list(
+        dict.fromkeys(
+            svc.name
+            for unit in uninstall_units
+            if (unit_manifest := packages.get(unit)) is not None
+            for svc in unit_manifest.user_services
+        )
+    )
+    if user_service_names:
+        uninstall_user = operator(args)
+        commands.extend(
+            user_service_removal_steps(
+                user_service_names,
+                home=user_config_base(uninstall_user or None),
+                machine=(
+                    uninstall_user if euid == 0 and uninstall_user not in ("", "root") else None
+                ),
+            )
+        )
     commands.extend(artifact_removal_steps(plan))
     if any(r.kind == "apt-repo" for removals in plan.artifacts.values() for r in removals):
         # The files are gone; apt's index still lists the repository until
@@ -4354,6 +4634,25 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         print("Nothing to do: every recorded artefact is already gone.")
         return EXIT_OK
 
+    # Linger (D-073 §5a): disable it and remove its record, but only when the
+    # record says Hammunition turned it on — linger that was on already is not
+    # ours. Run directly as root here (unapply escalates its own commands), so
+    # it does not depend on the helper that this same command removes.
+    import pwd as _pwd
+
+    from hammunition.hardware.linger import LINGER_RECORD, read_record
+
+    linger_record = read_record()
+    linger_ours = linger_record is not None and linger_record.enabled_by_us
+    # Act on the uid the record names, not on operator(args): the record is the
+    # account Hammunition turned linger on for, which may not be whoever runs
+    # unapply (review I3).
+    linger_name: str | None = None
+    if linger_ours and linger_record is not None:
+        try:
+            linger_name = _pwd.getpwuid(linger_record.uid).pw_name
+        except KeyError:
+            linger_ours = False
     commands = [
         Command(
             argv=("rm", "-f", path),
@@ -4362,6 +4661,22 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         )
         for path in present
     ]
+    if linger_ours and linger_name is not None:
+        commands.insert(
+            0,
+            Command(
+                argv=("loginctl", "disable-linger", linger_name),
+                description=f"Turn off linger for {linger_name} (Hammunition turned it on)",
+                requires_root=True,
+            ),
+        )
+        commands.append(
+            Command(
+                argv=("rm", "-f", str(LINGER_RECORD)),
+                description="Remove Hammunition's linger record",
+                requires_root=True,
+            )
+        )
     if kept_present:
         commands.append(
             Command(
@@ -4731,6 +5046,179 @@ def cmd_time_mode(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _user_unit_state(name: str) -> str:
+    """``absent``/``disabled``/``active``/``failed`` for a user unit, read-only."""
+    runner = SubprocessRunner()
+
+    def ask(verb: str) -> tuple[int, str]:
+        try:
+            r = runner.run(
+                Command(
+                    argv=("systemctl", "--user", verb, f"{name}.service"),
+                    description=f"Read the {name} unit's {verb}",
+                )
+            )
+        except BackendError:
+            return 1, ""
+        return r.returncode, r.stdout.strip()
+
+    enabled_rc, enabled = ask("is-enabled")
+    if enabled in ("not-found", "") and enabled_rc != 0:
+        return "absent"
+    _active_rc, active = ask("is-active")
+    if active == "failed":
+        return "failed"
+    if active == "active":
+        return "active"
+    if enabled == "enabled":
+        return "disabled" if active != "active" else "active"
+    return "disabled"
+
+
+def _dump_state_answers() -> bool:
+    """Whether rigctld answers \\dump_state on 127.0.0.1:4532. Read-only, never keys."""
+    import socket
+
+    from hammunition.rig import parse_dump_state_model
+
+    try:
+        conn = socket.create_connection(("127.0.0.1", 4532), timeout=1.0)
+    except OSError:
+        return False
+    try:
+        conn.sendall(b"\\dump_state\n")
+        conn.settimeout(1.0)
+        reply = conn.recv(4096)
+    except OSError:
+        return False
+    finally:
+        conn.close()
+    return parse_dump_state_model(reply.decode(errors="replace")) is not None
+
+
+def _linger_state_for_doctor(user: str) -> str | None:
+    from hammunition.hardware.linger import read_record
+
+    try:
+        result = SubprocessRunner().run(
+            Command(
+                argv=("loginctl", "show-user", user or "", "--property=Linger", "--value"),
+                description="Read linger state",
+            )
+        )
+    except BackendError:
+        return None
+    if not result.ok:
+        return None
+    on = result.stdout.strip().lower() in ("yes", "1", "true")
+    if not on:
+        return "off"
+    record = read_record()
+    return "ours" if record is not None and record.enabled_by_us else "theirs"
+
+
+def _port_loopback_only(port: int) -> bool | None:
+    """True when *port* is bound only to 127.0.0.1/::1, read from /proc/net/tcp.
+
+    None when the files cannot be read. A listener (state 0A) on any other
+    local address is a transmitter reachable off-machine (D-073 §11)."""
+    hexport = f"{port:04X}"
+    try:
+        rows = []
+        for name in ("/proc/net/tcp", "/proc/net/tcp6"):
+            p = Path(name)
+            if p.exists():
+                rows.extend(p.read_text().splitlines()[1:])
+    except OSError:
+        return None
+    loopback = {
+        "0100007F",  # 127.0.0.1, little-endian hex
+        "00000000000000000000000001000000",  # ::1
+        "0000000000000000FFFF00000100007F",  # ::ffff:127.0.0.1
+    }
+    for row in rows:
+        fields = row.split()
+        if len(fields) < 4 or fields[3] != "0A":  # 0A = LISTEN
+            continue
+        local = fields[1]
+        addr, _, lport = local.partition(":")
+        if lport.upper() == hexport and addr.upper() not in loopback:
+            return False
+    return True
+
+
+def _rigctld_args_match(station: Station) -> bool | None:
+    """Whether a running rigctld's arguments match the station, from /proc.
+
+    None when no rigctld is found or /proc cannot be read. Compares the device
+    and, for a CAT rig, the speed — the values a wrong reinstall would leave
+    stale (D-073 §9)."""
+    try:
+        pids = [p for p in Path("/proc").iterdir() if p.name.isdigit()]
+    except OSError:
+        return None
+    for proc in pids:
+        try:
+            cmdline = (proc / "cmdline").read_bytes().split(b"\0")
+        except OSError:
+            continue
+        if not cmdline or not cmdline[0].endswith(b"rigctld"):
+            continue
+        args = [a.decode(errors="replace") for a in cmdline if a]
+        if "-t" not in args or "4632" not in args:
+            continue  # not our rig service's rigctld
+        device_ok = station.rig_device is None or station.rig_device in args
+        baud_ok = station.rig_baud is None or str(station.rig_baud) in args
+        return device_ok and baud_ok
+    return None
+
+
+def _gather_rig_status(
+    args: argparse.Namespace,
+    station: Station,
+    devices: dict[str, DeviceClass] | dict[str, DeviceManifest] | Mapping[str, object],
+) -> RigStatus | None:
+    """Read-only facts about the rig service for doctor (D-073 §9). Never keys."""
+    from hammunition.rig import RigError, resolve_rig
+
+    if station.rig is None:
+        return RigStatus(configured=False)
+    kind: str | None = None
+    uncatalogued = False
+    try:
+        res = resolve_rig(station.rig, dict(devices))  # type: ignore[arg-type]
+        kind, uncatalogued = res.kind, res.uncatalogued
+    except RigError:
+        kind = None
+    needed = ("rig_device", "rig_baud") if kind == "cat" else ("rig_device", "rig_ptt_line")
+    missing = tuple(v for v in needed if getattr(station, v) in (None, "")) if kind else ()
+    owner = station.rig_owner or "rigctld"
+    vox = station.rig_ptt_line == "vox"
+    runs_service = owner != "flrig" and not (kind == "ptt_only" and vox)
+    state = _user_unit_state("hammunition-rigctld") if runs_service else None
+    proxy_state = _user_unit_state("hammunition-rig-proxy") if runs_service else None
+    answering = _dump_state_answers() if state == "active" else None
+    loopback_only = _port_loopback_only(4532) if state == "active" else None
+    args_match = _rigctld_args_match(station) if state == "active" else None
+    device_present = Path(station.rig_device).exists() if station.rig_device is not None else None
+    linger = _linger_state_for_doctor(operator(args))
+    return RigStatus(
+        configured=True,
+        missing=missing,
+        uncatalogued=uncatalogued,
+        kind=kind,
+        owner=owner,
+        vox=vox,
+        service_state=state,
+        proxy_state=proxy_state,
+        answering=answering,
+        loopback_only=loopback_only,
+        args_match=args_match,
+        device_present=device_present,
+        linger=linger,
+    )
+
+
 def _geoclue_state_for_doctor(args: argparse.Namespace) -> GeoClueState | None:
     """GeoClue's files, directory and agent for `doctor` (D-069), read-only.
     The agent is asked of this session's bus, so not as root."""
@@ -4888,6 +5376,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     shadowing_launchers = survey_shadowing_launchers(Path(local_bin))
 
     sessions = scan_sessions()
+    rig_status = _gather_rig_status(args, station, devices)
     checks = run_checks(
         target_describe=target_describe,
         is_debian_family=is_debian,
@@ -4921,6 +5410,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         launchers_bare=engine_launchers.bare,
         launchers_broken=engine_launchers.broken,
         launchers_shadowing=shadowing_launchers,
+        rig=rig_status,
         geoclue_state=geoclue_state,
     )
 
@@ -5535,6 +6025,54 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("copernicus", "3dep"),
         help="the elevation QMapShack's hillshade and contours are drawn from: copernicus "
         "(the default, a surface model) or 3dep (USGS bare earth, about 10x larger) (D-068)",
+    )
+    p_station_set.add_argument(
+        "--rig",
+        default=None,
+        metavar="DEVICE|hamlib:MODEL",
+        help="the station's radio: a catalog device id, or hamlib:<model> for one with no "
+        "manifest (D-073)",
+    )
+    p_station_set.add_argument(
+        "--rig-device",
+        default=None,
+        metavar="PATH",
+        help="the serial port the rig is reached on; a /dev/serial/by-id/ path is best",
+    )
+    p_station_set.add_argument(
+        "--rig-baud", default=None, type=int, metavar="RATE", help="the CAT serial speed"
+    )
+    p_station_set.add_argument(
+        "--rig-ptt-line",
+        default=None,
+        choices=("rts", "dtr", "vox"),
+        help="for a radio with no CAT: which line keys it, or vox",
+    )
+    p_station_set.add_argument(
+        "--rig-owner",
+        default=None,
+        choices=("rigctld", "flrig"),
+        help="who holds the serial port (default rigctld when unset)",
+    )
+    p_station_set.add_argument(
+        "--clear-rig",
+        action="store_true",
+        help="remove rig, rig_device, rig_baud, rig_ptt_line and rig_owner",
+    )
+    unattended_flags = p_station_set.add_mutually_exclusive_group()
+    unattended_flags.add_argument(
+        "--unattended",
+        dest="unattended",
+        action="store_true",
+        default=None,
+        help="keep the rig service running with nobody logged in (enables linger; D-073 §5a)",
+    )
+    unattended_flags.add_argument(
+        "--no-unattended",
+        dest="unattended",
+        action="store_false",
+        default=None,
+        help="stop keeping services running after logout (disables linger if we enabled it)",
     )
     p_station_set.add_argument("--user", default=None, help="whose configuration to write")
     p_station_set.set_defaults(func=cmd_station_set)

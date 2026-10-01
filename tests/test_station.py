@@ -472,3 +472,76 @@ def test_a_root_owned_config_in_a_missing_directory_makes_the_directory_first(
 
     commands = commands_for_path(present / "x.conf")
     assert [c.argv[0] for c in commands] == ["install"], "an existing directory is not made again"
+
+
+# ---------------------------------------------------------------------------
+# The rig station values.  D-073 §4
+# ---------------------------------------------------------------------------
+
+_BY_ID = "/dev/serial/by-id/usb-Silicon_Labs_CP2105_...-if00-port0"
+
+
+def test_rig_values_round_trip(tmp_path: Path) -> None:
+    from hammunition.station import Station, load_station, save_station
+
+    path = tmp_path / "station.yml"
+    save_station(
+        Station(rig="yaesu-ft-991a", rig_device=_BY_ID, rig_baud=38400, rig_owner="rigctld"),
+        path=path,
+    )
+    back = load_station(path=path)
+    assert back.rig == "yaesu-ft-991a"
+    assert back.rig_device == _BY_ID
+    assert back.rig_baud == 38400
+    assert back.rig_owner == "rigctld"
+
+
+def test_rig_device_rejects_dot_dot() -> None:
+    from hammunition.station import Station, StationError
+
+    with pytest.raises(StationError):
+        Station(rig_device="/dev/../etc/passwd")
+
+
+def test_rig_device_rejects_shell_metacharacters() -> None:
+    from hammunition.station import Station, StationError
+
+    for bad in ("/dev/tty;reboot", "/dev/tty USB0", "/dev/$(tty)", "/dev/tty%s"):
+        with pytest.raises(StationError):
+            Station(rig_device=bad)
+
+
+def test_rig_device_must_be_under_dev() -> None:
+    from hammunition.station import Station, StationError
+
+    with pytest.raises(StationError):
+        Station(rig_device="/home/op/ttyUSB0")
+
+
+def test_rig_ptt_line_is_an_enum() -> None:
+    from hammunition.station import Station, StationError
+
+    assert Station(rig_ptt_line="rts").rig_ptt_line == "rts"
+    assert Station(rig_ptt_line="vox").rig_ptt_line == "vox"
+    with pytest.raises(StationError):
+        Station(rig_ptt_line="cat")
+
+
+def test_rig_owner_is_an_enum() -> None:
+    from hammunition.station import Station, StationError
+
+    assert Station(rig_owner="flrig").rig_owner == "flrig"
+    with pytest.raises(StationError):
+        Station(rig_owner="hamlib")
+
+
+def test_rig_accepts_a_hamlib_model_value() -> None:
+    from hammunition.station import Station
+
+    assert Station(rig="hamlib:3073").rig == "hamlib:3073"
+
+
+def test_rig_fields_are_template_variables() -> None:
+    from hammunition.station import STATION_FIELDS
+
+    assert {"rig", "rig_device", "rig_baud", "rig_ptt_line", "rig_owner"} <= STATION_FIELDS
