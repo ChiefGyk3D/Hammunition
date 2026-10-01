@@ -28,7 +28,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from hammunition.manifest.load import load_catalog  # noqa: E402
+from hammunition.manifest.load import load_catalog, load_profiles  # noqa: E402
 
 PACKAGES = REPO_ROOT / "docs" / "packages"
 GENERATOR = REPO_ROOT / "scripts" / "gen_package_reference.py"
@@ -527,6 +527,18 @@ def test_the_readme_manifest_count_matches_the_catalog() -> None:
     assert claim in readme, f"README no longer says {claim!r}"
 
 
+def test_the_readme_profile_counts_match_the_catalog() -> None:
+    """The front page said "plus 5 post-1.0" after a sixth post-1.0 profile
+    (`reference`, D-066) landed beside it: the manifest count one row up had
+    a test and this number had none (final review, 2026-09-29)."""
+    profiles = load_profiles(REPO_ROOT / "catalog" / "profiles")
+    one = sum(1 for p in profiles.values() if p.stage == "1.0")
+    post = sum(1 for p in profiles.values() if p.stage == "post-1.0")
+    readme = (REPO_ROOT / "README.md").read_text()
+    claim = f"| Profiles | ✅ **all {one} of the 1.0 set**, plus {post} post-1.0"
+    assert claim in readme, f"README no longer says {claim!r}"
+
+
 def test_the_readme_parity_coverage_matches_the_generated_page() -> None:
     """The parity headline is generated into docs/reference/parity-coverage.md
     and repeated by hand on the front page, which read "88 of the 108" after
@@ -681,6 +693,7 @@ CHECKED_GENERATORS: list[tuple[str, list[str], list[Path]]] = [
     ("gen_device_naming.py", ["docs/reference/device-naming.md"], []),
     ("gen_hardware_gaps.py", ["docs/reference/hardware-gaps.md"], []),
     ("gen_json_reference.py", ["docs/reference/json-interface.md"], []),
+    ("gen_projects_page.py", ["docs/projects.md"], []),
     (
         "gen_geofabrik_countries.py",
         ["catalog/data/geofabrik-countries.yaml"],
@@ -917,3 +930,90 @@ def test_the_copernicus_check_reports_current_and_writes_nothing() -> None:
     result = _copernicus_check()
     assert result.returncode == 0, f"{result.stdout}{result.stderr}"
     assert "up to date" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# The Kiwix book pins (catalog/data/kiwix-pins.yaml), D-066
+#
+# `--check --offline` compares the pin file with the hand-written book list
+# (one pin per listed book, in its order) and needs no network, so it runs
+# everywhere. The full `--check` asks Kiwix for each pinned file's .meta4:
+# Kiwix keeps two dated files per book, so a pin dies on its calendar, and
+# the weekly pin-reviews job goes red naming it. Here it skips with the
+# reason, since this suite blocks every non-loopback socket.
+# ---------------------------------------------------------------------------
+
+KIWIX_PINS = REPO_ROOT / "catalog" / "data" / "kiwix-pins.yaml"
+
+
+def _kiwix_check(*extra: str) -> subprocess.CompletedProcess[str]:
+    before = KIWIX_PINS.stat().st_mtime_ns
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "gen_kiwix_pins.py"), "--check", *extra],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert KIWIX_PINS.stat().st_mtime_ns == before, "--check wrote the pin file"
+    return result
+
+
+def test_the_kiwix_pins_match_the_book_list_offline() -> None:
+    result = _kiwix_check("--offline")
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    assert "well formed" in result.stdout
+
+
+def test_the_kiwix_check_reports_current_and_writes_nothing() -> None:
+    if not _network_reaches("download.kiwix.org"):
+        pytest.skip(
+            "the check asks download.kiwix.org for every pinned file's .meta4; the "
+            "network is unavailable here (this suite blocks non-loopback sockets). "
+            "The weekly pin-reviews CI job runs it."
+        )
+    result = _kiwix_check()
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    assert "up to date" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# The US Topo quad index (D-068). `--check --offline` checks its shape and its
+# header's counts against its rows everywhere, and writes nothing. The full
+# `--check` lists the bucket and fails only on a carried quad that is gone or
+# changed: the weekly pin-reviews job runs it, and here it skips, since this
+# suite blocks every non-loopback socket.
+# ---------------------------------------------------------------------------
+
+USTOPO = REPO_ROOT / "catalog" / "data" / "ustopo-quads.txt"
+
+
+def _ustopo_check(*extra: str) -> subprocess.CompletedProcess[str]:
+    before = USTOPO.stat().st_mtime_ns
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "gen_ustopo_index.py"), "--check", *extra],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert USTOPO.stat().st_mtime_ns == before, "--check wrote a file"
+    return result
+
+
+def test_the_ustopo_index_is_well_formed_offline() -> None:
+    result = _ustopo_check("--offline")
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    assert "well formed" in result.stdout
+
+
+def test_the_ustopo_check_lists_the_bucket_and_writes_nothing() -> None:
+    if not _network_reaches("prd-tnm.s3.amazonaws.com"):
+        pytest.skip(
+            "the check lists the prd-tnm bucket's GeoTIFF prefix (about 273 pages); the "
+            "network is unavailable here (this suite blocks non-loopback sockets). The "
+            "weekly pin-reviews CI job runs it."
+        )
+    result = _ustopo_check()
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    assert "every carried quad" in result.stdout

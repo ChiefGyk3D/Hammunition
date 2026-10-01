@@ -28,10 +28,14 @@ from hammunition.backends.terrain import (
     GARMIN_FACTOR,
     MEASURED,
     ROUTINO_FACTOR,
+    WARP_FACTOR,
     brouter_estimate,
     garmin_estimate,
     routino_estimate,
 )
+from hammunition.backends.topo import TopoDisclosure, no_quads_line
+from hammunition.backends.topo_mosaic import MEASURED as TOPO_MEASURED
+from hammunition.backends.topo_mosaic import warp_estimate
 from hammunition.consent import repo_env_var
 from hammunition.desktop import Desktop, describe_set
 from hammunition.execute import Step
@@ -48,6 +52,7 @@ from hammunition.manifest.schema import (
     NodeInstall,
     RegionalDataInstall,
     SourceInstall,
+    TopoQuadsInstall,
     VenvInstall,
 )
 from hammunition.plan import Blocker, InstallPlan, PlannedPackage
@@ -76,6 +81,7 @@ def plan_state(
     built: frozenset[str] = frozenset(),
     maps: MapDisclosure | None = None,
     terrain: TerrainDisclosure | None = None,
+    idle: frozenset[str] = frozenset(),
 ) -> str:
     """What the plan will do to this unit, in two words.
 
@@ -99,6 +105,9 @@ def plan_state(
     nothing to build this run.
     """
     method = planned.block.install
+    if isinstance(method, DerivedDataInstall) and planned.name in idle:
+        # A phone unit (D-067) with no region to build and its tool current.
+        return "already installed"
     if maps is not None and (maps.current or maps.kept or maps.fetch):
         regions_current = not maps.fetch and not maps.kept
         if isinstance(method, RegionalDataInstall) and regions_current:
@@ -113,14 +122,24 @@ def plan_state(
     if terrain is not None:
         if isinstance(method, DemTilesInstall) and not terrain.resolution.fetch:
             return "already installed"
+        topo = terrain.topo
+        if topo is not None:
+            if isinstance(method, TopoQuadsInstall) and not topo.resolution.fetch:
+                return "already installed"
+            if (
+                isinstance(method, DerivedDataInstall)
+                and method.converter == "ustopo-mosaic"
+                and not topo.building
+            ):
+                return "already installed"
         if isinstance(method, DerivedDataInstall):
-            idle = {
+            quiet = {
                 "mkgmap": not terrain.garmin,
                 "routino-planetsplitter": not terrain.routino_regions,
                 "gdal-dem": not terrain.drawing,
                 "brouter-mapcreator": not terrain.brouter_regions,
             }
-            if idle.get(method.converter, False):
+            if quiet.get(method.converter, False):
                 return "already installed"
     if isinstance(method, AptInstall):
         return "already installed" if not planned.outstanding else "will install"
@@ -319,6 +338,52 @@ class GarminLine(Strict):
 
 
 @dataclass(frozen=True)
+class TopoRegionLine(Strict):
+    """The US Topo quads one region needs (D-068)."""
+
+    region: str = described("the Geofabrik region path")
+    quads: int = described("quads whose box its outline touches")
+    size: int = described("bytes of all its quads, installed or not")
+    size_human: str = described("as the text prints it")
+    download: int = described(
+        "bytes of its quads downloaded this run; a quad two regions share counts in both"
+    )
+    download_human: str = described("as the text prints it")
+
+
+@dataclass(frozen=True)
+class QuadLine(Strict):
+    """One US Topo quad downloaded this run."""
+
+    quad: str = described("the quad's file name without .tif: state, map name and edition date")
+    size: int = described("bytes")
+    size_human: str = described("the size as the text prints it")
+    verified_by: str = described("how the download is checked")
+
+
+@dataclass(frozen=True)
+class TopoSectionView(Strict):
+    """USGS US Topo sheets and QMapShack's mosaic of them (D-068). Local only."""
+
+    regions: tuple[TopoRegionLine, ...] = described("quads per region")
+    no_quads: tuple[str, ...] = described(
+        "regions no US Topo quad covers (outside the United States); nothing is fetched for them"
+    )
+    fetch: tuple[QuadLine, ...] = described("quads downloaded this run")
+    current: int = described("quads already installed")
+    licence: str = described("the sheets' licence")
+    licence_url: str = described("where it is stated")
+    download_total: int = described("bytes of quads downloaded")
+    download_total_human: str = described("as the text prints it")
+    warp: int = described("quads warped for QMapShack this run")
+    warp_estimate: int = described("bytes the warped quads are estimated to take")
+    warp_estimate_human: str = described("as the text prints it")
+    disk_total: int = described("bytes: the downloads plus the warped quads")
+    disk_total_human: str = described("as the text prints it")
+    estimate_note: str = described("how the estimate was measured")
+
+
+@dataclass(frozen=True)
 class TerrainSectionView(Strict):
     """Terrain, and what is built for QMapShack (D-061). Names where the operator is: local only."""
 
@@ -345,6 +410,9 @@ class TerrainSectionView(Strict):
     disk_total: int = described("bytes: the tiles plus everything estimated to be built")
     disk_total_human: str = described("as the text prints it")
     estimate_note: str = described("how the estimates were measured")
+    topo: TopoSectionView | None = described(
+        "USGS US Topo quads and their mosaic (D-068); null when neither unit is planned"
+    )
 
 
 @dataclass(frozen=True)
@@ -470,6 +538,20 @@ class StepView(Strict):
         "the in-process step's kind (`fetch`, `extract`, ...); null for a command"
     )
     requires_root: bool = described("whether it runs as root")
+    sources: tuple[str, ...] = described(
+        "for a data download (a `data` artifact, a map region, a terrain tile), the URLs it "
+        "is fetched from in the order tried: the LAN mirror, then the publisher (D-070); "
+        "the publisher alone with no mirror; empty for any other step"
+    )
+
+
+@dataclass(frozen=True)
+class MirrorSection(Strict):
+    """The LAN mirror a data download is asked for first (D-070)."""
+
+    url: str = described("the mirror's base URL, from station config")
+    ignored: bool = described("true when `--no-mirror` ignores it for this run")
+    text: str = described("what the plan prints about it")
 
 
 @dataclass(frozen=True)
@@ -483,6 +565,9 @@ class InstallPlanView(Strict):
         "present when a unit opted out of Recommends"
     )
     repos: tuple[RepoLine, ...] = described("third-party repositories added")
+    mirror: MirrorSection | None = described(
+        "the LAN mirror data downloads try first (D-070); null when none is set"
+    )
     data: tuple[DataLine, ...] = described("offline data downloaded")
     maps: MapSectionView | None = described(
         "the station's map regions (D-057); null when no map unit or nothing to disclose"
@@ -617,6 +702,7 @@ def step_view(step: Step, *, euid: int) -> StepView:
             argv=(),
             action=step.kind,
             requires_root=step.requires_root,
+            sources=step.sources,
         )
     return StepView(
         description=step.description,
@@ -624,6 +710,48 @@ def step_view(step: Step, *, euid: int) -> StepView:
         argv=tuple(step.argv_for(euid=euid)),
         action=None,
         requires_root=step.requires_root,
+        sources=(),
+    )
+
+
+def _topo_section(topo: TopoDisclosure | None) -> TopoSectionView | None:
+    if topo is None:
+        return None
+    resolution = topo.resolution
+    sizes = {q.path: q.size for q in resolution.fetch}
+    download = sum(sizes.values())
+    warped = sum(warp_estimate(q.size) for q in topo.warp)
+    return TopoSectionView(
+        regions=tuple(
+            TopoRegionLine(
+                region=r.region,
+                quads=len(r.quads),
+                size=sum(q.size for q in r.quads),
+                size_human=human_size(sum(q.size for q in r.quads)),
+                download=sum(sizes.get(q.path, 0) for q in r.quads),
+                download_human=human_size(sum(sizes.get(q.path, 0) for q in r.quads)),
+            )
+            for r in resolution.regions
+            if r.quads
+        ),
+        no_quads=tuple(r.region for r in resolution.regions if not r.quads),
+        fetch=tuple(
+            QuadLine(
+                quad=q.name, size=q.size, size_human=human_size(q.size), verified_by=q.verified_by
+            )
+            for q in resolution.fetch
+        ),
+        current=len(resolution.current),
+        licence=topo.licence.strip(),
+        licence_url=topo.licence_url,
+        download_total=download,
+        download_total_human=human_size(download),
+        warp=len(topo.warp),
+        warp_estimate=warped,
+        warp_estimate_human=human_size(warped),
+        disk_total=download + warped,
+        disk_total_human=human_size(download + warped),
+        estimate_note=TOPO_MEASURED,
     )
 
 
@@ -683,6 +811,7 @@ def _terrain_section(terrain: TerrainDisclosure | None) -> TerrainSectionView | 
         disk_total=disk,
         disk_total_human=human_size(disk),
         estimate_note=MEASURED,
+        topo=_topo_section(terrain.topo),
     )
 
 
@@ -787,6 +916,26 @@ def _sudo_line(commands: Sequence[Step], *, euid: int, keepalive: bool) -> SudoL
     return SudoLine(keepalive=keepalive, interval_seconds=int(KEEPALIVE_INTERVAL), text=text)
 
 
+def _mirror_section(url: str | None, *, ignored: bool) -> MirrorSection | None:
+    if url is None:
+        return None
+    if ignored:
+        text = (
+            f"A LAN mirror is set in station config ({url}); --no-mirror ignores it for "
+            f"this run, and every data download comes from its publisher."
+        )
+    else:
+        text = (
+            f"Each data download below (offline data, map regions, terrain tiles) is asked "
+            f"of the LAN mirror {url} first, as <mirror>/<unit>/<name>, and of its "
+            f"publisher if the mirror fails in any way. The digest it is checked by is the "
+            f"same whichever answers: the mirror is trusted for speed, never for content. "
+            f"A mirror that does not answer at all is not asked again in this run. The "
+            f"transaction log records which source each download came from."
+        )
+    return MirrorSection(url=url, ignored=ignored, text=text)
+
+
 def build_install_view(
     plan: InstallPlan,
     commands: Sequence[Step],
@@ -800,6 +949,9 @@ def build_install_view(
     region_notes: Sequence[str] = (),
     terrain: TerrainDisclosure | None = None,
     sudo_keepalive: bool = True,
+    mirror: str | None = None,
+    mirror_ignored: bool = False,
+    idle: frozenset[str] = frozenset(),
 ) -> InstallPlanView:
     data: list[DataLine] = []
     for planned in plan.packages:
@@ -826,7 +978,7 @@ def build_install_view(
             PackageLine(
                 name=p.name,
                 method=p.block.install.method,
-                state=plan_state(p, built, maps, terrain),
+                state=plan_state(p, built, maps, terrain, idle),
                 requested_by=tuple(p.requested_by),
                 apt=tuple(
                     AptLine(package=a, outstanding=a in p.outstanding, build_only=a in p.build_only)
@@ -864,6 +1016,12 @@ def build_install_view(
                 consent_env_var=repo_env_var(a.repo),
             )
             for a in plan.apt_repos
+        ),
+        # Only when something in this plan is a data download: an apt-only
+        # plan never asks the mirror, and must not say it will.
+        mirror=_mirror_section(
+            mirror if any(isinstance(c, Action) and c.sources for c in commands) else None,
+            ignored=mirror_ignored,
         ),
         data=tuple(data),
         maps=_map_section(plan, maps, terrain),
@@ -976,6 +1134,11 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
             lines.append(f"      writes {repo.sources}")
             lines.append(f"      writes {repo.keyring}")
             lines.append(f"      consent: {repo.consent_env_var} must equal the key fingerprint")
+        lines.append("")
+
+    if view.mirror is not None:
+        lines.append("Data mirror (D-070):")
+        lines.extend(wrap(view.mirror.text, indent="  "))
         lines.append("")
 
     if view.data:
@@ -1228,6 +1391,43 @@ def _render_terrain(terrain: TerrainSectionView) -> list[str]:
         f"      about {terrain.disk_total_human} of disk for terrain and QMapShack's maps "
         f"({terrain.estimate_note})"
     )
+    if terrain.topo is not None:
+        lines.extend(_render_topo(terrain.topo))
+    return lines
+
+
+def _render_topo(topo: TopoSectionView) -> list[str]:
+    """The US Topo block, after the terrain (D-068)."""
+    lines = ["  US Topo, USGS 7.5-minute quads (D-068):"]
+    if topo.regions:
+        width = max(len(r.region) for r in topo.regions)
+        for region in topo.regions:
+            fetch = f"; {region.download_human} to download" if region.download else ""
+            lines.append(
+                f"    {region.region:<{width}}  {region.quads} quad(s), {region.size_human}{fetch}"
+            )
+    lines.extend(f"    note: {no_quads_line(region)}" for region in topo.no_quads)
+    if topo.regions or topo.no_quads:
+        lines.append("    (a region's quads are read from its outline at Geofabrik until")
+        lines.append("    they are installed and its record written)")
+    if topo.fetch:
+        lines.append(
+            f"    will be downloaded ({len(topo.fetch)} quad(s), {topo.download_total_human}):"
+        )
+        width = max(len(q.quad) for q in topo.fetch)
+        lines.extend(
+            f"      {q.quad:<{width}}  {q.size_human:>9}  {q.verified_by}" for q in topo.fetch
+        )
+    if topo.current:
+        lines.append(f"    already installed: {topo.current} quad(s)")
+    if topo.licence:
+        lines.append(f"      licence: {topo.licence}, stated at {topo.licence_url}")
+    if topo.warp:
+        lines.append(
+            f"    warped for QMapShack: {topo.warp} quad(s), about "
+            f"{topo.warp_estimate_human} ({WARP_FACTOR}x each download, {topo.estimate_note})"
+        )
+    lines.append(f"      about {topo.disk_total_human} of disk for US Topo ({topo.estimate_note})")
     return lines
 
 

@@ -230,8 +230,15 @@ Do not re-litigate these without being asked:
 | Device power control | Park and wake a catalogued device from the CLI, generated menu entries and the separate `hammunition-tray` applet, through one root helper at `/usr/local/libexec/hammunition-devctl` behind one polkit action; `usb_deauthorize` only, `pci_runtime` and the NetworkManager quiet verbs schema-valid and refused; the install asks one `yes` that `--yes` cannot answer, and refuses a tree another account can write (the owner's private group excepted) | The field laptop's GPS and modem drew power with nobody using them; parked and woken on the GPS 2026-09-27. Kept-off across reboots, one udev rule per device, is built; reboot not yet measured (**D-056**) |
 | Device power control | `power_control` on the manifest names a method from a fixed enum; one helper behind one polkit action serves the CLI, the menu and the tray; kept by intent in a rewritten-whole udev rule per device, sysfs still the live answer, `--until-reboot` opts out; removal by `hardware unapply` or `wake` | The catalog can never carry a command; the maintainer asked for the switch to stay where it is set, so `state` shows intent and reality rather than reconciling them (**D-056**) |
 | Engine interface | One JSON document per command under `--json`, rendered from the same dataclasses as the text; `install`/`uninstall` only with `--dry-run`, a real install never driven through JSON; `station` and `plan` documents are for local programs, not for pasting; bootstrap links `~/.local/bin/hammunition` and never replaces what it did not make | A console and the tray need a stable interface, not parsed text; a command from the docs failed with "command not found" (**D-059**) |
+| Offline reference | Kiwix books chosen by id in station config from a hand-written, licensed allow-list, pinned by size and sha256 from each `.meta4` in a generated pin file; a dead pin refuses, never follows the newer file; dictd on loopback as shipped; FEMA's ICS forms by our own sha256; `hammunition reference serve` binds 127.0.0.1 and always starts kiwix-serve with `-i 127.0.0.1` | kiwix-serve listens on every address by default, ZIMs carry no licence, nothing Kiwix publishes is signed, and Kiwix keeps two dated files per book (**D-066**) |
+| CoMaps | A pinned `git` build at the tag Flathub, nixpkgs and the AUR build, its commit checked; submodules, a hash-pinned build Python, upstream's `configure.sh` with the files it must produce, and the World maps installed after the build are git-block fields the engine runs; its maps are a data unit chosen by the station's regions, checked by the SHA-1 and size in CoMaps' own index, said so in the plan, and `update --upstream` flags an expiring pin; no "you are here" on the laptop, written down | CoMaps reads GeoClue2 only, `generate_symbols.sh` exits 0 without optipng, and a CoMaps mirror answers a missing map with 200 and a web page (**D-069**) |
 | sudo during an install | A run as a user whose plan mixes root and unprivileged steps asks `sudo -v` once before the first step and refreshes with `sudo -n -v` every 4 minutes from its own process until the run ends; disclosed in the plan, `--no-sudo-keepalive` opts out, a failure is reported once and never retried, the password never passes through the engine | A `navigation` install waited 7.8 hours at a second prompt after 30 minutes of work, its ticket expired during a conversion (#137, **D-062**) |
+| Repeater overlays | `maps repeaters import` converts the operator's own export (RepeaterBook GPX, a RepeaterBook CSV with Lat/Long, hearham JSON, a hand CSV) offline into a GPX, a QMapShack `.poi` and a Navit textfile under `~/.local/share/hammunition/overlays/repeaters/`, 0600; CHIRP files and position-less CSVs refused by name; merged on callsign + Hz + 0.01°; nothing fetched from RepeaterBook, hearham only on request and marked unverified; `navit-offline` runs `maps navit`; not a D-049 data unit | RepeaterBook's export is personal-use and its API gated; CHIRP's query was measured to drop coordinates; callsign + frequency alone merged 1,050 multi-site keys in hearham's data (**D-064**) |
 | BRouter routing | Carried: upstream's zip pinned by its sha256 as a tree, Java from the archive; its routing files built on the machine by a `brouter-mapcreator` converter from the station's regions with Copernicus elevation, one set over every region, as the operator, never downloaded from brouter.de; `maps qmapshack` registers it in QMapShack on 127.0.0.1 only and leaves an operator's own BRouter alone | brouter.de's weekly files carry no checksum, which is why D-061 left BRouter out; BRouter's own map creator builds them from our own extracts (Delaware in minutes, most of it a parser polling for a growing file, which `-DavoidMapPolling=true` removes: 120 s to 0.1 s on a synthetic region) (**D-063**) |
+| Phone maps | `mapsforge-map` and `mapsforge-poi` build a Mapsforge map and POI file per region as the operator, `java -cp` over the archive's osmosis jars; the POI writer, packaged nowhere, is the one pin, carried as the derived block's `tool` and installed beside the data, never in it; `maps phone` copies the phone files into one folder with a `SHA256SUMS` and prints routes it never runs, the web server bound to the hotspot's address; its own `phone-maps` profile; OsmAnd `.obf`, `.mwm`, PocketMaps and Transportr not carried, each with its route | Debian's osmosis does not load the packaged writer, and a map took 3:38 on a 22 MB region, hours on a large one; the spike's POI digest was the map writer's (**D-067**) |
+| Official topo maps | USGS US Topo sheets for the station's US regions, chosen offline from a carried generated index (`catalog/data/ustopo-quads.txt`), each checked against the publisher's S3 ETag (multipart reproduced by part size), disclosed as "not pinned by Hammunition"; warped to EPSG:3857 collar-cropped and one `ustopo.vrt` for QMapShack; FSTopo and 3DEP next; official trail lines as a second layer not carried | OSM already has 97.5 % of Shenandoah's official trail mileage; the sheet adds the official names and look. QMapShack drawing the mosaic is unmeasured and belongs in a VM (**D-068**) |
+| LAN mirror and `artifacts` | `station set --mirror URL` names a LAN machine each data download (data files, map regions, terrain tiles) asks first at `<mirror>/<unit>/<name>`, the publisher on any failure, the same digest checked either way; plain http allowed, LAN-only documented not enforced; the plan names both sources in order, `--no-mirror` ignores it for a run, `action_end` records the actual source; `hammunition artifacts --json` lists every data artifact for an explicit selection with no station read | Hammunition Bunker keeps a verified copy on a NAS and needs the engine to say what to keep and to take from it without trusting it (**D-070**) |
+| Offline browser map | `osm-pmtiles` builds one PMTiles file per region with the archive's tilemaker (floor 3.0 read from the probe: deferred or refused below it) and `vector-map-kit`'s pinned profile, Natural Earth layers, MapLibre, pmtiles.js and OSM Bright; `reference serve` serves `/map/` with byte ranges, by exact name, refusing any Host but 127.0.0.1/localhost; the page draws the OpenMapTiles/OSM credit; the tether's `GET /position` is an SSE stream on 127.0.0.1:10111 | The daily water polygons changed size overnight, so Natural Earth's ocean is clipped per region instead; `http.server` ignores `Range` and pmtiles.js fails on it; an event stream rides the tether's fan-out where a poll would need a gpsd watch of its own (**D-071**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
@@ -279,15 +286,31 @@ machine that is not written down.
 (authoritative decision record), `PARITY-POLICY.md` (per-unit disposition and M5
 exit criteria), `DESIGN.md` (reasoning), `why-hammunition.md` (public rationale).
 
+**The site** is <https://chiefgyk3d.github.io/Hammunition/>, built from `docs/`
+by MkDocs 1.6.1 and Material 9.7.7, pinned exactly, with `--strict`
+(**D-065**). `mkdocs.yml` holds the nav; `tests/test_site.py` builds it on
+every test run, fails on any page that is in no nav and not a package page,
+and breaks the build hook (`scripts/site_hooks.py`, which points links that
+leave the site at GitHub) on purpose. The project records (DECISIONS,
+PARITY-POLICY, DESIGN, why-hammunition, QUESTIONS, SCOPE, SESSION-LOG,
+superpowers) are excluded from it. A new page goes in the nav in the same
+commit. `.github/workflows/pages.yml` publishes from `main`.
+
 **Structure under `docs/` ("Hacker's Ham Shack").** ✅ marks what exists:
-- `getting-started/` — install, first profile, first contact
+- `index.md` ✅ — the site's home; `credits.md` ✅ — the six inventory sources
+  and the data sets; `projects.md` ✅ — every upstream project, generated by
+  `scripts/gen_projects_page.py`
+- `getting-started/` ✅ — install, first profile, first contact
 - `profiles/` — one page per profile, generated from manifests plus prose
 - `packages/` ✅ — generated reference, one entry per manifest.
   `scripts/gen_package_reference.py`; `tests/test_docs_generated.py` asserts
   regeneration is a no-op
 - `hardware/` — per-device setup: SDRs, rigs, CAT interfaces, GPS, LoRa
-- `guides/` — task-oriented: digital modes, APRS, satellite, packet, SDR
-- `troubleshooting/` — symptom-first, not component-first
+- `guides/` ✅ — task-oriented: rig control, radio audio, time and GPS, the
+  callsign in each program, digital modes, packet and Winlink, APRS, SDR,
+  satellites, plus propagation, offline navigation, conference operating and
+  Rayhunter. Each ends with what was measured and what was not
+- `troubleshooting/` ✅ — symptom-first, not component-first
 - `rf-security/` — separate section, legal and ethical framing required
 - `contributing/` — how to add a manifest ✅, how to add a backend, review
   process; `docs/contributing/hardware.md` ✅ is the live ask
@@ -479,8 +502,8 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 269
-  profiles/        # named bundles referencing packages      ✅ 17
+  packages/        # one YAML per piece of software          ✅ 285
+  profiles/        # named bundles referencing packages      ✅ 19
   hardware/
     classes/       # device families with shared Linux needs ✅ 5
     devices/       # one YAML per device                     ✅ 24
@@ -679,7 +702,7 @@ prefix are **post-1.0**, required by HAMRS and VARA respectively. `snap` appears
 belongs in `system_modifications`, never as a backend.
 
 **M4 — profiles and hardware. ✅ Profiles complete; hardware applied, not yet
-exercised.** All 12 profiles of the 1.0 set plus 5 post-1.0 ship, every member
+exercised.** All 12 profiles of the 1.0 set plus 7 post-1.0 ship, every member
 installable and asserted by test. udev rules and group membership are generated
 from the hardware catalog and were applied on the field laptop, byte-identical to
 the catalog's set; the ladder against attached devices is the open item, and

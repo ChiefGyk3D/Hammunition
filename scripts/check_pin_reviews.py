@@ -48,8 +48,12 @@ from hammunition.manifest.load import load_catalog  # noqa: E402
 from hammunition.manifest.schema import GitInstall  # noqa: E402
 
 
-def verify_ref(repo: str, ref: str) -> str | None:
+def verify_ref(repo: str, ref: str, commit: str | None = None) -> str | None:
     """Fetch *ref* from *repo* the way the git backend will. None if it worked.
+
+    With *commit* -- a tag pinned to the commit it must resolve to (D-069) --
+    the fetched commit must be that one: a re-cut tag fails here, weekly,
+    rather than at a user's install.
 
     ``git ls-remote`` is not enough: it lists ref tips, so a tag is visible but a
     commit part-way down a branch is not, and a SHA pin is exactly the case that
@@ -65,6 +69,15 @@ def verify_ref(repo: str, ref: str) -> str | None:
             done = subprocess.run(argv, capture_output=True, text=True, check=False)
             if done.returncode != 0:
                 return done.stderr.strip().splitlines()[-1] if done.stderr.strip() else "failed"
+        if commit is not None:
+            head = subprocess.run(
+                ("git", "-C", work, "rev-parse", "FETCH_HEAD"),
+                capture_output=True,
+                text=True,
+                check=False,
+            ).stdout.strip()
+            if head != commit:
+                return f"{ref} resolves to {head or 'nothing'}, not the pinned commit {commit}"
     return None
 
 
@@ -132,7 +145,7 @@ def main() -> int:
         print(f"\nverifying {len(every)} git ref(s) against upstream")
         unresolved = []
         for name, install in every:
-            problem = verify_ref(install.repo, install.ref)
+            problem = verify_ref(install.repo, install.ref, install.commit)
             if problem is None:
                 print(f"  ok       {name:20} {install.ref[:12]}")
             else:

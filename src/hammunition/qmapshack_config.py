@@ -113,7 +113,8 @@ class Wanted:
 def wanted(data: Path) -> tuple[Wanted, ...]:
     """The directories under *data* (``<prefix>/share/hammunition/data``)."""
     return (
-        Wanted("Canvas", "mapPath", _map_paths(data)),
+        # D-068: the US Topo mosaic, one ustopo.vrt, beside the Garmin maps.
+        Wanted("Canvas", "mapPath", (*_map_paths(data), str(data / "ustopo-qmapshack"))),
         Wanted("Canvas", "demPaths", _dem_paths(data)),
         Wanted("Route", "routino\\paths", (str(data / "osm-routino"),)),
     )

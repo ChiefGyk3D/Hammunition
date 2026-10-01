@@ -33,6 +33,8 @@ def _record_exec(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
 def _as(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, euid: int = 1000) -> Path:
     monkeypatch.setattr(os, "geteuid", lambda: euid)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    # Never the real home's repeater overlays (D-064): `maps qmapshack` looks there.
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
     return tmp_path / "QLandkarte" / "QMapShack.conf"
 
 
@@ -122,10 +124,11 @@ def test_gps_tether_prints_where_to_connect_and_serves_until_ctrl_c(
     seen = _record_exec(monkeypatch)
     calls = _tether_calls(monkeypatch, fail=KeyboardInterrupt())
     assert cli.main(["maps", "gps-tether"]) == cli.EXIT_OK
-    assert calls == ["listen 10110", "serve", "closed"]
+    assert calls == ["listen 10110", "listen 10111", "serve", "closed", "closed"]
     assert seen == [], "no socat, no gpspipe: nothing is executed"
     out = capsys.readouterr().out
     assert "host 127.0.0.1, port 10110" in out
+    assert "http://127.0.0.1:10111/position" in out
 
 
 def test_gps_tether_names_a_port_already_in_use(
@@ -156,11 +159,17 @@ def test_gps_tether_takes_another_port_and_a_remote_gpsd(
 ) -> None:
     monkeypatch.setattr(os, "geteuid", lambda: 1000)
     calls = _tether_calls(monkeypatch, fail=KeyboardInterrupt())
-    argv = ["maps", "gps-tether", "--port", "10111", "--gpsd", "[2001:db8::7]:3000"]
+    argv = ["maps", "gps-tether", "--port", "10112", "--gpsd", "[2001:db8::7]:3000"]
     assert cli.main(argv) == cli.EXIT_OK
-    assert calls == ["listen 10111", "serve gpsd ('2001:db8::7', 3000)", "closed"]
+    assert calls == [
+        "listen 10112",
+        "listen 10111",
+        "serve gpsd ('2001:db8::7', 3000)",
+        "closed",
+        "closed",
+    ]
     out = capsys.readouterr().out
-    assert "host 127.0.0.1, port 10111" in out
+    assert "host 127.0.0.1, port 10112" in out
     assert "gpsd at [2001:db8::7] port 3000" in out
 
 
@@ -173,6 +182,8 @@ def test_gps_tether_takes_another_port_and_a_remote_gpsd(
         (["--gpsd", "::1"], "in brackets"),
         (["--gpsd", "pi.local:0"], "1 to 65535"),
         (["--gpsd", ""], "needs a host"),
+        (["--position-port", "80"], "--position-port 80"),
+        (["--port", "10111"], "are the same port"),
     ],
 )
 def test_gps_tether_refuses_a_bad_option_by_name_and_opens_nothing(
@@ -373,7 +384,10 @@ def test_an_earlier_launchers_general_keys_are_moved_to_canvas(
     text = conf.read_text()
     general, canvas = text.split("[Canvas]\n")
     assert "mapPath" not in general and "demPaths" not in general
-    assert f"mapPath={data}/osm-garmin, {data}/dem-qmapshack/contours\n" in canvas
+    assert (
+        f"mapPath={data}/osm-garmin, {data}/dem-qmapshack/contours, {data}/ustopo-qmapshack\n"
+        in canvas
+    )
     assert f"demPaths={data}/dem-qmapshack/dem\n" in canvas
     assert "moved from [General]" in capsys.readouterr().err
 
@@ -388,7 +402,7 @@ def test_an_unselected_routing_database_is_selected(
     conf.parent.mkdir(parents=True)
     conf.write_text(
         "[Canvas]\n"
-        f"mapPath={data}/osm-garmin, {data}/dem-qmapshack/contours\n"
+        f"mapPath={data}/osm-garmin, {data}/dem-qmapshack/contours, {data}/ustopo-qmapshack\n"
         f"demPaths={data}/dem-qmapshack/dem\n"
         "\n"
         "[Route]\n"

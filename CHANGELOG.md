@@ -11,6 +11,129 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Two free HF modems join the packet core** (gap analysis section B
+  Group 3, **Q-022** #6, branch `gap-05-hf-modems`). `mercury`
+  (Rhizomatica, GPL-3.0) speaks VARA HF's TCP interface, so Pat's
+  `varahf://` transport drives it unchanged: apt on Kali (1.9.13), a `make`
+  build of v1.9.15 elsewhere, the release Debian unstable packages
+  (**D-024**). `freedata` (DJ2LS, GPL-3.0) is station-to-station messaging
+  and file transfer with a browser interface, a hash-pinned venv of the
+  0.18.2 wheel, x86-64 only. Both are in `packet` and both transmit when a
+  client keys them; the pages say so. `overlaps.md` gains an HF-modem
+  section, `dispositions.md` records both as ADD outside the six sources,
+  and `SCOPE.md` re-ranks VARA's Wine prefix as post-1.0 and optional. The
+  packet-and-Winlink guide gains the modem choice. Measured: Pat 0.16.0 to
+  Mercury 1.9.15 peer to peer, two instances back to back with no radio.
+  Not measured: either modem over the air, FreeDATA's server and window.
+- **Station config reaches six more units** (Q-022 #1, gap analysis A1;
+  D-035 amendment of 2026-09-29). `direwolf` writes `/etc/direwolf.conf`
+  (MYCALL and the KISS/AGW ports; the sound card and PTT stay yours),
+  `ax25-tools` appends the `wl2k` port to `/etc/ax25/axports` once and never
+  as a duplicate libax25 would refuse, `gpredict` writes its default ground
+  station from the grid square, `tlf` writes `~/tlf/logcfg.dat` (CALL,
+  MYQRA), `aprx` sets `mycall` on Debian's receive-only login, and
+  `uronode` sets the node identity. Each was measured from the package's
+  own files; each manifest says what it writes, how to inspect it and how
+  to undo it. `linpac` and `fbb` configure themselves and get no block.
+  The engine gains derived station values (`latitude`, `longitude` from the
+  grid square; `ax25_callsign`, which defers a file rather than trim
+  `W1AW/4`), `~/` paths written into the operator's home without following
+  a symlink, `skip_if_present` for appends, and a dry run that names the
+  station values each file is filled from.
+
+## v0.17.0 — 2026-09-30 — official topo sheets, CoMaps, and the offline browser map
+
+Three pull requests since v0.16.0 (#161, #163, #164), 3 entries.
+
+- **CoMaps: offline address search and routing like a phone app, with its
+  own maps for your regions** (D-069). Two units join the `navigation`
+  profile. `comaps` is built from source at the tag Flathub, nixpkgs and
+  the AUR build (`v2026.08.31-14`), refused if the tag no longer resolves
+  to its commit; the git backend gains what it needed, each a catalog
+  field the engine runs: submodules fetched shallow and read back at their
+  recorded commits, a hash-pinned build Python (CoMaps' CMake refuses
+  Debian's protobuf 4.x), upstream's `configure.sh` with the files it must
+  produce (its symbol step exits 0 without optipng), and files the install
+  rule leaves out (the World maps, sha256-pinned). `comaps-maps` fetches
+  CoMaps' own maps for your map regions through a generated table
+  (`catalog/data/comaps-pins.yaml`, all 1,150 maps, 262 Geofabrik regions
+  including every US state and DC), each checked by the SHA-1 and exact
+  size in CoMaps' own index, which the plan says on every line, and from a
+  LAN mirror first when one is set (D-070; `hammunition artifacts` lists
+  them as `sha1-publisher`); an expired pin refuses the plan, and `update
+  --upstream` says `pin expiring` or `pin expired`. `hammunition maps
+  comaps`, the `comaps-offline` launcher, records CoMaps' licence answer and links your maps where it looks. CoMaps
+  reads its position from GeoClue only, so there is no "you are here" on
+  the laptop yet; the guide says what the route would be. Organic Maps and
+  Flatpak are not carried. The build through the engine and US address
+  search are owed by the bench.
+
+- **An offline map in the browser** (**D-071**, branch `map-server`).
+  `osm-pmtiles` turns each map region into vector tiles with the archive's
+  tilemaker (3.0 or newer; Ubuntu 24.04's 2.4 defers it by name), and
+  `vector-map-kit` pins the fixed files: tilemaker's OpenMapTiles profile,
+  Natural Earth's ocean and land cover, the OSM Bright style, sprite and
+  fonts, MapLibre GL JS 6.11.2 and pmtiles.js 4.5.0. Both join
+  `navigation`. `hammunition reference serve` now also serves the map at
+  `http://127.0.0.1:8480/map/`, with HTTP byte ranges, each file by its
+  installed name, and refuses any request that does not name 127.0.0.1 or
+  localhost. The page draws "© OpenMapTiles © OpenStreetMap contributors" on
+  the map. `hammunition maps gps-tether` also serves your position to it as
+  an event stream on 127.0.0.1:10111 (`--position-port`); a tether started
+  with `--port 10111` now needs `--position-port` as well. A `data` archive
+  can list its `members` and the subdirectory it goes `into`. Not yet run
+  with a real tilemaker; the bench owes it.
+
+- **Official topographic maps: USGS US Topo** (**D-068**). For US map
+  regions, the `navigation` profile gains `usgs-ustopo` (the 7.5-minute
+  sheets a region's outline touches, chosen offline from the carried index
+  `catalog/data/ustopo-quads.txt`, generated by
+  `scripts/gen_ustopo_index.py`, each checked against the publisher's S3
+  ETag, multipart included) and `ustopo-qmapshack` (each sheet warped to Web
+  Mercator with its collar cropped, and one `ustopo.vrt` that
+  `hammunition maps qmapshack` adds to QMapShack's maps). The plan's Terrain
+  block gains a US Topo part; `update` counts sheets with a newer indexed
+  edition. QMapShack drawing the mosaic is not yet measured. FSTopo and USGS
+  3DEP are next.
+
+## v0.16.0 — 2026-09-30 — the navigation sweep: BRouter, repeaters, phone maps, the reference layer, the LAN mirror, and the documentation site
+
+Six pull requests since v0.15.0 (#151, #150, #154, #157, #152, #155), 5 entries.
+
+- **A LAN mirror for offline data, and `hammunition artifacts`** (**D-070**,
+  branch `artifacts-mirror`). `hammunition station set --mirror URL` names a
+  machine on your own network; every data download (a `data` unit's files, a
+  map region, a terrain tile) asks it first at `<mirror>/<unit>/<name>` and
+  its publisher on any failure, the same sha256 or publisher MD5 checked
+  either way. The plan gains a *Data mirror* section and names both sources
+  per download; `install --no-mirror` ignores the mirror for a run;
+  `--clear-mirror` removes it; the transaction log records where each
+  download came from. `hammunition artifacts [--json]` lists every remote
+  data artifact for regions, a freshness and units given on the command
+  line, reading no station: the contract
+  [Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker)
+  mirrors from. `station show` gains a `mirror` line and its document a
+  `mirror` field; plan steps gain `sources`. Guide:
+  `docs/guides/lan-mirror.md`.
+
+- **Repeaters on the offline maps** (**D-064**). `hammunition maps repeaters
+  import FILE...` converts your own export, with no network, into a GPX, a
+  QMapShack POI collection and a Navit layer in
+  `~/.local/share/hammunition/overlays/repeaters/` (mode 0600). It reads a
+  RepeaterBook GPX export, a RepeaterBook CSV export with Lat and Long,
+  hearham.com's JSON or a CSV you type; CHIRP files and CSVs without
+  positions are refused by name, since they carry no coordinates. Rows are
+  merged on callsign, output frequency and position to 0.01°, and the
+  merges are counted. RepeaterBook's attribution and terms are printed at
+  import; nothing is ever fetched from RepeaterBook. `maps repeaters
+  fetch-hearham` fetches hearham's open list on request, records the
+  sha256 it saw and marks the layer unverified. `maps repeaters remove`
+  undoes it. `import` and `remove` take `--json` (`repeaters`,
+  `repeaters-removed`), carrying counts and paths, never a callsign or a
+  position. The `navit-offline` launcher now runs `hammunition maps
+  navit`, which adds the layer to your own copy of Navit's configuration;
+  `hammunition menus apply` updates an installed launcher. Drawing on
+  screen is not yet measured.
 - **BRouter: a second offline router for QMapShack, with trail difficulty
   and climbs** (D-063, amending D-061's "BRouter stays out"). Three units
   join the `navigation` profile: `brouter` (upstream's v1.7.10 zip, checked
@@ -30,21 +153,41 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   wait its parser adds to every input under 100 MB. Measured end to end on
   synthetic regions against the pinned jar; a route drawn in QMapShack is
   owed by the bench.
-- **Station config reaches six more units** (Q-022 #1, gap analysis A1;
-  D-035 amendment of 2026-09-29). `direwolf` writes `/etc/direwolf.conf`
-  (MYCALL and the KISS/AGW ports; the sound card and PTT stay yours),
-  `ax25-tools` appends the `wl2k` port to `/etc/ax25/axports` once and never
-  as a duplicate libax25 would refuse, `gpredict` writes its default ground
-  station from the grid square, `tlf` writes `~/tlf/logcfg.dat` (CALL,
-  MYQRA), `aprx` sets `mycall` on Debian's receive-only login, and
-  `uronode` sets the node identity. Each was measured from the package's
-  own files; each manifest says what it writes, how to inspect it and how
-  to undo it. `linpac` and `fbb` configure themselves and get no block.
-  The engine gains derived station values (`latitude`, `longitude` from the
-  grid square; `ax25_callsign`, which defers a file rather than trim
-  `W1AW/4`), `~/` paths written into the operator's home without following
-  a symlink, `skip_if_present` for appends, and a dry run that names the
-  station values each file is filled from.
+- **The offline reference layer** (D-066). A `reference` profile (post-1.0)
+  with `kiwix-tools`, `kiwix`, `dictionaries` (dictd with GCIDE, WordNet,
+  FOLDOC and VERA acronyms, on 127.0.0.1 as Debian ships it) and
+  `goldendict-ng` from the archive; `kiwix-library`, the Kiwix books chosen
+  with `hammunition station set --reference-books`, each pinned by size and
+  sha256 from its `.meta4` (`catalog/data/kiwix-pins.yaml`, generated by
+  `scripts/gen_kiwix_pins.py` from the hand-written 27-book list in
+  `catalog/data/kiwix-books.yaml`) with its licence printed in the plan;
+  and `ics-forms`, FEMA's 39 ICS PDFs pinned by Hammunition's own sha256.
+  A pin Kiwix has dropped refuses the plan by name and is never replaced by
+  the newer file. `hammunition reference books` lists the books (`--json`:
+  a `books` document); `hammunition reference serve` serves the books, the
+  forms and the dictionaries on 127.0.0.1:8480, with kiwix-serve as a
+  child always started with `-i 127.0.0.1`. `hammunition update` reports
+  the books against their pins, and `--upstream` warns before a pin
+  expires. The weekly pin review runs the new generator's `--check`.
+  `docs/guides/offline-reference.md` is the walk-through. Three corrections
+  from the spike: `zim-tools` ships `zimwriterfs` in Debian 13; libzim
+  9.2.3 reads today's format-6.3 ZIMs; `hamradio-maintguide` is a packaging
+  guide.
+- **Phone maps from the laptop** (D-067). Two new units build, from the
+  station's regions, a Mapsforge map (`mapsforge-map`) and a Mapsforge
+  points-of-interest file (`mapsforge-poi`) per region, as the operator,
+  with the archive's osmosis; the POI writer, packaged nowhere, is fetched
+  from Maven Central and checked against a sha256 Hammunition measured. They
+  are a new post-1.0 profile, `phone-maps`; `navigation` is unchanged.
+  `hammunition maps phone` copies the phone files, Garmin maps included,
+  into one folder with a `SHA256SUMS` and prints the ways to carry them to a
+  phone: the laptop's hotspot with a web server bound to the hotspot's
+  address, USB, and `adb` or KDE Connect as opt-ins. It transfers nothing.
+  None of the files has been loaded on a phone yet. OsmAnd `.obf`,
+  Organic Maps and CoMaps `.mwm`, PocketMaps and Transportr are not
+  carried, each with its reason and route in D-067.
+- `scripts/check_artifact_urls.py` no longer crashes on a derived unit, whose
+  `source` is a unit name, and sweeps a converter's pinned tool (D-067).
 
 ## v0.15.0 — 2026-09-29 — sudo asked once per run; launchers by absolute path
 

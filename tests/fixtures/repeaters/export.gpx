@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="synthetic" xmlns="http://www.topografix.com/GPX/1/1">
+  <wpt lat="39.80170" lon="-89.64360"><name>N0CALL 146.940</name><desc>146.940 MHz -0.600 PL 100.0 Springfield</desc></wpt>
+  <wpt lat="39.75000" lon="-89.60000"><name>N0TST</name><desc>444.100 MHz +5.000 PL 123.0</desc></wpt>
+  <wpt lat="39.85000" lon="-89.70000"><name>Springfield hilltop</name></wpt>
+  <wpt lon="-89.70000"><name>N0CALL 147.000</name></wpt>
+</gpx>

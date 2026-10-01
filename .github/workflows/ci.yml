@@ -234,12 +234,27 @@ jobs:
       # list only; growing the pins downloads 39 MB a tile and runs on a
       # maintainer's machine.
       - run: python scripts/gen_copernicus_pins.py --check
+      # The US Topo quad index (D-068): list the bucket's GeoTIFF prefix and
+      # fail naming each carried quad that is gone or whose size or ETag
+      # changed, since that breaks an install. A newer edition is counted, not
+      # failed. A listing only (about 273 pages); nothing is downloaded.
+      - run: python scripts/gen_ustopo_index.py --check
+      # The Kiwix book pins (D-066): each pinned file's .meta4 again, about
+      # 5 KB a book. Kiwix keeps two dated files per book, so a pin goes about
+      # two publications after it is made and this goes red naming it and the
+      # regeneration (scripts/gen_kiwix_pins.py, a 20 MB index and the .meta4s).
+      - run: python scripts/gen_kiwix_pins.py --check
       # The region -> country table the Navit converter merges borders by
       # (D-057 amendment). Geofabrik adds and re-parents regions; a region
       # with no row converts with no border and its towns land under
       # "Unknown". Fetches the 0.5 MB index and compares the regions only:
       # the `measured` date moves on every fetch and is not compared.
       - run: python scripts/gen_geofabrik_countries.py --fetch --check
+      # CoMaps' map pins (D-069): fetch the ~360 KB index at the commit
+      # comaps.yaml pins, compare, and HEAD the pinned World.mwm. The CDN
+      # keeps a map version for months, and a mirror answers a missing file
+      # with 200 and a web page, so the size is compared, never the status.
+      - run: python scripts/gen_comaps_pins.py --check
 
   # -------------------------------------------------------------------------
   # D-031. Every identifier citing a distribution's udev rule is checked
