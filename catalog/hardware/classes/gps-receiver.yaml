@@ -287,7 +287,10 @@ power_control:
     /dev/gps0 and gpsdctl handed it back to gpsd within a second, with no
     action from the operator. A 3D fix was back by 74 s after the wake (the
     first poll to see one; polled every 15 s or so). The receiver keeps its USB entry while parked, so lsusb still
-    lists it.
+    lists it. Parking it also turns GPS time off (D-058): ntpd stops
+    hearing the receiver and follows the network, or holds over, until it is
+    woken (inferred from ntpd's reachability rules, not yet watched on the
+    bench). See docs/guides/gps-time.md.
 
 documentation:
   what_it_is: >-

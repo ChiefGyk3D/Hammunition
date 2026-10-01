@@ -11,6 +11,24 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **GPS time** (D-058). `hammunition time` says what the clock follows (the
+  network, the GPS, or holdover and for how long) without a password;
+  `hammunition time mode auto|prefer-gps|ntp-only|gps-only` prints every
+  write, then sets it through the one helper and polkit action. A parked
+  receiver never feeds the clock. `hardware apply` installs the two grants
+  ntpd needs to read gpsd's time, disclosed as widening a network-facing
+  daemon's privilege, only where gpsd is installed, and prints every
+  `ntp.conf` line the first mode moves and what that costs; `--no-gps-time`
+  leaves all of it alone. It also runs gpsd with `-n` (the drop-in
+  `/etc/systemd/system/gpsd.service.d/hammunition-gps.conf`, the same file
+  and text as the `chrony` unit's), because gpsd publishes no time while no
+  client is connected (measured on #162); a reboot after apply lets gpsd
+  take it, and `unapply` leaves it while the `chrony` unit still uses it.
+  It installs `fake-hwclock` only where there is no hardware clock;
+  `hardware unapply` takes all of it back, `ntp.conf` byte for byte. `doctor` reports the time source, holdover, and a machine
+  with no RTC. Parrot (ntpsec) only; built and not yet run on the field
+  laptop. Guide: `docs/guides/gps-time.md`.
+
 - **Two free HF modems join the packet core** (gap analysis section B
   Group 3, **Q-022** #6, branch `gap-05-hf-modems`). `mercury`
   (Rhizomatica, GPL-3.0) speaks VARA HF's TCP interface, so Pat's

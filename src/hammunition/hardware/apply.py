@@ -28,6 +28,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from hammunition.gpstime.grants import TimeGrants, plan_time_grants
 from hammunition.hardware.detect import AttachedDevice, Match, match_catalog, read_usb_bus
 from hammunition.hardware.polkit import PolkitArtifacts, plan_polkit
 from hammunition.hardware.udev import RULES_PATH, Omission, rules_file
@@ -66,9 +67,17 @@ class HardwarePlan:
     polkit: PolkitArtifacts
     """The helper wrapper and polkit action power control needs (D-056)."""
 
+    time: TimeGrants | None = None
+    """GPS time's grants (D-058), or None when the caller did not ask for them."""
+
     @property
     def is_noop(self) -> bool:
-        return self.rules_already_current and not self.groups_to_add and self.polkit.is_noop
+        return (
+            self.rules_already_current
+            and not self.groups_to_add
+            and self.polkit.is_noop
+            and (self.time is None or self.time.is_noop)
+        )
 
 
 def _device_groups(
@@ -98,6 +107,7 @@ def plan_hardware(
     rules_path: str = RULES_PATH,
     sysfs_root: Path | None = None,
     polkit: PolkitArtifacts | None = None,
+    with_time: bool = False,
 ) -> HardwarePlan:
     """Resolve a hardware plan. Reads sysfs and the current rules file; writes nothing.
 
@@ -111,6 +121,10 @@ def plan_hardware(
     a test that wants a plan whose ``is_noop`` is predictable passes one in
     instead of depending on whatever happens to be on the machine running the
     test.
+
+    ``with_time``: `hardware apply` passes True, and the plan carries GPS
+    time's grants (D-058); `list` and `doctor` leave it off, so neither asks
+    dpkg anything.
     """
     all_entries: list[DeviceClass | DeviceManifest] = [*classes.values(), *devices.values()]
     content, omissions = rules_file(all_entries)
@@ -140,4 +154,5 @@ def plan_hardware(
         detected=matches,
         unrecognised=unrecognised,
         polkit=polkit if polkit is not None else plan_polkit(),
+        time=plan_time_grants() if with_time else None,
     )

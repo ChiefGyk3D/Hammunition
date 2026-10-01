@@ -594,3 +594,13 @@ def test_a_group_the_owner_does_not_hold_as_primary_is_not_private_to_them() -> 
 def test_an_unknown_gid_fails_closed() -> None:
     lookups = _lookups([], [(_OPERATOR, _PRIVATE_GID)])
     assert not group_is_private_to(4242, _OPERATOR, **lookups)  # type: ignore[arg-type]
+
+
+def test_the_one_action_says_it_also_sets_the_time_source() -> None:
+    """D-058 adds no action; the prompt must not claim a power change when the
+    operator is choosing a time source."""
+    from hammunition.hardware.polkit import policy_xml
+
+    xml = policy_xml()
+    assert "time source" in xml
+    assert xml.count("<action id=") == 1
