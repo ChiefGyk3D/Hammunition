@@ -112,6 +112,8 @@ MIRROR_TIMEOUT = 10.0
 DEFAULT_MAX_BYTES = 512 * 1024 * 1024
 
 _CHUNK = 64 * 1024
+#: A classic or BigTIFF header, either byte order.
+TIFF_MAGIC = frozenset({b"II*\x00", b"MM\x00*", b"II+\x00", b"MM\x00+"})
 
 
 class VerificationError(BackendError):
@@ -758,6 +760,44 @@ class Fetcher:
                     f"{url} does not match the ETag its publisher lists.\n"
                     f"  expected ETag: {etag}\n"
                     f"No part size reproduces it. The download has been discarded."
+                )
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+        os.replace(temporary, final)
+        return FetchResult(path=final, sha256=sha, from_cache=False, size=size)
+
+    def sized_path_for(self, url: str, size: int) -> Path:
+        """Where a size-checked file lands (:meth:`fetch_sized`). Pure."""
+        return self.cache_dir / f"sized-{size}-{_safe_name(url)}"
+
+    def fetch_sized(self, url: str, *, expected_size: int) -> FetchResult:
+        """A file nobody publishes a checksum for and Hammunition has not
+        pinned (D-068, amended 2026-10-01: FSTopo sheets): only its size, as
+        the server announced it at plan time, and its first bytes being a
+        TIFF are checked. The weakest fetch here, and the plan says
+        "unverified" beside every file it is used for. A cached copy is never
+        reused, since nothing could tell a damaged one from a good one; the
+        sha256 of what arrived is returned for the transaction log and the
+        install's own re-check.
+        """
+        make_dir(self.cache_dir)
+        final = self.sized_path_for(url, expected_size)
+        final.unlink(missing_ok=True)
+        temporary = final.with_name(final.name + f".part.{os.getpid()}")
+        try:
+            sha, size, _ = self._download(url, temporary, max_bytes=expected_size + 1024 * 1024)
+            if size != expected_size:
+                raise VerificationError(
+                    f"{url}: the server announced {expected_size} bytes and {size} arrived; "
+                    f"the size check failed"
+                )
+            with temporary.open("rb") as handle:
+                magic = handle.read(4)
+            if magic not in TIFF_MAGIC:
+                raise VerificationError(
+                    f"{url} is not a TIFF (it starts {magic!r}); a gateway that answers "
+                    f"with a web page is not a map sheet. The download has been discarded."
                 )
         except BaseException:
             temporary.unlink(missing_ok=True)

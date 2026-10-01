@@ -432,3 +432,43 @@ def test_fetch_etag_refuses_the_wrong_size_and_keeps_nothing(tmp_path: Path) -> 
     with pytest.raises(VerificationError, match="size"):
         fetcher.fetch_etag("https://x/q.tif", hashlib.md5(body).hexdigest(), expected_size=11)
     assert _cache_files(tmp_path) == []
+
+
+# ---------------------------------------------------------------------------
+# Size-checked fetch (D-068, amended 2026-10-01): FSTopo sheets the Forest
+# Service publishes no checksum for and Hammunition has not pinned.
+# ---------------------------------------------------------------------------
+
+TIFF = b"II*\x00" + b"\x00" * 60
+
+
+def test_fetch_sized_keeps_a_tiff_of_the_announced_size_and_reports_its_sha256(
+    tmp_path: Path,
+) -> None:
+    fetcher = Fetcher(tmp_path, transport=FakeTransport(TIFF))
+    result = fetcher.fetch_sized("https://x/s.tiff", expected_size=len(TIFF))
+    assert result.path.read_bytes() == TIFF
+    assert result.sha256 == hashlib.sha256(TIFF).hexdigest()
+    assert result.path == fetcher.sized_path_for("https://x/s.tiff", len(TIFF))
+
+
+def test_fetch_sized_never_trusts_a_cached_copy(tmp_path: Path) -> None:
+    fetcher = Fetcher(tmp_path, transport=FakeTransport(TIFF))
+    path = fetcher.sized_path_for("https://x/s.tiff", len(TIFF))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"MM\x00*" + b"\x01" * 60)
+    result = fetcher.fetch_sized("https://x/s.tiff", expected_size=len(TIFF))
+    assert not result.from_cache and result.path.read_bytes() == TIFF
+
+
+@pytest.mark.parametrize(
+    ("body", "size", "match"),
+    [(TIFF, len(TIFF) + 1, "size"), (b"<html>" + b" " * 58, 64, "TIFF")],
+)
+def test_fetch_sized_refuses_the_wrong_size_or_not_a_tiff_and_keeps_nothing(
+    tmp_path: Path, body: bytes, size: int, match: str
+) -> None:
+    fetcher = Fetcher(tmp_path, transport=FakeTransport(body))
+    with pytest.raises(VerificationError, match=match):
+        fetcher.fetch_sized("https://x/s.tiff", expected_size=size)
+    assert _cache_files(tmp_path) == []
