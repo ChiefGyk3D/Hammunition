@@ -3979,6 +3979,11 @@ and a grid square or a map region says where the station is.
 | `map_freshness` | string or null | how often map data is refreshed: yearly, monthly or latest; null means the yearly default applies |
 | `reference_books` | list of string | Kiwix book ids chosen for kiwix-library (D-066); empty when none are chosen |
 | `mirror` | string or null | the LAN mirror the verified fetch tries before the publisher, the same digest checked either way (D-070); null when none is set |
+| `rig` | string or null | the station's radio: a catalog device id or hamlib:<model>; null when not set (D-073) |
+| `rig_device` | string or null | the serial port the rig is reached on — the full by-id path, for the operator's own screen (the plan, doctor and status elide the serial); null when not set |
+| `rig_baud` | integer or null | the CAT serial speed; null when not set or for a PTT-only rig |
+| `rig_ptt_line` | string or null | for a PTT-only rig: rts, dtr or vox; null for a CAT rig or when not set |
+| `rig_owner` | string or null | who holds the port: rigctld (the default when unset) or flrig; null when not set |
 
 <details><summary>JSON Schema</summary>
 
@@ -4063,6 +4068,61 @@ and a grid square or a map region says where the station is.
         }
       ],
       "title": "Mirror"
+    },
+    "rig": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Rig"
+    },
+    "rig_device": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Rig Device"
+    },
+    "rig_baud": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Rig Baud"
+    },
+    "rig_ptt_line": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Rig Ptt Line"
+    },
+    "rig_owner": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Rig Owner"
     }
   },
   "required": [
@@ -4074,7 +4134,12 @@ and a grid square or a map region says where the station is.
     "map_regions",
     "map_freshness",
     "reference_books",
-    "mirror"
+    "mirror",
+    "rig",
+    "rig_device",
+    "rig_baud",
+    "rig_ptt_line",
+    "rig_owner"
   ],
   "title": "StationDocument",
   "type": "object"

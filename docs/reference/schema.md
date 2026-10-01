@@ -33,6 +33,7 @@ A manifest is **strict**: an unknown field is an error, not ignored. That is del
 | `apt_repos` | `list[AptRepo]` | no |  |
 | `system_modifications` | `list[SystemModification]` | no |  |
 | `config_files` | `list[ConfigFile]` | no |  |
+| `user_services` | `list[UserService]` | no | systemd user services the engine renders from station values, enables, and reverses on uninstall (D-073 §6). Rendered into the operator's ~/.config/systemd/user/; deferred when a station value is missing, like config_files. |
 | `debconf_selections` | `list[str]` | no | debconf preseed lines applied BEFORE the apt install, so a package's postinst reads them instead of taking a default that needs an interactive answer. Each line is '<package> <question> <type> <value>', the debconf-set-selections format. The one measured need: wireshark, whose non-root capture is off by default and whose group and dumpcap capabilities are only created when wireshark-common/install-setuid is preseeded true (measured on Debian 13, 2026-09-01). |
 | `reconfigure_after` | `list[str]` | no | Packages to `dpkg-reconfigure` non-interactively AFTER the apt install. Paired with `debconf_selections` for the case where a postinst action depends on another package in the same transaction: wireshark-common's setcap of dumpcap needs libcap2-bin, and apt does not guarantee it is configured first, so the reconfigure re-runs the action once the whole transaction is settled (measured on Debian 13, 2026-09-01). |
 | `scope` | `Literal[system, user]` | no (default `system`) |  |
@@ -699,3 +700,41 @@ implements, never a URL in the catalog.
 | `provider` | `Literal[usgs-ustopo]` | no (default `usgs-ustopo`) |  |
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
+
+### `UserService`
+
+A systemd *user* service the engine renders from station values.  D-073 §6.
+
+Not a ``config_files`` path into ``~/.config/systemd/user/``: something must
+also tell systemd to read it, enable it, and stop it on uninstall, and the
+catalog would then carry free-form unit text — the place a command line
+quietly grows a ``sh -c``. Not a ``system_modifications`` kind either: those
+are descriptions the engine does not render, and a user service lives in one
+operator's home and needs no root. A block of its own keeps the D-035
+deferral, the ``~/`` writer and the plan's disclosure, and adds enable,
+start, stop and disable.
+
+``when_station``/``unless_station`` select the entry by station value, so two
+entries can share a ``name`` as long as their conditions cannot both hold —
+the CAT service and the PTT-only service are two complete services chosen by
+``rig_kind``, never one file written two ways (ruling 4).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | `str` | **yes** |  |
+| `description` | `str` | **yes** |  |
+| `when_station` | `dict[str, str]` | no |  |
+| `unless_station` | `dict[str, str]` | no |  |
+| `exec` | `list[str]` | **yes** |  |
+| `binds_to_device` | `str \| None` | no |  |
+| `listens` | `list[UserServiceListen]` | no |  |
+
+### `UserServiceListen`
+
+One address a user service binds. Loopback only, refused otherwise.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `protocol` | `Literal[tcp]` | no (default `tcp`) |  |
+| `address` | `str` | **yes** |  |
+| `port` | `int` | **yes** |  |
