@@ -1426,6 +1426,9 @@ Terrain, and what is built for QMapShack (D-061). Names where the operator is: l
 | `disk_total_human` | string | as the text prints it |
 | `estimate_note` | string | how the estimates were measured |
 | `topo` | [`TopoSectionView`](#toposectionview) or null | USGS US Topo quads and their mosaic (D-068); null when neither unit is planned |
+| `contours_from` | string | the provider the contours and QMapShack's elevation are drawn from this run: `copernicus-glo30`, or `usgs-3dep` when the station chose it (D-068, amended 2026-10-01) |
+| `bare_earth` | [`BareEarthSectionView`](#bareearthsectionview) or null | USGS 3DEP (D-068, amended 2026-10-01); null when no 3DEP unit is planned |
+| `fstopo` | [`FsTopoSectionView`](#fstoposectionview) or null | Forest Service FSTopo quads and their map (D-068, amended 2026-10-01); null when neither is planned |
 
 #### `TerrainRegionLine`
 
@@ -1506,6 +1509,55 @@ One US Topo quad downloaded this run.
 | `size` | integer | bytes |
 | `size_human` | string | the size as the text prints it |
 | `verified_by` | string | how the download is checked |
+
+#### `BareEarthSectionView`
+
+USGS 3DEP bare-earth elevation (D-068, amended 2026-10-01). Local only.
+
+| field | type | meaning |
+|---|---|---|
+| `chosen` | boolean | whether the station's dem_source is 3dep; when false nothing is fetched, any installed 3DEP tile is removed, and QMapShack's elevation is Copernicus's |
+| `regions` | list of [`TerrainRegionLine`](#terrainregionline) | 3DEP tiles per region and what each downloads this run (about ten times Copernicus) |
+| `fetch` | list of [`TileLine`](#tileline) | 3DEP tiles downloaded this run |
+| `current` | integer | 3DEP tiles already installed |
+| `licence` | string | the elevation data's licence |
+| `licence_url` | string | where it is stated |
+| `download_total` | integer | bytes of 3DEP tiles downloaded |
+| `download_total_human` | string | as the text prints it |
+
+#### `FsTopoSectionView`
+
+Forest Service FSTopo sheets and QMapShack's FSTopo map (D-068,
+amended 2026-10-01). Local only.
+
+| field | type | meaning |
+|---|---|---|
+| `regions` | list of [`SheetRegionLine`](#sheetregionline) | quads per region |
+| `no_quads` | list of string | regions no FSTopo quad covers (no National Forest land); nothing is fetched for them |
+| `fetch` | list of [`QuadLine`](#quadline) | quads downloaded this run |
+| `unverified` | integer | of those, quads fetched with no checksum: the Forest Service publishes none and Hammunition has pinned none |
+| `current` | integer | quads already installed |
+| `licence` | string | the sheets' licence |
+| `licence_url` | string | where it is stated |
+| `download_total` | integer | bytes of quads downloaded |
+| `download_total_human` | string | as the text prints it |
+| `convert` | integer | quads converted to tiled RGB for QMapShack this run |
+| `convert_estimate` | integer | bytes the converted quads are estimated to take |
+| `convert_estimate_human` | string | as the text prints it |
+| `disk_total` | integer | bytes: the downloads plus the converted quads |
+| `disk_total_human` | string | as the text prints it |
+| `estimate_note` | string | how the estimate was measured |
+
+#### `SheetRegionLine`
+
+The FSTopo quads one region needs (D-068, amended 2026-10-01).
+
+| field | type | meaning |
+|---|---|---|
+| `region` | string | the Geofabrik region path |
+| `quads` | integer | quads whose box its outline touches |
+| `download` | integer | bytes of its quads downloaded this run; a quad two regions share counts in both |
+| `download_human` | string | as the text prints it |
 
 #### `BoundaryLine`
 
@@ -1710,6 +1762,62 @@ A unit and files.
         "basis"
       ],
       "title": "ArtifactLine",
+      "type": "object"
+    },
+    "BareEarthSectionView": {
+      "additionalProperties": false,
+      "description": "USGS 3DEP bare-earth elevation (D-068, amended 2026-10-01). Local only.",
+      "properties": {
+        "chosen": {
+          "title": "Chosen",
+          "type": "boolean"
+        },
+        "regions": {
+          "items": {
+            "$ref": "#/$defs/TerrainRegionLine"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "fetch": {
+          "items": {
+            "$ref": "#/$defs/TileLine"
+          },
+          "title": "Fetch",
+          "type": "array"
+        },
+        "current": {
+          "title": "Current",
+          "type": "integer"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "download_total": {
+          "title": "Download Total",
+          "type": "integer"
+        },
+        "download_total_human": {
+          "title": "Download Total Human",
+          "type": "string"
+        }
+      },
+      "required": [
+        "chosen",
+        "regions",
+        "fetch",
+        "current",
+        "licence",
+        "licence_url",
+        "download_total",
+        "download_total_human"
+      ],
+      "title": "BareEarthSectionView",
       "type": "object"
     },
     "BlockerLine": {
@@ -2027,6 +2135,100 @@ A unit and files.
         "declared_by"
       ],
       "title": "DisplacedLine",
+      "type": "object"
+    },
+    "FsTopoSectionView": {
+      "additionalProperties": false,
+      "description": "Forest Service FSTopo sheets and QMapShack's FSTopo map (D-068,\namended 2026-10-01). Local only.",
+      "properties": {
+        "regions": {
+          "items": {
+            "$ref": "#/$defs/SheetRegionLine"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "no_quads": {
+          "items": {
+            "type": "string"
+          },
+          "title": "No Quads",
+          "type": "array"
+        },
+        "fetch": {
+          "items": {
+            "$ref": "#/$defs/QuadLine"
+          },
+          "title": "Fetch",
+          "type": "array"
+        },
+        "unverified": {
+          "title": "Unverified",
+          "type": "integer"
+        },
+        "current": {
+          "title": "Current",
+          "type": "integer"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "download_total": {
+          "title": "Download Total",
+          "type": "integer"
+        },
+        "download_total_human": {
+          "title": "Download Total Human",
+          "type": "string"
+        },
+        "convert": {
+          "title": "Convert",
+          "type": "integer"
+        },
+        "convert_estimate": {
+          "title": "Convert Estimate",
+          "type": "integer"
+        },
+        "convert_estimate_human": {
+          "title": "Convert Estimate Human",
+          "type": "string"
+        },
+        "disk_total": {
+          "title": "Disk Total",
+          "type": "integer"
+        },
+        "disk_total_human": {
+          "title": "Disk Total Human",
+          "type": "string"
+        },
+        "estimate_note": {
+          "title": "Estimate Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "regions",
+        "no_quads",
+        "fetch",
+        "unverified",
+        "current",
+        "licence",
+        "licence_url",
+        "download_total",
+        "download_total_human",
+        "convert",
+        "convert_estimate",
+        "convert_estimate_human",
+        "disk_total",
+        "disk_total_human",
+        "estimate_note"
+      ],
+      "title": "FsTopoSectionView",
       "type": "object"
     },
     "GarminLine": {
@@ -2792,6 +2994,36 @@ A unit and files.
       "title": "RepoLine",
       "type": "object"
     },
+    "SheetRegionLine": {
+      "additionalProperties": false,
+      "description": "The FSTopo quads one region needs (D-068, amended 2026-10-01).",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "quads": {
+          "title": "Quads",
+          "type": "integer"
+        },
+        "download": {
+          "title": "Download",
+          "type": "integer"
+        },
+        "download_human": {
+          "title": "Download Human",
+          "type": "string"
+        }
+      },
+      "required": [
+        "region",
+        "quads",
+        "download",
+        "download_human"
+      ],
+      "title": "SheetRegionLine",
+      "type": "object"
+    },
     "StepView": {
       "additionalProperties": false,
       "description": "One step, exactly as the real run performs it.",
@@ -3071,6 +3303,30 @@ A unit and files.
               "type": "null"
             }
           ]
+        },
+        "contours_from": {
+          "title": "Contours From",
+          "type": "string"
+        },
+        "bare_earth": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BareEarthSectionView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fstopo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FsTopoSectionView"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -3095,7 +3351,10 @@ A unit and files.
         "disk_total",
         "disk_total_human",
         "estimate_note",
-        "topo"
+        "topo",
+        "contours_from",
+        "bare_earth",
+        "fstopo"
       ],
       "title": "TerrainSectionView",
       "type": "object"

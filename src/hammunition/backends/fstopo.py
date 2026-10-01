@@ -94,6 +94,19 @@ class FsTopoResolution:
 
 
 @dataclass(frozen=True)
+class FsTopoDisclosure:
+    """What the plan says about the FSTopo sheets (D-068, amended 2026-10-01)."""
+
+    resolution: FsTopoResolution
+    licence: str
+    licence_url: str
+    convert: tuple[int, ...] = ()
+    """The sheet size of each sheet ``ustopo-mosaic`` converts this run."""
+    building: bool = False
+    """Whether the FSTopo half of ``ustopo-mosaic`` has anything to do."""
+
+
+@dataclass(frozen=True)
 class FsTopoBackend:
     """Turns a ``topo-quads`` block of provider ``usfs-fstopo`` into steps."""
 

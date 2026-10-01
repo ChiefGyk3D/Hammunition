@@ -107,7 +107,9 @@ TERRAIN_NOTE = (
     f"files at {BROUTER_FACTOR}x of every download together ({MEASURED}), with "
     f"{BROUTER_SCRATCH_FACTOR}x of scratch allowed, not measured; and US Topo quads "
     f"warped at {WARP_FACTOR}x each download with as much again of scratch, measured "
-    f"on one quad"
+    f"on one quad; FSTopo sheets converted at {FSTOPO_FACTOR}x each sheet, "
+    f"{FSTOPO_MEASURED}; and 3DEP contours at about {human_size(CONTOUR_BYTES_3DEP)} a "
+    f"tile with up to {human_size(CONTOUR_SCRATCH_BYTES_3DEP)} of scratch"
 )
 
 
@@ -181,6 +183,14 @@ class TerrainWork:
     """Bytes of US Topo sheets downloaded (D-068)."""
     warp: tuple[int, ...] = ()
     """The download size of each sheet ``ustopo-mosaic`` warps."""
+    bare_earth: int = 0
+    """Bytes of USGS 3DEP tiles downloaded (D-068, amended 2026-10-01)."""
+    sheets: int = 0
+    """Bytes of FSTopo sheets downloaded."""
+    convert: tuple[int, ...] = ()
+    """The sheet size of each FSTopo sheet ``ustopo-mosaic`` converts."""
+    elevation: str = "copernicus-glo30"
+    """The provider the contours are drawn from, for their estimates."""
 
     def any(self) -> bool:
         return bool(
@@ -191,6 +201,9 @@ class TerrainWork:
             or self.brouter
             or self.quads
             or self.warp
+            or self.bare_earth
+            or self.sheets
+            or self.convert
         )
 
 
@@ -217,8 +230,10 @@ def terrain_needs(
     garmin_out = sum(garmin_estimate(size) for size in work.garmin)
     routino_out = routino_estimate(work.routino)
     brouter_out = brouter_estimate(work.brouter)
-    contours = work.contour_tiles * CONTOUR_BYTES
+    contours = work.contour_tiles * contour_bytes(work.elevation)
     warped = round(sum(work.warp) * WARP_FACTOR)
+    converted = round(sum(work.convert) * FSTOPO_FACTOR)
+    downloads = work.tiles + work.quads + work.bare_earth + work.sheets
     brouter_scratch = (
         BROUTER_SCRATCH_FACTOR * work.brouter
         + (work.brouter if work.brouter_regions > 1 else 0)
@@ -233,15 +248,24 @@ def terrain_needs(
     )
     needs: dict[Path, int] = {}
     for where, amount in (
-        (cache, work.tiles + work.quads),
+        (cache, downloads),
         (garmin_staging, GARMIN_SCRATCH_FACTOR * max(work.garmin, default=0)),
         (routino_staging, ROUTINO_SCRATCH_FACTOR * work.routino),
-        (contour_staging, (CONTOUR_SCRATCH_BYTES if work.contour_tiles else 0) + contours),
+        (
+            contour_staging,
+            (contour_scratch(work.elevation) if work.contour_tiles else 0) + contours,
+        ),
         (brouter_staging or routino_staging, brouter_scratch),
-        (mosaic_staging or contour_staging, WARP_SCRATCH_FACTOR * max(work.warp, default=0)),
+        (
+            mosaic_staging or contour_staging,
+            max(
+                WARP_SCRATCH_FACTOR * max(work.warp, default=0),
+                FSTOPO_SCRATCH_FACTOR * max(work.convert, default=0),
+            ),
+        ),
         (
             prefix,
-            work.tiles + garmin_out + routino_out + contours + brouter_out + work.quads + warped,
+            downloads + garmin_out + routino_out + contours + brouter_out + warped + converted,
         ),
     ):
         needs[where] = needs.get(where, 0) + round(amount)

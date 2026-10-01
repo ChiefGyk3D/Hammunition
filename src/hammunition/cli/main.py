@@ -114,6 +114,8 @@ from hammunition.execute import (
     user_groups,
 )
 from hammunition.fetch import Fetcher
+from hammunition.fstopo import FstopoError, GatewayProbe
+from hammunition.fstopo import load_index as load_fstopo_index
 from hammunition.geofabrik import (
     BASE,
     GeofabrikError,
@@ -173,10 +175,21 @@ from hammunition.station import (
     save_station,
 )
 from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
-from hammunition.terrain_plan import brouter_pins, build_terrain_run, resolve_station_terrain
+from hammunition.terrain_plan import (
+    brouter_pins,
+    build_terrain_run,
+    contour_source,
+    resolve_station_3dep,
+    resolve_station_terrain,
+)
 from hammunition.tiles_plan import build_tiles_run
+from hammunition.topo_plan import (
+    FSTOPO_INDEX,
+    MemoProbe,
+    resolve_station_fstopo,
+    resolve_station_topo,
+)
 from hammunition.topo_plan import INDEX as USTOPO_INDEX
-from hammunition.topo_plan import MemoProbe, resolve_station_topo
 from hammunition.update import (
     UNKNOWN,
     books_state,
@@ -2013,12 +2026,24 @@ def installed_quad_counts(
     units = [p for p in plan.packages if isinstance(p.block.install, TopoQuadsInstall)]
     if not units:
         return {}
-    try:
-        listed = {q.name for q in load_ustopo_index(catalog_root / USTOPO_INDEX).quads}
-    except UstopoError:
-        listed = None
+
+    def ustopo() -> set[str] | None:
+        try:
+            return {q.name for q in load_ustopo_index(catalog_root / USTOPO_INDEX).quads}
+        except UstopoError:
+            return None
+
+    def fstopo() -> set[str] | None:
+        try:
+            return {q.name for q in load_fstopo_index(catalog_root / FSTOPO_INDEX).quads}
+        except FstopoError:
+            return None
+
     counts: dict[str, tuple[int, int]] = {}
     for planned in units:
+        block = planned.block.install
+        assert isinstance(block, TopoQuadsInstall)
+        listed = fstopo() if block.provider == "usfs-fstopo" else ustopo()
         names = [p.stem for p in (data_root(prefix) / planned.name).glob("*.tif")]
         stale = 0 if listed is None else sum(1 for n in names if n not in listed)
         counts[planned.name] = (len(names), stale)
@@ -2297,6 +2322,38 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("US Topo", str(exc))
         return EXIT_UNPLANNABLE
+    # D-068, amended 2026-10-01: USGS 3DEP when the station chose it (the same
+    # bucket as US Topo, so the same probe), and the Forest Service's FSTopo
+    # sheets, each located through the raster gateway's one redirect.
+    try:
+        bare_resolution, bare_notes = resolve_station_3dep(
+            plan,
+            resolution,
+            catalog_root,
+            prefix=source.prefix,
+            source=station.elevation,
+            region_probe=outlines,
+            tile_probe=ustopo_probe(),
+        )
+    except CopernicusError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        refused("3DEP", str(exc))
+        return EXIT_UNPLANNABLE
+    try:
+        fstopo_resolution, fstopo_notes = resolve_station_fstopo(
+            plan,
+            resolution,
+            catalog_root,
+            prefix=source.prefix,
+            region_probe=outlines,
+            gateway=GatewayProbe(),
+        )
+    except FstopoError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        refused("FSTopo", str(exc))
+        return EXIT_UNPLANNABLE
     # D-066: the chosen Kiwix books, resolved against the book list and its
     # pins, and every one not yet installed HEAD-checked, before the plan
     # prints: each book's size and licence are the disclosure, and a pin
@@ -2321,6 +2378,8 @@ def cmd_install(args: argparse.Namespace) -> int:
     )
     region_notes = list(resolution.notes)
     region_notes.extend(topo_notes)
+    region_notes.extend(bare_notes)
+    region_notes.extend(fstopo_notes)
     # D-069: CoMaps' maps for the same regions, from the carried region table,
     # and every map not yet installed HEAD-checked for its pinned size before
     # the plan prints: each map's size, licence and check are the disclosure,
@@ -2382,6 +2441,10 @@ def cmd_install(args: argparse.Namespace) -> int:
         resolution=dem_resolution,
         pins=brouter_pins(plan),
         topo=topo_resolution,
+        bare_earth=bare_resolution,
+        dem_source=station.elevation,
+        contour_source=contour_source(plan),
+        fstopo=fstopo_resolution,
     )
     # D-067: the phone converters, from the same regions, as the operator.
     phone = build_phone_run(

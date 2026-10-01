@@ -37,8 +37,11 @@ from .backends.base import CommandRunner
 from .backends.brouter import JAR_GLOB, BRouterConverter, InputPins
 from .backends.brouter import Source as BRouterSource
 from .backends.dem import (
+    COPERNICUS,
+    THREEDEP,
     TIF,
     TILES,
+    BareEarthDisclosure,
     DemResolution,
     DemTilesBackend,
     RegionTiles,
@@ -46,6 +49,7 @@ from .backends.dem import (
     read_record,
 )
 from .backends.derived import Converter
+from .backends.fstopo import FsTopoBackend, FsTopoDisclosure, FsTopoResolution
 from .backends.garmin import MKGMAP_HEAP, SPLITTER_HEAP, GarminConverter
 from .backends.gdal_dem import GdalDemConverter
 from .backends.regions import MapLedger, MapResolution, data_root
@@ -329,6 +333,15 @@ def resolve_station_terrain(
     )
 
 
+def contour_source(plan: InstallPlan) -> str | None:
+    """The ``dem-tiles`` unit the planned ``gdal-dem`` block names as its
+    ``alternative`` (D-068, amended 2026-10-01), or None."""
+    gdal = _planned(plan, DerivedDataInstall, "gdal-dem")
+    if gdal is None or not isinstance(gdal.block.install, DerivedDataInstall):
+        return None
+    return gdal.block.install.alternative
+
+
 def brouter_pins(plan: InstallPlan) -> InputPins:
     """The jar and the filters' version the plan installs for the BRouter
     build (D-063), from the planned manifests: a BRouter bumped in this run
@@ -360,6 +373,8 @@ class TerrainRun:
     topo: TopoQuadsBackend
     mosaic: UstopoMosaicConverter
     brouter: BRouterConverter
+    dem_source: str = "copernicus"
+    """The station's ``dem_source`` this run (D-068, amended 2026-10-01)."""
 
     @property
     def converters(self) -> dict[str, Converter]:
@@ -382,13 +397,60 @@ class TerrainRun:
         if mosaic is not None and isinstance(mosaic.block.install, DerivedDataInstall):
             # Anything to do: a warp, a removal, or the VRT rebuilt. The steps
             # are built, not run; building them only reads the disk.
-            building = bool(self.mosaic.steps(mosaic.manifest, mosaic.block.install))
+            building = bool(self.mosaic._ustopo_steps(mosaic.manifest, mosaic.block.install))
         return TopoDisclosure(
             resolution=self.topo.resolution,
             licence=block.licence if isinstance(block, TopoQuadsInstall) else "",
             licence_url=block.licence_url if isinstance(block, TopoQuadsInstall) else "",
             warp=tuple(self.mosaic.pending(mosaic.manifest)) if mosaic is not None else (),
             building=building,
+        )
+
+    def _fstopo(self, plan: InstallPlan) -> FsTopoDisclosure | None:
+        """The FSTopo part of the disclosure; None with neither the unit nor
+        a mosaic naming it."""
+        sheets = next(
+            (
+                p
+                for p in plan.packages
+                if isinstance(p.block.install, TopoQuadsInstall)
+                and p.block.install.provider == "usfs-fstopo"
+            ),
+            None,
+        )
+        mosaic = _planned(plan, DerivedDataInstall, "ustopo-mosaic")
+        reads = (
+            mosaic is not None
+            and isinstance(mosaic.block.install, DerivedDataInstall)
+            and mosaic.block.install.fstopo is not None
+        )
+        if sheets is None and not reads:
+            return None
+        block = sheets.block.install if sheets is not None else None
+        resolution = self.topo.fstopo.resolution if self.topo.fstopo else FsTopoResolution()
+        convert: tuple[int, ...] = ()
+        building = False
+        if mosaic is not None and isinstance(mosaic.block.install, DerivedDataInstall) and reads:
+            convert = tuple(self.mosaic.fstopo_sizes(mosaic.manifest, mosaic.block.install))
+            building = bool(self.mosaic._fstopo_steps(mosaic.manifest, mosaic.block.install))
+        return FsTopoDisclosure(
+            resolution=resolution,
+            licence=block.licence if isinstance(block, TopoQuadsInstall) else "",
+            licence_url=block.licence_url if isinstance(block, TopoQuadsInstall) else "",
+            convert=convert,
+            building=building,
+        )
+
+    def _bare_earth(self, plan: InstallPlan) -> BareEarthDisclosure | None:
+        unit = _planned_dem(plan, THREEDEP)
+        if unit is None or not isinstance(unit.block.install, DemTilesInstall):
+            return None
+        bare = self.dem.bare_earth
+        return BareEarthDisclosure(
+            resolution=bare.resolution if bare is not None else DemResolution(),
+            licence=unit.block.install.licence,
+            licence_url=unit.block.install.licence_url,
+            chosen=self.dem_source == "3dep",
         )
 
     def disclosure(self, plan: InstallPlan) -> TerrainDisclosure | None:
@@ -398,8 +460,10 @@ class TerrainRun:
         routino = _planned(plan, DerivedDataInstall, "routino-planetsplitter")
         gdal = _planned(plan, DerivedDataInstall, "gdal-dem")
         topo = self._topo(plan)
+        fstopo = self._fstopo(plan)
+        bare_earth = self._bare_earth(plan)
         brouter = _planned(plan, DerivedDataInstall, "brouter-mapcreator")
-        if not (dem or garmin or routino or gdal or brouter or topo):
+        if not (dem or garmin or routino or gdal or brouter or topo or fstopo or bare_earth):
             return None
         sources = self._routino_sources(routino)
         rebuilt, tiles, squares = self._brouter_work(brouter)
@@ -423,6 +487,9 @@ class TerrainRun:
             brouter_tiles=tiles,
             brouter_squares=squares,
             topo=topo,
+            bare_earth=bare_earth,
+            fstopo=fstopo,
+            elevation=self.gdal.provider,
         )
 
     def _brouter_work(self, brouter: PlannedPackage | None) -> tuple[list[BRouterSource], int, int]:
@@ -456,6 +523,16 @@ class TerrainRun:
             brouter_squares=disclosed.brouter_squares,
             quads=sum(q.size for q in disclosed.topo.resolution.fetch) if disclosed.topo else 0,
             warp=tuple(q.size for q in disclosed.topo.warp) if disclosed.topo else (),
+            bare_earth=(
+                sum(t.size for t in disclosed.bare_earth.resolution.fetch)
+                if disclosed.bare_earth
+                else 0
+            ),
+            sheets=(
+                sum(f.size for f in disclosed.fstopo.resolution.fetch) if disclosed.fstopo else 0
+            ),
+            convert=disclosed.fstopo.convert if disclosed.fstopo else (),
+            elevation=disclosed.elevation,
         )
         return terrain_needs(
             work,
@@ -482,12 +559,24 @@ def build_terrain_run(
     resolution: DemResolution,
     pins: InputPins | None = None,
     topo: TopoResolution | None = None,
+    bare_earth: DemResolution | None = None,
+    dem_source: str = "copernicus",
+    contour_source: str | None = None,
+    fstopo: FsTopoResolution | None = None,
 ) -> TerrainRun:
     """Every piece-2 backend for one run. Each converter stages in its own
     directory under the operator's build tree and runs as the operator."""
     ledger = TerrainLedger()
+    chosen = dem_source == "3dep"
+    # D-068 (amended 2026-10-01): with 3DEP chosen, QMapShack's contours and
+    # elevation are drawn from it -- when the gdal-dem block names its unit
+    # (*contour_source*); Copernicus stays installed either way, for BRouter
+    # and for regions 3DEP does not cover.
+    three = bare_earth or DemResolution()
+    drawn_from_3dep = chosen and contour_source is not None
     return TerrainRun(
         ledger=ledger,
+        dem_source=dem_source,
         dem=DemTilesBackend(
             fetcher=fetcher,
             prefix=prefix,
@@ -495,6 +584,16 @@ def build_terrain_run(
             keep=keep,
             ledger=ledger,
             runner=runner,
+            provider=COPERNICUS,
+            bare_earth=DemTilesBackend(
+                fetcher=fetcher,
+                prefix=prefix,
+                resolution=three,
+                keep=keep if chosen else frozenset(),
+                ledger=ledger,
+                runner=runner,
+                provider=THREEDEP,
+            ),
         ),
         garmin=GarminConverter(
             prefix=prefix,
@@ -516,10 +615,12 @@ def build_terrain_run(
         ),
         gdal=GdalDemConverter(
             prefix=prefix,
-            resolution=resolution,
+            resolution=three if drawn_from_3dep else resolution,
             staging=Staging(builds / "dem-qmapshack", owner=owner),
             ledger=ledger,
             runner=runner,
+            source_unit=contour_source if drawn_from_3dep else None,
+            provider=THREEDEP if drawn_from_3dep else COPERNICUS,
         ),
         brouter=BRouterConverter(
             prefix=prefix,
@@ -541,6 +642,14 @@ def build_terrain_run(
             keep=keep,
             ledger=ledger,
             runner=runner,
+            fstopo=FsTopoBackend(
+                fetcher=fetcher,
+                prefix=prefix,
+                resolution=fstopo or FsTopoResolution(),
+                keep=keep,
+                ledger=ledger,
+                runner=runner,
+            ),
         ),
         mosaic=UstopoMosaicConverter(
             prefix=prefix,
@@ -548,5 +657,6 @@ def build_terrain_run(
             staging=Staging(builds / "ustopo-qmapshack", owner=owner),
             ledger=ledger,
             runner=runner,
+            fstopo=fstopo or FsTopoResolution(),
         ),
     )

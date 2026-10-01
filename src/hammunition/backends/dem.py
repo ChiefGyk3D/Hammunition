@@ -35,6 +35,7 @@ from ..geofabrik import RegionFile
 from ..manifest.schema import DemTilesInstall, PackageManifest, RemoteArtifact
 from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
+from .fstopo import FsTopoDisclosure
 from .regions import MIB, data_root, prefix_writer, removal_steps
 from .terrain import TerrainLedger, tile_key
 from .topo import TopoDisclosure
@@ -143,6 +144,18 @@ class DemResolution:
 
 
 @dataclass(frozen=True)
+class BareEarthDisclosure:
+    """What the plan says about USGS 3DEP (D-068, amended 2026-10-01)."""
+
+    resolution: DemResolution
+    licence: str
+    licence_url: str
+    chosen: bool
+    """Whether the station's ``dem_source`` is ``3dep``; when it is not,
+    nothing is fetched and any installed tile is removed."""
+
+
+@dataclass(frozen=True)
 class TerrainDisclosure:
     """What the plan says about piece 2, split the way it happens (D-061)."""
 
@@ -172,6 +185,13 @@ class TerrainDisclosure:
     topo: TopoDisclosure | None = None
     """The US Topo sheets and their mosaic (D-068); None when neither unit
     is planned."""
+    bare_earth: BareEarthDisclosure | None = None
+    """USGS 3DEP (D-068, amended 2026-10-01); None when no 3DEP unit is planned."""
+    fstopo: FsTopoDisclosure | None = None
+    """The FSTopo sheets and their map (D-068, amended 2026-10-01); None
+    when neither the unit nor the mosaic's ``fstopo`` input is planned."""
+    elevation: str = COPERNICUS
+    """The provider QMapShack's contours are drawn from this run."""
 
 
 @dataclass(frozen=True)
