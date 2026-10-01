@@ -11,6 +11,19 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Three re-rulings from the gap analysis** (Q-022 #5, report section
+  A8). `ARDOPGUI` is superseded by `ardopcf`'s own web GUI (`-G 8514`),
+  which the catalog's pin already serves; the packet profile and the
+  Winlink guide say so, and that both of ardopcf's ports listen on every
+  interface. **Morse Runner is carried natively** as `morse-runner`:
+  the Community Edition (v1.86) does not build outside Windows, and the
+  Lazarus port of 1.68 built, drew its window and made sound on Debian
+  13, which is the second clause of the maintainer's 2026-08-25
+  conditional. It installs by name, not on Kali, x86-64 only. `chattervox`
+  is retired: no upstream since 2019, and under D-037's `--ignore-scripts`
+  its serial layer cannot load (D-048 amended). Nothing awaits the
+  maintainer in `dispositions.md` any more.
+
 - **Kismet in `rf-security`** (Q-022 #4; **D-040**, amended). `kismet` is
   apt from the archive on Kali and Parrot, and from the Kismet project's own
   signed release repository on Debian 13 (`release/trixie`), Ubuntu 24.04

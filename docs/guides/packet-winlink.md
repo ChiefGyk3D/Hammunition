@@ -186,7 +186,10 @@ ardopcf -G 8514 8515 plughw:CARD=CODEC,DEV=0 plughw:CARD=CODEC,DEV=0
 `8515` is the port Pat expects (its default `ardop.addr`), the two device
 names are capture and playback, and `-G 8514` serves ardopcf's own web
 interface at <http://localhost:8514>, where you can watch levels and
-traffic. For PTT, either let Pat key the radio through hamlib (set
+traffic. That page is the ARDOP GUI: 73Linux installs a separate ARDOPGUI
+program for it, and the catalog does not, because ardopcf ships the
+interface itself. Both ports listen on every interface, so on a shared
+network a host firewall decides who else can open it. For PTT, either let Pat key the radio through hamlib (set
 `"ptt_ctrl": true` and a `rig` in Pat's `ardop` section, pointing at a
 `hamlib_rigs` entry for `localhost:4532`), or give ardopcf `-p` with the
 radio's serial port for RTS keying. Not both: ardopcf's own usage notes warn

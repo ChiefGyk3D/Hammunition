@@ -107,7 +107,6 @@ EXPLAINED: dict[str, str] = {
     "libhamlib4": "SUPERSEDE #8-12 — a dependency, not a unit; apt `depends` carries it and `libhamlib-utils` is the operator-facing manifest (Q-015 decision 3, 2026-08-30)",
     "dream": "REVIVE blocked: libqt5webkit5-dev has no candidate on Debian 13 (measured)",
     "mvoice": "REVIVE blocked: libopendht-dev has no candidate on Debian 13 (measured)",
-    "ARDOPGUI": "post-1.0 — GUI for ARDOP; ruled CARRY (post-1.0) in dispositions.md, so 1.0 ships `ardopcf` headless",
     "VARA": "post-1.0 and optional since 2026-09-30 (Q-022 #6) — closed software needing a configured Wine prefix; `mercury` speaks its TCP interface and pat drives it unchanged, and what VARA still adds is VARA-only gateways",
     "VARIM": "post-1.0 — VARA's messaging client, same constraint",
     "HAMRS": "post-1.0 — AppImage",

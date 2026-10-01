@@ -49,9 +49,9 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 **294**, up from 71 |
+| Package manifests | 🟡 **295**, up from 71 |
 | …Debian Blend coverage | ✅ **152 of 152** — SCOPE.md's first 1.0 stage, complete |
-| …parity coverage | 🟡 **109 of the 124 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
+| …parity coverage | 🟡 **111 of the 125 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
 | Hardware catalog | 🟡 24 devices, 5 classes, 297 confirmed USB identifiers |
 | …of which **supported** / **run on hardware here** | **18** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
 | Profiles | ✅ **all 12 of the 1.0 set**, plus 7 post-1.0 — every package installable, asserted by test; a member a target's archive lacks is deferred by name, never the whole profile (D-039) |
@@ -65,7 +65,7 @@ exactly where things stand:
 | Builds from a pinned git revision, with the pin verified after checkout | ✅ working |
 | Prebuilt binaries: `.deb`, tarball, zip, executable | ✅ working — `.deb` through apt, never `dpkg -i` |
 | Per-user venv installs, hash-pinned end to end (`--require-hashes`) | ✅ working — not1mm and NanoVNASaver run from them |
-| Launcher + desktop-entry generation from manifests (D-036) | ✅ working — 30 units carry launchers; terminal launchers hold their window; a wrapper never shadows its own tool (found and fixed 2026-09-12) |
+| Launcher + desktop-entry generation from manifests (D-036) | ✅ working — 33 units carry launchers; terminal launchers hold their window; a wrapper never shadows its own tool (found and fixed 2026-09-12) |
 | Idempotent re-runs for builds (D-051) | ✅ a source, git or prebuilt unit already installed at its pin is skipped; measured on the field laptop: 143 of 165 units plan nothing on a re-run |
 | AppImage backend | ❌ post-1.0 (SCOPE.md) — refused by name |
 | pipx / CPAN backends | ⚪ re-measured to **zero users** and dropped from 1.0 (D-014 amendment) |

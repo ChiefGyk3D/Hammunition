@@ -5,7 +5,7 @@
 > catalog and a fetched Parrot archive probe; the judgement is the
 > generator's `CURATION` table, every override of which cites a URL.
 
-**Generated:** 2026-09-07
+**Generated:** 2026-09-30
 
 ## What this answers
 
@@ -19,8 +19,8 @@ does. One class per unit; a URL for every class but `COVERED`.
 ## The archive that was measured
 
 - Archive: `https://deb.parrot.sh/parrot`, suites `echo echo-updates echo-security echo-backports`,
-  components `main contrib non-free non-free-firmware`, `amd64`; fetched 2026-09-07.
-- `Release`: Origin=Parrot Suite=parrot Codename=echo Date=Thu, 03 Sep 2026 14:23:55 UTC.
+  components `main contrib non-free non-free-firmware`, `amd64`; fetched 2026-09-30.
+- `Release`: Origin=Parrot Suite=parrot Codename=echo Date=Wed, 30 Sep 2026 21:45:15 UTC.
 - Blend: `debian-hamradio` **0.10** — 12 task metapackages
   (`hamradio-antenna`, `hamradio-datamodes`, `hamradio-digitalvoice`, `hamradio-logging`, `hamradio-morse`, `hamradio-nonamateur`, `hamradio-packetmodes`, `hamradio-rigcontrol`, `hamradio-satellite`, `hamradio-sdr`, `hamradio-tools`, `hamradio-training`).
 - Parrot 7 `echo` is Debian 13 *trixie* stable plus backports (**D-038**), not
@@ -54,7 +54,7 @@ or `—` where none exists.
 
 | # | Unit | AHRL | Parrot | Task | Class | Carried as | Licence | Source / note |
 |---:|---|---|---|---|---|---|---|---|
-| 1 | Firefox (browser) | — | `140.14.0esr` (echo) as `firefox-esr` | — | `DEAD` | — | — | <https://deb.parrot.sh/parrot/pool/main/f/firefox-esr/> — drop — a browser is the operating system's, not a ham unit; Parrot ships `firefox-esr` |
+| 1 | Firefox (browser) | — | `153.4.0esr` (echo) as `firefox-esr` | — | `DEAD` | — | — | <https://deb.parrot.sh/parrot/pool/main/f/firefox-esr/> — drop — a browser is the operating system's, not a ham unit; Parrot ships `firefox-esr` |
 | 2 | libhamlib4 | — | `4.6.2` (echo) as `libhamlib4t64` | `rigcontrol` | `COVERED` | `libhamlib-utils` (apt) | — | <https://deb.parrot.sh/parrot/pool/main/h/hamlib/> — the runtime library every rig-control package pulls in; trixie renamed it `libhamlib4t64` (Provides `libhamlib4`) and the catalog carries `libhamlib-utils` |
 | 3 | pipx | — | `1.7.1` (echo) | — | `DELTA_APT` | `pipx` (apt) | — | <https://deb.parrot.sh/parrot/pool/main/p/python-pipx/> |
 | 4 | Source build toolchain | — | `12.12` (echo) as `build-essential` | — | `DEAD` | — | — | <https://deb.parrot.sh/parrot/pool/main/b/build-essential/> — drop — the build toolchain is each manifest's `build_depends`, resolved per unit (D-016) |
@@ -132,7 +132,7 @@ or `—` where none exists.
 | 76 | GridTracker2 | 2.260421.1 | — | — | `DELTA_UPSTREAM` | `gridtracker2` (binary:deb) | BSD-3-Clause | <https://gitlab.com/gridtracker.org/gridtracker2> — vendor `.deb`; BSD-3-Clause per the GitLab project, not proprietary as the survey assumed |
 | 77 | FoxTelem | 1.12z3 | — | — | `DELTA_UPSTREAM` | — | GPL-3.0 | <https://github.com/ac2cz/FoxTelem> — post-1.0 (Q-015); AMSAT publishes a Java tarball, no manifest yet |
 | 78 | YAAC | — | — | — | `DELTA_UPSTREAM` | `yaac` (binary:zip) | LGPL-3.0-or-later | <https://www.ka2ddo.org/ka2ddo/YAAC.html> — per `docs/license.html` inside `YAACMain.jar`; the bundled OpenMap carries its own licence |
-| 79 | Morse Runner | 1.85.3 | — | — | `DELTA_UPSTREAM` | — | MPL-2.0 | <https://github.com/w7sst/MorseRunner> — reserved to the maintainer (dispositions M): a Windows binary under Wine; post-1.0 with the Wine prefix |
+| 79 | Morse Runner | 1.85.3 | — | — | `DELTA_UPSTREAM` | `morse-runner` (git) | MPL-2.0 | <https://github.com/zmetzing/MorseRunner> — AHRL runs a Windows binary under Wine; the catalog builds the native Lazarus port of 1.68 (dispositions C, 2026-09-30) — the Community Edition at w7sst/MorseRunner does not build natively |
 | 80 | Wordsworth | 0.3 | — | — | `DELTA_UPSTREAM` | `wordsworth` (binary:tarball) | GPL-3.0 | <https://sourceforge.net/projects/kb1oiq-k1ig-wordsworth/> |
 | 81 | Virtual Radar Server | — | `3.14.1630+git20240609.adc080d` (echo) as `readsb` | — | `DEAD` | `readsb` (apt) | — | <https://www.virtualradarserver.co.uk/> — replacement: `readsb` + `tar1090` (dispositions S) — a maintained Mono application whose Linux build AHRL patches at install time; the catalog supersedes it rather than carry the patch |
 | 82 | Backdrops | — | — | — | `DEAD` | — | — | <https://sourceforge.net/projects/kb1oiq-andysham/> — drop — AHRL's wallpapers, not software |
@@ -180,11 +180,11 @@ dead ham software should subtract them. The 5 that remain
 (dump1090, aa-analyzer, ESPHamClock, Open Wouxun (owx), Virtual Radar Server) are superseded in the
 catalog, and only ESPHamClock's upstream is actually gone.
 
-7 units are `DELTA_*` with no manifest
-(Fritzing, KiCad, ngspice, GSpiceUI, FoxTelem, Morse Runner, Country files (cty.dat)). The electronics
+6 units are `DELTA_*` with no manifest
+(Fritzing, KiCad, ngspice, GSpiceUI, FoxTelem, Country files (cty.dat)). The electronics
 tools and GSpiceUI are reserved to the maintainer (dispositions M),
-FoxTelem and the country files are post-1.0 by Q-015, and Morse Runner
-is a Windows binary. They are classified by what AHRL does with them,
+and FoxTelem and the country files are post-1.0 by Q-015. They are
+classified by what AHRL does with them,
 not by what the catalog does.
 
 2 units the archive carries are built or fetched by the

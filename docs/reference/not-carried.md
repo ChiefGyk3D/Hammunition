@@ -34,6 +34,7 @@ changed, it never worked, or it was never radio.
 | `backdrops` | AHRL | Out of scope — 20 MB of desktop wallpapers. Hammunition is not a desktop theme. |
 | `BATT` | 73Linux | KM4ACK's own script, unlicensed repository (D-001). |
 | `browser` | AHRL | Out of scope — we do not install web browsers; every target ships one. AHRL's browser logic was also its buggiest: `$BROWSER` is never assigned, and the snapd branch adds an unpinned PPA. Hammunition depends on `x-www-browser` existing and does not manage it. |
+| `chattervox` | EmComm Tools OS | No upstream — retired 2026-09-30 (Q-022 #5). The default branch's head is 2019-03-17 and every release is a prerelease; a 2024 report that it no longer builds is unanswered. It still installs from npm with `--ignore-scripts`, but its serial layer then cannot load ("Could not locate the bindings file"), and that layer is how it reaches a KISS TNC. For keyboard chat over AX.25 use `paracon` (AGWPE to Direwolf), `linpac` or `qttermtcp`. Signed messages, chattervox's own feature, are carried by nothing yet. |
 | `CONKY` | 73Linux | Out of scope — a system monitor, not radio. |
 | `DIPOLE` | 73Linux | KM4ACK's own dipole calculator, unlicensed repository (D-001). Same position as GRIDCALC. |
 | `EES` | 73Linux | KM4ACK's own script (an emergency email server) in an unlicensed repository — we cannot ship or derive from it (D-001). The function is genuinely useful; a licensed equivalent is the path if one is wanted. |
@@ -58,7 +59,7 @@ changed, it never worked, or it was never radio.
 | `tkcvs` | AHRL | Out of scope, and the world moved — a Tk GUI for CVS and Subversion. CVS is dead, and the unit had no menu entry in AHRL and no connection to radio. |
 | `tt3_gpl` | AHRL | Never worked — the same empty-stub shape and the same dead `libserial-0.1` dependency. Byonics TinyTrak3 configuration GUI. |
 | `VNC` | 73Linux | Out of scope — RealVNC viewer, a proprietary general-purpose remote desktop. |
-| `wine` | AHRL | Ruled out of the 1.0 core 2026-08-30 (Q-015 decision 5): its only AHRL consumer, Morse Runner, is reserved and no 1.0 profile needs Windows-compatibility machinery. VARA brings a *configured Wine prefix* back post-1.0 as its own prerequisite — a dependency of that unit, never a catalog unit of its own. |
+| `wine` | AHRL | Ruled out of the 1.0 core 2026-08-30 (Q-015 decision 5): its only AHRL consumer was Morse Runner, which is carried natively since 2026-09-30 (`morse-runner`, the Lazarus port), and no 1.0 profile needs Windows-compatibility machinery. VARA brings a *configured Wine prefix* back post-1.0 as its own prerequisite — a dependency of that unit, never a catalog unit of its own. |
 | `xosview` | AHRL | Out of scope — an X11 system-load monitor from the 1990s. No menu entry, not radio. |
 | `xwxapt` | AHRL | World changed — same NOAA APT shutdown, same pointer: use **SatDump**. Note `xwefax` (HF radiofax) is *not* in this category: radiofax is still transmitted, and that unit is carried. |
 
@@ -74,6 +75,7 @@ reviewable at the manifest rather than only here.
 | `ahrl_docs` | the Hammunition engine | The generated package reference replaces AHRL's PACKAGES/VERSIONS files (SUPERSEDE #8-12). |
 | `ahrl_menus` | the Hammunition engine | Profiles and desktop integration replace the xdg menu installer (SUPERSEDE #8-12). |
 | `ahrl_version` | the Hammunition engine | `hammunition --version` and `hammunition status` replace the generated two-line version script (SUPERSEDE #8-12). The flag was missing until the first VM campaign noticed; added 2026-08-29. |
+| `ARDOPGUI` | `ardopcf -G 8514`, then <http://localhost:8514> | ardopcf has served its own web GUI since 1.0.4.1.2 — spectrum, waterfall, constellation, levels, PTT and a drive-level slider — and upstream's changelog introduces it as doing what John Wiseman's ARDOP GUI did. ARDOPGUI itself is an unversioned binary from a `Beta` directory, 32-bit i386 Qt5 or armhf, last modified 2022-08-02, with no source to build for amd64 or arm64. Superseded 2026-09-30 (Q-022 #5). |
 | `dump1090` | `readsb` | readsb is the maintained ADS-B decoder descended from dump1090; AHRL built an unversioned `dump1090-master` snapshot. |
 | `ESPHamClock` | `hamclock-next` / `openhamclock` | HamClock's author became a Silent Key on 2026-01-29 and the hamclock.com data feed sunset in June 2026. The community successors carry on; the default backend is `ohb.works` (Q-006). |
 | `gpsman` | `gpsbabel` + `gpsd` | GPSMan is a Tcl relic; gpsbabel converts the data and gpsd serves the device. The replacement declares `supersedes: [gpsman]` itself. |
@@ -109,7 +111,6 @@ resolution is not to carry them.
 | Unit | From | Resolution |
 |---|---|---|
 | `arduino` | AHRL | Resolved 2026-08-25: not carried. The Debian `arduino` package is Arduino IDE 1.x, deprecated upstream, and shipping a deprecated IDE is worse than shipping nothing. Install IDE 2.x from arduino.cc. |
-| `morse_runner` | AHRL | Resolved 2026-08-25, conditional: a Windows binary under Wine, x86_64-only — ARM users already got nothing. If Morse Runner CE or a native alternative builds, that is carried and Wine leaves the 1.0 core; otherwise it defers post-1.0 alongside VARA. Either way no Wine prefix ships in 1.0 for one CW trainer. Native CW trainers carried today: `qrq`, `xcwcp`, `ebook2cwgui`, `wordsworth`. |
 
 ---
 

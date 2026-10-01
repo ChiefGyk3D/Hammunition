@@ -10,7 +10,8 @@ its dispositions are decided by ETC sub-project 4 and are not in the index yet.
 **Scope:** 105 AHRL `INSTALL_*` toggles (95 executing + 9 disabled + 1 dead
 code), 28 73Linux delta units, 9 Skywave delta units, and the 8 genuinely-new
 of DragonOS's 24 Tier-1 units (the other 16 are CARRY cross-references to AHRL
-or the Blend). **161 units, one awaiting the maintainer** (`chattervox`, D-048).
+or the Blend). **161 units, none awaiting the maintainer** — the last,
+`chattervox`, was retired on 2026-09-30 (Q-022 #5).
 
 **Method:** dispositions follow the policy's bars. Where the policy already
 settled a case, it is recorded here and **not re-argued**. Two clusters are
@@ -30,13 +31,13 @@ depending on distro package state is marked *(verify in container)*.
 
 | Disposition | AHRL | 73Linux delta | Skywave delta | DragonOS T1* | ETC delta | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| CARRY | 67 | 2 | 0 | 0 | 0 | 69 |
-| SUPERSEDE | 13 | 0 | 1 | 0 | 0 | 14 |
+| CARRY | 68 | 1 | 0 | 0 | 0 | 69 |
+| SUPERSEDE | 13 | 1 | 1 | 0 | 0 | 15 |
 | REVIVE | 6 | 0 | 0 | 0 | 0 | 6 |
-| RETIRE | 13 | 15 | 0 | 0 | 2 | 30 |
+| RETIRE | 13 | 15 | 0 | 0 | 3 | 31 |
 | ADD | — | 11 | 8 | 8 | 8 | 35 |
-| NEEDS-DECISION | 0 | 0 | 0 | 0 | 1 | 1 |
-| Reserved to maintainer | 6 | 0 | 0 | 0 | 0 | 6 |
+| NEEDS-DECISION | 0 | 0 | 0 | 0 | 0 | 0 |
+| Reserved to maintainer | 5 | 0 | 0 | 0 | 0 | 5 |
 | **Total** | **105** | **28** | **9** | **8** | **11** | **161** |
 
 \* **DragonOS Tier 1 is 24 units; only the 8 genuinely-new ones are counted
@@ -282,6 +283,51 @@ Low stakes — `gpsman`'s menu entry is documentation-only in AHRL.
 | `ahrl_version` | `hammunition --version` | *Standard CLI behaviour beats a generated shell script that echoes a string.* |
 | `libhamlib4` | apt `depends` resolution | *A shared library with no operator surface is a dependency, not a unit — every rig-control manifest that needs it declares it, and `libhamlib-utils` is the operator-facing hamlib manifest. Ruled by the maintainer 2026-08-30 (Q-015 decision 3).* |
 
+### 13. ARDOPGUI → `ardopcf`'s built-in web GUI
+
+**Ruled 2026-09-30** on the gap analysis (`catalog-gaps-2026-09.md` A8,
+**Q-022** #5, "all three as stated"); it was CARRY (post-1.0) from the
+73Linux delta.
+
+**Trade-off:** *the web GUI is built into the modem the catalog already
+carries and opens in any browser, phone included, where ARDOPGUI is a
+separate unversioned 32-bit binary with no source; what is lost is a native
+window, and nothing ARDOPGUI showed is missing.*
+
+What was measured on 2026-09-30:
+
+- **ARDOPGUI.** 73Linux's unit is John Wiseman's ARDOP GUI, fetched from
+  `cantab.net/users/john.wiseman/Downloads/Beta/`: `ARDOP_GUI`, a 32-bit
+  i386 PIE linking Qt5, and `piARDOP_GUI`, 32-bit armhf, both
+  `Last-Modified` 2022-08-02. There is no source repository to take a
+  head commit from (D-032 has nothing to read): `g8bpq/ardop`, whose head
+  is 2023-11-17, carries the modems and no GUI, and no other repository
+  under that account is one. On amd64 it would need i386 multiarch Qt5;
+  on arm64 there is no build at all.
+- **ardopcf.** Default branch `master`, head 2026-09-07 (D-032), latest
+  tag 1.0.4.1.3 (2024-10-31) — the catalog's pin. Upstream's changelog
+  introduces the web GUI under 1.0.4.1.2 (2024-05-30) as providing
+  "functionality similar to the ARDOP GUI previously produced by John
+  Wiseman": spectrum, waterfall and constellation, receive level with
+  warnings, PTT and busy indicators, protocol state, frame log and a
+  drive-level slider. So the pin already has it and **no pin bump was
+  needed**. Upstream's command-line options page at the tag documents
+  `-G`/`--webgui <port>`, by convention 8514; a *negative* port opens a
+  developer mode that accepts arbitrary host commands.
+- **Exercised** in a `debian:13` rootless container: 1.0.4.1.3 built with
+  the manifest's flags (`make` exit 0), `ardopcf -G 8514 8515 null null`
+  printed `Webgui available at port 8514.`, and `curl` of
+  `http://127.0.0.1:8514/` returned HTTP 200, 21,138 bytes, titled
+  `Ardopcf Web GUI`. `ss` showed both 8514 and the 8515 host port
+  listening on `0.0.0.0` — every interface, which the manifest's known
+  problems now say. Nothing was transmitted; no radio or sound card.
+
+**Unmeasured:** the web GUI's controls against a live signal, and any
+browser other than `curl`.
+
+`ardopcf` declares `supersedes: [ARDOPGUI]`; the packet profile's manual
+configuration names the flag beside `pat http`.
+
 ---
 
 ## REVIVE
@@ -420,6 +466,72 @@ Either way Wine leaves the 1.0 core: it exists in AHRL solely for this unit, and
 VARA reintroduces it post-1.0 regardless. Disposition stays `M` pending the build
 attempt — this is a testable condition, not an open opinion.
 
+### Tested 2026-09-30 — the second clause holds: CARRY the native port
+
+The maintainer ruled on **Q-022** #5 ("all three as stated") that the
+conditional be tested, from the gap analysis (`catalog-gaps-2026-09.md` A8).
+Each clause, against what was measured:
+
+**"If Morse Runner CE … builds"** — **no.** The Community Edition is
+`w7sst/MorseRunner`: MPL-2.0 (`LICENSE.md`), default branch `main` head
+2026-09-25 "Roll version number for final 1.86 build" (D-032), and v1.86 is
+a full release that day — no longer "in preparation". Its tree at v1.86 has
+`MorseRunner.dpr` and `.dproj` and **no Lazarus project**; `lazbuild` will
+not take the `.dproj`, and `fpc -Mdelphi` with every Lazarus unit path set
+stops at `Main.pas(15,3) Fatal: Can't find unit Windows` (Debian 13, FPC
+3.2.2). That is CE's code, not a missing path: `Main.pas` uses `Windows`
+and `Messages` and calls `Windows.PostMessage`, and the whole audio layer
+(`VCL/SndCustm.pas`, `SndOut.pas`, `SndTypes.pas`, `WavFile.pas`) is built
+on `MMSystem`, the Windows multimedia API.
+The README lists "Integrate a recent Linux port" under *Goals*: the gap
+analysis's "has a Linux port" was wrong, and is corrected here rather than
+carried forward (D-018).
+
+**"… or a native alternative builds"** — **yes.** The Linux port the CE
+README names is Zach Metzinger's Lazarus/FPC conversion of VE3NEA's 1.68
+(`zmetzing/MorseRunner`, default branch `master`, head `29590a67`
+2022-05-23, 22 commits, no tag; the CE repository mirrors it as a branch).
+Measured in rootless `debian:13` containers, never on the host:
+
+- **Build:** `lazbuild` exit 0 in about 10 s, 284 MB peak RSS; then again the
+  way the manifest runs it — `make -j 2` in the checkout as an unprivileged
+  user with only `build-essential fpc lcl-utils lcl-units lcl-gtk2
+  libsdl1.2-dev` — exit 0. A 29.7 MB x86-64 executable linking GTK2 and
+  libSDL-1.2 (sdl12-compat). `lazbuild` lives in `lcl-utils`, not
+  `lazarus-ide`, which a first attempt found the hard way.
+- **Window:** started under Xvfb, it drew its main form — the Morse Runner
+  1.68 banner, the Station, Band Conditions and Run panels, the F1–F8
+  keys. A click on Run switched it to a Pile-Up run with the log columns
+  showing.
+- **Audio:** with the ALSA default device pointed at a file over the null
+  plugin, the run wrote non-silent samples (7.9 million non-zero bytes).
+  The null device has no clock, so the program ran unpaced: it wrote
+  1.7 GB in about twelve seconds, and printed a debug line per buffer.
+  That proves it produces audio, not how it sounds or how fast it logs
+  against a real sound card.
+- **Kali:** the same build fails at `Can't find unit Interfaces`, because
+  Debian's `lazbuild` targets GTK2 and Kali carries no `lcl-gtk2`
+  (`lcl-qt5` only). The seven-target sweep: `fpc`, `lcl-utils`,
+  `lcl-units`, `libsdl1.2-dev` on all seven; `lcl-gtk2` on all but Kali.
+- **Licence:** the source files carry MPL-2.0 headers; the port has no
+  LICENSE file and its Readme still says "freeware" from 2006.
+
+**"…carry that and drop the Wine prefix from 1.0"** — Wine left the 1.0
+core on 2026-08-30 (Q-015 decision 5) and nothing here brings it back.
+
+**Decision: CARRY**, as `catalog/packages/morse-runner.yaml` — the port at
+its head commit with an `own_choice` pin review (D-024), x86-64 on every
+target but Kali, installed as a tree handed to the operator (D-043, because
+it saves `MorseRunner.ini` beside its executable), with a launcher. It is in
+no profile: the build dependencies came to 1.8 GB on a bare Debian 13
+image, against a `morse` profile under 100 MB, so that profile names it
+instead. The CE's later contests are not in this program, and the manifest
+says so first.
+
+**Unmeasured:** an install through the engine on any target (the dry run
+plans it); a build on Parrot, Ubuntu, Mint or arm64; playback heard through
+PipeWire or a real card; the debug output's rate in real time.
+
 ---
 
 ## 73Linux delta — 28 units
@@ -500,7 +612,7 @@ they depend on it.
 
 | Unit | Disposition | Note |
 |---|---|---|
-| ARDOPGUI | CARRY (post-1.0) | GUI for ARDOP; pairs with the 1.0 ARDOP |
+| ARDOPGUI | SUPERSEDE — by `ardopcf`'s web GUI (2026-09-30) | Was CARRY (post-1.0). Ruled on Q-022 #5: ardopcf has served its own browser GUI since 1.0.4.1.2. See SUPERSEDE #13. |
 | PATMENU3 | RETIRE | KM4ACK's menu wrapper for PAT — licence blocked, and ruled 2026-08-30 unneeded: `pat http` ships the interface the wrapper fronts. Documented in the packet profile. |
 | VARA | ADD (post-1.0) | Closed-source freeware, needs Wine prefix. Settled post-1.0 by D-008. |
 | HAMRS | ADD (post-1.0) | Proprietary freemium, AppImage, upstream scrapes its own download page. Settled post-1.0. |
@@ -618,7 +730,7 @@ container that day; the verdicts say what was seen.
 | **paracon** | ADD — `catalog/packages/paracon.yaml` | binary, the 1.3.0 `.pyz` hashed | `paracon --version` → `Paracon 1.3.0` on Debian 13, Python 3.13.5. AGWPE to Direwolf; no kernel AX.25 needed, which is the point (D-045). |
 | **artemis** | ADD — `catalog/packages/artemis.yaml` | venv from the 4.2.0 source tarball, hash-pinned requirements | The vendor `.deb` is refused: its Package name is `artemis`, which every target's archive already gives to a Sanger genome browser at 18.2.0, and it Depends on libpython3.12. The pinned set installs and `import artemis` succeeds on Debian 13; the GUI is not yet opened from this install. |
 | **gpa** | ADD — `catalog/packages/gpa.yaml` | apt on Ubuntu 24.04, 26.04 and Mint (0.10.0 / 0.11.0 / 0.10.0); autotools from the gnupg.org tarball on Debian 13, Parrot, Kali | Tarball signature verified against the GnuPG distribution key; configure and make exit 0 on Debian 13; `gpa 0.11.1`. |
-| **chattervox** | NEEDS-DECISION — kept, with evidence | — | The 0.7.0 bundle runs `--help` on Debian 13; the source builds on Node 20 with `npm ci --ignore-scripts` and runs `--version`; `kiss-tnc` loads without serialport's native build, and whether a KISS port *opens* without it is untested. Only prereleases exist, head 2019-03-17, and two dependencies are git commits rather than registry packages. Carrying the bundle is a fetched Node runtime (refused by D-037); carrying the source is the node backend with two git fetches. The maintainer's call, as recommended. |
+| **chattervox** | NEEDS-DECISION — kept, with evidence; **RETIRE on 2026-09-30** (Q-022 #5, see below) | — | The 0.7.0 bundle runs `--help` on Debian 13; the source builds on Node 20 with `npm ci --ignore-scripts` and runs `--version`; `kiss-tnc` loads without serialport's native build, and whether a KISS port *opens* without it is untested. Only prereleases exist, head 2019-03-17, and two dependencies are git commits rather than registry packages. Carrying the bundle is a fetched Node runtime (refused by D-037); carrying the source is the node backend with two git fetches. The maintainer's call, as recommended. |
 | **mbutil** | RETIRE (`not-carried.md`) | — | python2 `setup.py install`; nothing in ETC's own workflow calls it. |
 | **pfte** | RETIRE (`not-carried.md`) | — | Proprietary, unsigned, no source. GnuPG covers the workflow. |
 | navit, kiwix, mbtileserver, gis-tools, dict | ADD, outstanding | — | Sub-project 5: the offline-data layer needs a category first. `parity-coverage.md` carries the reason. |
@@ -646,10 +758,30 @@ catalog does not have before either can be carried.
 | **pfte** | RETIRE | — | proprietary `.deb` from `paranoiaworks.mobi`, no licence, no source, unsigned download | Paranoia Text Encryption. A closed binary from a vendor site fetched without verification is what the security requirements refuse by name; the AmRRON workflow it serves has GnuPG. Record the reason, do not carry. |
 
 **Tally.** 7 ADD (5 apt, 3 binary, 1 source — `gis-tools` counts once for
-`qgis`), 2 RETIRE, 1 NEEDS-DECISION, plus 2 data downloads deferred to
+`qgis`), 2 RETIRE, 1 NEEDS-DECISION (`chattervox`, retired 2026-09-30),
+plus 2 data downloads deferred to
 sub-project 5. **Every ETC fetch is unverified upstream** (34 of 34); every
 binary and source route above is pinned and hashed under this project's rules
 or it is not written.
+
+### chattervox — RETIRE, 2026-09-30
+
+Ruled on **Q-022** #5 ("all three as stated") from the gap analysis
+(`catalog-gaps-2026-09.md` A8), which had it as the one NEEDS-DECISION unit.
+PARITY-POLICY does not accept "it looks unmaintained" as a reason, so the
+reason is its category (2), **no upstream**, together with what the test
+found: the route this project's rules allow installs a client that cannot
+open the link it exists to use.
+
+Measured 2026-09-30: default branch `master` head 2019-03-17 "v0.7.0 bump." (D-032; the 2020-01-04 date recorded earlier was GitHub's push field, which D-032 does not read), every one of its nine GitHub releases a prerelease, the last 0.7.0 the same day; 13 open issues and no open pull requests, the newest a 2024-01-22 report that the source no longer builds, which the author has not answered. From the npm registry, `npm install --ignore-scripts chattervox@0.7.0` on Debian 13's Node 20.19.2 exits 0 and `chattervox --version` prints 0.7.0 — but `require('serialport')` then fails with "Could not locate the bindings file", because the native serial layer is exactly what `--ignore-scripts` (D-037) does not build, and that layer is how chattervox reaches its KISS TNC.
+
+**What covers its use.** Keyboard chat over AX.25 is carried three ways:
+`paracon` (AGWPE to Direwolf, no kernel AX.25 needed, D-045), `linpac`,
+and `qttermtcp`, with `ax25-apps`' `call` where the kernel stack exists.
+What none of them does is chattervox's own idea, **ECDSA-signed
+messages**. A Python reimplementation, CVAuth (`mrpurplenz/cvauth`, 0.1.0
+announced in that issue on 2026-02-14), is the candidate if signing is
+wanted; it has not been measured here, so it is named and not carried.
 
 ---
 
@@ -752,7 +884,7 @@ under AHRL or covered by the Blend, and are not re-indexed here.
 `glfer` C · `gnuradio` C · `gpredict` C · `gpsman` S · `gqrx` C ·
 `GridTracker2` C · `grig` S · `gsmc` C · `gspiceui` M · `hamclock_next` R ·
 `ibp` R · `js8call` C · `js8spotter` C · `jtdx` C · `kicad` M · `klog` C ·
-`libhamlib4` S · `linpac` C · `linrad` C · `mfc_gpl` X · `morse_runner` M ·
+`libhamlib4` S · `linpac` C · `linrad` C · `mfc_gpl` X · `morse_runner` C ·
 `MSHV` C · `mvoice` R · `nanovna-saver` C · `ngspice` M · `noaa-apt` X ·
 `not1mm` C · `notepadqq` X · `owx` S · `pipx` C · `putty` C · `pyautogui` X ·
 `qgrid` C · `QLog` C · `qrq` C · `qsstv` C · `qtel` C · `QtTinySA` C ·
@@ -765,7 +897,7 @@ under AHRL or covered by the Blend, and are not re-indexed here.
 
 **73Linux delta (28):**
 
-`ARDOPGUI` C · `AX25` A · `BATT` X · `BPQ` A · `CONKY` X · `DIPOLE` X · `EES` X ·
+`ARDOPGUI` S · `AX25` A · `BATT` X · `BPQ` A · `CONKY` X · `DIPOLE` X · `EES` X ·
 `GARIM` A · `GPS` C · `GPSUPDATE` X · `GRIDCALC` X · `HAMRS` A · `M0IAX` X ·
 `PAT` A · `PATMENU` X · `PATMENU3` X · `PIAPRS` A · `PIQSO` X · `PISTATS` X ·
 `PITERM` A · `QTSOUND` A · `REPEAT` X · `SECURITY` X · `SHOWLOG` X · `VARA` A ·
@@ -783,7 +915,7 @@ under AHRL or covered by the Blend, and are not re-indexed here.
 
 **EmComm Tools OS delta (11):**
 
-`artemis` A · `chattervox` ? · `dict` A · `gis-tools` A · `gpa` A · `kiwix` A ·
+`artemis` A · `chattervox` X · `dict` A · `gis-tools` A · `gpa` A · `kiwix` A ·
 `mbtileserver` A · `mbutil` X · `navit` A · `paracon` A · `pfte` X
 
 *(The 16 already-covered Tier-1 units — `fldigi`, `js8call`, `wsjtx`, `qsstv`,

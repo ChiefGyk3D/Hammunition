@@ -21,13 +21,13 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 | | |
 |---|---:|
 | Units in the six-source union | **161** |
-| …that owe a manifest (C, S, R, A) | **124** |
-| …covered | **109** |
-| …outstanding, with a recorded reason | **15** |
+| …that owe a manifest (C, S, R, A) | **125** |
+| …covered | **111** |
+| …outstanding, with a recorded reason | **14** |
 | …outstanding, unexplained | **0** |
-| Manifests in the catalog | **294** |
+| Manifests in the catalog | **295** |
 
-Coverage of what is owed: **109/124** (87%).
+Coverage of what is owed: **111/125** (88%).
 
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
@@ -41,7 +41,6 @@ Absent on purpose. Each names what it waits on.
 
 | Unit | Disposition | Waiting on |
 |---|---|---|
-| `ARDOPGUI` | CARRY | post-1.0 — GUI for ARDOP; ruled CARRY (post-1.0) in dispositions.md, so 1.0 ships `ardopcf` headless |
 | `FoxTelem` | CARRY | post-1.0 — pending an AMSAT constellation census: a partial world-changed case, and neither blocking 1.0 on a satellite survey nor quietly carrying a decoder for re-entered spacecraft serves anybody (Q-015 decision 10, 2026-08-30) |
 | `HAMRS` | ADD | post-1.0 — AppImage |
 | `VARA` | ADD | post-1.0 and optional since 2026-09-30 (Q-022 #6) — closed software needing a configured Wine prefix; `mercury` speaks its TCP interface and pat drives it unchanged, and what VARA still adds is VARA-only gateways |
@@ -63,13 +62,13 @@ Absent on purpose. Each names what it waits on.
 
 | Disposition | Units | Covered |
 |---|---:|---:|
-| CARRY | 69 | 67 |
-| SUPERSEDE | 14 | 9 |
+| CARRY | 69 | 68 |
+| SUPERSEDE | 15 | 10 |
 | REVIVE | 6 | 4 |
 | ADD | 35 | 29 |
-| RETIRE | 30 | — |
-| NEEDS-DECISION | 1 | — |
-| reserved to maintainer | 6 | — |
+| RETIRE | 31 | — |
+| NEEDS-DECISION | 0 | — |
+| reserved to maintainer | 5 | — |
 
 RETIRE, NEEDS-DECISION and reserved units show no coverage figure because
 they owe nothing. Some carry a manifest anyway: `noaa-apt` is RETIRE and
@@ -93,7 +92,7 @@ catalog is where an operator would look for it.
 | `AIS-catcher` | CARRY | `ais-catcher` |
 | `AntScope2` | CARRY | `antscope2` |
 | `ardop` | REVIVE | `ardopcf` |
-| `ARDOPGUI` | CARRY | — *waiting, see above* |
+| `ARDOPGUI` | SUPERSEDE | `ardopcf` |
 | `arduino` | reserved to maintainer | — |
 | `artemis` | ADD | `artemis` |
 | `atlc` | CARRY | `atlc` |
@@ -102,7 +101,7 @@ catalog is where an operator would look for it.
 | `BATT` | RETIRE | — |
 | `BPQ` | ADD | `linbpq` |
 | `browser` | RETIRE | — |
-| `chattervox` | NEEDS-DECISION | — |
+| `chattervox` | RETIRE | — |
 | `chirp` | CARRY | `chirp` |
 | `claws-mail` | CARRY | `claws-mail` |
 | `Coil64` | CARRY | `coil64` |
@@ -169,7 +168,7 @@ catalog is where an operator would look for it.
 | `mbtileserver` | ADD | — *waiting, see above* |
 | `mbutil` | RETIRE | — |
 | `mfc_gpl` | RETIRE | — |
-| `morse_runner` | reserved to maintainer | — |
+| `morse_runner` | CARRY | `morse-runner` |
 | `MSHV` | CARRY | `mshv` |
 | `mvoice` | REVIVE | — *waiting, see above* |
 | `nanovna-saver` | CARRY | `nanovna-saver` |

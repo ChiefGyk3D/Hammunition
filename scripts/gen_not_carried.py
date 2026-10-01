@@ -66,6 +66,17 @@ RETIRED: dict[str, tuple[str, str]] = {
         "export of MBTiles, if ever needed, is a job for the sub-project 5 "
         "tooling, not for a 2017 python2 script.",
     ),
+    "chattervox": (
+        "EmComm Tools OS",
+        "No upstream — retired 2026-09-30 (Q-022 #5). The default branch's "
+        "head is 2019-03-17 and every release is a prerelease; a 2024 report "
+        "that it no longer builds is unanswered. It still installs from npm "
+        "with `--ignore-scripts`, but its serial layer then cannot load "
+        '("Could not locate the bindings file"), and that layer is how it '
+        "reaches a KISS TNC. For keyboard chat over AX.25 use `paracon` "
+        "(AGWPE to Direwolf), `linpac` or `qttermtcp`. Signed messages, "
+        "chattervox's own feature, are carried by nothing yet.",
+    ),
     "pfte": (
         "EmComm Tools OS",
         "Out of scope by the security requirements, by name: a proprietary "
@@ -76,8 +87,9 @@ RETIRED: dict[str, tuple[str, str]] = {
     "wine": (
         "AHRL",
         "Ruled out of the 1.0 core 2026-08-30 (Q-015 decision 5): its only "
-        "AHRL consumer, Morse Runner, is reserved and no 1.0 profile needs "
-        "Windows-compatibility machinery. VARA brings a *configured Wine "
+        "AHRL consumer was Morse Runner, which is carried natively since "
+        "2026-09-30 (`morse-runner`, the Lazarus port), and no 1.0 profile "
+        "needs Windows-compatibility machinery. VARA brings a *configured Wine "
         "prefix* back post-1.0 as its own prerequisite — a dependency of "
         "that unit, never a catalog unit of its own.",
     ),
@@ -238,6 +250,17 @@ RETIRED: dict[str, tuple[str, str]] = {
 #: replacement and is validated to exist. None means the replacement is the
 #: Hammunition engine itself rather than software.
 SUPERSEDED: dict[str, tuple[str, str | None, str]] = {
+    "ARDOPGUI": (
+        "`ardopcf -G 8514`, then <http://localhost:8514>",
+        "ardopcf",
+        "ardopcf has served its own web GUI since 1.0.4.1.2 — spectrum, "
+        "waterfall, constellation, levels, PTT and a drive-level slider — "
+        "and upstream's changelog introduces it as doing what John "
+        "Wiseman's ARDOP GUI did. ARDOPGUI itself is an unversioned binary "
+        "from a `Beta` directory, 32-bit i386 Qt5 or armhf, last modified "
+        "2022-08-02, with no source to build for amd64 or arm64. Superseded "
+        "2026-09-30 (Q-022 #5).",
+    ),
     "aa-analyzer": (
         "`flaa`",
         "flaa",
@@ -388,16 +411,6 @@ RESOLVED_NOT_CARRIED: dict[str, tuple[str, str, str]] = {
         "Resolved 2026-08-25: not carried. The Debian `arduino` package is "
         "Arduino IDE 1.x, deprecated upstream, and shipping a deprecated IDE "
         "is worse than shipping nothing. Install IDE 2.x from arduino.cc.",
-    ),
-    "morse_runner": (
-        "M",
-        "AHRL",
-        "Resolved 2026-08-25, conditional: a Windows binary under Wine, "
-        "x86_64-only — ARM users already got nothing. If Morse Runner CE or "
-        "a native alternative builds, that is carried and Wine leaves the "
-        "1.0 core; otherwise it defers post-1.0 alongside VARA. Either way "
-        "no Wine prefix ships in 1.0 for one CW trainer. Native CW trainers "
-        "carried today: `qrq`, `xcwcp`, `ebook2cwgui`, `wordsworth`.",
     ),
 }
 
