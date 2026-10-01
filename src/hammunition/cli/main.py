@@ -2126,12 +2126,15 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
 
     Books through kiwix-serve (a child, on 127.0.0.1 only), the ICS forms
     and the dictionaries on a page from the standard library. Runs as the
-    operator, never as root; Ctrl-C stops both. No ``--json`` form: it is a
-    server, not a document (D-059).
+    operator, never as root; Ctrl-C stops both. With the map and the route
+    graph installed, GraphHopper too, on 127.0.0.1, asked through the page
+    (D-076). No ``--json`` form: it is a server, not a document (D-059).
     """
     import subprocess
 
     from hammunition import gps_tether, reference
+    from hammunition.backends.source import tree_destination
+    from hammunition.graphhopper import GRAPH_UNIT, PROGRAM_UNIT, RouterSpec, plan_router
     from hammunition.map_page import find_map
     from hammunition.paths import owner_aware_dir
 
@@ -2167,11 +2170,29 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return EXIT_FAILED
-    library = (
-        owner_aware_dir(xdg_var="XDG_CACHE_HOME", home_relative=(".cache",))
-        / "reference"
-        / "library.xml"
+    cache = owner_aware_dir(xdg_var="XDG_CACHE_HOME", home_relative=(".cache",)) / "reference"
+    library = cache / "library.xml"
+    router, routes_note = plan_router(
+        data=data_root(DEFAULT_PREFIX) / GRAPH_UNIT,
+        tree=tree_destination(DEFAULT_PREFIX, PROGRAM_UNIT),
+        home=cache / "graphhopper",
+        map_ready=map_shelf.ready and bool(map_shelf.regions),
+        java=shutil.which("java"),
     )
+
+    def start_router(spec: RouterSpec) -> subprocess.Popen[bytes]:
+        fd = os.open(
+            spec.log, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600
+        )
+        with os.fdopen(fd, "wb") as log_file:
+            return subprocess.Popen(
+                spec.argv,
+                stdin=subprocess.DEVNULL,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                cwd=spec.config.parent,
+                preexec_fn=reference.die_with_parent,
+            )
 
     def manage(path: Path, zims: Sequence[Path]) -> None:
         result = subprocess.run(
@@ -2202,6 +2223,9 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
             log=log,
             map_shelf=map_shelf,
             position_port=position_port,
+            router=router,
+            start_router=start_router,
+            routes_note=routes_note,
         )
     except OSError as exc:
         print(

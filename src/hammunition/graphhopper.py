@@ -400,3 +400,28 @@ def prepare_router(shelf: GraphShelf, home: Path, port: int) -> RouterSpec:
         log=home / "graphhopper.log",
         config=config,
     )
+
+
+def plan_router(
+    *, data: Path, tree: Path, home: Path, map_ready: bool, java: str | None
+) -> tuple[RouterSpec | None, str | None]:
+    """Whether ``reference serve`` starts GraphHopper, and if not, what to
+    tell the operator: (the router, None), or (None, why), or (None, None)
+    when there is nothing to say (no map to route on, or no graph installed,
+    which the landing page already says how to install)."""
+    if not map_ready:
+        return None, None
+    shelf = find_graph(data, tree)
+    if not shelf.installed:
+        return None, None
+    if not shelf.ready:
+        return None, f"routes are off: {shelf.why}"
+    if java is None:
+        return None, (
+            "routes are off: java is not on the PATH (`hammunition install graphhopper` "
+            "installs default-jre-headless with it)"
+        )
+    try:
+        return prepare_router(shelf, home, free_port()), None
+    except (RouterError, OSError) as exc:
+        return None, f"routes are off: {exc}"

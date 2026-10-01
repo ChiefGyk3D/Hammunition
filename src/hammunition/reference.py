@@ -28,12 +28,24 @@ Ctrl-C stops both. A kiwix-serve that exits on its own stops the page too,
 and the verb fails with the child's exit code in its message. Nothing is
 reachable from another machine; ``--port`` moves the page, never the
 address.
+
+**Routes (D-076).** With the map and GraphHopper's route graph installed,
+GraphHopper's own server is a third child, on 127.0.0.1 at a port the system
+chooses, and the map asks for a route at ``/map/route`` on *this* server,
+which checks the Host header, rebuilds the request
+(:func:`hammunition.graphhopper.route_query`) and relays GraphHopper's
+answer. GraphHopper sends ``Access-Control-Allow-Origin: *`` and checks no
+Host header (measured), so the page never calls it directly. A GraphHopper
+that exits is reported once, and the books and the map keep serving.
 """
 
 from __future__ import annotations
 
+import ctypes
 import html
+import http.client
 import http.server
+import json
 import os
 import re
 import shutil
@@ -45,8 +57,10 @@ from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote, unquote
 
+from .graphhopper import HOST as ROUTER_HOST
+from .graphhopper import RouteRefused, RouterSpec, route_query
 from .kiwix import Book
-from .map_page import MAP, REGIONS, MapShelf, landing_section, map_page, regions_json
+from .map_page import MAP, REGIONS, ROUTE, MapShelf, landing_section, map_page, regions_json
 
 HOST = "127.0.0.1"
 PORT = 8480
@@ -57,6 +71,34 @@ FORMS = "/forms/"
 LIBRARY_UNIT = "kiwix-library"
 FORMS_UNIT = "ics-forms"
 STOP_WAIT = 5.0
+#: How long a route may take GraphHopper; the spike's slowest first query was 1 s.
+ROUTE_TIMEOUT = 60.0
+#: The largest answer relayed: a route's GeoJSON and instructions, not a map.
+ROUTE_LIMIT = 32 << 20
+#: Linux's prctl(PR_SET_PDEATHSIG).
+PR_SET_PDEATHSIG = 1
+
+
+def die_with_parent() -> None:
+    """In a child, before it runs its program: receive SIGTERM when this
+    process's parent dies. GraphHopper has no ``-a PID`` as kiwix-serve does,
+    so a ``reference serve`` killed without the chance to stop it would
+    otherwise leave GraphHopper running. Linux only; anywhere else, nothing."""
+    try:
+        libc = ctypes.CDLL(None, use_errno=True)
+        libc.prctl(PR_SET_PDEATHSIG, 15, 0, 0, 0)
+    except (OSError, AttributeError):  # pragma: no cover - not Linux
+        pass
+
+
+@dataclass
+class RouterState:
+    """The GraphHopper child as the page's route handler sees it."""
+
+    port: int
+    profiles: tuple[str, ...]
+    log: Path
+    exited: int | None = None
 
 
 def serve_port(text: str) -> int:
@@ -148,7 +190,13 @@ def find_shelf(
     )
 
 
-def landing_page(shelf: Shelf, *, kiwix_port: int, map_shelf: MapShelf | None = None) -> str:
+def landing_page(
+    shelf: Shelf,
+    *,
+    kiwix_port: int,
+    map_shelf: MapShelf | None = None,
+    routes: str | None = None,
+) -> str:
     """The page. Every name that came from the disk is escaped."""
     e = html.escape
     wiki = f"http://{HOST}:{kiwix_port}{WIKI}"
@@ -203,6 +251,8 @@ def landing_page(shelf: Shelf, *, kiwix_port: int, map_shelf: MapShelf | None = 
         )
     if map_shelf is not None:
         parts.append(landing_section(map_shelf))
+        if routes is not None:
+            parts.append(f"<p>Routes: {e(routes)}</p>")
     parts.append("</body></html>")
     return "\n".join(parts) + "\n"
 
@@ -259,6 +309,7 @@ class _Server(http.server.ThreadingHTTPServer):
     map_page: bytes | None
     regions: bytes
     files: dict[str, Path]
+    router: RouterState | None
 
 
 class _Handler(http.server.BaseHTTPRequestHandler):
@@ -275,6 +326,48 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
+
+    def _json(self, status: int, message: str) -> None:
+        self._send(status, (json.dumps({"message": message}) + "\n").encode(), "application/json")
+
+    def _route(self, query: str) -> None:
+        """A route, asked of GraphHopper as :func:`route_query` rebuilds it,
+        and its answer relayed (D-076)."""
+        router = self.server.router
+        assert router is not None
+        if router.exited is not None:
+            self._json(
+                503,
+                f"the router stopped (exit {router.exited}); its log is {router.log}. "
+                f"Restart `hammunition reference serve`.",
+            )
+            return
+        try:
+            path = route_query(query, router.profiles)
+        except RouteRefused as exc:
+            self._json(400, str(exc))
+            return
+        conn = http.client.HTTPConnection(ROUTER_HOST, router.port, timeout=ROUTE_TIMEOUT)
+        try:
+            conn.request("GET", path, headers={"Accept": "application/json"})
+            answer = conn.getresponse()
+            body = answer.read(ROUTE_LIMIT + 1)
+            status = answer.status
+        except ConnectionRefusedError:
+            self._json(503, "the router is still starting; try again in a few seconds")
+            return
+        except (OSError, http.client.HTTPException) as exc:
+            self._json(502, f"the router did not answer: {exc}")
+            return
+        finally:
+            conn.close()
+        if len(body) > ROUTE_LIMIT:
+            self._json(502, "the router's answer was too large to relay")
+            return
+        if status != 200 and not 400 <= status < 500:
+            self._json(502, f"the router answered {status}")
+            return
+        self._send(status, body, "application/json")
 
     def _host_ok(self) -> bool:
         """The request names this server as 127.0.0.1 or localhost, on its
@@ -330,7 +423,10 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         if not self._host_ok():
             self._send(403, b"refused: ask for 127.0.0.1 or localhost\n", "text/plain")
             return
-        path = self.path.split("?", 1)[0]
+        path, _, query = self.path.partition("?")
+        if path == ROUTE and self.server.router is not None and self.server.map_page is not None:
+            self._route(query)
+            return
         if path == "/":
             self._send(200, self.server.page, "text/html; charset=utf-8")
             return
@@ -370,17 +466,23 @@ def make_server(
     *,
     map_shelf: MapShelf | None = None,
     position_port: int = POSITION_PORT,
+    router: RouterState | None = None,
 ) -> _Server:
     """The landing server, bound to 127.0.0.1 and nothing else; with
-    *map_shelf*, the offline map beside it (D-071)."""
+    *map_shelf*, the offline map beside it (D-071); with *router*, its route
+    control and ``/map/route`` (D-076)."""
     server = _Server((HOST, port), _Handler)
     server.page = page.encode("utf-8")
     server.forms = {f"{FORMS}{quote(p.name)}": p for p in forms}
     server.map_page = None
     server.regions = b"[]\n"
     server.files = {}
+    server.router = None
     if map_shelf is not None and map_shelf.ready:
-        server.map_page = map_page(position_port=position_port).encode("utf-8")
+        server.router = router
+        server.map_page = map_page(
+            position_port=position_port, router=router.profiles if router else None
+        ).encode("utf-8")
         server.regions = regions_json(map_shelf)
         server.files = dict(map_shelf.files)
     return server
@@ -415,19 +517,37 @@ def run(
     pid: int | None = None,
     map_shelf: MapShelf | None = None,
     position_port: int = POSITION_PORT,
+    router: RouterSpec | None = None,
+    start_router: Callable[[RouterSpec], Child] | None = None,
+    routes_note: str | None = None,
 ) -> int:
-    """Serve until Ctrl-C (exit 0) or until kiwix-serve exits (exit 1)."""
+    """Serve until Ctrl-C (exit 0) or until kiwix-serve exits (exit 1).
+
+    With *router* and *start_router*, GraphHopper is started first and
+    stopped with the page; its exiting is reported once and serving goes on."""
     import os
 
     child: Child | None = None
+    router_child: Child | None = None
     thread: threading.Thread | None = None
     kiwix_port = port + 1
+    state = (
+        RouterState(port=router.port, profiles=router.profiles, log=router.log)
+        if router is not None and start_router is not None
+        else None
+    )
+    routes = (
+        f"the map's Route control (GraphHopper, {', '.join(state.profiles)})"
+        if state is not None
+        else routes_note
+    )
     server = make_server(
         port,
-        landing_page(shelf, kiwix_port=kiwix_port, map_shelf=map_shelf),
+        landing_page(shelf, kiwix_port=kiwix_port, map_shelf=map_shelf, routes=routes),
         shelf.forms,
         map_shelf=map_shelf,
         position_port=position_port,
+        router=state,
     )
     try:
         if shelf.books:
@@ -437,6 +557,8 @@ def run(
             child = spawn(
                 kiwix_serve_argv(kiwix_port, library, pid=pid if pid is not None else os.getpid())
             )
+        if router is not None and start_router is not None and server.router is not None:
+            router_child = start_router(router)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         bound = server.server_address[1]
@@ -448,10 +570,28 @@ def run(
                 f"  map: http://{HOST}:{bound}{MAP}  ({len(map_shelf.regions)} region(s); "
                 f"your position from `hammunition maps gps-tether` on port {position_port})"
             )
+        if router_child is not None and router is not None:
+            log(
+                f"  routes: GraphHopper starting on {ROUTER_HOST}:{router.port}, asked through "
+                f"this page only; its log is {router.log}"
+            )
+        elif routes_note is not None and server.map_page is not None:
+            log(f"  {routes_note}")
         while True:
             if child is not None and (code := child.poll()) is not None:
                 log(f"kiwix-serve exited ({code}); the page is stopped too.")
                 return 1
+            if (
+                router_child is not None
+                and server.router is not None
+                and server.router.exited is None
+                and (code := router_child.poll()) is not None
+            ):
+                server.router.exited = code
+                log(
+                    f"GraphHopper exited ({code}); routes are off and the page keeps serving. "
+                    f"Its log: {server.router.log}"
+                )
             tick()
     except KeyboardInterrupt:
         log("Stopped.")
@@ -462,3 +602,5 @@ def run(
         server.server_close()
         if child is not None:
             _stop(child)
+        if router_child is not None:
+            _stop(router_child)
