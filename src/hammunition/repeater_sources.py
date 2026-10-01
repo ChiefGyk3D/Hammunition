@@ -1,0 +1,865 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""Repeater sources beyond the operator's own export.  D-074.
+
+Five sources, each read into its own layer beside D-064's
+(:mod:`hammunition.repeaters`, which writes and registers every layer):
+
+- **Open Repeater** (CC0), the ``open-repeater`` data unit's file or a copy
+  the operator downloaded: :func:`read_open_repeater`.
+- **OpenStreetMap**, filtered by ``osmium tags-filter`` out of the region
+  extracts the station already has: :func:`filter_extract`. Nothing is
+  downloaded.
+- **The RSGB ETCC list** and **Brandmeister's device list**, fetched only
+  when the operator asks, through D-064's fetch, and parsed from memory:
+  :func:`parse_etcc`, :func:`parse_brandmeister`. Brandmeister's hotspots --
+  personal ids and simplex devices, somebody's house -- are dropped before
+  anything is written.
+- **Direwolf's ``-l`` log**: the APRS repeater objects this station heard,
+  :func:`read_direwolf_logs`. Never merged into the directory layers.
+
+And :func:`cross_merge`, which joins the directory layers into one
+all-sources file by the spike's precedence (2026-10-01).
+
+Every field rule below was measured on the publishers' own files by that
+spike; the Direwolf columns were measured by decoding synthetic objects
+through Direwolf 1.8.1 itself.
+"""
+
+from __future__ import annotations
+
+import csv
+import hashlib
+import io
+import json
+import os
+import re
+import subprocess
+import xml.etree.ElementTree as ET
+from collections.abc import Callable, Iterable, Sequence
+from datetime import date
+from pathlib import Path
+from typing import Any
+
+from .repeaters import (
+    _BAD_FREQUENCY,
+    _CALLSIGN,
+    _NO_CALLSIGN,
+    _NO_POSITION,
+    BRANDMEISTER,
+    DIREWOLF,
+    DIREWOLF_HEAD,
+    ETCC,
+    ETCC_HEAD,
+    HAND,
+    HEARHAM,
+    OPEN_REPEATER,
+    OSM,
+    REPEATERBOOK_CSV,
+    REPEATERBOOK_GPX,
+    ParsedInput,
+    Repeater,
+    RepeaterInputError,
+    _clean,
+    _hz,
+    _in_band,
+    _position,
+    _Skips,
+    _tone,
+    _updated,
+    format_mhz,
+)
+
+__all__ = [
+    "BRANDMEISTER_URL",
+    "ETCC_URL",
+    "HOTSPOT_ID",
+    "HOTSPOT_SIMPLEX",
+    "PRECEDENCE",
+    "brandmeister_layer_name",
+    "brandmeister_licence",
+    "cross_merge",
+    "direwolf_date",
+    "direwolf_layer_name",
+    "direwolf_licence",
+    "etcc_layer_name",
+    "etcc_licence",
+    "extracts_date",
+    "filter_extract",
+    "installed_extracts",
+    "open_repeater_date",
+    "open_repeater_layer_name",
+    "open_repeater_licence",
+    "osm_frequency",
+    "osm_layer_name",
+    "osm_licence",
+    "osm_offset",
+    "parse_brandmeister",
+    "parse_etcc",
+    "read_direwolf_logs",
+    "read_open_repeater",
+    "read_osm_xml",
+]
+
+#: The ETCC's whole list as CSV, offered openly on ukrepeater.net's CSV page;
+#: 62 kB and 803 rows on 2026-10-01, byte-identical over three fetches.
+ETCC_URL = "https://ukrepeater.net/csvcreate_all.php"
+ETCC_LIMIT = 8 * 1024 * 1024
+#: Brandmeister's device list, no key; about 9.5 MB and 31,993 devices on
+#: 2026-10-01, a cached snapshot.
+BRANDMEISTER_URL = "https://api.brandmeister.network/v2/device"
+BRANDMEISTER_LIMIT = 64 * 1024 * 1024
+
+HOTSPOT_ID = "a hotspot or personal id (not 6 digits), dropped as a personal location"
+HOTSPOT_SIMPLEX = "transmit equals receive (a simplex hotspot), dropped as a personal location"
+
+#: The all-sources file's order, best first (the spike's precedence): the
+#: operator's own export or list, the regulator or coordinator, CC0
+#: community data, hearham, Brandmeister, OpenStreetMap.
+PRECEDENCE = (
+    REPEATERBOOK_GPX,
+    REPEATERBOOK_CSV,
+    HAND,
+    ETCC,
+    OPEN_REPEATER,
+    HEARHAM,
+    BRANDMEISTER,
+    OSM,
+)
+#: Two directories place one machine a few hundred metres apart; the exact
+#: 0.01° key matched 2 of 7 Vermont Brandmeister repeaters to hearham where
+#: this matched 5 (the spike).
+NEAR_DEGREES = 0.02
+
+
+# --- licences and names -------------------------------------------------------------
+
+
+def open_repeater_licence() -> str:
+    return (
+        "Open Repeater, CC0 1.0 (openrepeater.org): dedicated to the public domain; "
+        "credited here as a courtesy."
+    )
+
+
+def osm_licence() -> str:
+    return (
+        "© OpenStreetMap contributors, ODbL 1.0 (openstreetmap.org/copyright). Filtered on "
+        "this machine from the map extracts it already has; if you share this layer, the "
+        "ODbL's terms for a derived database apply to it."
+    )
+
+
+def etcc_licence(when: str, sha256: str) -> str:
+    return (
+        "ukrepeater.net (the RSGB's ETCC) states no licence for this list, which its CSV "
+        "page offers openly. Carried under D-033: fetched on your request, never "
+        "redistributed. Positions are at Maidenhead-locator precision: a four-character "
+        "locator puts a repeater at its square's centre, tens of kilometres from the site. "
+        f"{when}, sha256 {sha256}, not verifiable."
+    )
+
+
+def brandmeister_licence(when: str, sha256: str) -> str:
+    return (
+        "BrandMeister publishes no terms for its device API. Carried under D-033: fetched "
+        "on your request, never redistributed. Hotspots (7- and 9-digit ids, and devices "
+        "whose transmit and receive frequencies are equal) are personal locations and "
+        f"were dropped before anything was written. {when}, sha256 {sha256}, not verifiable."
+    )
+
+
+def direwolf_licence() -> str:
+    return (
+        "Received by this station: APRS repeater objects from Direwolf's log. Nothing was "
+        "fetched. Kept as its own layer and never merged into the directories."
+    )
+
+
+def open_repeater_layer_name(day: date) -> str:
+    return f"Repeaters (Open Repeater {day.isoformat()}, CC0)"
+
+
+def osm_layer_name(day: date) -> str:
+    return f"Repeaters (OpenStreetMap, ODbL, {day.isoformat()})"
+
+
+def etcc_layer_name(day: date) -> str:
+    return f"Repeaters (RSGB ETCC {day.isoformat()}, unverified)"
+
+
+def brandmeister_layer_name(day: date) -> str:
+    return f"DMR repeaters (Brandmeister {day.isoformat()}, unverified)"
+
+
+def direwolf_layer_name(day: date) -> str:
+    return f"Repeaters heard off the air (APRS objects, {day.isoformat()})"
+
+
+# --- shared --------------------------------------------------------------------------
+
+
+def _number(value: object) -> float | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        return float(str(value).strip())
+    except ValueError:
+        return None
+
+
+def _offset_mhz_or_khz(value: object) -> int | None:
+    """An offset in MHz when its magnitude is under 50, else in kHz: Open
+    Repeater's file holds both (-0.6 177 times, -600 85 times)."""
+    number = _number(value)
+    if number is None:
+        return None
+    return round(number * 1_000_000) if abs(number) < 50 else round(number * 1_000)
+
+
+def _tone_number(value: object) -> str:
+    number = _number(value)
+    return "" if number is None or number <= 0 else f"{number:.1f}"
+
+
+def _parsed(
+    path: Path, fmt: str, read: int, rows: list[Repeater], skips: _Skips, raw: bytes, mtime: float
+) -> ParsedInput:
+    return ParsedInput(
+        path=path,
+        format=fmt,
+        read=read,
+        rows=tuple(rows),
+        skipped=skips.result(),
+        sha256=hashlib.sha256(raw).hexdigest(),
+        mtime=mtime,
+    )
+
+
+def _read_file(path: Path) -> tuple[bytes, float]:
+    try:
+        return path.read_bytes(), path.stat().st_mtime
+    except OSError as exc:
+        raise RepeaterInputError(f"{path}: cannot read it: {exc.strerror or exc}") from None
+
+
+# --- Open Repeater ----------------------------------------------------------------------
+
+
+def _open_repeater_list(path: Path, raw: bytes) -> list[Any]:
+    try:
+        data: Any = json.loads(raw.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        data = None
+    if (
+        not isinstance(data, dict)
+        or data.get("source") != "Open Repeater"
+        or not isinstance(data.get("repeaters"), list)
+    ):
+        raise RepeaterInputError(
+            f"{path}: not Open Repeater's JSON download (an object with source "
+            f"'Open Repeater' and a repeaters list)"
+        )
+    items: list[Any] = data["repeaters"]
+    return items
+
+
+def read_open_repeater(path: Path) -> ParsedInput:
+    """Open Repeater's JSON download, as the data unit installs it."""
+    raw, mtime = _read_file(path)
+    items = _open_repeater_list(path, raw)
+    rows: list[Repeater] = []
+    skips = _Skips()
+    for number, item in enumerate(items, start=1):
+        if not isinstance(item, dict):
+            skips.add("not a repeater entry", number)
+            continue
+        where = _position(item.get("lat"), item.get("lng"))
+        if where is None:
+            skips.add(_NO_POSITION, number)
+            continue
+        call = _clean(item.get("callsign")).upper()
+        if not call:
+            skips.add(_NO_CALLSIGN, number)
+            continue
+        frequency = _number(item.get("frequency"))
+        hz = _hz(frequency) if frequency is not None else None
+        if hz is None:
+            skips.add(_BAD_FREQUENCY, number)
+            continue
+        dcs = _number(item.get("dcs"))
+        tone = _tone_number(item.get("ctcss")) or (f"DCS {int(dcs):03d}" if dcs else "")
+        rows.append(
+            Repeater(
+                callsign=call,
+                output_hz=hz,
+                lat=where[0],
+                lon=where[1],
+                source=OPEN_REPEATER,
+                offset_hz=_offset_mhz_or_khz(item.get("offset")),
+                tone=tone,
+                mode=_clean(item.get("mode")),
+                place=", ".join(x for x in (_clean(item.get("city")),) if x),
+                status=_clean(item.get("status")),
+                updated=_clean(item.get("last_verified")),
+            )
+        )
+    return _parsed(path, OPEN_REPEATER, len(items), rows, skips, raw, mtime)
+
+
+def open_repeater_date(path: Path) -> date:
+    """The newest ``last_verified`` in the file: the data's own date (D-031).
+    The file's modification date when no entry carries one."""
+    raw, mtime = _read_file(path)
+    days: list[date] = []
+    for item in _open_repeater_list(path, raw):
+        if isinstance(item, dict):
+            when = _updated(_clean(item.get("last_verified")))
+            if when is not None:
+                days.append(when.date())
+    return max(days) if days else date.fromtimestamp(mtime)
+
+
+# --- ETCC ----------------------------------------------------------------------------
+
+
+def parse_etcc(raw: bytes, url: str) -> ParsedInput:
+    """The ETCC's CSV, from memory. ``txMHz`` is the repeater's output
+    (UK 2 m outputs sit 600 kHz above their inputs in the measured file)."""
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1")
+    reader = csv.reader(io.StringIO(text))
+    try:
+        header = [h.strip().lower() for h in next(reader)]
+    except (StopIteration, csv.Error):
+        header = []
+    if tuple(header[:5]) != ETCC_HEAD or not {"lat", "lon"} <= set(header):
+        raise RepeaterInputError(f"{url}: not the ETCC's repeater CSV (header {header[:6]})")
+    rows: list[Repeater] = []
+    skips = _Skips()
+    read = 0
+    for record in reader:
+        if not any(cell.strip() for cell in record):
+            continue
+        read += 1
+        line = reader.line_num
+        cells = {n: v.strip() for n, v in zip(header, record, strict=False)}
+        where = _position(cells.get("lat"), cells.get("lon"))
+        if where is None:
+            skips.add(_NO_POSITION, line)
+            continue
+        call = _clean(cells.get("call")).upper()
+        if not call:
+            skips.add(_NO_CALLSIGN, line)
+            continue
+        hz = _hz(cells.get("txmhz", ""))
+        if hz is None:
+            skips.add(_BAD_FREQUENCY, line)
+            continue
+        entry = _hz(cells.get("rxmhz", ""))
+        modes = [
+            name
+            for column, name in (
+                ("analog", "FM"),
+                ("dmr", "DMR"),
+                ("dstar", "D-STAR"),
+                ("fusion", "C4FM"),
+            )
+            if cells.get(column, "").upper() == "Y"
+        ]
+        locator = cells.get("qthr", "")
+        notes = []
+        if cells.get("chan"):
+            notes.append(f"channel {cells['chan']}")
+        if locator:
+            notes.append(
+                f"position from locator {locator}"
+                + (" (the square's centre, not the site)" if len(locator) <= 4 else "")
+            )
+        rows.append(
+            Repeater(
+                callsign=call,
+                output_hz=hz,
+                lat=where[0],
+                lon=where[1],
+                source=ETCC,
+                offset_hz=None if entry is None else entry - hz,
+                tone=_tone(cells.get("ctcss", "")),
+                mode=", ".join(modes),
+                place=_clean(cells.get("where")).title(),
+                notes="; ".join(notes),
+            )
+        )
+    return _parsed(Path(url), ETCC, read, rows, skips, raw, 0.0)
+
+
+# --- Brandmeister ------------------------------------------------------------------------
+
+
+def parse_brandmeister(raw: bytes, url: str) -> ParsedInput:
+    """Brandmeister's device list, from memory, repeaters only.
+
+    A repeater has a 6-digit id and different transmit and receive
+    frequencies; 7- and 9-digit ids are personal ids, and a device whose
+    frequencies are equal is a simplex hotspot. Both are somebody's house:
+    each is dropped first, counted, and nothing else of it is kept."""
+    try:
+        data: Any = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        data = None
+    if not isinstance(data, list) or not any(
+        isinstance(d, dict) and {"id", "tx", "rx"} <= d.keys() for d in data
+    ):
+        raise RepeaterInputError(f"{url}: not Brandmeister's device list")
+    rows: list[Repeater] = []
+    skips = _Skips()
+    for number, item in enumerate(data, start=1):
+        if not isinstance(item, dict):
+            skips.add("not a device entry", number)
+            continue
+        ident = item.get("id")
+        if not isinstance(ident, int) or isinstance(ident, bool) or not 100_000 <= ident <= 999_999:
+            skips.add(HOTSPOT_ID, number)
+            continue
+        tx, rx = _clean(item.get("tx")), _clean(item.get("rx"))
+        if tx == rx or _number(tx) == _number(rx):
+            skips.add(HOTSPOT_SIMPLEX, number)
+            continue
+        where = _position(item.get("lat"), item.get("lng"))
+        if where is None:
+            skips.add(_NO_POSITION, number)
+            continue
+        call = _clean(item.get("callsign")).upper()
+        if not call:
+            skips.add(_NO_CALLSIGN, number)
+            continue
+        hz = _hz(tx)
+        if hz is None:
+            skips.add(_BAD_FREQUENCY, number)
+            continue
+        entry = _hz(rx)
+        notes = [f"Brandmeister id {ident}"]
+        colour = item.get("colorcode")
+        if isinstance(colour, int) and not isinstance(colour, bool):
+            notes.append(f"colour code {colour}")
+        master = item.get("lastKnownMaster")
+        if isinstance(master, int) and not isinstance(master, bool):
+            notes.append(f"master {master}")
+        rows.append(
+            Repeater(
+                callsign=call,
+                output_hz=hz,
+                lat=where[0],
+                lon=where[1],
+                source=BRANDMEISTER,
+                offset_hz=None if entry is None else entry - hz,
+                mode="DMR",
+                place=_clean(item.get("city")),
+                notes="; ".join(notes),
+                updated=_clean(item.get("last_seen")),
+            )
+        )
+    return _parsed(Path(url), BRANDMEISTER, len(data), rows, skips, raw, 0.0)
+
+
+# --- Direwolf ---------------------------------------------------------------------------
+
+_SSID = re.compile(r"-[0-9A-Z]{1,2}$")
+
+
+def _object_callsign(name: str) -> str:
+    """The callsign an object is named by (``N0TST-R``, ircDDB's ``N0TST  B``
+    gives ``N0TST``), or empty for an object named by its frequency."""
+    first = name.split()[0] if name.split() else ""
+    bare = _SSID.sub("", first)
+    return first if _CALLSIGN.fullmatch(bare) else ""
+
+
+def _direwolf_offset(text: str) -> int | None:
+    """Direwolf writes the offset in signed kHz: ``-600``, ``+5000``."""
+    number = _number(text)
+    return None if number is None else round(number * 1_000)
+
+
+def read_direwolf_logs(paths: Sequence[Path]) -> ParsedInput:
+    """Direwolf's ``-l`` daily logs (or one ``-L`` file), read together.
+
+    Kept: a row whose ``dti`` is ``;`` (an APRS object) with a frequency in a
+    repeater band; Direwolf has already decoded the frequency (MHz), the
+    offset (signed kHz) and the tone (Hz) from the object. An object heard
+    again is another row; D-064's merge keeps the newest hearing."""
+    rows: list[Repeater] = []
+    skips = _Skips()
+    read = 0
+    digest = hashlib.sha256()
+    newest = 0.0
+    for path in paths:
+        raw, mtime = _read_file(path)
+        digest.update(raw)
+        newest = max(newest, mtime)
+        reader = csv.reader(io.StringIO(raw.decode("utf-8", errors="replace")))
+        try:
+            header = [h.strip().lower() for h in next(reader)]
+        except (StopIteration, csv.Error):
+            header = []
+        if tuple(header[:3]) != DIREWOLF_HEAD or not {"dti", "frequency"} <= set(header):
+            raise RepeaterInputError(
+                f"{path}: not a Direwolf log (Direwolf's -l or -L CSV, whose header starts "
+                f"{','.join(DIREWOLF_HEAD)})"
+            )
+        for record in reader:
+            if not any(cell.strip() for cell in record):
+                continue
+            read += 1
+            line = reader.line_num
+            cells = {n: v.strip() for n, v in zip(header, record, strict=False)}
+            if cells.get("dti") != ";":
+                skips.add("not an APRS object", line)
+                continue
+            frequency = cells.get("frequency", "")
+            if not frequency or _number(frequency) is None or not _in_band(frequency):
+                skips.add("frequency outside the repeater bands", line)
+                continue
+            where = _position(cells.get("latitude"), cells.get("longitude"))
+            if where is None:
+                skips.add(_NO_POSITION, line)
+                continue
+            hz = _hz(frequency)
+            if hz is None:  # pragma: no cover - a band frequency is in range
+                skips.add(_BAD_FREQUENCY, line)
+                continue
+            name = _clean(cells.get("name"))
+            call = _object_callsign(name.upper())
+            heard = cells.get("isotime", "")
+            notes = [
+                x
+                for x in (
+                    _clean(cells.get("comment")),
+                    f"sent by {cells.get('source', '')}" if cells.get("source") else "",
+                    f"heard {heard}" if heard else "",
+                )
+                if x
+            ]
+            rows.append(
+                Repeater(
+                    callsign=call,
+                    output_hz=hz,
+                    lat=where[0],
+                    lon=where[1],
+                    source=DIREWOLF,
+                    offset_hz=_direwolf_offset(cells.get("offset", "")),
+                    tone=_tone_number(cells.get("tone")),
+                    notes="; ".join(notes),
+                    updated=heard,
+                    label="" if call else name,
+                )
+            )
+    first = paths[0] if len(paths) == 1 else Path(os.path.commonpath([str(p) for p in paths]))
+    return ParsedInput(
+        path=first,
+        format=DIREWOLF,
+        read=read,
+        rows=tuple(rows),
+        skipped=skips.result(),
+        sha256=digest.hexdigest(),
+        mtime=newest,
+    )
+
+
+def direwolf_date(rows: Iterable[Repeater]) -> date | None:
+    """The newest hearing among *rows*, or None."""
+    days = [w.date() for w in (_updated(r.updated) for r in rows) if w is not None]
+    return max(days) if days else None
+
+
+# --- OpenStreetMap ----------------------------------------------------------------------
+
+_OSM_PREFIXES = ("communication:amateur_radio", "communication:ham_radio")
+_UNIT = re.compile(r"^\s*([+-]?\d+(?:[.,]\d+)?)\s*(mhz|khz|hz)?\s*$", re.IGNORECASE)
+_SCALES = {"mhz": 1.0, "khz": 1e-3, "hz": 1e-6}
+#: A bare number is tried in these units, in this order: MHz, kHz, Hz, and
+#: Hz written ten times over (146.61 MHz as ``1466100000``, the spike's one
+#: Vermont object). No number lands in a band under two of them.
+_BARE = (1.0, 1e-3, 1e-6, 1e-7)
+
+
+def _first_value(text: str) -> str:
+    return text.split(";", 1)[0].strip()
+
+
+def osm_frequency(text: str) -> int | None:
+    """An OSM ``frequency_out`` (or ``frequency_in``) in Hz, or None."""
+    match = _UNIT.match(_first_value(text))
+    if not match:
+        return None
+    value = float(match.group(1).replace(",", "."))
+    unit = (match.group(2) or "").lower()
+    for scale in (_SCALES[unit],) if unit else _BARE:
+        mhz = value * scale
+        if _in_band(f"{mhz:.6f}"):
+            return round(mhz * 1_000_000)
+    return None
+
+
+def osm_offset(shift: str, out_hz: int, freq_in: str) -> int | None:
+    """``…:repeater:shift`` with its sign (a bare magnitude under 50 is MHz,
+    under 50,000 kHz, else Hz), or the input frequency's difference; None
+    when the shift has no sign, which says how far and not which way."""
+    first = _first_value(shift)
+    match = _UNIT.match(first)
+    if match and first.lstrip()[:1] in "+-" and first.strip():
+        value = float(match.group(1).replace(",", "."))
+        unit = (match.group(2) or "").lower()
+        if unit:
+            return round(value * _SCALES[unit] * 1_000_000)
+        size = abs(value)
+        scale = 1_000_000 if size < 50 else 1_000 if size < 50_000 else 1
+        return round(value * scale)
+    if not first:
+        entry = osm_frequency(freq_in) if freq_in else None
+        return None if entry is None else entry - out_hz
+    return None
+
+
+def _scheme(tags: dict[str, str]) -> dict[str, str]:
+    """Tags under either prefix, keyed as ``communication:amateur_radio…``."""
+    out: dict[str, str] = {}
+    for key, value in tags.items():
+        for prefix in _OSM_PREFIXES:
+            if key == prefix or key.startswith(prefix + ":"):
+                out.setdefault(_OSM_PREFIXES[0] + key[len(prefix) :], value)
+    return out
+
+
+def _is_repeater(scheme: dict[str, str]) -> bool:
+    base = _OSM_PREFIXES[0]
+    flag = scheme.get(f"{base}:repeater", "").strip().lower()
+    return (
+        (bool(flag) and flag != "no")
+        or scheme.get(base, "").strip().lower() == "repeater"
+        or f"{base}:repeater:frequency_out" in scheme
+    )
+
+
+def read_osm_xml(text: str, path: Path) -> ParsedInput:
+    """OSM XML as ``osmium tags-filter -f osm`` writes it: matched objects and
+    the nodes their ways reference. A node is placed where it is, a way at
+    the mean of its nodes; a relation is counted, not placed."""
+    upper = text.upper()  # D-064's rule: no GPX or OSM file needs either
+    if "<!DOCTYPE" in upper or "<!ENTITY" in upper:
+        raise RepeaterInputError(f"{path}: XML with a DOCTYPE or ENTITY declaration is refused")
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError as exc:
+        raise RepeaterInputError(f"{path}: osmium's output does not parse: {exc}") from None
+    nodes: dict[str, tuple[float, float]] = {}
+    for node in root.iter("node"):
+        where = _position(node.get("lat"), node.get("lon"))
+        if where is not None:
+            nodes[node.get("id", "")] = where
+    rows: list[Repeater] = []
+    skips = _Skips()
+    read = 0
+    base = _OSM_PREFIXES[0]
+    for element in root:
+        if element.tag not in ("node", "way", "relation"):
+            continue
+        tags = {t.get("k", ""): t.get("v", "") for t in element.iter("tag")}
+        scheme = _scheme(tags)
+        if not scheme:
+            continue  # a node a matched way references
+        read += 1
+        number = int(element.get("id", "0") or 0)
+        if not _is_repeater(scheme):
+            skips.add("not marked as a repeater", number)
+            continue
+        if element.tag == "relation":
+            skips.add("a relation, which has no single position", number)
+            continue
+        if element.tag == "node":
+            where = nodes.get(element.get("id", ""))
+        else:
+            refs = list(dict.fromkeys(nd.get("ref", "") for nd in element.iter("nd")))
+            points = [nodes[r] for r in refs if r in nodes]
+            where = (
+                (sum(p[0] for p in points) / len(points), sum(p[1] for p in points) / len(points))
+                if points
+                else None
+            )
+        if where is None:
+            skips.add(_NO_POSITION, number)
+            continue
+        hz = osm_frequency(scheme.get(f"{base}:repeater:frequency_out", ""))
+        if hz is None:
+            skips.add(_BAD_FREQUENCY, number)
+            continue
+        call = _clean(scheme.get(f"{base}:callsign")).upper()
+        named = _clean(scheme.get(f"{base}:repeater")).upper()
+        if not call and _CALLSIGN.fullmatch(_SSID.sub("", named)):
+            call = named
+        shift = scheme.get(f"{base}:repeater:shift", "")
+        offset = osm_offset(shift, hz, scheme.get(f"{base}:repeater:frequency_in", ""))
+        notes = [f"OpenStreetMap {element.tag} {number}"]
+        if shift and offset is None:
+            notes.append(f"shift {shift.strip()} (direction not given)")
+        rows.append(
+            Repeater(
+                callsign=call,
+                output_hz=hz,
+                lat=where[0],
+                lon=where[1],
+                source=OSM,
+                offset_hz=offset,
+                tone=_tone(
+                    re.sub(r"\s*hz\s*$", "", scheme.get(f"{base}:repeater:ctcss", ""), flags=re.I)
+                ),
+                mode=_clean(scheme.get(f"{base}:repeater:modulation")),
+                place=_clean(tags.get("name")),
+                notes="; ".join(notes),
+                label="" if call else format_mhz(hz),
+            )
+        )
+    return ParsedInput(
+        path=path,
+        format=OSM,
+        read=read,
+        rows=tuple(rows),
+        skipped=skips.result(),
+        sha256=hashlib.sha256(text.encode()).hexdigest(),
+        mtime=0.0,
+    )
+
+
+Runner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
+
+
+def _run(argv: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(argv, capture_output=True, text=True, check=False)
+
+
+def filter_extract(pbf: Path, scratch: Path, *, run: Runner = _run) -> ParsedInput:
+    """The repeaters in one region extract: ``osmium tags-filter`` into
+    *scratch*, as the operator, then :func:`read_osm_xml`."""
+    out = scratch / f"{pbf.name}.repeaters.osm"
+    argv = [
+        "osmium",
+        "tags-filter",
+        str(pbf),
+        f"nwr/{_OSM_PREFIXES[0]}*",
+        f"nwr/{_OSM_PREFIXES[1]}*",
+        "-f",
+        "osm",
+        "-o",
+        str(out),
+        "--overwrite",
+    ]
+    try:
+        result = run(argv)
+    except FileNotFoundError:
+        raise RepeaterInputError(
+            "osmium is not installed: it comes from the osmium-tool package, which "
+            "`hammunition install osm-navit` installs (or `sudo apt install osmium-tool`)"
+        ) from None
+    if result.returncode != 0:
+        raise RepeaterInputError(
+            f"osmium tags-filter failed on {pbf.name} (exit {result.returncode}): "
+            f"{result.stderr.strip()[:300]}"
+        )
+    try:
+        text = out.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RepeaterInputError(f"osmium wrote nothing readable for {pbf.name}: {exc}") from None
+    finally:
+        out.unlink(missing_ok=True)
+    return read_osm_xml(text, pbf)
+
+
+def installed_extracts(prefix: Path) -> list[tuple[Path, str | None]]:
+    """Every region extract installed under *prefix* (D-057), with the
+    snapshot its sidecar records, by file name."""
+    folder = prefix / "share" / "hammunition" / "data" / "osm-regions"
+    if not folder.is_dir():
+        return []
+    out: list[tuple[Path, str | None]] = []
+    for pbf in sorted(folder.glob("*.osm.pbf")):
+        try:
+            lines = pbf.with_name(pbf.name + ".source").read_text().splitlines()
+        except OSError:
+            lines = []
+        out.append((pbf, (lines[0].strip() or None) if lines else None))
+    return out
+
+
+def _snapshot_date(pbf: Path, snapshot: str | None) -> date:
+    if snapshot and re.fullmatch(r"\d{6}", snapshot):
+        try:
+            return date(2000 + int(snapshot[:2]), int(snapshot[2:4]), int(snapshot[4:6]))
+        except ValueError:
+            pass
+    return date.fromtimestamp(pbf.stat().st_mtime)
+
+
+def extracts_date(extracts: Sequence[tuple[Path, str | None]]) -> date:
+    """The oldest extract's snapshot date (D-031: the data's date)."""
+    return min(_snapshot_date(p, s) for p, s in extracts)
+
+
+# --- across sources ---------------------------------------------------------------------
+
+
+def _near(a: Repeater, b: Repeater) -> bool:
+    return abs(a.lat - b.lat) <= NEAR_DEGREES + 1e-9 and abs(a.lon - b.lon) <= NEAR_DEGREES + 1e-9
+
+
+def _fill(kept: Repeater, other: Repeater) -> Repeater:
+    from dataclasses import replace
+
+    return replace(
+        kept,
+        offset_hz=kept.offset_hz if kept.offset_hz is not None else other.offset_hz,
+        tone=kept.tone or other.tone,
+        mode=kept.mode or other.mode,
+        place=kept.place or other.place,
+        also=(*kept.also, other.source) if other.source not in kept.also else kept.also,
+    )
+
+
+def cross_merge(rows: Iterable[Repeater]) -> tuple[tuple[Repeater, ...], int]:
+    """The directory layers joined into one list, and how many rows joined
+    another.
+
+    Rows are taken best source first (:data:`PRECEDENCE`). A row joins a
+    kept one when its output frequency is the same and either its callsign
+    is the same or it lies within 0.02° in latitude and longitude. The kept
+    row keeps its position and fields, takes a field it lacks from the
+    joining row, and names the joining source in ``also``. A row without a
+    frequency is never joined. An APRS object is refused: it is what the
+    station heard, not a directory entry."""
+    ordered = list(rows)
+    if any(r.source == DIREWOLF for r in ordered):
+        raise ValueError("an APRS object heard off the air is never merged into the directories")
+    rank = {source: n for n, source in enumerate(PRECEDENCE)}
+    ordered.sort(key=lambda r: rank[r.source])
+    kept: list[Repeater] = []
+    by_hz: dict[int, list[int]] = {}
+    joined = 0
+    for row in ordered:
+        match = None
+        if row.output_hz:
+            for index in by_hz.get(row.output_hz, []):
+                other = kept[index]
+                same_call = bool(row.callsign) and row.callsign == other.callsign
+                if same_call or _near(row, other):
+                    match = index
+                    break
+        if match is None:
+            if row.output_hz:
+                by_hz.setdefault(row.output_hz, []).append(len(kept))
+            kept.append(row)
+            continue
+        joined += 1
+        kept[match] = _fill(kept[match], row)
+    return tuple(kept), joined
