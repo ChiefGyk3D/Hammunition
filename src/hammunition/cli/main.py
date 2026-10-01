@@ -200,6 +200,7 @@ from hammunition.ustopo import bucket_probe as ustopo_probe
 from hammunition.ustopo import load_index as load_ustopo_index
 
 if TYPE_CHECKING:
+    from hammunition.geoclue import GeoClueGrants
     from hammunition.hardware.power import KeptEntry, Parkable
     from hammunition.interface.repeaters import RegistrationView
     from hammunition.qmapshack_config import BRouterSetup
@@ -3418,6 +3419,28 @@ def cmd_hardware_list(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _geoclue_for_apply(args: argparse.Namespace, user: str) -> GeoClueGrants | None:
+    """GeoClue's half of `hardware apply` (D-069): None under ``--no-geoclue``.
+    Raises GeoClueError, before anything runs, on a file Hammunition did not write."""
+    from hammunition import geoclue
+
+    if getattr(args, "no_geoclue", False):
+        return None
+    return geoclue.plan_geoclue(user)
+
+
+def _geoclue_disclosure(args: argparse.Namespace, geo: GeoClueGrants | None) -> list[str]:
+    from hammunition import geoclue
+
+    if geo is None:
+        return (
+            ["GeoClue (D-069): left alone (--no-geoclue)."]
+            if getattr(args, "no_geoclue", False)
+            else []
+        )
+    return geoclue.disclose(geo)
+
+
 def cmd_hardware_apply(args: argparse.Namespace) -> int:
     """Write the catalog's udev rules and join the device-access groups."""
     from hammunition.gpstime.grants import disclose, grant_commands, stage_grants, verify_grants
@@ -3449,6 +3472,16 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return EXIT_UNPLANNABLE
+    from hammunition import geoclue
+
+    try:
+        geo = _geoclue_for_apply(args, user)
+    except geoclue.GeoClueError as exc:
+        print(
+            f"error: {exc}\n`--no-geoclue` sets up devices without GeoClue's GPS socket (D-069).",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
 
     print(f"Hardware setup for {user!r}\n")
     if plan.omissions:
@@ -3459,7 +3492,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             print(f"  … and {len(plan.omissions) - 8} more")
         print()
 
-    if plan.is_noop:
+    if plan.is_noop and (geo is None or geo.is_noop):
         print(
             "Nothing to do: the rules file already matches, you are in every access "
             "group, the power-control helper and its polkit action are installed, and "
@@ -3570,8 +3603,12 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     if plan.time is not None:
         for line in disclose(plan.time):
             print(line)
+    for line in _geoclue_disclosure(args, geo):
+        print(line)
 
     preview_commands, preview_helper, preview_policy, _preview_time = build_commands("<staging>")
+    if geo is not None:
+        preview_commands += geoclue.grant_commands(geo, "<staging>")
     installing_polkit = preview_helper is not None or preview_policy is not None
     """Whether this run installs *either* privileged artefact. Fix round 3:
     the helper and the policy are both routes to the same root-exec, and a
@@ -3638,6 +3675,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     staging_dir = Path(tempfile.mkdtemp(prefix="hammunition-hardware-"))
     try:
         commands, helper_command, policy_command, time_commands = build_commands(str(staging_dir))
+        geo_commands = geoclue.grant_commands(geo, str(staging_dir)) if geo is not None else []
+        commands += geo_commands
 
         if not plan.rules_already_current:
             staging = staging_dir / "udev-staging.rules"
@@ -3653,6 +3692,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             os.chmod(policy_staging, 0o644)
         if plan.time is not None:
             stage_grants(plan.time, staging_dir)
+        if geo is not None:
+            geoclue.stage_grants(geo, staging_dir)
 
         runner = SubprocessRunner()
         print("\nRunning:")
@@ -3667,6 +3708,15 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                 TransactionLog(owner=user).append(
                     {
                         "event": "time_grants",
+                        "version": 1,
+                        "description": command.description,
+                        "argv": list(command.argv),
+                    }
+                )
+            if any(command is step for step in geo_commands):
+                TransactionLog(owner=user).append(
+                    {
+                        "event": "geoclue_files",
                         "version": 1,
                         "description": command.description,
                         "argv": list(command.argv),
@@ -3748,6 +3798,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                 problems.append(f"{user} is still not in {group}")
         if plan.time is not None:
             problems += verify_grants(plan.time)
+        if geo is not None:
+            problems += geoclue.verify_grants(geo)
         if problems:
             for problem in problems:
                 print(f"  unverified: {problem}", file=sys.stderr)
@@ -3823,6 +3875,10 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNPLANNABLE
     time_present = not removal.is_empty
+    from hammunition import geoclue
+
+    geo_removal = geoclue.plan_geoclue_removal()
+    geo_present = not geo_removal.is_empty
     owned = {HELPER_PATH, POLICY_PATH}
     recorded: list[str] = []
     skipped: list[str] = []
@@ -3848,7 +3904,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             if path not in recorded:
                 recorded.append(path)
 
-    if not recorded and not skipped and not kept_present and not time_present:
+    if not recorded and not skipped and not kept_present and not time_present and not geo_present:
         print(
             "Nothing to remove: the transaction log records no hardware artefacts "
             "installed by Hammunition for this user."
@@ -3860,7 +3916,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             f"Skipped: the log names {path!r}, which this command does not own "
             f"(only the power-control helper and its polkit action are ever removed)."
         )
-    if not recorded and not kept_present and not time_present:
+    if not recorded and not kept_present and not time_present and not geo_present:
         print("Nothing to do: no artefact this command owns is recorded.")
         return EXIT_OK
 
@@ -3868,7 +3924,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     gone = [p for p in recorded if p not in present]
     for path in gone:
         print(f"Already absent: {path}")
-    if not present and not kept_present and not time_present:
+    if not present and not kept_present and not time_present and not geo_present:
         print("Nothing to do: every recorded artefact is already gone.")
         return EXIT_OK
 
@@ -3899,6 +3955,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
 
     time_preview = removal_commands(removal, "<staging>")
     shown = [*commands, *time_preview]
+    geo_commands = geoclue.removal_commands(geo_removal)
+    shown += geo_commands
     euid = os.geteuid()
     print(f"\nCommands ({len(shown)}):")
     for command in shown:
@@ -3914,6 +3972,13 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             f"\nGPS time (D-058): {time_files.NTP_CONF}'s marked lines go back exactly as "
             f"they were before Hammunition edited them, and only Hammunition's block leaves "
             f"{time_files.APPARMOR_LOCAL}; the rest of that file stays."
+        )
+    if geo_present:
+        print(
+            f"\nGeoClue (D-069): only files that start with Hammunition's header are removed; "
+            f"{geoclue.SOCKET_DIR} goes with `rmdir`, which refuses if anything but the "
+            f"tether's socket is in it. Stop `hammunition maps gps-tether` first: GeoClue "
+            f"loses its socket either way, and TCP 10110 keeps serving until you do."
         )
     print(
         f"\nThe device-access rules file, {RULES_PATH}, is not touched: it is "
@@ -3934,6 +3999,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         if staging_dir is not None:
             stage_removal(removal, staging_dir)
             to_run += removal_commands(removal, str(staging_dir))
+        to_run += geo_commands
         runner = SubprocessRunner()
         print("\nRunning:")
         for command in to_run:
@@ -3950,6 +4016,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     problems = [f"{p} is still present" for p in present if Path(p).exists()]
     if time_present:
         problems += verify_removal(removal)
+    if geo_present:
+        problems += geoclue.verify_removal(geo_removal)
     if problems:
         for problem in problems:
             print(f"  unverified: {problem}", file=sys.stderr)
@@ -3964,6 +4032,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         after.append(
             "ntpsec runs on the package's own configuration; `hardware apply` restores GPS time."
         )
+    if geo_present:
+        after.append("GeoClue no longer reads the tether; `hardware apply` sets it up again.")
     print("\nDone and verified. " + " ".join(after))
     return EXIT_OK
 
@@ -4843,6 +4913,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-gps-time",
         action="store_true",
         help="leave ntpsec, its grants and fake-hwclock alone (D-058)",
+    )
+    p_hw_apply.add_argument(
+        "--no-geoclue",
+        action="store_true",
+        help="leave GeoClue alone: no socket drop-in, no tmpfiles line (D-069)",
     )
     p_hw_apply.set_defaults(func=cmd_hardware_apply)
 
