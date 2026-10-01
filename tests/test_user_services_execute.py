@@ -161,8 +161,6 @@ def test_install_removes_a_stale_rig_service_when_now_skipped(tmp_path: Path) ->
         packages=(PlannedPackage(manifest=rig_service, block=block, apt_packages=()),),
         user_services=(),  # flrig: nothing planned this run
     )
-    commands = commands_for(
-        plan, apt=AptBackend(RecordingRunner()), user_services_home=tmp_path
-    )
+    commands = commands_for(plan, apt=AptBackend(RecordingRunner()), user_services_home=tmp_path)
     argvs = [c.argv for c in commands if isinstance(c, Command)]
     assert ("systemctl", "--user", "disable", "--now", "hammunition-rigctld.service") in argvs

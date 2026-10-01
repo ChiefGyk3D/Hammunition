@@ -483,7 +483,9 @@ def test_rig_checks_do_not_warn_install_for_an_flrig_station() -> None:
     operator to install one — that fix would do nothing."""
     from hammunition.doctor import RigStatus, rig_checks
 
-    checks = rig_checks(RigStatus(configured=True, kind="cat", owner="flrig", service_state="absent"))
+    checks = rig_checks(
+        RigStatus(configured=True, kind="cat", owner="flrig", service_state="absent")
+    )
     assert not any(c.status == "warn" for c in checks)
     assert any("flrig" in c.detail for c in checks)
 

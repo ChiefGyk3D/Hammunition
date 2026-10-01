@@ -148,9 +148,7 @@ def rig_checks(status: RigStatus | None) -> list[Check]:
                 Check("rig", "info", "the rig is owned by flrig; no rigctld service runs")
             )
         else:
-            checks.append(
-                Check("rig", "info", "the rig is keyed by VOX; no rigctld service runs")
-            )
+            checks.append(Check("rig", "info", "the rig is keyed by VOX; no rigctld service runs"))
         return checks
     state = status.service_state
     if state == "absent":

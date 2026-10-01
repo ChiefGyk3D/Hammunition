@@ -50,7 +50,9 @@ def _echo_upstream(port: int, ready: threading.Event) -> None:
 
 def _run_proxy(listen: int, target: int) -> threading.Event:
     ready = threading.Event()
-    threading.Thread(target=serve, args=(listen, target), kwargs={"ready": ready}, daemon=True).start()
+    threading.Thread(
+        target=serve, args=(listen, target), kwargs={"ready": ready}, daemon=True
+    ).start()
     return ready
 
 

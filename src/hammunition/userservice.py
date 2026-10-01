@@ -242,6 +242,7 @@ def plan_user_services(
     # together, so the missing-value and skip decisions are made once over the
     # group, not once per entry (a single deferral line, spec §6b).
     selected = [svc for svc in manifest.user_services if _matches(svc.when_station, facts)]
+
     # An entry is skipped only by a non-empty unless_station that matches: an
     # empty one means "nothing excludes this", never "always skip" (review
     # minor). The group is skipped only when every selected entry is.
