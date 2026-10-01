@@ -18,15 +18,19 @@ Contesting is a typing job under time pressure, and every mouse movement is a lo
 
 ## Before it will work
 
-A contest-specific configuration file -- tlf ships examples and you start from one rather than from nothing. CW keying needs cwdaemon or a rig that can key itself. Cluster spots need a network connection and a cluster to connect to.
+A configuration file with your callsign: Hammunition writes `~/tlf/logcfg.dat` with it and your grid square from station config (`hammunition station set --callsign <yours> --grid-square <yours>`); with either unset the package installs and the file is reported as not written. A contest adds a rules file -- tlf ships them, and the commented default configuration shows every other setting. CW keying needs cwdaemon or a rig that can key itself. Cluster spots need a network connection and a cluster to connect to.
 
 ## How it installs
 
 - apt: `tlf`
 
+## Configuration it writes
+
+- `~/tlf/logcfg.dat` (written, mode 0644, existing file backed up); filled from the station values `callsign`, `grid_square`, and not written while one is unset (D-035)
+
 ## Known problems
 
-The learning curve is the real cost: the key bindings are not discoverable and the first contest with it will go badly if it is also the first hour with it. Set it up and run a practice session beforehand. Scoring rules for a contest that changed its own rules this year may be a release behind, so check the multiplier logic against the current rules rather than trusting the total.
+The learning curve is the real cost: the key bindings are not discoverable and the first contest with it will go badly if it is also the first hour with it. Set it up and run a practice session beforehand. Scoring rules for a contest that changed its own rules this year may be a release behind, so check the multiplier logic against the current rules rather than trusting the total. What the configuration block does: writes `~/tlf/logcfg.dat` in your home (yours, mode 0644; under sudo written as root and handed to you, never through a symlink) with `CALL=` your callsign and `MYQRA=` your grid square, which tlf also uses for your position (beam headings, distances). It replaces tlf's own default only when tlf is started in `~/tlf` or given `-f`; started anywhere else, tlf reads that directory's logcfg.dat or its default. A file that was there before is kept as `~/tlf/logcfg.dat.hammunition-backup`, once. Every `hammunition install` that includes tlf rewrites this file from station config, so keep contest settings in the copy in each contest's directory, not here. Inspect with `cat ~/tlf/logcfg.dat`. `hammunition uninstall tlf` does not remove it (config files are not reversed, and the plan says so); to undo, `rm ~/tlf/logcfg.dat`.
 
 ## Keeping it current
 

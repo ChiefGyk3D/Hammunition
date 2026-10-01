@@ -39,7 +39,7 @@ Binaries this produces:
 
 ## Configuration it writes
 
-- `/etc/bpq32.cfg` (mode 0644, existing file backed up)
+- `/etc/bpq32.cfg` (written, mode 0644, existing file backed up); filled from the station values `callsign`, `grid_square`, `node_alias`, and not written while one is unset (D-035)
 
 ## Known problems
 

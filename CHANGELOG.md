@@ -43,6 +43,21 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   packet-and-Winlink guide gains the modem choice. Measured: Pat 0.16.0 to
   Mercury 1.9.15 peer to peer, two instances back to back with no radio.
   Not measured: either modem over the air, FreeDATA's server and window.
+- **Station config reaches six more units** (Q-022 #1, gap analysis A1;
+  D-035 amendment of 2026-09-29). `direwolf` writes `/etc/direwolf.conf`
+  (MYCALL and the KISS/AGW ports; the sound card and PTT stay yours),
+  `ax25-tools` appends the `wl2k` port to `/etc/ax25/axports` once and never
+  as a duplicate libax25 would refuse, `gpredict` writes its default ground
+  station from the grid square, `tlf` writes `~/tlf/logcfg.dat` (CALL,
+  MYQRA), `aprx` sets `mycall` on Debian's receive-only login, and
+  `uronode` sets the node identity. Each was measured from the package's
+  own files; each manifest says what it writes, how to inspect it and how
+  to undo it. `linpac` and `fbb` configure themselves and get no block.
+  The engine gains derived station values (`latitude`, `longitude` from the
+  grid square; `ax25_callsign`, which defers a file rather than trim
+  `W1AW/4`), `~/` paths written into the operator's home without following
+  a symlink, `skip_if_present` for appends, and a dry run that names the
+  station values each file is filled from.
 
 - **Apt units from the gap analysis** (section D.6, branch
   `gap-06-apt-adds`). The eight candidates were swept on the seven targets

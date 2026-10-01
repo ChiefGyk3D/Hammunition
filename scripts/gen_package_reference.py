@@ -352,7 +352,12 @@ def page(m: PackageManifest) -> str:
         out.append("## Configuration it writes\n")
         for cfg in m.config_files:
             backup = "existing file backed up" if cfg.backup_existing else "no backup"
-            out.append(f"- `{cfg.path}` (mode {cfg.mode}, {backup})")
+            verb = "appended to" if cfg.append else "written"
+            fills = ", ".join(f"`{v}`" for v in sorted(cfg.station_variables))
+            out.append(
+                f"- `{cfg.path}` ({verb}, mode {cfg.mode}, {backup}); filled from the "
+                f"station values {fills}, and not written while one is unset (D-035)"
+            )
         out.append("")
 
     if d.known_problems:

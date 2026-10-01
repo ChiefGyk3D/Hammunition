@@ -12,6 +12,41 @@ install:
       method: apt
       packages: [tlf]
 
+# The station half of tlf's configuration. Measured 2026-09-29 from the
+# package (1.4.1-351-ge9217b2) and its source, not remembered:
+#  - tlf reads `logcfg.dat` from the directory it is started in, else
+#    /usr/share/tlf/logcfg.dat (tlf(1), FILES; utils.c find_available) --
+#    the whole file, not merged. The shipped one says `CALL=NOCALL`.
+#  - The manual's workflow is a directory per contest holding a copy of the
+#    station's logcfg.dat plus that contest's rules (Manual.md, "Basic
+#    file structure"); its own example path is ~/tlf. So the file goes to
+#    ~/tlf/logcfg.dat, a directory tlf itself never writes to on its own.
+#  - The keys: `CALL=` (tlf(1), "The station callsign used in messages")
+#    and `MYQRA=` for the locator (parse_logcfg.c; check_qra wants the
+#    field letters upper case, which station config keeps). The gap
+#    analysis's `MYLOCATOR` does not exist: the packaged binary answers
+#    "Keyword 'MYLOCATOR' not supported" and "Problems parsing logcfg.dat!".
+#  - This file, run through the extracted binary in a pty and a network
+#    namespace (`tlf -v -n -r`), parsed clean: "Reading config file:
+#    logcfg.dat", "Reading contest rules file: /usr/share/tlf/rules/qso",
+#    "Call = N0TST", "My Zone = 05 My Continent = NA".
+# tlf does not rewrite logcfg.dat: `:CFG` opens it in $EDITOR, the
+# operator's own edit.
+config_files:
+  - path: ~/tlf/logcfg.dat
+    template: |
+      # tlf station settings, written by Hammunition from your station values.
+      # tlf reads logcfg.dat from the directory you start it in:
+      #   cd ~/tlf && tlf          (or: tlf -f ~/tlf/logcfg.dat)
+      # For a contest, copy this file into a directory of its own and add
+      # RULES=<contest> (tlf -l lists them); with no RULES line tlf runs its
+      # general `qso` rules. Every keyword: man tlf, and the commented
+      # default in /usr/share/tlf/logcfg.dat.
+      CALL={station.callsign}
+      MYQRA={station.grid_square}
+    mode: "0644"
+    backup_existing: true
+
 update:
   probe:
     method: apt_policy
@@ -31,8 +66,12 @@ documentation:
     stack. It is also the logger most likely to already know the scoring rules
     of the contest you are entering.
   prerequisites: >-
-    A contest-specific configuration file -- tlf ships examples and you start
-    from one rather than from nothing. CW keying needs cwdaemon or a rig that
+    A configuration file with your callsign: Hammunition writes
+    `~/tlf/logcfg.dat` with it and your grid square from station config
+    (`hammunition station set --callsign <yours> --grid-square <yours>`);
+    with either unset the package installs and the file is reported as not
+    written. A contest adds a rules file -- tlf ships them, and the
+    commented default configuration shows every other setting. CW keying needs cwdaemon or a rig that
     can key itself. Cluster spots need a network connection and a cluster to
     connect to.
   known_problems: >-
@@ -42,6 +81,19 @@ documentation:
     a contest that changed its own rules this year may be a release behind, so
     check the multiplier logic against the current rules rather than trusting
     the total.
+    What the configuration block does: writes `~/tlf/logcfg.dat` in your
+    home (yours, mode 0644; under sudo written as root and handed to you,
+    never through a symlink) with `CALL=` your callsign and `MYQRA=` your
+    grid square, which tlf also uses for your position (beam headings,
+    distances). It replaces tlf's own default only when tlf is started in
+    `~/tlf` or given `-f`; started anywhere else, tlf reads that directory's
+    logcfg.dat or its default. A file that was there before is kept as
+    `~/tlf/logcfg.dat.hammunition-backup`, once. Every `hammunition install`
+    that includes tlf rewrites this file from station config, so keep
+    contest settings in the copy in each contest's directory, not here.
+    Inspect with `cat ~/tlf/logcfg.dat`. `hammunition uninstall tlf` does
+    not remove it (config files are not reversed, and the plan says so); to
+    undo, `rm ~/tlf/logcfg.dat`.
   upstream_url: https://tlf.github.io/
   upstream_support: >-
     GitHub issues at https://github.com/Tlf/tlf and a mailing list linked from
