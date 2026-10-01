@@ -7132,6 +7132,114 @@ weekly; `catalog/packages/usgs-ustopo.yaml`,
 `catalog/packages/ustopo-qmapshack.yaml`, `catalog/profiles/navigation.yaml`.
 The operator's page is section 15 of `docs/guides/offline-navigation.md`.
 
+### D-068 amendment (2026-10-01): FSTopo and 3DEP, built
+
+The "Next" above, built on branch `official-topo-2` from the spec's
+section 8 and its dated note (plan:
+`docs/superpowers/plans/2026-10-01-official-topo-2.md`). Two provider
+members on the existing methods, not new methods: `topo-quads` gains
+`usfs-fstopo`, `dem-tiles` gains `usgs-3dep`. Both units join
+`navigation`. **Amends** D-061's `gdal-dem` with an optional `alternative`
+input and this decision's `ustopo-mosaic` with an optional `fstopo` input,
+each checked catalog-wide for its provider.
+
+**FSTopo (`usfs-fstopo`).** `scripts/gen_fstopo_index.py` reads the ArcGIS
+layer `FSTopo_Index_GTAC` (19 pages) and writes
+`catalog/data/fstopo-quads.txt`: box, `secoord`, vintage (the layer's
+two-digit edition, 0 for the 6,560 of 18,188 it leaves empty), postal code
+and name. Generated 2026-10-01 from the layer as last edited 2025-08-08:
+18,187 quads, one left out with no `secoord` (an Arkansas cell with no
+polygon). A region's sheets are chosen by eighth-degree cell as US Topo's
+are. At plan time each sheet to fetch is located through the raster
+gateway's one redirect, followed by the plan itself and refused unless it
+leads to a `.tif`/`.tiff` under `https://data.fs.usda.gov/geodata/rastergateway/`,
+and the file is asked its size. **The Forest Service publishes no
+checksum.** `catalog/data/fstopo-pins.yaml` carries a sha256 and size per
+sheet the maintainer measured (`--pin SECOORD`, which downloads); it starts
+empty. A pinned sheet is checked against its pin ("sha256, pinned by
+Hammunition (the Forest Service publishes no checksum)") and refused by
+name when the gateway announces another size. Any other sheet is fetched
+**unverified** by `Fetcher.fetch_sized` -- its announced size and a TIFF
+header checked, no cached copy ever reused -- and the plan says so on the
+sheet's own line and counts them in a warning. This rests on this
+decision's own "otherwise disclosed as unverified in the plan, by name",
+which CLAUDE.md's older "refuse to install if absent" yields to under the
+authority rule; the data is a picture, never executed.
+
+**The converter changed from the spec's plain `gdalbuildvrt`** (the
+spec's section 8 note of the same date): the spike's sheet is stored in
+strips (`Block=8951x1`) with no overviews, and `gdalbuildvrt` over two
+paletted GeoTIFFs whose palettes differ exits 0, keeps the first palette for
+both and warns "The end result might produce weird colors" (measured on
+synthetic sheets). So `ustopo-mosaic`, when its block names `fstopo`, runs
+per sheet `gdal_translate -q -expand rgb -co TILED=YES -co COMPRESS=JPEG
+-co PHOTOMETRIC=YCBCR` and US Topo's `gdaladdo` 2 4 8 16, publishes
+`<data>/ustopo-qmapshack/fstopo/<name>.tif` with a sidecar
+(`ustopo-mosaic fstopo 1`), and builds `FSTopo.vrt` beside `ustopo.vrt`,
+recorded in `fstopo.source`. `maps qmapshack` already lists that directory,
+so QMapShack gets a second map, `FSTopo`, with no change to its
+registration. A test over two synthetic paletted sheets keeps each sheet's
+colour and goes red without `-expand rgb`.
+
+**3DEP (`dem-3dep`).** `scripts/gen_3dep_tiles.py` lists the bucket's
+`StagedProducts/Elevation/13/TIFF/current/` prefix (5,967 objects, six
+pages) and writes `catalog/data/usgs-3dep-tiles.txt`: 1,449 tiles with size
+and ETag, the newest object dated 2026-09-17. Tiles are named by the
+north-west corner (`src/hammunition/usgs3dep.py`); a region's squares are
+its outline's, as for Copernicus. Each tile to fetch is HEAD-checked against
+the list and the download must reproduce the S3 ETag; the plan says "MD5
+from the publisher's object metadata; not pinned by Hammunition". The
+CRC-64/NVME the 2025 objects also carry is not used: no standard-library
+implementation, a pure-Python one ran at 6.6 MB/s (over a minute a tile),
+and the ETag covers every object. 3DEP is fetched **only** when the
+station's new `dem_source` is `3dep` (`hammunition station set
+--dem-source copernicus|3dep`, default `copernicus`); otherwise
+`dem-3dep` resolves nothing, asks nothing, removes any 3DEP tile it
+installed, and the plan says so. With `3dep`, `gdal-dem` draws from the
+unit its block names as `alternative`, rasterises a tile at 10,812 pixels
+(`PIXELS` per provider), and writes `elevation: usgs-3dep` into
+`tiles.source`, so a change of source never reads as current; a Copernicus
+record is byte for byte what it was, so no existing install rebuilds. The
+plan prints 3DEP's size per region before the confirmation.
+**Copernicus stays the default and stays installed either way**: it is a
+tenth the size, BRouter's elevation reads it (its builder parses Copernicus
+names), and it covers regions 3DEP does not; a region outside the US gets a
+warning that QMapShack has no elevation for it while `3dep` is chosen.
+
+**Measured on 2026-10-01**, through the engine's own code, files deleted
+after: one George Washington National Forest FSTopo sheet (`secoord`
+382207907), gateway located in 1.0 s, 21,194,737 bytes, the same sha256 as
+the spike's copy of 2026-09-29, expanded in 7.0 s and given overviews in
+3.6 s to 24,546,537 bytes (1.16, carried as 1.2, "measured on one sheet");
+one Shenandoah 3DEP tile (`USGS_13_n39w079`), HEAD 0.4 s, 488,059,861
+bytes, ETag `…-94` reproduced and the spike's sha256 again, traced in
+17.3 s to a 211.5 MB GeoPackage and rasterised at 10,812 pixels in 3.4 s to
+8.4 MB, its corners exactly the degree. The first attempt at the tile
+stalled mid-download (a 60 s read timeout); the partial was deleted and the
+retry completed.
+
+**Not measured:** QMapShack drawing `FSTopo.vrt`, or drawing hillshade
+from a 3DEP `dem.vrt`; owed by the bench, in a virtual machine, never on
+the maintainer's desktop (the spike's `pkill` incident above). Whether
+every index quad has a GeoTIFF at the gateway (a quad without one refuses
+the plan by name); whether any FSTopo sheet is already RGB (`-expand rgb`
+would then fail it by name in the ledger); a whole install through
+`hammunition install` on any machine.
+
+**Not carried, as above:** 1 m lidar (26.9 GB for one Shenandoah
+project), GeoPDF (six times the GeoTIFF, rasterised anyway), Historical
+Topo (9.4 GB for Vermont).
+
+**Consequences.** `src/hammunition/fstopo.py`, `src/hammunition/usgs3dep.py`,
+`src/hammunition/backends/fstopo.py`; `Fetcher.fetch_sized`;
+`TopoQuadsBackend.fstopo`, `DemTilesBackend.bare_earth`; the FSTopo half of
+`src/hammunition/backends/topo_mosaic.py`; provider-aware
+`src/hammunition/backends/gdal_dem.py`; `resolve_station_fstopo`,
+`resolve_station_3dep`; `Station.dem_source`; the plan's `bare_earth`,
+`fstopo` and `contours_from` in text and JSON; `scripts/gen_fstopo_index.py`
+and `scripts/gen_3dep_tiles.py`, checked weekly;
+`catalog/packages/usfs-fstopo.yaml`, `catalog/packages/dem-3dep.yaml`.
+
 
 ---
 

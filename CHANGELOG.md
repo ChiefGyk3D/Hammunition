@@ -11,6 +11,26 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Forest Service FSTopo sheets and USGS 3DEP bare-earth elevation**
+  (D-068, amended 2026-10-01). `usfs-fstopo` installs the FSTopo
+  7.5-minute sheets, with trail numbers, for the station's regions over
+  National Forest land, chosen offline from a carried index of 18,187 quads
+  (`scripts/gen_fstopo_index.py`) and located through the raster gateway's
+  one redirect at plan time. The Forest Service publishes no checksum: a
+  sheet the maintainer pinned is checked by its sha256, and every other is
+  fetched **unverified**, its size and TIFF header only, said on its plan
+  line and counted in a warning; the pins file starts empty.
+  `ustopo-qmapshack` expands each sheet's palette to tiled RGB with
+  overviews and builds a second QMapShack map, `FSTopo.vrt`. `dem-3dep`
+  installs 3DEP 1/3-arc-second tiles, about ten times Copernicus's size,
+  only after `hammunition station set --dem-source 3dep`, checked against
+  each object's S3 ETag from a carried list of 1,449 tiles
+  (`scripts/gen_3dep_tiles.py`); `dem-qmapshack` then draws its elevation
+  and contours from 3DEP at 10,812 pixels a tile, and setting the source
+  back removes the tiles and redraws from Copernicus. Copernicus stays the
+  default and stays installed. The plan prints both, per region, in text
+  and JSON. QMapShack drawing either is not yet measured.
+
 - **A generated launcher no longer takes a PATH binary's name** (issue
   #174). `~/.local/bin/rigctl`, libhamlib-utils' launcher, ran ahead of
   hamlib's `/usr/bin/rigctl`, ignored its arguments and opened the
