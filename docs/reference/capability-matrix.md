@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 85 | 2 | 213 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 85 | 2 | 213 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 83 | 2 | 215 |
-| kali-rolling *(unswept)* | 0 | 0 | 78 | 1 | 221 |
-| parrot *(unswept)* | 0 | 0 | 83 | 2 | 215 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 83 | 2 | 215 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 80 | 7 | 213 |
+| debian-13 *(unswept)* | 0 | 0 | 87 | 2 | 214 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 87 | 2 | 214 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 84 | 3 | 216 |
+| kali-rolling *(unswept)* | 0 | 0 | 80 | 1 | 222 |
+| parrot *(unswept)* | 0 | 0 | 85 | 2 | 216 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 84 | 3 | 216 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 82 | 7 | 214 |
 
-**300 manifests** against **7 targets**.
+**303 manifests** against **7 targets**.
 
 ---
 
@@ -110,6 +110,7 @@ build HAS been run in a container say so in their own install notes.
 | `dictionaries` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `direwolf` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `dmrconfig` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `droidstar` | git | git | — | git | git | — | git |
 | `dsdcc` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `dump1090-mutability` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `dumphfdl` | source | source | source | source | source | source | source |
@@ -245,6 +246,7 @@ build HAS been run in a container say so in their own install notes.
 | `pciutils` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `pcsc-tools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `picocom` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `pihpsdr` | git | git | git | git | git | git | git |
 | `pipx` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `proxmark3` | git | git | git | apt ? | git | git | git |
 | `psk31lx` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -274,6 +276,7 @@ build HAS been run in a container say so in their own install notes.
 | `rayhunter` | binary | binary | binary | binary | binary | binary | binary |
 | `readsb` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `remotetrx` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `rig-service` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `routino` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `rtl-433` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `rtl-ais` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

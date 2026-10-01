@@ -1,0 +1,160 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: pihpsdr
+version: "3.0"
+summary: Operator program for OpenHPSDR transceivers -- ANAN, Hermes Lite 2 and their kin
+categories: [rig-control, sdr-receivers]
+
+# ADD, 2026-09 gap analysis section B Group 1 and section D item 10 ("each a
+# pinned build with a D-032 check first"). Measured 2026-10-01:
+#   - Upstream: DL1YCF's repository, which the program's own About box calls
+#     the maintained one ("Originally written by John Melton (G0ORX/N6LYT),
+#     extended and maintained by Christoph van Wüllen (DL1YCF)"). D-032:
+#     default branch `master`, head f9ab6ee5940d committed 2026-09-02; tag
+#     v3.0 2026-06-25. G0ORX's original (g0orx/pihpsdr) still merges pull
+#     requests (head 2026-06-03) but its last tag is v2.0.8-rc1 from 2021.
+#     DL1BZ's deskHPSDR is a desktop-oriented fork, head 2026-09-30, tagging
+#     about weekly; not carried.
+#   - Licence: COPYING is GPL-3.0 and the source headers say "version 3 of the
+#     License, or (at your option) any later version". The vendored WDSP
+#     library is GPL-2.0-or-later, libspecbleach LGPL-2.1, rnnoise BSD-3.
+#     (The gap report and the brief said GPL-2.0 and GPL-3.0 respectively;
+#     the tree says GPL-3.0-or-later.)
+#   - Archives (scripts/apt-policy-sweep.sh, seven targets): no target
+#     offers `pihpsdr` or `deskhpsdr`, and none a WDSP package. Every build
+#     dependency below is offered on all seven. Nothing packages piHPSDR, so
+#     the pin is upstream's own release tag (D-024's tag case).
+install:
+  - install:
+      method: git
+      repo: https://github.com/dl1ycf/pihpsdr
+      ref: v3.0
+      # D-069: the tag must still resolve to this commit. The tag `3.0` points
+      # at the same commit.
+      commit: 2552f77f123d7aff37d3e7e04a0394254f76a817
+      # The Makefile has no install rule; `make` builds the vendored WDSP,
+      # rnnoise and libspecbleach static libraries and links one executable
+      # at the top of the tree. Upstream's defaults are used as they stand:
+      # PulseAudio audio, GPIO, MIDI, TCI and port forwarding on, SoapySDR
+      # off.
+      build_system: make
+      provides_install_target: false
+    build_depends:
+      - build-essential
+      - pkg-config
+      - git
+      - libfftw3-dev
+      - libgtk-3-dev
+      - libasound2-dev
+      - libpulse-dev
+      - libssl-dev
+      - libcurl4-openssl-dev
+      - libusb-1.0-0-dev
+      - libi2c-dev
+      - libgpiod-dev
+      - libopus-dev
+      - libminiupnpc-dev
+      - libsqlite3-dev
+      - libwebsockets-dev
+      - zlib1g-dev
+    note: >-
+      Built on 2026-10-01 in a rootless debian:13 container the way this
+      block runs it -- `make -j 2` in the checkout as an unprivileged user,
+      with exactly the build_depends above: exit 0, 35 s wall, 216 MiB peak
+      for the largest process, 23 compiler warnings (14 of them WDSP's
+      "only SSE and SSE2" notice) and no errors. The executable is 21.7 MB
+      and links GTK 3, FFTW, PulseAudio, ALSA, libcurl, libwebsockets,
+      libgpiod and Opus. The build dependencies came to 411 packages and
+      about 1.0 GB on a bare debian:13 image, most of it GTK's development
+      stack. Ubuntu 24.04 and Mint carry libgpiod 1.6, which the Makefile
+      builds against through its GPIOV1 path: built that way in an
+      ubuntu:24.04 container the same day, exit 0, 37 s, 218 MiB peak.
+
+binaries:
+  - produced: pihpsdr
+    install_as: pihpsdr
+
+launchers:
+  - name: pihpsdr-window
+    title: OpenHPSDR transceiver panel (pihpsdr)
+    exec: pihpsdr
+    terminal: false
+
+update:
+  probe:
+    method: github_tags
+    repo: dl1ycf/pihpsdr
+  strategy: rebuild
+  cadence_hint: >-
+    DL1YCF tags releases a few times a year (v2.5 2025-02, v2.6 2025-10,
+    v2.7 2026-02, v3.0 2026-06) and keeps a branch per release for fixes
+    (Rel-3.0, head 2026-09-02). Move the tag and its commit together, and
+    re-read the default branch's head for liveness (D-032), not GitHub's
+    activity fields.
+
+documentation:
+  what_it_does: >-
+    piHPSDR is the operating program for transceivers that speak the
+    OpenHPSDR protocols, 1 and 2, over Ethernet: Apache Labs' ANAN radios,
+    the Hermes Lite 2, and the older Hermes, Angelia, Orion and Metis
+    boards. It finds the radio on the local network and gives you the whole
+    panel -- band and mode, receivers with a panadapter and waterfall,
+    filters, noise reduction, AGC, transmit with a microphone or CW keyer,
+    PureSignal predistortion on the boards that have it, and CAT over TCP so
+    another program can follow the radio. The DSP is the WDSP library,
+    vendored in its tree and built with it.
+
+    **It transmits.** These are transceivers, and piHPSDR keys them: press
+    MOX, TUNE or the microphone's PTT, or let a digital-mode program key it
+    over CAT, and the radio emits RF on the frequency shown. A licence and
+    the band plan apply. Installing it transmits nothing, and nothing is
+    keyed until you have found a radio, started it and pressed one of those.
+  why_you_want_it: >-
+    The catalog carries `gr-hpsdr`, which gives an HPSDR radio to GNU Radio
+    as a source and a sink and leaves you to build the radio around it.
+    This is a program to operate one with. On Windows the same radios run
+    Thetis or PowerSDR; piHPSDR is the native Linux and Raspberry Pi
+    program, and upstream's README lists a client-server mode for running
+    the radio from a second machine, transmit included. `quisk` is the other transceiver
+    program here; it speaks to SoapySDR devices and a few others, not to
+    HPSDR protocol 2.
+  prerequisites: >-
+    An OpenHPSDR radio on the same Ethernet segment as the computer:
+    discovery is by broadcast, so a router between them hides the radio.
+    Audio comes from PulseAudio or PipeWire's Pulse layer. For CAT from
+    other programs it has a TCP server that emulates a Kenwood TS-2000
+    (upstream's `rigctl.c`), and a TCI server. No station file: the
+    settings live in its own menus.
+  known_problems: >-
+    **The first start takes a long time and must not be interrupted.** It
+    computes FFTW "wisdom" for every transform size WDSP uses and writes
+    `~/.config/pihpsdr/wdspWisdom00`; the window says "Do not close window
+    until wisdom plans are completed". In the container measurement on
+    2026-10-01 that took 54 minutes at the lowest CPU priority while another
+    build ran beside it, and an interrupted run starts again from the
+    beginning. Later starts read the file and take seconds.
+
+    Settings live in `~/.config/pihpsdr` (it changes into that directory on
+    start), one set per account. **SoapySDR is not built in**: upstream's
+    Makefile leaves it off by default and this build keeps the default, so
+    a HackRF or an RTL-SDR does not appear here -- use `quisk`, `gqrx-sdr` or
+    `sdrpp` for those. GPIO and I2C controller support is compiled in for
+    the Raspberry Pi and does nothing on a laptop; it logs "could not open
+    /dev/i2c-1" and carries on.
+
+    What was measured: built on Debian 13, started under a virtual display
+    with no radio (wisdom, then a discovery that found nothing), and started
+    again beside upstream's own radio simulator, `hpsdrsim`, built from the
+    same tree, which it discovered over protocol 1 and protocol 2. The
+    device dialog drew black under the virtual display. Not measured: any
+    real radio, a receive or transmit session, audio, CAT, PureSignal, the
+    client-server link, or a build on any target but Debian 13 and Ubuntu
+    24.04 (the arm64 build is upstream's main platform and has not been run
+    here).
+  upstream_url: https://github.com/dl1ycf/pihpsdr
+  upstream_support: >-
+    DL1YCF's repository: issues and discussions at the URL above, and the
+    manual (a PDF of about 300 pages) attached to its releases. The
+    Hermes Lite 2 community's mailing list and wiki cover piHPSDR with that
+    radio. Licence: GPL-3.0-or-later.

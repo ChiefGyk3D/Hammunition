@@ -99,8 +99,8 @@ def policy_xml() -> str:
   <vendor>Hammunition</vendor>
   <vendor_url>https://github.com/ChiefGyk3D/Hammunition</vendor_url>
   <action id="{ACTION_ID}">
-    <description>Park or wake a radio device, or set the clock's time source</description>
-    <message>Authentication is required to change a radio device's power state or the clock's time source</message>
+    <description>Park or wake a radio device, set the clock's time source, or keep your services running after you log out</description>
+    <message>Authentication is required to change a radio device's power state, the clock's time source, or whether your services keep running after you log out</message>
     <icon_name>preferences-system-power</icon_name>
     <defaults>
       <allow_any>auth_admin</allow_any>

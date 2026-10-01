@@ -25,6 +25,7 @@ packages:
   - inspectrum
   - gr-rds
   - quisk
+  - pihpsdr
   - gnss-sdr
 
 documentation:
@@ -33,8 +34,10 @@ documentation:
     that lets a flow graph talk to almost any radio, fosphor's GPU-drawn
     spectrum and waterfall blocks for it, the SoapySDR tools and the
     RTL-SDR driver stack, the client and server halves of network SDR sharing,
-    an offline signal visualiser, an RDS decoder, a transceiver application for
-    hardware that transmits, and a complete GPS receiver in software.
+    an offline signal visualiser, an RDS decoder, two transceiver applications
+    for hardware that transmits -- Quisk, and piHPSDR for OpenHPSDR radios
+    such as the ANAN and the Hermes Lite 2 -- and a complete GPS receiver in
+    software.
   why_together: >-
     Everything here works with one cheap dongle, and the driver layer is what
     makes the applications interchangeable — software written against SoapySDR
@@ -55,8 +58,12 @@ documentation:
     by name. `soapysdr-module-rtlsdr` is the exception on frequency grounds
     rather than principle: an RTL-SDR is what most people have.
 
-    Also excludes transmit-capable and interception tooling, which is
-    `rf-security` and the consent-gated `rf-research`; the DAB transmit chain,
+    Also excludes transmit-capable research and interception tooling, which
+    is `rf-security` and the consent-gated `rf-research`. The two
+    transceiver programs here, `quisk` and `pihpsdr`, transmit the way a
+    station transceiver does: when you key them, on the frequency shown, and
+    a licence and the band plan apply. Installing them transmits nothing;
+    the profile also excludes the DAB transmit chain,
     which emits into a broadcast band; and the aeronautical and utility
     decoders, which are `listening`.
   manual_configuration: >-
@@ -81,4 +88,7 @@ documentation:
     Around 1.5 GB, most of it GNU Radio and its Python stack. Without GNU Radio
     the rest is roughly 300 MB. `gr-fosphor` (added 2026-09-30) also pulls
     `gnuradio-dev`, GNU Radio's development headers; what that adds has not
-    been measured.
+    been measured. `pihpsdr` (added 2026-10-01) is a source build whose
+    GTK 3 development dependencies came to about 1.0 GB on a bare debian:13
+    image. Its first start
+    spends minutes to an hour computing FFTW wisdom; see its package page.
