@@ -4,14 +4,14 @@
 
 **Tray switches for parking and waking radio devices on Xfce, LXQt, LXDE, MATE and Cinnamon — the Hammunition family's own**
 
-- **Version recorded:** 0.3.0
+- **Version recorded:** 0.4.0
 - **Categories:** `device-support`
 - **Upstream:** <https://github.com/ChiefGyk3D/hammunition-tray>
 - **Desktops:** Xfce, LXQt, LXDE, MATE, Cinnamon only — read from the session files at plan time; deferred from a profile on a machine with none of them, refused by name (see [desktops](../desktops.md)); elsewhere, [`hammunition-tray`](hammunition-tray.md)
 
 ## What it does
 
-A system-tray icon with a menu entry for each catalogued device Hammunition can park -- a GPS receiver today, a WWAN modem when one is catalogued. Choosing a device's entry detaches it so the kernel drops it and its port can suspend, or brings it back. A device kept off across reboots reads "kept off", and one that is unplugged while kept offers Forget. The icon is the same penguin with a handheld radio as the Plasma applet's, and it goes grey while anything is parked.
+A system-tray icon with a menu entry for each catalogued device Hammunition can park -- a GPS receiver today, a WWAN modem when one is catalogued. Choosing a device's entry detaches it so the kernel drops it and its port can suspend, or brings it back. A device kept off across reboots reads "kept off", and one that is unplugged while kept offers Forget. The icon is the same penguin with a handheld radio as the Plasma applet's, and it goes grey while anything is parked. A Time section (D-058, needs Hammunition 0.18.0 or later) shows what the clock follows and lets you choose one of the four GPS-time modes.
 
 ## Why you would want it
 
@@ -23,7 +23,7 @@ Xfce, LXQt, LXDE, MATE or Cinnamon, with a panel that has a system tray (Xfce's 
 
 ## How it installs
 
-- prebuilt deb from https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.3.0/hammunition-tray-qt_0.3.0_all.deb
+- prebuilt deb from https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.4.0/hammunition-tray-qt_0.4.0_all.deb
   - Installs /usr/bin/hammunition-tray-qt, its Python package under /usr/share/hammunition-tray-qt, an application menu entry, an autostart entry in /etc/xdg/autostart (not shown in Plasma) and two icons under /usr/share/icons/hicolor. It runs nothing as root itself; it calls the helper `hammunition hardware apply` installs, through /usr/bin/pkexec.
 
 ## Known problems

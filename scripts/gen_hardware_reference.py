@@ -32,7 +32,12 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from hammunition.manifest.hardware import DeviceClass, DeviceManifest, PowerControl  # noqa: E402
+from hammunition.manifest.hardware import (  # noqa: E402
+    DeviceClass,
+    DeviceManifest,
+    PowerControl,
+    ResumeControl,
+)
 from hammunition.manifest.load import load_catalog, load_hardware  # noqa: E402
 
 HARDWARE = REPO_ROOT / "catalog" / "hardware"
@@ -100,6 +105,21 @@ def power_control_lines(control: PowerControl) -> list[str]:
     return lines
 
 
+def resume_lines(control: ResumeControl) -> list[str]:
+    """Issue #177: an entry with a resume step says so, under "After suspend"."""
+    return [
+        "## After suspend",
+        "",
+        f"`hammunition hardware apply` installs a resume step for this device: `{control.step}`.",
+        "",
+        control.note.strip(),
+        "",
+        "See [after suspend](power-control.md#after-suspend) for what the step "
+        "installs, how to inspect it and how to reverse it.",
+        "",
+    ]
+
+
 def verification_line(device: DeviceManifest) -> str:
     """D-027: status and maintainer_verified are separate fields, said separately."""
     status = {
@@ -161,6 +181,8 @@ def page(
 
     if device.power_control:
         lines += power_control_lines(device.power_control)
+    if device.resume:
+        lines += resume_lines(device.resume)
 
     if device.usb_ids:
         lines += [
@@ -270,6 +292,8 @@ def class_page(cls: DeviceClass, devices: dict[str, DeviceManifest], known: set[
     lines += ["", "## Shared setup", "", doc.setup_steps, ""]
     if cls.power_control:
         lines += power_control_lines(cls.power_control)
+    if cls.resume:
+        lines += resume_lines(cls.resume)
     if cls.packages:
         lines += [
             "## Shared tooling",

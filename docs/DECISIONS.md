@@ -5045,6 +5045,88 @@ switched daemons; the file that says the chrony unit is still configured is
 the evidence, read by content like everything else unapply removes. Not yet
 measured on the field laptop, like the rest of this record.
 
+### Amendment, 2026-10-01: a resume step for the GPS receiver, installed with the grants (issue #177)
+
+**Measured** read-only on the field laptop (issue #177's measurement
+comment, 2026-10-01). After a suspend the GPS had no fix until the receiver
+was parked and woken. Across 19 suspend/resume cycles in one boot the u-blox
+receiver kept the same USB device number, and its `connected_duration`
+equalled the time the machine was awake. It was enumerated once, at boot,
+and never re-enumerated. So no `gpsdctl` remove or add follows a resume, and
+gpsd keeps a tty that can go quiet without an error or a hangup. Every
+recovery that worked gave gpsd a fresh open: session 12's gpsd restart (a
+fix within 1 s) and a park and wake. The kept-off rule was absent and
+nothing writes the port's `power/control`. Without `-n` and with no client
+watching, gpsd closes the receiver before the sleep and opens it fresh after
+it, so the fault is intermittent there. **With this record's `-n` drop-in
+it would follow every suspend.** On a laptop that sleeps, the resume step is
+therefore a prerequisite for GPS time.
+
+**Ruling: recorded here, not under D-056.** The fault is in gpsd's open
+handle, not in power control: the measurement rules out the kept-off rule,
+autosuspend and park/wake as causes, and the step never parks or wakes
+anything. What it shares is this record's shape: a root-owned file
+installed by `hardware apply`, disclosed in the plan, read back afterwards,
+removed by `hardware unapply` by content, with an opt-out flag. And it
+exists because of this record's `-n`.
+
+**The step.** A device class names it, `resume: {step: gpsd_reopen}`, an
+enum the engine implements, as `power_control.method` is. The catalog
+carries no command. Where gpsd is installed and a catalog entry names the
+step, `hardware apply` installs:
+
+- `/usr/local/libexec/hammunition-gps-resume`, `0755`, staged and installed
+  by `install -D` like the helper, beginning with Hammunition's header. A
+  standard-library Python script (`src/hammunition/hardware/gps_resume_script.py`)
+  run by `/usr/bin/python3 -I`, which gpsd's package depends on. With no
+  `/dev/gpsN` it does nothing, so a parked receiver is never woken. With no
+  gpsd control socket it does nothing, because `gpsdctl add` would start a
+  gpsd of its own outside systemd. Otherwise, for each receiver it runs
+  `gpsdctl remove` then `gpsdctl add`, by the path gpsd reports for it
+  (`?DEVICES;`): the tty as `gpsdctl@` registers it, or `/dev/gpsN` where
+  gpsd was configured with that name, so gpsd never holds two handles on
+  one port. Then it sends `?DEVICES;` on 127.0.0.1:2947 with a 2 s limit. No
+  device, or no answer: `systemctl try-restart gpsd.service`. One journal
+  line per action; a failed restart or a failed `gpsdctl add` fails the
+  unit. **The restart does not cover the measured fault on its own terms:**
+  in #177 gpsd still listed the device while the tty was silent, and after
+  the re-add it lists it again whether or not data flows. The script makes
+  no data check (the design asked for `?DEVICES`, and a watch for reports
+  after the re-add is the follow-up if the bench shows the re-add alone is
+  not enough). So the restart catches gpsd losing the device or hanging, and
+  a receiver that stays silent is left to the manual steps.
+- `/etc/systemd/system/hammunition-gps-resume.service`, a oneshot with
+  `After=` and `WantedBy=` `suspend.target hibernate.target
+  hybrid-sleep.target suspend-then-hibernate.target`, enabled and never
+  started. It is a unit rather than a `system-sleep` hook so that
+  `systemctl cat` shows it and its runs land in the journal.
+
+Both are printed whole in the plan, with `systemctl status`,
+`journalctl -u` and `hardware unapply`. Each step is logged (`gps_resume`).
+Afterwards the files are read back and the four `.wants` links checked: an
+exit code from `systemctl enable` is not taken as proof (D-031). A file at
+either path without the header refuses the plan and is never overwritten.
+`hardware unapply` disables the unit and removes both files, each only when
+it starts with the header. `hardware apply --no-gps-resume` leaves the step
+out. `--no-gps-time` does not, because the step also serves `cgps`, `xgps`
+and the map tether. `doctor` reports whether it is installed when a GPS
+receiver is attached and gpsd is installed.
+
+**The heavier recoveries stay manual.** They are a gpsd restart while gpsd
+still lists the receiver, and park and wake through the helper, which is the
+heaviest (74 s to a fix from cold, bench session 10). The step never parks
+or wakes anything. The operator does, by hand, and the docs say so
+(`docs/hardware/power-control.md`, "After suspend").
+
+**Not yet measured:** whether `gpsdctl remove` and `add` bring the fix back
+after a real suspend; whether the unit, which runs as soon as the system is
+resumed, can run before the USB port has finished resuming; whether
+the stall is in gpsd's handle or in `cdc_acm` (the issue's bench step 5);
+and the step running at all on the field laptop. The bench steps are on
+issue #177. Until they are recorded in
+`docs/reference/bench-verification-5430.md`, the docs call this the design
+the measurement points to, not a measured recovery.
+
 ### What is refused, and what is out of scope
 
 A target whose time daemon is not ntpsec (Debian 13, Ubuntu and Kali
@@ -5060,11 +5142,12 @@ serving time to the LAN are out of scope.
 
 ### The tray
 
-`hammunition-tray` gains a Time section (its 0.3.0) that reads through
+`hammunition-tray` gains a Time section (its 0.4.0, corrected 2026-10-01 --
+first written here as 0.3.0 before the section shipped) that reads through
 `hammunition-devctl time state` without `pkexec` and changes the mode only
 through `pkexec hammunition-devctl time mode MODE`, from a fixed list of the
 four. It is built in its own repository, and the catalog's
-`hammunition-tray` manifest is re-pinned to it once released.
+`hammunition-tray` manifest was re-pinned to it once released.
 
 ### Not yet measured
 
@@ -7450,6 +7533,19 @@ agreement about an index format the engine would then have to parse and
 trust. `artifacts` reading the station by default: the Bunker runs on a NAS
 with no station, and a listing that changed with whoever ran it would not
 be a contract.
+
+**Amended 2026-10-01 (issue #159): Kiwix books (D-066) go through the mirror
+too, and `artifacts` lists them.** The books backend had fetched from
+download.kiwix.org only; it now asks `<mirror>/kiwix-library/<book id>`
+first, the id as `catalog/data/kiwix-pins.yaml` names it, with the same
+pinned sha256 and size, the same plan wording and the same log facts as a
+`data` file. `artifacts --reference-books ID,ID` lists each book (`check:
+sha256`, its own licence line) from the carried pins alone, no station read;
+with none given, `kiwix-library` is one entry deferred as *no books
+selected*. Books are the largest data the catalog fetches (up to 127 GB), so
+they are the mirror's most valuable case. Measured in
+`tests/test_mirror_books.py` (two loopback servers: a mirror hit, and wrong
+bytes falling back to the publisher) and `tests/test_artifacts.py`.
 
 ---
 

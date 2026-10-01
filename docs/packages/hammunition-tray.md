@@ -4,14 +4,14 @@
 
 **KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own**
 
-- **Version recorded:** 0.3.0
+- **Version recorded:** 0.4.0
 - **Categories:** `device-support`
 - **Upstream:** <https://github.com/ChiefGyk3D/hammunition-tray>
 - **Desktops:** KDE Plasma only — read from the session files at plan time; deferred from a profile on a machine with none of them, refused by name (see [desktops](../desktops.md)); elsewhere, [`hammunition-tray-qt`](hammunition-tray-qt.md)
 
 ## What it does
 
-A KDE Plasma applet that puts a switch in the system tray for each catalogued device Hammunition can park -- a GPS receiver today, a WWAN modem when one is catalogued. Turning a switch off detaches the device so the kernel drops it and its port can suspend; turning it on brings it back. The tray icon is a penguin holding a handheld radio, and goes grey while anything is parked.
+A KDE Plasma applet that puts a switch in the system tray for each catalogued device Hammunition can park -- a GPS receiver today, a WWAN modem when one is catalogued. Turning a switch off detaches the device so the kernel drops it and its port can suspend; turning it on brings it back. The tray icon is a penguin holding a handheld radio, and goes grey while anything is parked. A Time section (D-058, needs Hammunition 0.18.0 or later) shows what the clock follows and lets you choose one of the four GPS-time modes.
 
 ## Why you would want it
 
@@ -23,7 +23,7 @@ KDE Plasma 6. `hammunition hardware apply` must have been run: it installs the r
 
 ## How it installs
 
-- prebuilt deb from https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.3.0/hammunition-tray_0.3.0_all.deb
+- prebuilt deb from https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.4.0/hammunition-tray_0.4.0_all.deb
   - Installs the applet system-wide under /usr/share/plasma/plasmoids and its icon under /usr/share/icons/hicolor. It runs nothing as root itself; it calls the helper `hammunition hardware apply` installs.
 
 ## Known problems
