@@ -51,6 +51,31 @@ config_files:
       LON={station.longitude}
     mode: "0644"
     backup_existing: true
+  # The radio gpredict uses for Doppler tuning: a whole file of its own,
+  # pointed at the station's shared rigctld (D-073 §7). The rig_device
+  # reference defers the file until the rig is configured, with the service
+  # (D-035); gpredict reads it before it ships, as #153's QTH file is loaded.
+  # gpredict's Doppler needs CAT, so for a PTT-only rig this file tunes
+  # nothing (the guide says so), and for rig_owner: flrig point gpredict at
+  # flrig's port (127.0.0.1:12345) by hand instead.
+  - path: ~/.config/Gpredict/hwconf/hammunition.rig
+    template: |
+      # Written by Hammunition: the station's shared rigctld (D-073).
+      # For rig {station.rig_device}. Do not edit: a reinstall replaces it.
+      [radio]
+      Host=localhost
+      Port=4532
+      Type=1
+      PTT=0
+      VFO_UP=
+      VFO_DOWN=
+      LO=0
+      LO_UP=0
+      SIGNAL_AOS=0
+      SIGNAL_LOS=0
+      VERSION=2
+    mode: "0644"
+    backup_existing: true
 
 update:
   probe:

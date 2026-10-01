@@ -28,6 +28,7 @@ Current Keplerian elements, which it downloads and which go stale in days rather
 ## Configuration it writes
 
 - `~/.config/Gpredict/sample.qth` (written, mode 0644, existing file backed up); filled from the station values `grid_square`, `latitude`, `longitude`, and not written while one is unset (D-035)
+- `~/.config/Gpredict/hwconf/hammunition.rig` (written, mode 0644, existing file backed up); filled from the station values `rig_device`, and not written while one is unset (D-035)
 
 ## Known problems
 
