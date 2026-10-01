@@ -1264,8 +1264,14 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
     at once, each sent every sentence; only while the operator runs it, and
     never as root. Ctrl-C stops it, exit 0. No ``--json`` form: it is a
     server, not a document (D-059).
+
+    D-069: with ``--nmea-socket PATH``, or by default once ``hardware apply``
+    has written GeoClue's drop-in, it also serves a unix socket GeoClue reads;
+    ``--no-nmea-socket`` leaves it off. The default failing (its directory
+    missing, say) is a note and TCP still serves; a path the operator named
+    failing stops the tether.
     """
-    from hammunition import gps_tether
+    from hammunition import geoclue, gps_tether
 
     try:
         port = gps_tether.PORT if args.port is None else gps_tether.serve_port(args.port)
@@ -1281,6 +1287,8 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
                 f"the map's position stream is on {gps_tether.POSITION_PORT} unless "
                 f"--position-port names another"
             )
+        if args.nmea_socket is not None and args.no_nmea_socket:
+            raise ValueError("--nmea-socket and --no-nmea-socket ask for opposite things")
     except ValueError as exc:
         print(f"error: {exc}.", file=sys.stderr)
         return EXIT_FAILED
@@ -1310,18 +1318,53 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return EXIT_FAILED
-    print(gps_tether.instructions(port, gpsd=gpsd, position_port=position_port), flush=True)
 
     def log(line: str) -> None:
         print(line, file=sys.stderr, flush=True)
 
+    socket_path: str | None = args.nmea_socket
+    if socket_path is None and not args.no_nmea_socket and geoclue.configured():
+        socket_path = geoclue.SOCKET
+    unix = None
+    if socket_path is not None:
+        try:
+            unix = gps_tether.listen_unix(socket_path, group=geoclue.GROUP, log=log)
+        except (OSError, ValueError) as exc:
+            why = exc.strerror if isinstance(exc, OSError) and exc.strerror else str(exc)
+            if args.nmea_socket is not None:
+                listener.close()
+                http.close()
+                print(f"error: cannot listen on {socket_path}: {why}.", file=sys.stderr)
+                return EXIT_FAILED
+            hint = (
+                f" Its directory comes from {geoclue.TMPFILES}; `sudo systemd-tmpfiles "
+                f"--create {geoclue.TMPFILES}` makes it."
+                if isinstance(exc, FileNotFoundError)
+                else ""
+            )
+            log(
+                f"Not serving GeoClue: cannot listen on {socket_path} ({why}).{hint} "
+                f"QMapShack and the map are served as usual."
+            )
+            socket_path = None
+    print(
+        gps_tether.instructions(
+            port, gpsd=gpsd, position_port=position_port, nmea_socket=socket_path
+        ),
+        flush=True,
+    )
+
     try:
-        gps_tether.serve(listener, http=http, gpsd=gpsd, log=log)
+        gps_tether.serve(
+            listener, http=http, unix=None if unix is None else unix[0], gpsd=gpsd, log=log
+        )
     except KeyboardInterrupt:
         log("Stopped.")
     finally:
         listener.close()
         http.close()
+        if unix is not None and socket_path is not None:
+            gps_tether.close_unix(unix[0], socket_path, unix[1])
     return EXIT_OK
 
 
@@ -4576,6 +4619,19 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="serve the browser map's position stream (GET /position) on 127.0.0.1 port N "
         "(default 10111, D-071)",
+    )
+    p_maps_tether.add_argument(
+        "--nmea-socket",
+        metavar="PATH",
+        default=None,
+        help="also serve NMEA on a unix socket at PATH, mode 0660, for GeoClue (D-069); "
+        "the default is /run/hammunition-gps/nmea.sock once `hardware apply` has set "
+        "GeoClue up, and off otherwise",
+    )
+    p_maps_tether.add_argument(
+        "--no-nmea-socket",
+        action="store_true",
+        help="do not serve GeoClue's socket, even where `hardware apply` has set it up",
     )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
 

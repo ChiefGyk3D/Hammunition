@@ -422,3 +422,137 @@ def test_a_fresh_config_selects_the_routing_database(
     conf = _as(monkeypatch, tmp_path)
     assert cli.main(["maps", "qmapshack", "--configure-only"]) == cli.EXIT_OK
     assert "routino\\database=0\n" in conf.read_text()
+
+
+# ---------------------------------------------------------------- the GeoClue socket (D-069)
+
+
+def _socket_calls(
+    monkeypatch: pytest.MonkeyPatch, *, unix_fails: BaseException | None = None
+) -> list[str]:
+    """Stand-ins for both listeners, the server and the socket's removal."""
+    import socket
+
+    import hammunition.gps_tether as tether
+
+    calls: list[str] = []
+
+    class Listener:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+        def close(self) -> None:
+            calls.append(f"closed {self.name}")
+
+    def listen(port: int = tether.PORT) -> socket.socket:
+        calls.append(f"listen {port}")
+        return Listener(str(port))  # type: ignore[return-value]
+
+    def listen_unix(path: str, **kwargs: object) -> tuple[socket.socket, tuple[int, int]]:
+        calls.append(f"listen_unix {path}")
+        if unix_fails is not None:
+            raise unix_fails
+        return Listener("unix"), (1, 2)  # type: ignore[return-value]
+
+    def close_unix(listener: object, path: str, identity: tuple[int, int]) -> None:
+        calls.append(f"close_unix {path} {identity}")
+
+    def serve(listener: object, **kwargs: object) -> None:
+        calls.append("serve with unix" if kwargs.get("unix") is not None else "serve")
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(tether, "listen", listen)
+    monkeypatch.setattr(tether, "listen_unix", listen_unix)
+    monkeypatch.setattr(tether, "close_unix", close_unix)
+    monkeypatch.setattr(tether, "serve", serve)
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
+    return calls
+
+
+def _our_dropin() -> None:
+    from hammunition import geoclue
+
+    Path(geoclue.DROPIN).parent.mkdir(parents=True)
+    Path(geoclue.DROPIN).write_text(geoclue.dropin_content())
+
+
+def test_without_the_geoclue_files_no_socket_is_served(
+    monkeypatch: pytest.MonkeyPatch, geoclue_files: Path
+) -> None:
+    calls = _socket_calls(monkeypatch)
+    assert cli.main(["maps", "gps-tether"]) == cli.EXIT_OK
+    assert not any("unix" in call for call in calls)
+
+
+def test_with_the_geoclue_files_the_socket_is_served_by_default(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], geoclue_files: Path
+) -> None:
+    """The launcher runs `hammunition maps gps-tether` with no option; the
+    drop-in's presence is what turns the socket on, so the menu entry needs no
+    second form."""
+    from hammunition import geoclue
+
+    _our_dropin()
+    calls = _socket_calls(monkeypatch)
+    assert cli.main(["maps", "gps-tether"]) == cli.EXIT_OK
+    assert calls == [
+        "listen 10110",
+        "listen 10111",
+        f"listen_unix {geoclue.SOCKET}",
+        "serve with unix",
+        "closed 10110",
+        "closed 10111",
+        f"close_unix {geoclue.SOCKET} (1, 2)",
+    ]
+    assert geoclue.SOCKET in capsys.readouterr().out
+
+
+def test_no_nmea_socket_leaves_it_off_with_the_files_in_place(
+    monkeypatch: pytest.MonkeyPatch, geoclue_files: Path
+) -> None:
+    _our_dropin()
+    calls = _socket_calls(monkeypatch)
+    assert cli.main(["maps", "gps-tether", "--no-nmea-socket"]) == cli.EXIT_OK
+    assert not any("unix" in call for call in calls)
+
+
+def test_an_explicit_socket_is_served_without_the_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls = _socket_calls(monkeypatch)
+    path = str(tmp_path / "n.sock")
+    assert cli.main(["maps", "gps-tether", "--nmea-socket", path]) == cli.EXIT_OK
+    assert f"listen_unix {path}" in calls and "serve with unix" in calls
+
+
+def test_an_explicit_socket_that_cannot_be_made_stops_the_tether(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    calls = _socket_calls(monkeypatch, unix_fails=FileNotFoundError(2, "No such file or directory"))
+    path = str(tmp_path / "missing" / "n.sock")
+    assert cli.main(["maps", "gps-tether", "--nmea-socket", path]) == cli.EXIT_FAILED
+    assert "serve" not in " ".join(calls)
+    assert "closed 10110" in calls and "closed 10111" in calls
+    assert path in capsys.readouterr().err
+
+
+def test_the_default_socket_failing_is_a_note_and_tcp_still_serves(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], geoclue_files: Path
+) -> None:
+    """After a reboot before systemd-tmpfiles ran, say: QMapShack keeps working."""
+    _our_dropin()
+    calls = _socket_calls(monkeypatch, unix_fails=FileNotFoundError(2, "No such file or directory"))
+    assert cli.main(["maps", "gps-tether"]) == cli.EXIT_OK
+    assert "serve" in calls
+    err = capsys.readouterr().err
+    assert "systemd-tmpfiles --create" in err and "GeoClue" in err
+
+
+def test_both_socket_options_at_once_are_refused(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    calls = _socket_calls(monkeypatch)
+    argv = ["maps", "gps-tether", "--nmea-socket", "/x/n.sock", "--no-nmea-socket"]
+    assert cli.main(argv) == cli.EXIT_FAILED
+    assert calls == []
+    assert "--no-nmea-socket" in capsys.readouterr().err

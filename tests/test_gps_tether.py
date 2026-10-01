@@ -794,3 +794,224 @@ def test_stopping_closes_every_client_and_the_gpsd_watch() -> None:
     finally:
         listener.close()
         gpsd.close()
+
+
+# ---------------------------------------------------------------- the unix socket (D-069)
+
+
+@pytest.fixture
+def short_dir() -> Iterator[Path]:
+    """A directory with a short path: AF_UNIX allows 107 bytes, and pytest's
+    tmp_path can be longer than that. Removed afterwards."""
+    import shutil
+    import tempfile
+
+    where = Path(tempfile.mkdtemp(prefix="hgt-"))
+    try:
+        yield where
+    finally:
+        shutil.rmtree(where, ignore_errors=True)
+
+
+def _my_group() -> str:
+    import grp
+    import os
+
+    return grp.getgrgid(os.getgid()).gr_name
+
+
+def test_the_unix_listener_is_mode_0660_in_the_group_named(short_dir: Path) -> None:
+    import os
+    import stat
+
+    from hammunition.gps_tether import close_unix, listen_unix
+
+    path = str(short_dir / "nmea.sock")
+    notes: list[str] = []
+    listener, identity = listen_unix(path, group=_my_group(), log=notes.append)
+    try:
+        st = os.lstat(path)
+        assert stat.S_ISSOCK(st.st_mode)
+        assert stat.S_IMODE(st.st_mode) == 0o660
+        assert st.st_gid == os.getgid()
+        assert notes == []
+    finally:
+        close_unix(listener, path, identity)
+    assert not os.path.lexists(path), "the socket is removed when the tether stops"
+
+
+def test_no_such_group_keeps_the_operators_group_and_says_so(short_dir: Path) -> None:
+    from hammunition.gps_tether import close_unix, listen_unix
+
+    path = str(short_dir / "nmea.sock")
+    notes: list[str] = []
+    listener, identity = listen_unix(path, group="no-such-group-hgt", log=notes.append)
+    close_unix(listener, path, identity)
+    assert len(notes) == 1
+    assert "no-such-group-hgt" in notes[0] and "cannot read it" in notes[0]
+
+
+def test_a_stale_socket_is_replaced_and_a_live_one_refused(short_dir: Path) -> None:
+    import errno
+
+    from hammunition.gps_tether import close_unix, listen_unix
+
+    path = str(short_dir / "nmea.sock")
+    stale = socket.socket(socket.AF_UNIX)
+    stale.bind(path)
+    stale.close()  # the file stays, nobody listens: what a crash leaves
+    listener, identity = listen_unix(path, group=_my_group(), log=lambda line: None)
+    try:
+        with pytest.raises(OSError) as raised:
+            listen_unix(path, group=_my_group(), log=lambda line: None)
+        assert raised.value.errno == errno.EADDRINUSE
+    finally:
+        close_unix(listener, path, identity)
+
+
+@pytest.mark.parametrize(
+    ("make", "words"),
+    [
+        ("file", "not a socket"),
+        ("relative", "absolute"),
+        ("long", "107"),
+    ],
+)
+def test_a_path_that_cannot_be_a_socket_is_refused_by_name(
+    short_dir: Path, make: str, words: str
+) -> None:
+    from hammunition.gps_tether import listen_unix
+
+    path = str(short_dir / "nmea.sock")
+    if make == "file":
+        Path(path).write_text("theirs")
+    elif make == "relative":
+        path = "nmea.sock"
+    else:
+        path = str(short_dir / ("x" * 120))
+    with pytest.raises(ValueError, match=words):
+        listen_unix(path, group=_my_group(), log=lambda line: None)
+    if make == "file":
+        assert Path(path).read_text() == "theirs", "never removed"
+
+
+def test_a_replaced_socket_is_not_removed_on_close(short_dir: Path) -> None:
+    """Only the inode this tether bound is unlinked: a second tether's socket at
+    the same path, after this one's was removed, stays."""
+    import os
+
+    from hammunition.gps_tether import close_unix, listen_unix
+
+    path = str(short_dir / "nmea.sock")
+    listener, identity = listen_unix(path, group=_my_group(), log=lambda line: None)
+    os.unlink(path)
+    other = socket.socket(socket.AF_UNIX)
+    other.bind(path)
+    try:
+        close_unix(listener, path, identity)
+        assert os.path.lexists(path)
+    finally:
+        other.close()
+
+
+def _unix_lines(client: socket.socket, count: int, within: float = 3.0) -> list[bytes]:
+    return _lines(client, count, within)
+
+
+def test_the_socket_gets_the_same_sentences_as_tcp_from_one_watch(short_dir: Path) -> None:
+    """GeoClue on the socket and QMapShack on TCP share the fan-out: the same
+    bytes, one gpsd watch, and the socket client is counted like any other."""
+    from hammunition.gps_tether import close_unix, listen_unix
+
+    path = str(short_dir / "nmea.sock")
+    unix, identity = listen_unix(path, group=_my_group(), log=lambda line: None)
+    gpsd = FakeGpsd(_json({"class": "VERSION"}))
+    logged: list[str] = []
+    stop = threading.Event()
+    tcp = listen(port=0)
+    thread = threading.Thread(
+        target=serve,
+        args=(tcp,),
+        kwargs={
+            "unix": unix,
+            "gpsd": gpsd.address,
+            "stop": stop,
+            "log": logged.append,
+            "poll": 0.02,
+        },
+        daemon=True,
+    )
+    thread.start()
+    tpvs = [{**FIX_3D, "time": f"2026-09-29T14:05:{second:02d}.000Z"} for second in range(5)]
+    try:
+        with (
+            socket.create_connection(("127.0.0.1", tcp.getsockname()[1]), timeout=5) as qms,
+            socket.socket(socket.AF_UNIX) as geoclue,
+        ):
+            geoclue.settimeout(5)
+            geoclue.connect(path)
+            _wait_for(logged, "2 connected")
+            assert any("socket" in line for line in logged), logged
+            gpsd.broadcast(_json(*tpvs))
+            assert _unix_lines(geoclue, 10) == _lines(qms, 10)
+            assert gpsd.connections == 1
+        _wait_for(logged, "0 connected")
+    finally:
+        stop.set()
+        thread.join(timeout=5)
+        tcp.close()
+        close_unix(unix, path, identity)
+        gpsd.close()
+
+
+def test_a_stalled_socket_client_is_dropped_alone(short_dir: Path) -> None:
+    """The same stall rule as TCP: a socket client that stops reading is dropped,
+    and the TCP client keeps receiving."""
+    from hammunition.gps_tether import close_unix, listen_unix
+
+    path = str(short_dir / "nmea.sock")
+    unix, identity = listen_unix(path, group=_my_group(), log=lambda line: None)
+    flood = _json(*([{"class": "VERSION"}] + [FIX_3D] * 50))
+    gpsd = FakeGpsd(flood, repeat=True, every=0.0)
+    logged: list[str] = []
+    stop = threading.Event()
+    tcp = listen(port=0)
+    thread = threading.Thread(
+        target=serve,
+        args=(tcp,),
+        kwargs={
+            "unix": unix,
+            "gpsd": gpsd.address,
+            "stop": stop,
+            "log": logged.append,
+            "poll": 0.02,
+        },
+        daemon=True,
+    )
+    thread.start()
+    stalled = socket.socket(socket.AF_UNIX)
+    stalled.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
+    stalled.connect(path)
+    try:
+        with socket.create_connection(("127.0.0.1", tcp.getsockname()[1]), timeout=5) as reader:
+            reader.settimeout(0.1)
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline and not any("not reading" in x for x in logged):
+                with contextlib.suppress(TimeoutError):
+                    reader.recv(65536)
+            assert sum("not reading" in line for line in logged) == 1, logged
+            _drain(reader)
+            assert _until_rmc_and_gga(reader) >= {b"$GPRMC", b"$GPGGA"}
+    finally:
+        stalled.close()
+        stop.set()
+        thread.join(timeout=5)
+        tcp.close()
+        close_unix(unix, path, identity)
+        gpsd.close()
+
+
+def test_the_instructions_name_the_socket_when_there_is_one() -> None:
+    text = instructions(nmea_socket="/run/hammunition-gps/nmea.sock")
+    assert "/run/hammunition-gps/nmea.sock" in text and "GeoClue" in text
+    assert "nmea.sock" not in instructions()

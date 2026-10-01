@@ -31,16 +31,27 @@ listens. A client that stops reading is dropped alone. It runs only while
 the operator runs it, in a terminal, and stops with Ctrl-C; nothing is
 installed as a service, nothing runs as root, and it is the standard
 library only. Navit needs none of this: it reads gpsd itself.
+
+With ``--nmea-socket PATH`` (D-069) it also listens on a unix stream socket,
+mode 0660, in the group GeoClue runs as, and serves it exactly what it serves
+TCP: the same sentences from the same gpsd watch, with the same rules for a
+client that stops reading or goes. GeoClue's network-NMEA source reads it, and
+CoMaps reads GeoClue. ``hardware apply`` makes the setgid directory the socket
+lives in; the socket is removed when the tether stops.
 """
 
 from __future__ import annotations
 
 import contextlib
+import errno
+import grp
 import ipaddress
 import json
 import math
+import os
 import selectors
 import socket
+import stat
 import threading
 import time
 from collections.abc import Callable, Mapping
@@ -56,9 +67,11 @@ __all__ = [
     "WATCH",
     "Feed",
     "checksum",
+    "close_unix",
     "gpsd_address",
     "instructions",
     "listen",
+    "listen_unix",
     "sentences",
     "serve",
     "serve_port",
@@ -76,6 +89,10 @@ REQUEST_DEADLINE = 5.0
 #: Unfinished requests held at once; a connection beyond it is closed at once.
 REQUEST_CAP = 16
 GPSD = ("127.0.0.1", 2947)
+#: The unix socket's mode: its owner and GeoClue's group, nobody else (D-069).
+SOCKET_MODE = 0o660
+#: The longest path a unix socket can have: sun_path's 108 bytes, less the NUL.
+UNIX_PATH_MAX = 107
 WATCH = b'?WATCH={"enable":true,"json":true}\n'
 
 #: m/s to knots: 3600 / 1852.
@@ -336,6 +353,94 @@ def listen(port: int = PORT) -> socket.socket:
     return listener
 
 
+def _clear_stale(path: str) -> None:
+    """Remove a socket nobody is listening on, as a crashed tether leaves;
+    refuse a live one, and anything at *path* that is not a socket."""
+    try:
+        st = os.lstat(path)
+    except FileNotFoundError:
+        return
+    if not stat.S_ISSOCK(st.st_mode):
+        raise ValueError(f"--nmea-socket {path}: it exists and is not a socket; it is left alone")
+    probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    probe.settimeout(1)
+    try:
+        probe.connect(path)
+    except ConnectionRefusedError:
+        os.unlink(path)
+        return
+    finally:
+        probe.close()
+    raise OSError(errno.EADDRINUSE, f"another tether is serving {path}")
+
+
+def listen_unix(
+    path: str, *, group: str = "geoclue", log: Callable[[str], None] = print
+) -> tuple[socket.socket, tuple[int, int]]:
+    """A unix stream listener at *path*, mode 0660, and the (device, inode) it
+    was bound as, for :func:`close_unix`.  D-069.
+
+    The group is the directory's when that directory is setgid *group*, as the
+    one ``hardware apply`` makes is; otherwise the socket is moved to *group* if
+    this account may, and when it may not, or *group* does not exist, *log*
+    says GeoClue cannot read it. The directory, not the socket's brief default
+    mode, is what keeps other accounts out while it is created.
+    """
+    if not os.path.isabs(path):
+        raise ValueError(f"--nmea-socket {path}: give an absolute path")
+    size = len(os.fsencode(path))
+    if size > UNIX_PATH_MAX:
+        raise ValueError(
+            f"--nmea-socket {path}: {size} bytes, and a unix socket path is at most {UNIX_PATH_MAX}"
+        )
+    _clear_stale(path)
+    listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        listener.bind(path)
+        os.chmod(path, SOCKET_MODE)
+        st = os.lstat(path)
+        listener.listen(8)
+    except OSError:
+        listener.close()
+        raise
+    try:
+        wanted: int | None = grp.getgrnam(group).gr_gid
+    except KeyError:
+        wanted = None
+    mine = _group_name(st.st_gid)
+    if wanted is None:
+        log(
+            f"No `{group}` group here, so {path} keeps your group ({mine}) and GeoClue "
+            f"cannot read it. Is GeoClue (geoclue-2.0) installed?"
+        )
+    elif st.st_gid != wanted:
+        try:
+            os.chown(path, -1, wanted)
+        except PermissionError:
+            log(
+                f"{path} is in group {mine}, not {group}, so GeoClue cannot read it: its "
+                f"directory is not the setgid one `hammunition hardware apply` makes."
+            )
+    return listener, (st.st_dev, st.st_ino)
+
+
+def _group_name(gid: int) -> str:
+    try:
+        return grp.getgrgid(gid).gr_name
+    except KeyError:
+        return str(gid)
+
+
+def close_unix(listener: socket.socket, path: str, identity: tuple[int, int]) -> None:
+    """Close *listener* and remove its socket file, only if *path* is still the
+    inode it bound: another tether's socket there is left alone."""
+    listener.close()
+    with contextlib.suppress(OSError):
+        st = os.lstat(path)
+        if stat.S_ISSOCK(st.st_mode) and (st.st_dev, st.st_ino) == identity:
+            os.unlink(path)
+
+
 def position_event(position: Mapping[str, Any]) -> bytes:
     """One Server-Sent Event carrying *position* as JSON."""
     return b"data: " + json.dumps(dict(position)).encode("ascii") + b"\n\n"
@@ -466,6 +571,7 @@ def serve(
     listener: socket.socket,
     *,
     http: socket.socket | None = None,
+    unix: socket.socket | None = None,
     gpsd: tuple[str, int] = GPSD,
     stop: threading.Event | None = None,
     log: Callable[[str], None] = print,
@@ -495,6 +601,10 @@ def serve(
     (D-071): a ``GET /position`` there (:func:`position_response`) becomes a
     client like any other, sent one Server-Sent Event per fix instead of NMEA,
     and counted in the same fan-out, so gpsd is watched while the page is open.
+
+    *unix*, when given, is a unix stream listener (:func:`listen_unix`, D-069)
+    whose clients are NMEA clients exactly like TCP's: the same sentences, the
+    same fan-out, dropped for the same reasons.
     """
     selector = selectors.DefaultSelector()
     listener.setblocking(False)
@@ -504,6 +614,9 @@ def serve(
         http.setblocking(False)
         http_port = http.getsockname()[1]
         selector.register(http, selectors.EVENT_READ, "http")
+    if unix is not None:
+        unix.setblocking(False)
+        selector.register(unix, selectors.EVENT_READ, "unix")
     requests: list[_Request] = []
     clients: list[_Client] = []
     upstream: _Upstream | None = None
@@ -569,7 +682,9 @@ def serve(
         selector.register(sock, selectors.EVENT_READ, upstream)
         return True
 
-    def admit(sock: socket.socket, *, events: bool = False, greeting: bytes = b"") -> None:
+    def admit(
+        sock: socket.socket, *, events: bool = False, greeting: bytes = b"", what: str = ""
+    ) -> None:
         for client in list(clients):
             if client.gone():
                 drop(client, "A client disconnected")
@@ -590,21 +705,21 @@ def serve(
         client = _Client(sock, events=events)
         clients.append(client)
         selector.register(sock, selectors.EVENT_READ, client)
-        what = "A map page" if events else "A client"
+        what = what or ("A map page" if events else "A client")
         log(f"{what} connected; {_connected(len(clients))}, each sent gpsd's position.")
         if greeting:
             client.pending += greeting
             flush(client)
 
-    def accept() -> None:
+    def accept(source: socket.socket = listener, what: str = "") -> None:
         try:
-            sock, _ = listener.accept()
+            sock, _ = source.accept()
         except BlockingIOError:
             return
         except OSError as exc:  # out of descriptors, say: the tether keeps running
             log(f"could not accept a connection: {exc.strerror or exc}")
             return
-        admit(sock)
+        admit(sock, what=what)
 
     def accept_http() -> None:
         assert http is not None
@@ -696,11 +811,14 @@ def serve(
             events = selector.select(timeout=poll)
             # Clients' and gpsd's events first, then any new connection.
             for key, mask in sorted(
-                events, key=lambda event: event[0].data is None or event[0].data == "http"
+                events, key=lambda event: event[0].data in (None, "http", "unix")
             ):
                 owner = key.data
                 if owner is None:
                     accept()
+                elif owner == "unix":
+                    assert unix is not None
+                    accept(unix, "A client on the socket")
                 elif owner == "http":
                     accept_http()
                 elif isinstance(owner, _Request):
@@ -741,7 +859,11 @@ def serve(
 
 
 def instructions(
-    port: int = PORT, *, gpsd: tuple[str, int] = GPSD, position_port: int | None = POSITION_PORT
+    port: int = PORT,
+    *,
+    gpsd: tuple[str, int] = GPSD,
+    position_port: int | None = POSITION_PORT,
+    nmea_socket: str | None = None,
 ) -> str:
     page = (
         f"The offline browser map (`hammunition reference serve`) reads it from "
@@ -749,6 +871,10 @@ def instructions(
         if position_port is not None
         else ""
     )
+    if nmea_socket is not None:
+        page += (
+            f'Serving it to GeoClue on {nmea_socket} too, for CoMaps\' "you are here" (D-069).\n'
+        )
     return (
         f"Serving gpsd's position as NMEA on {HOST} port {port}, to this machine only.\n"
         f"In QMapShack: Realtime, Add source, GPS TCP/IP; host {HOST}, port {port}.\n"
