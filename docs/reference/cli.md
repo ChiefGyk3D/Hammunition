@@ -388,11 +388,14 @@ or not UTF-8. There is no `--json` form, because it replaces itself with a
 GUI (D-059). Started from the menu entry, which opens no terminal, its lines
 on stderr, the licence answer among them, are not seen; the guide says so.
 
-CoMaps has no position on the laptop: it reads GeoClue2 only, and nothing
-here feeds GeoClue the GPS. The navigation guide says what the route would
-be.
+CoMaps reads its position from GeoClue2 only. Its "you are here" comes from
+the GPS tether's unix socket, which GeoClue reads once `hammunition hardware
+apply` has written its two files (below), while `hammunition maps
+gps-tether` runs (**D-069**, amended 2026-10-01). Not yet measured on the
+field laptop's own GeoClue; the navigation guide, section 17, says what the
+bench owes.
 
-### `hammunition maps gps-tether [--gpsd HOST[:PORT]] [--port N] [--position-port N]`
+### `hammunition maps gps-tether [--gpsd HOST[:PORT]] [--port N] [--position-port N] [--nmea-socket PATH | --no-nmea-socket]`
 
 What the `gps-tether` launcher runs (**D-061**). It watches gpsd's JSON, as
 `xgps` and Navit do, and writes `$GPRMC` and `$GPGGA` for every position
@@ -414,6 +417,26 @@ Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 | `--gpsd HOST[:PORT]` | `127.0.0.1:2947` | The gpsd to read: a host name or address, port 2947 when none is given. An IPv6 address goes in brackets (`[::1]`, `[2001:db8::7]:2947`); a bare one, an unclosed bracket, an empty host or a port outside 1 to 65535 is refused by name. |
 | `--port N` | `10110` | The port to serve on, still on 127.0.0.1 only. 1024 to 65535; below 1024 (only root may listen there, and the tether refuses root) and above 65535 are refused by name, and so is anything that is not a number. |
 | `--position-port N` | `10111` | The port of the browser map's position stream (**D-071**), on 127.0.0.1 only, with the same limits. The same port as `--port` is refused by name, so `--port 10111` needs `--position-port` too. |
+| `--nmea-socket PATH` | off, or `/run/hammunition-gps/nmea.sock` once `hardware apply` has set GeoClue up | Also serve the same NMEA on a unix stream socket at PATH, for GeoClue (**D-069**). An absolute path of at most 107 bytes. |
+| `--no-nmea-socket` | | Do not serve the socket, even where `hardware apply` has set GeoClue up. Given with `--nmea-socket`, refused by name. |
+
+**GeoClue's socket (D-069).** With no option, the tether serves
+`/run/hammunition-gps/nmea.sock` whenever Hammunition's GeoClue drop-in,
+`/etc/geoclue/conf.d/90-hammunition-gps.conf`, is present (the file is the
+marker), so the `gps-tether` launcher needs no second form. The socket is a
+client like any NMEA client: the same sentences from the same gpsd watch,
+counted in the same fan-out, and dropped by the same rules (more than
+64 KiB unsent, or gone). It is mode 0660; the directory `hardware apply`
+makes is setgid `geoclue`, so the socket takes GeoClue's group and no other
+account can open it. Where the group cannot be had, or there is no
+`geoclue` group, a line on stderr says GeoClue cannot read it. A stale
+socket from a tether that crashed is replaced; a live one (another tether)
+is refused, and so is anything at the path that is not a socket, which is
+left alone. The socket is removed when the tether stops, only if it is
+still the one this tether made. The default failing (its directory missing,
+say) is a line on stderr naming the fix, and TCP and the map are served as
+usual; a `--nmea-socket` path that cannot be served stops the tether, exit
+1. The startup text gains a line naming the socket.
 
 **The browser map's position (D-071).** A browser cannot read an NMEA
 socket, so the tether also answers `GET /position` on 127.0.0.1 port 10111
@@ -1178,7 +1201,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Eighteen checks across four severities:
+one command that fixes it. Twenty checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -1239,6 +1262,21 @@ at startup with "The specified translations XML file did not exist" until
 the file is back. It is a warn, with `sudo apt-get install --reinstall
 routino-common` as the fix.
 
+The **geoclue** and **geoclue agent** checks (**D-069**) appear only where
+GeoClue is installed (`/usr/libexec/geoclue`). *geoclue* is ok when both of
+Hammunition's files are in place and `/run/hammunition-gps` exists with mode
+2750, the operator as owner and GeoClue's group; information when neither
+file is there (the fix is `hammunition hardware apply`); a warn when only one
+is, and a warn naming what is wrong when the directory is missing or not as
+made, with `sudo systemd-tmpfiles --create /etc/tmpfiles.d/hammunition-gps.conf`
+as the fix. *geoclue agent* reads `busctl --user list`, which lists the
+session bus's names and starts nothing, for Debian's demo agent
+(`org.freedesktop.GeoClue2.DemoAgent`): ok when it is there, a warn when it
+is not (without an agent GeoClue holds CoMaps' request and Qt gives up after
+about 25 s; GNOME Shell is its own agent and this check does not see it),
+and information when it was not asked (run as root, whose bus is not the
+session's, or `busctl` did not answer).
+
 The **launchers** check (issue #145) reads back every generated launcher in
 `~/.local/bin` that runs `hammunition` itself (today QMapShack's
 `qmapshack-offline` and `gps-tether`). A launcher runs the engine by its
@@ -1288,7 +1326,7 @@ identifier is flagged as a candidate, not a conclusion — **D-028**),
 the udev rules and your access-group membership are already in place.
 Detection drives nothing: it reports, and you decide (**D-020**).
 
-### `hammunition hardware apply [--dry-run] [--yes] [--user NAME] [--no-gps-time]`
+### `hammunition hardware apply [--dry-run] [--yes] [--user NAME] [--no-gps-time] [--no-geoclue]`
 
 Writes the whole catalog's udev rules to
 `/etc/udev/rules.d/65-hammunition.rules`, reloads and triggers udev, adds
@@ -1355,6 +1393,26 @@ files contain and what installing them means.
   happens without gpsd installed (there is no GPS time to read), and
   `--no-gps-time` leaves ntpsec, its grants and `fake-hwclock` alone. See
   `docs/guides/gps-time.md`.
+- **GeoClue reads the GPS tether (D-069), where GeoClue is installed.**
+  Writes `/etc/geoclue/conf.d/90-hammunition-gps.conf` (`[network-nmea]`,
+  `enable=true`, `nmea-socket=/run/hammunition-gps/nmea.sock`, a drop-in over
+  the untouched `geoclue.conf`) and `/etc/tmpfiles.d/hammunition-gps.conf`
+  (`d /run/hammunition-gps 2750 <operator> geoclue -`), runs
+  `systemd-tmpfiles --create` on the second so the directory exists now
+  (systemd makes it at every boot), and `systemctl try-restart geoclue` so a
+  running GeoClue reads the drop-in. The plan prints both files, the
+  directory, the four facts the operator should know before agreeing (that
+  GeoClue reads its configuration only at start; that any native app of a
+  user with an agent then gets the fix while the tether runs; that stock
+  GeoClue's own beacondb and GeoIP lookups are unchanged; that Qt caches the
+  last fix), how to inspect it and how to reverse it. A file at either path
+  that does not start with Hammunition's header, or anything but a directory
+  at `/run/hammunition-gps`, refuses the run (exit `2`) before anything
+  runs. Each step is logged (`geoclue_files`), and afterwards both files are
+  read back and the directory's mode, owner and group checked. Nothing of
+  this happens where GeoClue (`/usr/libexec/geoclue` and its `geoclue`
+  group) is not installed; the plan says so. `--no-geoclue` leaves GeoClue
+  alone. See `docs/guides/offline-navigation.md`, section 17.
 
 ### `hammunition hardware unapply [--dry-run] [--yes] [--user NAME]`
 
@@ -1393,6 +1451,13 @@ on. Nothing else is touched.
   `/etc/apparmor.d/local/usr.sbin.ntpd`, the rest of that file stays; then
   systemd and AppArmor are reloaded and ntpsec restarted. `fake-hwclock`, if
   it was installed, stays; `sudo apt remove fake-hwclock` removes it.
+- **Takes GeoClue's tether socket back (D-069)**, by content too: each of
+  `/etc/geoclue/conf.d/90-hammunition-gps.conf` and
+  `/etc/tmpfiles.d/hammunition-gps.conf` only when it starts with
+  Hammunition's header, `/run/hammunition-gps/nmea.sock` only when it is a
+  socket, then `rmdir /run/hammunition-gps` (which fails, loudly, if
+  anything else is in it) and `systemctl try-restart geoclue`. Stop the
+  tether first; TCP 10110 keeps serving until you do.
 
 Exit codes: `0` for a removal that verified absent, nothing recorded to
 remove, every recorded artefact already gone, a `--dry-run`, or declining the
