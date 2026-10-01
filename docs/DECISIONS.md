@@ -7718,3 +7718,82 @@ driver; anything with a real receiver (NMEA's offset from UTC, how `delay
 host); `chrony.service` itself, which needs `CAP_SYS_TIME` a rootless
 container lacks; the root `mkdir` step for a missing drop-in directory,
 which is unit-tested only (the container runs wrote as root in-process).
+
+## D-073 — The rig is station data: a `rig` device class and five station values, driven by one shared `rigctld` as a systemd user service the engine renders, enables, discloses and reverses
+
+**Status: proposed; the bench is owed.** The maintainer ruled on all nine of
+the design's questions on 2026-09-30, one at a time, and the implementation
+carries each; the FT-991A and the UV-50PRO on the field laptop are the evidence
+D-073 needs before it is accepted (§12 of the design,
+`docs/superpowers/specs/2026-10-01-rig-station-data-design.md`). Both hardware
+pages say `untested` until then.
+
+**The shape.** A radio is a device manifest carrying a `rig` block, inheriting
+a new `rig` hardware class (`dialout`, `libhamlib-utils`, `flrig`, the CP2105
+`10c4:ea70` with its ambiguity, no udev rule, no symlink — a CAT port needs
+access, and `/dev/serial/by-id/` already names it). A CAT radio's block names a
+hamlib model and a CAT port; a radio with no CAT carries a `ptt_only` shape
+naming the serial lines that key it — the two are mutually exclusive. The
+operator's selection is five station values — `rig`, `rig_device`, `rig_baud`,
+`rig_ptt_line`, `rig_owner` — validated against the catalog by the CLI (the
+station module stays free of the hardware catalog) and against this machine's
+hamlib for `hamlib:<model>`. Nothing is defaulted but `rig_owner` (**D-035**).
+
+**One `rigctld` for everyone, as a user service.** `rigctld` cannot take a
+socket from systemd (measured: no `LISTEN_FDS`/`sd_listen_fds` in the binary or
+`libhamlib`), so a plain **user** service, not socket activation — the station
+values are the operator's and live in their home, and nothing here needs root.
+A new carrying unit `rig-service` in the `station` profile holds a
+`user_services` block (ruled beside `config_files`, not a
+`system_modifications` kind and not plain `config_files`): the engine renders
+the unit file from fixed fields — the catalog never carries unit syntax —
+substitutes the station and catalog-derived values, re-checks each exec word is
+one safe argv word, writes it as the operator through the `~/` writer, and runs
+`daemon-reload`/`enable`/`restart` as the operator (never sudo; `--machine` when
+root acts for an operator). A missing value defers the service by name and the
+rest of the transaction installs (**D-035**); `rig_owner: flrig` and
+`rig_ptt_line: vox` skip it by name; `uninstall rig-service` disables it and
+removes the file only if it still carries Hammunition's header. `-T 127.0.0.1`
+is fixed and `listens` refuses any non-loopback address at load.
+
+**The gate (ruling 8), measured.** `rigctld` reads newline-separated commands
+and a browser's POST body is newline-separated text, so the question was
+whether a web page could key the transmitter on loopback. Measured against
+hamlib 4.7.2's dummy model on an ephemeral port (`tests/test_rig_gate.py`): a
+browser-shaped HTTP POST, sent the way a browser sends it, **left PTT
+unchanged**, while a raw `T 1` keyed it (the falsification that proves the test
+reaches the parser). The gate is **open**, so **no loopback filter proxy is
+built** — `rigctld` stays on 4532. The test guards the result: if a future
+hamlib regresses it, the proxy becomes required.
+
+**Unattended (ruling 7).** `station set --unattended` turns on linger for the
+calling operator through the D-056 helper's new `linger on|off` verb, behind the
+existing one polkit action (its wording widened to keeping services running
+after logout). It acts only on the uid polkit reports, never an argument, and
+records in `/etc/hammunition/linger.yaml` whether Hammunition turned linger on,
+so only linger that is ours is ever turned off; `--no-unattended` and
+`hardware unapply` reverse it from the same record.
+
+**`doctor`** checks the service read-only and never keys: station completeness,
+the unit's enabled/active/failed state, whether `rigctld` answers `\dump_state`
+on loopback (the reply parse checked against a dummy `rigctld` in the suite),
+the device's presence, and linger.
+
+**The nine rulings (2026-09-30), folded in:** (1) a `user_services` block
+beside `config_files`; (2) a new `rig-service` unit in `station`, not the
+service on `libhamlib-utils`; (3) `rig_owner`, `rigctld` or `flrig`; (4) no
+ordered variants in `config_files` (the two `user_services` entries are two
+complete services chosen by `rig_kind`); (5) no JSON-merge (Pat stays on the
+guide page); (6) PTT-only is in scope, with the `ptt_only` shape, `rig_ptt_line`
+and the UV-50PRO as the first member; (7) opt-in `--unattended`; (8) the gate
+and its filter-if-it-keys response; (9) `--rig hamlib:<model>` for radios with
+no manifest, baud mandatory.
+
+**What the bench owes** (§12): the FT-991A's USB shape (the two CP2105 ports'
+strings, `reports_serial`, the codec id — closing the manifest's
+`identification_gap` and letting it become `composite`); the service at login,
+`\dump_state`, `doctor` clean; whether `BindsTo`/`.wants` stop and start it with
+the radio; the program table against the service; the flrig route; the
+UV-50PRO's keying line and that nothing is written to the serial line, plus the
+start-up keying question and VOX; `--unattended` across a logout. Found while
+measuring and fixed first: issue #174, the launcher that shadowed `rigctl`.

@@ -11,6 +11,27 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **The rig is station data: one shared `rigctld` for every program**
+  (**D-073**, status proposed, bench owed). A `rig` hardware class and a
+  `rig` block on a radio's manifest describe the radio — a hamlib model and
+  CAT port, or a `ptt_only` shape for a radio with no CAT — and five station
+  values (`rig`, `rig_device`, `rig_baud`, `rig_ptt_line`, `rig_owner`),
+  checked against the catalog and this machine's hamlib as you set them, say
+  which radio is on the station. A new `rig-service` unit in the `station`
+  profile carries a `user_services` manifest block: the engine renders one
+  `rigctld` as a systemd **user** service bound to `127.0.0.1:4532`, enables
+  it, discloses the unit file and the no-password warning in the plan, and
+  removes only its own file on uninstall. A missing value defers the service
+  and the rest installs (D-035); `rig_owner: flrig` and VOX skip it. The
+  FT-991A (CAT) and the UV-50PRO (PTT-only) ship `untested`. Opt-in
+  `hammunition station set --unattended` keeps user services running after
+  logout through a new `hammunition-devctl linger` verb behind the existing
+  polkit action. A browser's HTTP POST was measured not to key hamlib's
+  dummy model, so the service binds 4532 directly with no filter in front of
+  it; a regression test guards that result. `doctor` checks the service
+  read-only and never keys the transmitter. gpredict's radio file is written
+  for the shared `rigctld`; `docs/guides/rig-control.md` is rewritten around
+  the service.
 - **A generated launcher no longer takes a PATH binary's name** (issue
   #174). `~/.local/bin/rigctl`, libhamlib-utils' launcher, ran ahead of
   hamlib's `/usr/bin/rigctl`, ignored its arguments and opened the

@@ -1299,7 +1299,11 @@ needs: a root-owned helper at `/usr/local/libexec/hammunition-devctl`
 `/usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy`
 (`0644`), which is what lets `hardware park`/`wake` ask `pkexec` to run that
 helper as root. See `docs/hardware/power-control.md` for what those two
-files contain and what installing them means.
+files contain and what installing them means. The same helper and action
+carry the `linger on|off` verb behind `station set --unattended` (**D-073
+§5a**): it acts only on the calling account (the uid polkit reports, never an
+argument) and records whether Hammunition turned linger on, so only linger
+that is ours is ever turned off.
 
 - **All the rules, not only attached devices' —** a udev rule is declarative
   and harmless for a device that is not present, so applying the whole set
@@ -1512,6 +1516,13 @@ hammunition station show
 | `--reference-books ID[,ID…]` | Kiwix books for `kiwix-library`, by id (`hammunition reference books` lists them). Replaces the whole list; an id the catalog's book list does not name is refused when you type it, and an empty list is refused (uninstall `kiwix-library` to remove the books) (**D-066**) |
 | `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
 | `--clear-mirror` | Remove the saved mirror |
+| `--rig DEVICE\|hamlib:MODEL` | The station's radio (**D-073**): a catalog device id (`yaesu-ft-991a`), or `hamlib:<model>` for one with no manifest. Checked against the catalog and this machine's `rigctl -l` when you set it |
+| `--rig-device PATH` | The serial port the rig (or its interface) is reached on; an absolute `/dev/` path, a `/dev/serial/by-id/` one for stability. Refused if it carries `..`, whitespace or a shell character |
+| `--rig-baud RATE` | The CAT serial speed. For a catalogued CAT rig it must be inside the backend's range (named on refusal); mandatory for `hamlib:<model>`; refused for a PTT-only rig |
+| `--rig-ptt-line rts\|dtr\|vox` | For a radio with no CAT: which control line keys it, or `vox`. Required for a PTT-only rig, refused for a CAT rig |
+| `--rig-owner rigctld\|flrig` | Who holds the port: `rigctld` (the shared daemon, the default when unset) or `flrig`. `flrig` with a PTT-only rig is refused |
+| `--clear-rig` | Remove `rig`, `rig_device`, `rig_baud`, `rig_ptt_line` and `rig_owner` |
+| `--unattended` / `--no-unattended` | Keep the operator's user services running with nobody logged in, through `loginctl enable-linger` behind the power-control helper (**D-073 §5a**). The plan lists what linger keeps alive before the prompt. `--no-unattended` disables it, but only if Hammunition turned it on |
 
 A region list says where the operator lives or travels, so `station show`
 and `station set` print how many regions are set, never their names; the
