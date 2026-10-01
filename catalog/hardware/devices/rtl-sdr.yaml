@@ -355,7 +355,7 @@ usb_ids:
     confirmed: true
     node_kind: libusb
 groups: [plugdev]
-packages: [rtl-sdr, soapysdr-module-rtlsdr, gqrx-sdr, rtl-433, multimon-ng]
+packages: [rtl-sdr, soapysdr-module-rtlsdr, gqrx-sdr, rtl-433, multimon-ng, nrsc5]
 
 documentation:
   what_it_is: >-

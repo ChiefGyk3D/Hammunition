@@ -24,6 +24,7 @@ packages:
   - gnuaisgui
   - welle-io
   - dablin
+  - nrsc5
   - satdump
   - kalibrate-rtl
   - morse2ascii
@@ -36,7 +37,8 @@ documentation:
     The aeronautical decoder cluster — ACARS, VDL Mode 2 and HFDL, with the
     shared library that turns their raw text into structured messages and a
     database to keep what was heard. Aircraft transponder decoding with a
-    multilateration feeder. Marine AIS three ways. DAB in a window and in a pipe.
+    multilateration feeder. Marine AIS three ways. DAB in a window and in a
+    pipe, and HD Radio, the digital side of North American FM and AM.
     A multi-channel airband scanner, digital voice protocol decoding, paging
     and classic mode decoding, weather satellite imaging, two Morse
     decoders, and an offline signal-identification reference (Artemis, the
@@ -77,5 +79,6 @@ documentation:
     as well as for you.
   disk_footprint_hint: >-
     Around 400 MB. Six of these are source or pinned-git builds — the whole
-    aeronautical cluster plus kalibrate-rtl — so the install takes longer than
+    aeronautical cluster plus kalibrate-rtl — and nrsc5 is one more, so the
+    install takes longer than
     the size suggests.
