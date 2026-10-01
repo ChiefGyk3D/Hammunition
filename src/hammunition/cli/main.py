@@ -2304,6 +2304,11 @@ def cmd_install(args: argparse.Namespace) -> int:
     repos = AptRepoBackend(owner=user or None)
 
     read_log = TransactionLog(owner=user or None)  # read-only until the plan is confirmed
+    _rig_classes, _rig_device_catalog = _load_hardware_catalog(args)
+    rig_devices: dict[str, DeviceClass | DeviceManifest] = {
+        **_rig_classes,
+        **_rig_device_catalog,
+    }
     try:
         plan = resolve(
             [*args.names, *suggested],
@@ -2314,6 +2319,10 @@ def cmd_install(args: argparse.Namespace) -> int:
             user=user,
             refresh=args.refresh,
             station=station,
+            # The hardware catalog, so a rig-carrying unit's user service can be
+            # resolved against the station's rig (D-073); loaded here, not read
+            # in the planner, so the answer is the same under sudo and in a test.
+            devices=rig_devices,
             repos=repos,
             # The running kernel is a fact about this machine, not the target
             # (one Pop!_OS 24.04 VM has AX.25 under 7.0.11 and not under 7.1.5).
