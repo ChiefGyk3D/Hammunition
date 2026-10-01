@@ -22,6 +22,14 @@ gpsd handles hot-unplug itself — Debian ships USBAUTO="true" in /etc/default/g
 
 See [device power control](power-control.md) for what parking does to a machine, how to inspect it and how to reverse it.
 
+## After suspend
+
+`hammunition hardware apply` installs a resume step for this device: `gpsd_reopen`.
+
+Measured on the field laptop (issue #177): a USB receiver is not re-enumerated across a suspend, so nothing removes it from gpsd and adds it back, and a client watching across the suspend (cgps, xgps, the map tether, or gpsd running with -n for GPS time) can find gpsd holding a tty that has gone quiet: no fix comes back. `hammunition hardware apply` installs a resume step for that. After every suspend or hibernation, hammunition-gps-resume.service runs `gpsdctl remove` and `gpsdctl add` for each /dev/gpsN, and `systemctl try-restart gpsd.service` if gpsd then reports no device. It does nothing when no /dev/gpsN exists, so a parked receiver stays parked, and it never parks or wakes anything: if a fix still does not come back, `hammunition hardware park gps-receiver` then `hammunition hardware wake gps-receiver` is the third step, by hand. Whether the first step alone brings the fix back after a real suspend is what the bench steps on issue #177 measure; until they are run it is the design the measurement points to, not a measured recovery.
+
+See [after suspend](power-control.md#after-suspend) for what the step installs, how to inspect it and how to reverse it.
+
 ## Shared tooling
 
 [`gpsd`](../packages/gpsd.md), [`gpsd-clients`](../packages/gpsd-clients.md), [`gpsd-tools`](../packages/gpsd-tools.md)

@@ -37,6 +37,8 @@ __all__ = [
     "PowerMethod",
     "QuietVerb",
     "RejectedId",
+    "ResumeControl",
+    "ResumeStep",
     "UdevBinding",
     "UsbAmbiguity",
     "UsbId",
@@ -466,6 +468,35 @@ class PowerControl(Strict):
     )
 
 
+ResumeStep = Literal["gpsd_reopen"]
+"""What the engine does for a device after the machine resumes. A name, never a command.
+
+``gpsd_reopen``: a systemd oneshot ordered after the four sleep targets gives
+gpsd a fresh open of each ``/dev/gpsN`` (``gpsdctl remove`` and ``add``, then
+``systemctl try-restart gpsd.service`` if gpsd reports no device), and does
+nothing when no ``/dev/gpsN`` exists. Installed by ``hardware apply``, removed
+by ``hardware unapply`` (issue #177, D-058 amended 2026-10-01).
+"""
+
+
+class ResumeControl(Strict):
+    """A step the engine runs after every resume, for devices that need one.
+
+    A closed set for the reason ``PowerMethod`` is one: the catalog names a
+    step the engine implements and cannot describe how to do it.
+    """
+
+    step: ResumeStep
+    note: str = Field(
+        min_length=10,
+        description=(
+            'Prose for the generated page\'s "After suspend" section: what goes '
+            "wrong without the step, what the step does, and what it leaves to the "
+            "operator."
+        ),
+    )
+
+
 class Firmware(Strict):
     """Flashing or firmware-management tooling for a device."""
 
@@ -531,6 +562,14 @@ class _DeviceCommon(Strict):
             "means it appears on no power-control surface at all -- there is no "
             "'parkable by default', because parking a rig cable mid-QSO is not "
             "a thing to discover by accident."
+        ),
+    )
+    resume: ResumeControl | None = Field(
+        default=None,
+        description=(
+            "Present when the device needs a step after the machine resumes from "
+            "suspend (issue #177). Installed by `hardware apply` as a disclosed "
+            "system modification, removed by `hardware unapply`."
         ),
     )
     documentation: HardwareDocumentation
