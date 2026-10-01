@@ -19,10 +19,11 @@ from hammunition.interface.envelope import Strict, described
 
 __all__ = ["CHECKS", "ArtifactEntry", "ArtifactsDocument", "render_artifacts"]
 
-#: How an artifact is verified. ``sha256-publisher`` (a ``.sha256`` or
-#: ``.meta4`` the publisher serves) is in the Bunker contract; no catalog
-#: unit produces it today.
-CHECKS = ("sha256", "md5-publisher", "etag-md5", "sha256-publisher")
+#: How an artifact is verified. ``sha1-publisher`` is the SHA-1 and size from
+#: CoMaps' own map index at the pinned commit (D-069's ``comaps-maps``
+#: entries); ``sha256-publisher`` (a ``.sha256`` or ``.meta4`` the publisher
+#: serves) is in the Bunker contract but no catalog unit produces it today.
+CHECKS = ("sha256", "md5-publisher", "etag-md5", "sha1-publisher", "sha256-publisher")
 
 
 @dataclass(frozen=True)

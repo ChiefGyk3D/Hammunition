@@ -14,6 +14,7 @@ loopback.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import importlib
 from datetime import date
@@ -24,11 +25,13 @@ import pytest
 import yaml
 
 from hammunition.artifacts import SelectionError, list_artifacts, select_units
+from hammunition.comaps import GENERATED_MARK as COMAPS_MARK
 from hammunition.copernicus import tile_name, tile_url
 from hammunition.fetch import MirrorPath
 from hammunition.geofabrik import BASE, GeofabrikError
-from hammunition.interface.artifacts import ArtifactEntry
-from hammunition.kiwix import DOWNLOAD, GENERATED_MARK
+from hammunition.interface.artifacts import CHECKS, ArtifactEntry
+from hammunition.kiwix import DOWNLOAD
+from hammunition.kiwix import GENERATED_MARK as KIWIX_MARK
 from hammunition.manifest.load import load_catalog
 from hammunition.manifest.schema import DataInstall
 from hammunition.station import Station, save_station
@@ -107,6 +110,32 @@ class Bucket:
         return 200, 40_000_000, f'"{TILE_MD5}"'
 
 
+def _comaps_sha1(body: bytes) -> str:
+    return base64.b64encode(hashlib.sha1(body).digest()).decode()
+
+
+def _write_comaps_pins(root: Path) -> None:
+    """A minimal valid ``comaps-pins.yaml``: the mandatory World/WorldCoasts
+    leaves plus one map for Vermont, matching the shape gen_comaps_pins.py
+    writes (D-069)."""
+    (root / "data" / "comaps-pins.yaml").write_text(
+        f"# {COMAPS_MARK}\n"
+        + yaml.safe_dump(
+            {
+                "commit": "a" * 40,
+                "version": 260830,
+                "map_series": "2026.06.28",
+                "maps": {
+                    "World": {"size": 1, "sha1": _comaps_sha1(b"World")},
+                    "WorldCoasts": {"size": 1, "sha1": _comaps_sha1(b"WorldCoasts")},
+                    "US_Vermont": {"size": 123, "sha1": _comaps_sha1(b"US_Vermont")},
+                },
+                "regions": {VT: ["US_Vermont"]},
+            }
+        )
+    )
+
+
 def _root(tmp_path: Path) -> Path:
     """A catalog root: the real packages, and pin data written here."""
     root = tmp_path / "catalog"
@@ -123,13 +152,14 @@ def _root(tmp_path: Path) -> Path:
             {"pins": [{"tile": TILE_VT, "size": 41, "sha256": "c" * 64, "md5": "d" * 32}]}
         )
     )
+    _write_comaps_pins(root)
     # The real book list (its licence lines), and pins written here so the
     # listing does not move every time the real pins are regenerated.
     (root / "data" / "kiwix-books.yaml").symlink_to(
         REPO_ROOT / "catalog" / "data" / "kiwix-books.yaml"
     )
     (root / "data" / "kiwix-pins.yaml").write_text(
-        f"# {GENERATED_MARK}\n" + yaml.safe_dump({"pins": BOOK_PINS}, sort_keys=False)
+        f"# {KIWIX_MARK}\n" + yaml.safe_dump({"pins": BOOK_PINS}, sort_keys=False)
     )
     return root
 
@@ -431,6 +461,26 @@ def test_the_command_never_reads_the_station(
     doc = parse_one(out)
     assert rc == 0 and doc["map_regions"] == [] and doc["map_freshness"] == "yearly"
     assert doc["artifacts"][0]["deferred"] is not None
+
+
+def test_a_comaps_map_entry_validates_and_its_check_is_in_the_published_enum(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """D-070's `CHECKS` is the Bunker contract's enumeration of `check`
+    values. `comaps-maps` (D-069) verifies by the publisher's SHA-1, so an
+    entry for it must carry a `check` the document's own published enum
+    names, not just one its schema happens to accept as a string."""
+    rc, out, _ = _cli(
+        monkeypatch, tmp_path, capsys, "--json", "--map-regions", VT, "--units", "comaps-maps"
+    )
+    doc = parse_one(out)
+    validate(doc)  # a bare `str` field: this passes regardless of CHECKS
+    assert rc == 0
+    (entry,) = doc["artifacts"]
+    assert entry["check"] == "sha1-publisher"
+    assert entry["check"] in CHECKS, (
+        f"{entry['check']!r} is not in CHECKS {CHECKS!r}: D-070's published enum is stale"
+    )
 
 
 def test_the_text_form_lists_the_same_artifacts(
