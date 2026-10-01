@@ -22,7 +22,9 @@ usb_ids:
     node_kind: libusb
 
 groups: [plugdev]
-packages: [ubertooth, wireshark, spectools]
+# kismet: its kismet-capture-ubertooth-one helper is in every packaging
+# measured 2026-09-30 (Kali, Parrot, Kismet's trixie and noble trees).
+packages: [ubertooth, wireshark, spectools, kismet]
 
 udev:
   symlink: ubertooth

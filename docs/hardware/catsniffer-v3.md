@@ -24,7 +24,7 @@ This board is an RP2040 (confirmed by capture, see below), not the ESP32 the bad
 
 ## Known problems
 
-Firmware and host tooling are versioned together and the board ships in several firmware variants; a capture tool that reports nothing is usually running against the wrong firmware rather than a quiet band. The USB identifier is confirmed by capture (2e8a:00c0), and it is the generic RP2040/Arduino identifier — shared with every Pico, which is why no rule here matches on it.
+Firmware and host tooling are versioned together and the board ships in several firmware variants; a capture tool that reports nothing is usually running against the wrong firmware rather than a quiet band. Kismet is not a host tool for it yet: Kismet's CatSniffer Zigbee helper (on its development branch since 2024-09-18) and its Sniffle BLE helper (since 2026-07-22) are in no Kismet release and in no packaging measured on 2026-09-30 -- not Kali's, Parrot's, or Kismet's own release or nightly repositories -- so `kismet` is not in this entry's packages until a release carries them. The USB identifier is confirmed by capture (2e8a:00c0), and it is the generic RP2040/Arduino identifier — shared with every Pico, which is why no rule here matches on it.
 
 ## How it identifies itself
 

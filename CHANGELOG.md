@@ -11,6 +11,19 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Kismet in `rf-security`** (Q-022 #4; **D-040**, amended). `kismet` is
+  apt from the archive on Kali and Parrot, and from the Kismet project's own
+  signed release repository on Debian 13 (`release/trixie`), Ubuntu 24.04
+  and Mint 22.3 (`release/noble`), behind the D-040 fingerprint gate
+  (`ADA09A0E9B80ACCCE8FE6BB65345B8BF43403B93`). Ubuntu 26.04 has no release
+  tree and defers it. An `apt_repos` entry may now carry `when:`, so one
+  manifest can name one repository per release. Adds the operator to the
+  `kismet` group; discloses that Kali's and Parrot's kismet-core enables a
+  root `kismet.service` and that the web interface listens on every
+  interface by default. The CatSniffer V3's Kismet helpers are in no
+  release yet. New page `docs/rf-security/kismet.md`; generated package
+  pages now list a unit's third-party repositories and fingerprints.
+
 - **GPS time** (D-058). `hammunition time` says what the clock follows (the
   network, the GPS, or holdover and for how long) without a password;
   `hammunition time mode auto|prefer-gps|ntp-only|gps-only` prints every

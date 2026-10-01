@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**291 programs and packages** from the catalog, laid out the way the
+**292 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -527,6 +527,7 @@ Wi-Fi, Bluetooth, cellular, RFID, sub-GHz, packet capture, and consent-gated res
 | [aircrack-ng](packages/aircrack-ng.md) | Wi-Fi security auditing suite — capture, analysis and key recovery | [aircrack-ng.org](https://www.aircrack-ng.org/) |
 | [hcxdumptool](packages/hcxdumptool.md) | Wi-Fi frame capture aimed at producing hash files for offline analysis | [github.com/ZerBea/hcxdumptool](https://github.com/ZerBea/hcxdumptool) |
 | [hcxtools](packages/hcxtools.md) | Converts captured Wi-Fi frames into hash formats analysis tools read | [github.com/ZerBea/hcxtools](https://github.com/ZerBea/hcxtools) |
+| [kismet](packages/kismet.md) | Wireless network and device detector, sniffer and logger for Wi-Fi, Bluetooth and SDR sources | [kismetwireless.net](https://www.kismetwireless.net/) |
 
 ### Bluetooth & BLE
 

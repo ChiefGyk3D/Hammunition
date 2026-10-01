@@ -31,6 +31,15 @@ None beyond a working apt. This coexists with VSCodium: different binary (`code`
   - Writes /etc/apt/sources.list.d/microsoft-vscode.sources and installs the signing key to /etc/apt/keyrings/microsoft-vscode.gpg, with Signed-By pointing at that keyring so the key is trusted for this repository only and not archive-wide.
   - undo: sudo rm /etc/apt/sources.list.d/microsoft-vscode.sources /etc/apt/keyrings/microsoft-vscode.gpg && sudo apt update
 
+## Third-party apt repositories
+
+Added only when the target's own archive has no candidate, and only after you affirm the key fingerprint (**D-040**); `--yes` does not answer it.
+
+- **microsoft-vscode**
+  - `https://packages.microsoft.com/repos/code` suite `stable`, component `main`
+  - key: <https://packages.microsoft.com/keys/microsoft.asc>
+  - fingerprint: `BC528686B50D79E339D3721CEB3E94ADBE1229CF`
+
 ## Known problems
 
 The trade-off, stated plainly in both directions. Microsoft's build is compiled from the same open source as VSCodium but is distributed under a proprietary licence and includes telemetry that is enabled by default; VSCodium exists specifically to provide a build without either, which is why Parrot ships it. Against that: the marketplace restriction above is real and is not something VSCodium can fix, because it is a licensing decision rather than a technical one. Telemetry can be turned off in settings (`telemetry.telemetryLevel: "off"`), which reduces but does not eliminate the difference. Both positions are defensible; this manifest takes neither and installs nothing unless asked.

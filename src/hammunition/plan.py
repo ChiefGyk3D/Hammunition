@@ -539,7 +539,11 @@ def _build_depends_of(manifest: PackageManifest) -> set[str]:
 
 
 def _check_engine_capability(
-    manifest: PackageManifest, block: InstallBlock, *, repos_supported: bool = False
+    manifest: PackageManifest,
+    block: InstallBlock,
+    *,
+    repos_supported: bool = False,
+    applicable_repos: Sequence[AptRepo] | None = None,
 ) -> list[Blocker]:
     """Refuse, by name, anything this engine build cannot actually do.
 
@@ -641,11 +645,12 @@ def _check_engine_capability(
                 )
             )
 
-    if manifest.apt_repos and not repos_supported:
+    wanted_repos = list(manifest.apt_repos if applicable_repos is None else applicable_repos)
+    if wanted_repos and not repos_supported:
         # The backend exists (D-040); a caller that plans without one -- a
         # test, a bare `resolve` -- still gets the named refusal rather than
         # a plan that silently assumes the repository will appear.
-        names = ", ".join(repo.name for repo in manifest.apt_repos)
+        names = ", ".join(repo.name for repo in wanted_repos)
         found.append(
             Blocker(
                 subject=manifest.name,
@@ -1076,6 +1081,7 @@ def _reference_books_deferral(name: str) -> Deferral:
 
 def _plan_repos(
     manifest: PackageManifest,
+    applicable: Sequence[AptRepo],
     install: AptInstall,
     repos: AptRepoBackend,
     missing: Sequence[str],
@@ -1084,7 +1090,9 @@ def _plan_repos(
 ) -> list[RepoAddition] | Blocker:
     """D-040: decide whether this unit's declared repositories are added.
 
-    Returns the additions -- possibly none -- or one blocker. The
+    ``applicable`` is the declared repositories whose ``when`` matches the
+    target; the rest are never mentioned to apt. Returns the additions --
+    possibly none -- or one blocker. The
     repositories are added only when the unit's *own* apt packages have no
     candidate: a target that already carries them is left as it is and told
     so (D-022), and a missing ``depends`` is never a reason to add somebody
@@ -1100,7 +1108,7 @@ def _plan_repos(
     """
     own_missing = sorted(p for p in missing if p in own)
     if not own_missing:
-        for repo in manifest.apt_repos:
+        for repo in applicable:
             if repos.state(repo, unit=manifest.name) is RepoState.absent:
                 notes.append(
                     f"{manifest.name}: the archive already offers {', '.join(install.packages)}; "
@@ -1108,7 +1116,7 @@ def _plan_repos(
                 )
         return []
     additions: list[RepoAddition] = []
-    for repo in manifest.apt_repos:
+    for repo in applicable:
         files = repos.files_for(repo)
         state = repos.state(repo, unit=manifest.name)
         if state is RepoState.foreign:
@@ -1278,7 +1286,12 @@ def resolve(
             )
             continue
 
-        capability = _check_engine_capability(manifest, block, repos_supported=repos is not None)
+        capability = _check_engine_capability(
+            manifest,
+            block,
+            repos_supported=repos is not None,
+            applicable_repos=manifest.apt_repos_for(target.distro, target.version, target.arch),
+        )
         if capability:
             blockers.extend(capability)
             continue
@@ -1440,11 +1453,8 @@ def resolve(
                 own = (
                     set(block.install.packages) if isinstance(block.install, AptInstall) else set()
                 )
-                if (
-                    manifest.apt_repos
-                    and repos is not None
-                    and isinstance(block.install, AptInstall)
-                ):
+                applicable = manifest.apt_repos_for(target.distro, target.version, target.arch)
+                if applicable and repos is not None and isinstance(block.install, AptInstall):
                     # D-040: the archive as configured has no candidate for
                     # the unit's own packages, and the manifest names where
                     # they come from. Decided here, from the same probe, so
@@ -1452,7 +1462,9 @@ def resolve(
                     # own codium -- never gets a repository it does not need
                     # (D-022), and a repository added under our name by an
                     # earlier run is recognised rather than re-added.
-                    repo_outcome = _plan_repos(manifest, block.install, repos, missing, own, notes)
+                    repo_outcome = _plan_repos(
+                        manifest, applicable, block.install, repos, missing, own, notes
+                    )
                     if isinstance(repo_outcome, Blocker):
                         blockers.append(repo_outcome)
                         continue
