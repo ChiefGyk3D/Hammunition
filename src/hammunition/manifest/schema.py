@@ -1031,12 +1031,14 @@ class DemTilesInstall(Strict):
     each tile is resolved at plan time and verified by a sha256 the catalog
     carries (``catalog/data/copernicus-glo30-pins.yaml``) or by the MD5 in
     the publisher's object metadata, the plan saying which, tile by tile.
-    `provider` is an enum so another source (USGS 3DEP) is a new member the
-    engine implements, never a URL in the catalog.
+    `provider` is an enum so another source is a new member the engine
+    implements, never a URL in the catalog: ``usgs-3dep`` (D-068, amended
+    2026-10-01) is USGS 3DEP 1/3-arc-second bare earth, chosen by the
+    station's ``dem_source`` and checked by the S3 ETag its publisher lists.
     """
 
     method: Literal["dem-tiles"] = "dem-tiles"
-    provider: Literal["copernicus-glo30"] = "copernicus-glo30"
+    provider: Literal["copernicus-glo30", "usgs-3dep"] = "copernicus-glo30"
     licence: str = Field(
         min_length=2,
         description="SPDX identifier where one exists, else the publisher's own words.",
@@ -1058,12 +1060,15 @@ class TopoQuadsInstall(Strict):
     plan time from a carried, generated index
     (``catalog/data/ustopo-quads.txt``), each checked against the S3 ETag
     its publisher lists, the plan saying so sheet by sheet. `provider` is an
-    enum so the Forest Service's FSTopo is a new member the engine
-    implements, never a URL in the catalog.
+    enum, never a URL in the catalog: ``usfs-fstopo`` (D-068, amended
+    2026-10-01) is the Forest Service's FSTopo series, chosen from
+    ``catalog/data/fstopo-quads.txt``; the Forest Service publishes no
+    checksum, so a sheet is checked by a sha256 Hammunition pinned where one
+    was measured and is otherwise disclosed as unverified, by name.
     """
 
     method: Literal["topo-quads"] = "topo-quads"
-    provider: Literal["usgs-ustopo"] = "usgs-ustopo"
+    provider: Literal["usgs-ustopo", "usfs-fstopo"] = "usgs-ustopo"
     licence: str = Field(
         min_length=2,
         description="SPDX identifier where one exists, else the publisher's own words.",
@@ -1153,13 +1158,27 @@ BROUTER_INPUTS: dict[str, tuple[str, bool]] = {
 #: kit holding tilemaker's OpenMapTiles profile and the Natural Earth layers.
 TILEMAKER_INPUTS: dict[str, tuple[str, bool]] = {"kit": ("data", True)}
 
+#: D-068 (amended 2026-10-01): ``gdal-dem`` may name the ``dem-tiles`` unit it
+#: draws from instead of `source` when the station's ``dem_source`` selects
+#: that unit's provider; ``ustopo-mosaic`` may name the Forest Service's
+#: sheets, mosaicked beside US Topo as a second map.
+GDAL_DEM_INPUTS: dict[str, tuple[str, bool]] = {"alternative": ("dem-tiles", False)}
+MOSAIC_INPUTS: dict[str, tuple[str, bool]] = {"fstopo": ("topo-quads", False)}
+
 #: Every converter that reads units besides its `source`, and those inputs:
 #: field -> (the install method it must resolve to, whether it is required).
 #: A field is refused on every converter not listed against it.
 CONVERTER_INPUTS: dict[str, dict[str, tuple[str, bool]]] = {
     "brouter-mapcreator": BROUTER_INPUTS,
     "tilemaker-pmtiles": TILEMAKER_INPUTS,
+    "gdal-dem": GDAL_DEM_INPUTS,
+    "ustopo-mosaic": MOSAIC_INPUTS,
 }
+
+#: The provider an input of these two must have, checked catalog-wide: an
+#: `alternative` that were Copernicus again, or an `fstopo` that were US Topo
+#: again, would draw the same data twice under another name.
+INPUT_PROVIDER: dict[str, str] = {"alternative": "usgs-3dep", "fstopo": "usfs-fstopo"}
 
 #: D-067: the converters that run a program no archive packages, carried as a
 #: pinned `tool` on the derived block. Required for these, refused for the rest.
@@ -1280,6 +1299,24 @@ class DerivedDataInstall(Strict):
             "it the routes are flat. Must also be in `depends`."
         ),
     )
+    alternative: str | None = Field(
+        default=None,
+        description=(
+            "`gdal-dem` only, optional (D-068, amended 2026-10-01): the `dem-tiles` unit "
+            "of provider `usgs-3dep` drawn from instead of `source` when the station's "
+            "`dem_source` is `3dep`. Must also be in `depends`."
+        ),
+    )
+    fstopo: str | None = Field(
+        default=None,
+        description=(
+            "`ustopo-mosaic` only, optional (D-068, amended 2026-10-01): the `topo-quads` "
+            "unit of provider `usfs-fstopo` whose sheets, when installed, are made a second "
+            "QMapShack map, `FSTopo.vrt`, beside `ustopo.vrt`. Read, never depended on: the "
+            "Forest Service publishes no checksum, so its sheets are installed only by name "
+            "(CLAUDE.md's checksum rule), and US Topo's map works without them."
+        ),
+    )
     kit: str | None = Field(
         default=None,
         description=(
@@ -1330,7 +1367,9 @@ class DerivedDataInstall(Strict):
         return self
 
     def inputs(self) -> tuple[str, ...]:
-        """Every other unit this block reads at run time; each must be in `depends`."""
+        """Every other unit this block needs at run time; each must be in
+        `depends`. `fstopo` is not one: it is read when it is installed and
+        never pulled in (D-068, amended 2026-10-01)."""
         return tuple(
             unit
             for unit in (
@@ -1340,6 +1379,7 @@ class DerivedDataInstall(Strict):
                 self.profiles,
                 self.elevation,
                 self.kit,
+                self.alternative,
             )
             if unit is not None
         )
@@ -2321,6 +2361,15 @@ def derived_source_method_problem(
                     f"{manifest.name}: derived block with converter {block.converter!r} "
                     f"needs {field_name} {unit!r} to be a {method!r} unit, but {unit!r} is "
                     f"{sorted({i.method for i in installs})!r}"
+                )
+            wanted = INPUT_PROVIDER.get(field_name)
+            if wanted is not None and not any(
+                getattr(i, "provider", None) == wanted for i in installs
+            ):
+                return (
+                    f"{manifest.name}: {field_name} {unit!r} must be a {method!r} unit of "
+                    f"provider {wanted!r}, but its provider is "
+                    f"{sorted({str(getattr(i, 'provider', None)) for i in installs})!r}"
                 )
             if field_name == "program" and not any(
                 getattr(i, "install_tree", False) for i in installs

@@ -29,16 +29,22 @@ from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
 
-from ..copernicus import CopernicusError, TileFile, parse_tile_list
+from ..copernicus import CopernicusError, TileFile
 from ..fetch import Fetcher, MirrorPath, fetch_disclosure, record_fetch
 from ..geofabrik import RegionFile
 from ..manifest.schema import DemTilesInstall, PackageManifest, RemoteArtifact
 from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
+from .fstopo import FsTopoDisclosure
 from .regions import MIB, data_root, prefix_writer, removal_steps
 from .terrain import TerrainLedger, tile_key
 from .topo import TopoDisclosure
 from .verified import PrefixWriter
+
+#: The provider each backend serves, and how its tiles are named in steps.
+COPERNICUS = "copernicus-glo30"
+THREEDEP = "usgs-3dep"
+_LABEL = {COPERNICUS: "terrain tile", THREEDEP: "3DEP bare-earth tile"}
 
 TIF = ".tif"
 TILES = ".tiles"
@@ -72,6 +78,25 @@ def no_terrain_line(region: str) -> str:
     return f"no terrain available for {region} from Copernicus GLO-30"
 
 
+def no_bare_earth_line(region: str) -> str:
+    """A region USGS 3DEP publishes no tile for while the station chose it."""
+    return (
+        f"no USGS 3DEP elevation for {region} (3DEP covers the United States); "
+        f"QMapShack gets no elevation for it while dem_source is 3dep, and "
+        f"Copernicus's tiles stay installed for BRouter"
+    )
+
+
+def _valid_name(name: str) -> bool:
+    from ..usgs3dep import dem_square
+
+    try:
+        dem_square(name)
+    except CopernicusError:
+        return False
+    return True
+
+
 def render_record(entry: RegionTiles) -> str:
     return f"{_UNPUBLISHED}{entry.unpublished}\n" + "".join(f"{name}\n" for name in entry.tiles)
 
@@ -97,11 +122,9 @@ def read_record(path: Path, region: str, slug: str) -> RegionTiles | None:
     if not names:
         return None if header is None else RegionTiles(region, slug, (), header)
     unpublished = header or 0
-    try:
-        tiles = tuple(sorted(parse_tile_list(text)))
-    except CopernicusError:
+    if not all(_valid_name(name) for name in names):
         return None
-    return RegionTiles(region, slug, tiles, unpublished)
+    return RegionTiles(region, slug, tuple(sorted(set(names))), unpublished)
 
 
 @dataclass(frozen=True)
@@ -118,6 +141,18 @@ class DemResolution:
     def tiles(self) -> tuple[str, ...]:
         """Every tile any region needs, sorted."""
         return tuple(sorted({name for entry in self.regions for name in entry.tiles}))
+
+
+@dataclass(frozen=True)
+class BareEarthDisclosure:
+    """What the plan says about USGS 3DEP (D-068, amended 2026-10-01)."""
+
+    resolution: DemResolution
+    licence: str
+    licence_url: str
+    chosen: bool
+    """Whether the station's ``dem_source`` is ``3dep``; when it is not,
+    nothing is fetched and any installed tile is removed."""
 
 
 @dataclass(frozen=True)
@@ -150,6 +185,13 @@ class TerrainDisclosure:
     topo: TopoDisclosure | None = None
     """The US Topo sheets and their mosaic (D-068); None when neither unit
     is planned."""
+    bare_earth: BareEarthDisclosure | None = None
+    """USGS 3DEP (D-068, amended 2026-10-01); None when no 3DEP unit is planned."""
+    fstopo: FsTopoDisclosure | None = None
+    """The FSTopo sheets and their map (D-068, amended 2026-10-01); None
+    when neither the unit nor the mosaic's ``fstopo`` input is planned."""
+    elevation: str = COPERNICUS
+    """The provider QMapShack's contours are drawn from this run."""
 
 
 @dataclass(frozen=True)
@@ -165,6 +207,11 @@ class DemTilesBackend:
     runner: CommandRunner | None = None
     euid: int | None = None
     privileged: bool | None = None
+    provider: str = COPERNICUS
+    """The ``dem-tiles`` provider this backend's resolution is for."""
+    bare_earth: DemTilesBackend | None = None
+    """The USGS 3DEP backend a ``usgs-3dep`` block is handed to (D-068,
+    amended 2026-10-01), so ``execute.commands_for`` keeps one ``dem``."""
     method = "dem-tiles"
 
     @property
@@ -177,27 +224,51 @@ class DemTilesBackend:
     def cache_path(self, tile: TileFile) -> Path:
         if tile.sha256 is not None:
             return self.fetcher.path_for(RemoteArtifact(url=tile.url, sha256=tile.sha256))
+        if tile.etag is not None:
+            return self.fetcher.etag_path_for(tile.url, tile.etag)
         return self.fetcher.md5_path_for(tile.url, tile.md5 or "")
 
     def steps(self, manifest: PackageManifest, block: DemTilesInstall) -> list[Action | Command]:
+        if block.provider != self.provider:
+            other = self.bare_earth
+            if other is None or other.provider != block.provider:
+                raise BackendError(
+                    f"{manifest.name} installs {block.provider} elevation tiles and no "
+                    f"backend for that provider was supplied. Skipping it would report a "
+                    f"successful run that installed nothing."
+                )
+            return other.steps(manifest, block)
         out = self.data_dir(manifest)
+        label = _LABEL.get(self.provider, "terrain tile")
         writer = self.writer
         steps: list[Action | Command] = []
         for tile in self.resolution.fetch:
-            fetched: dict[str, Path] = {}
+            fetched: dict[str, str | Path] = {}
             facts: dict[str, str] = {}
-            digest = (
-                f"sha256 {tile.sha256[:12]}…" if tile.sha256 else f"md5 {(tile.md5 or '')[:12]}…"
-            )
+            sources: tuple[str, ...]
+            if tile.etag is not None:
+                # The S3 ETag (D-068): fetched from the publisher only, as US
+                # Topo's sheets are; no LAN mirror path for it.
+                digest = f"ETag {tile.etag}"
+                note, urls, sources = "", tile.url, ()
+            else:
+                digest = (
+                    f"sha256 {tile.sha256[:12]}…"
+                    if tile.sha256
+                    else f"md5 {(tile.md5 or '')[:12]}…"
+                )
+                note, urls, sources = fetch_disclosure(
+                    self.fetcher,
+                    tile.url,
+                    MirrorPath(manifest.name, tile.name),
+                    "sha256" if tile.sha256 else "md5",
+                )
             where = MirrorPath(manifest.name, tile.name)
-            note, urls, sources = fetch_disclosure(
-                self.fetcher, tile.url, where, "sha256" if tile.sha256 else "md5"
-            )
             steps.append(
                 Action(
                     kind="fetch",
                     description=(
-                        f"Fetch terrain tile {tile.name} ({human_size(tile.size)}, "
+                        f"Fetch {label} {tile.name} ({human_size(tile.size)}, "
                         f"{block.licence}) — {tile.verified_by}{note}"
                     ),
                     detail=f"{urls} ({digest}, {tile.size} bytes)",
@@ -211,7 +282,7 @@ class DemTilesBackend:
                 Action(
                     kind="install-data",
                     description=(
-                        f"Install terrain tile {tile.name}, then delete its cached copy "
+                        f"Install {label} {tile.name}, then delete its cached copy "
                         f"{self.cache_path(tile)} (a tile never changes)"
                     ),
                     # The destination, verbatim, for uninstall's attribution replay.
@@ -225,11 +296,13 @@ class DemTilesBackend:
             if read_record(record, entry.region, entry.slug) == entry:
                 continue
             description = (
-                f"Record that {no_terrain_line(entry.region)}: Copernicus publishes no "
+                f"Record that {no_bare_earth_line(entry.region)}"
+                if entry.no_terrain and self.provider == THREEDEP
+                else f"Record that {no_terrain_line(entry.region)}: Copernicus publishes no "
                 f"tile for any of its {entry.unpublished} square(s) (sea, or land it does "
                 f"not release), so nothing is installed for it; its maps still are"
                 if entry.no_terrain
-                else f"Record the {len(entry.tiles)} terrain tile(s) {entry.region} needs, "
+                else f"Record the {len(entry.tiles)} {label}(s) {entry.region} needs, "
                 f"so a later plan knows them offline"
             )
             steps.append(
@@ -256,7 +329,7 @@ class DemTilesBackend:
     def _fetch(
         self,
         tile: TileFile,
-        fetched: dict[str, Path],
+        fetched: dict[str, str | Path],
         where: MirrorPath | None = None,
         facts: dict[str, str] | None = None,
     ) -> str:
@@ -269,6 +342,9 @@ class DemTilesBackend:
                     mirror=where,
                 )
                 how = f"sha256 {result.sha256[:12]}… verified against the pin"
+            elif tile.etag is not None:
+                result = self.fetcher.fetch_etag(tile.url, tile.etag, expected_size=tile.size)
+                how = f"ETag {tile.etag} reproduced (the publisher's, not pinned)"
             elif tile.md5 is not None:
                 result = self.fetcher.fetch_md5(
                     tile.url, tile.md5, expected_size=tile.size, mirror=where
@@ -283,6 +359,7 @@ class DemTilesBackend:
         except (BackendError, OSError) as exc:
             return self.ledger.fail(key, f"{tile.name}: {exc}")
         fetched["path"] = result.path
+        fetched["sha256"] = result.sha256
         source = record_fetch(
             result, facts if facts is not None else {}, mirrored=bool(self.fetcher.mirror)
         )
@@ -290,12 +367,19 @@ class DemTilesBackend:
         return f"{state} {result.size} bytes, {how}{source}"
 
     def _install(
-        self, tile: TileFile, fetched: dict[str, Path], dest: Path, writer: PrefixWriter
+        self, tile: TileFile, fetched: dict[str, str | Path], dest: Path, writer: PrefixWriter
     ) -> str:
         path = fetched.get("path")
-        if tile_key(tile.name) in self.ledger.failed or path is None:
+        if tile_key(tile.name) in self.ledger.failed or not isinstance(path, Path):
             return f"skipped: {tile.name} did not verify"
-        algorithm, digest = ("sha256", tile.sha256) if tile.sha256 else ("md5", tile.md5 or "")
+        if tile.sha256:
+            algorithm, digest = "sha256", tile.sha256
+        elif tile.etag:
+            # Re-verified on the way in against the sha256 taken as the bytes
+            # arrived, after the ETag matched: the cache is the operator's.
+            algorithm, digest = "sha256", str(fetched.get("sha256", ""))
+        else:
+            algorithm, digest = "md5", tile.md5 or ""
         try:
             writer.install_verified(path, dest, algorithm=algorithm, digest=digest)
         except (BackendError, OSError) as exc:

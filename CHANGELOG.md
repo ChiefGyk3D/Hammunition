@@ -11,6 +11,29 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Forest Service FSTopo sheets and USGS 3DEP bare-earth elevation**
+  (D-068, amended 2026-10-01). `usfs-fstopo` installs the FSTopo
+  7.5-minute sheets, with trail numbers, for the station's regions over
+  National Forest land, chosen offline from a carried index of 18,187 quads
+  (`scripts/gen_fstopo_index.py`) and located through the raster gateway's
+  one redirect at plan time. The Forest Service publishes no checksum: a
+  sheet the maintainer pinned is checked by its sha256, and every other is
+  fetched **unverified**, its size and TIFF header only, said on its plan
+  line and counted in a warning; the pins file starts empty. So it is in
+  no profile and installs only when typed by name, until every sheet a
+  region needs is pinned and the plan says so. When FSTopo sheets are
+  installed, `ustopo-qmapshack` expands each one's palette to tiled RGB
+  with overviews and builds a second QMapShack map, `FSTopo.vrt`; it never
+  pulls them in, and US Topo works alone. `dem-3dep`, in `navigation`,
+  installs 3DEP 1/3-arc-second tiles, about ten times Copernicus's size,
+  only after `hammunition station set --dem-source 3dep`, checked against
+  each object's S3 ETag from a carried list of 1,449 tiles
+  (`scripts/gen_3dep_tiles.py`); `dem-qmapshack` then draws its elevation
+  and contours from 3DEP at 10,812 pixels a tile, and setting the source
+  back removes the tiles and redraws from Copernicus. Copernicus stays the
+  default and stays installed. The plan prints both, per region, in text
+  and JSON. QMapShack drawing either is not yet measured.
+
 - **`hammunition-tray` and `hammunition-tray-qt` re-pinned to v0.4.0**
   (GPS-time plan Task 11, D-058). Both catalog manifests moved from v0.3.0
   to the v0.4.0 release assets, measured against the published SHA256SUMS:

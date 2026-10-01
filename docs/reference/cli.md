@@ -1107,6 +1107,24 @@ together, with `scripts/gen_ustopo_index.py --fetch`, which regenerates the
 index). Offline, a region whose record names an edition the index has since
 replaced keeps its installed sheets, and a `note:` says so.
 
+**FSTopo and 3DEP (D-068, amended 2026-10-01).** With `dem-3dep` planned the
+Terrain block gains a *USGS 3DEP bare-earth elevation* part: with
+`dem_source` unset or `copernicus` it says 3DEP is not chosen and that any
+installed tile is removed; with `3dep` it lists each region's tiles and what
+each region downloads (about ten times Copernicus), each tile checked by its
+S3 ETag in the US Topo wording. `usfs-fstopo` is in no profile and is planned
+only when typed by name (`hammunition install usfs-fstopo`), because the
+Forest Service publishes no checksum. Its *FSTopo* part lists each region's
+sheets; each sheet's line reads `sha256, pinned by Hammunition (the Forest
+Service publishes no checksum)` when the catalog pins it, or `unverified:
+the Forest Service publishes no checksum and Hammunition has pinned none;
+only the size is checked`; a `warning:` counts the unverified sheets; and
+when every sheet the regions need is pinned the part says `every FSTopo
+quad your regions need is pinned by Hammunition`. `ustopo-qmapshack` reads
+FSTopo sheets that are installed and builds `FSTopo.vrt` beside `ustopo.vrt`;
+it never pulls `usfs-fstopo` into a plan. The JSON carries both parts as
+`terrain.bare_earth` and `terrain.fstopo` ([json-interface.md](json-interface.md)).
+
 **Recommends, per unit (D-052).** Recommends are not suppressed globally —
 that would deviate from what every target distribution does, and several ham
 applications get their runtime data that way. A single manifest may opt its
@@ -1692,8 +1710,8 @@ the authentication prompt is dismissed.
 ### `hammunition station show` / `hammunition station set`
 
 The values only you can supply — callsign, grid square, packet node alias,
-the regions to carry offline maps for, and the LAN mirror to take their data
-from. Some
+the regions to carry offline maps for, the LAN mirror to take their data
+from, and which elevation QMapShack draws from. Some
 manifests write configuration files templated with them: `linbpq` needs a node
 callsign, AX.25 needs one in `/etc/ax25/axports`, Direwolf needs one in its
 own configuration.
@@ -1713,6 +1731,7 @@ hammunition station show
 | `--reference-books ID[,ID…]` | Kiwix books for `kiwix-library`, by id (`hammunition reference books` lists them). Replaces the whole list; an id the catalog's book list does not name is refused when you type it, and an empty list is refused (uninstall `kiwix-library` to remove the books) (**D-066**) |
 | `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile, a CoMaps map, a reference book) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
 | `--clear-mirror` | Remove the saved mirror |
+| `--dem-source SOURCE` | `copernicus` (the default when unset) or `3dep`: the elevation QMapShack's hillshade, slope and contours are drawn from (**D-068**, amended 2026-10-01). `3dep` makes `dem-3dep` fetch USGS 3DEP 1/3-arc-second bare-earth tiles for the US regions, about ten times Copernicus's size, and `dem-qmapshack` redraw from them; Copernicus stays installed for BRouter and for regions outside the US. Setting it back to `copernicus` removes the 3DEP tiles and redraws from Copernicus on the next install. `station show` prints it |
 
 A region list says where the operator lives or travels, so `station show`
 and `station set` print how many regions are set, never their names; the

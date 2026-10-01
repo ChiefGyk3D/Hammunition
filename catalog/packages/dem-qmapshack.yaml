@@ -7,14 +7,17 @@ summary: Hillshade, slope and 20 m contour lines for QMapShack, from the elevati
 categories: [navigation-maps]
 
 # Derived data (D-061): the `gdal-dem` converter builds QMapShack's DEM (a
-# virtual raster over the installed tiles) and a contour overlay map.
-depends: [dem-copernicus, gdal-bin]
+# virtual raster over the installed tiles) and a contour overlay map. D-068
+# (amended 2026-10-01): from `dem-3dep`'s tiles instead when the station's
+# dem_source is 3dep.
+depends: [dem-copernicus, dem-3dep, gdal-bin]
 
 install:
   - install:
       method: derived
       converter: gdal-dem
       source: dem-copernicus
+      alternative: dem-3dep
       licence: Copernicus DEM licence (free, with attribution)
       licence_url: https://copernicus-dem-30m.s3.amazonaws.com/readme.html
 
@@ -39,7 +42,11 @@ documentation:
     its elevation as one virtual raster. This makes both from the tiles,
     with the archive's GDAL and nothing else.
   prerequisites: >-
-    `dem-copernicus` and `gdal-bin`, which install first.
+    `dem-copernicus`, `dem-3dep` and `gdal-bin`, which install first.
+    `dem-3dep` fetches nothing unless you choose it with `hammunition station
+    set --dem-source 3dep`; then the elevation and contours are drawn from
+    USGS 3DEP bare earth instead of Copernicus, and a region outside the US
+    gets no elevation in QMapShack while that is chosen.
   known_problems: >-
     The contours are unlabelled lines at a fixed resolution: legible, not
     pretty. Labelled contours inside the map need a tool the archive does
@@ -48,6 +55,10 @@ documentation:
     GeoPackage is removed once rasterised. QMapShack 1.17.1 draws hillshade
     from the elevation (confirmed on the field laptop on 2026-09-29, at the
     3 km and 10 km scales); slope shading has not yet been tried there.
+    From 3DEP the contours are rasterised at 10,812 pixels a tile to keep its
+    10 m detail: measured on one Shenandoah tile on 2026-10-01, 17.3 s and a
+    212 MB GeoPackage to trace, 3.4 s and 8.4 MB to rasterise. QMapShack
+    drawing a 3DEP elevation has not been measured.
   upstream_url: https://gdal.org/
   upstream_support: >-
     The GDAL documentation (https://gdal.org/) for the tools; QMapShack's

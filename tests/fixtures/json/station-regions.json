@@ -13,5 +13,6 @@
   ],
   "map_freshness": "monthly",
   "reference_books": [],
-  "mirror": null
+  "mirror": null,
+  "dem_source": "copernicus"
 }

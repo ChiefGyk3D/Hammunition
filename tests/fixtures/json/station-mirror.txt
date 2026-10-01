@@ -6,3 +6,4 @@ Station configuration: <config>/hammunition/station.yml
   map regions    (not set)
   map freshness  yearly
   mirror         http://bunker.lan:8080/
+  dem_source     copernicus

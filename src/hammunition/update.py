@@ -246,6 +246,33 @@ def _regions_row(planned: PlannedPackage, snapshots: Sequence[RegionSnapshot]) -
 
 
 def _tiles_row(planned: PlannedPackage, count: int, no_terrain: int = 0) -> UpdateRow:
+    if isinstance(planned.block.install, DemTilesInstall) and (
+        planned.block.install.provider == "usgs-3dep"
+    ):
+        return _bare_earth_row(planned, count)
+    return _copernicus_row(planned, count, no_terrain)
+
+
+def _bare_earth_row(planned: PlannedPackage, count: int) -> UpdateRow:
+    """Counts only (D-068, amended 2026-10-01). None installed is the normal
+    state while the station's dem_source is copernicus."""
+    strategy = planned.manifest.update.strategy
+    if not count:
+        return UpdateRow(
+            planned.name,
+            NOT_INSTALLED,
+            "no 3DEP tiles installed (they are fetched only with dem_source 3dep)",
+            strategy,
+        )
+    return UpdateRow(
+        planned.name,
+        UP_TO_DATE,
+        f"{count} 3DEP tile(s) installed; checked against the carried list on install",
+        strategy,
+    )
+
+
+def _copernicus_row(planned: PlannedPackage, count: int, no_terrain: int = 0) -> UpdateRow:
     """Counts only (D-061): a tile's name is a latitude and longitude, as
     telling as a region's. *no_terrain* is how many regions Copernicus
     publishes no tile for at all (final review, I1), never called sea."""
@@ -272,20 +299,26 @@ def _tiles_row(planned: PlannedPackage, count: int, no_terrain: int = 0) -> Upda
 def _quads_row(planned: PlannedPackage, count: int, stale: int) -> UpdateRow:
     """Counts only (D-068): a sheet's name is a place, as telling as a region's."""
     strategy = planned.manifest.update.strategy
+    block = planned.block.install
+    series = (
+        "FSTopo"
+        if isinstance(block, TopoQuadsInstall) and block.provider == "usfs-fstopo"
+        else "US Topo"
+    )
     if not count:
-        return UpdateRow(planned.name, NOT_INSTALLED, "no US Topo quads installed", strategy)
+        return UpdateRow(planned.name, NOT_INSTALLED, f"no {series} quads installed", strategy)
     if stale:
         return UpdateRow(
             planned.name,
             BEHIND_PIN,
-            f"{count} US Topo quad(s) installed; {stale} of them have a newer edition in "
+            f"{count} {series} quad(s) installed; {stale} of them have a newer edition in "
             f"the carried index",
             strategy,
         )
     return UpdateRow(
         planned.name,
         UP_TO_DATE,
-        f"{count} US Topo quad(s) installed, each at the edition the carried index lists",
+        f"{count} {series} quad(s) installed, each at the edition the carried index lists",
         strategy,
     )
 
@@ -544,9 +577,10 @@ def rebuild_command(report: UpdateReport) -> str | None:
         and "brouter-segments" not in names
     ):
         names.append("brouter-segments")
-    # D-068: the US Topo mosaic is warped from the sheets.
+    # D-068: the US Topo mosaic is warped from the sheets, and (amended
+    # 2026-10-01) the FSTopo map converted from the Forest Service's.
     if (
-        "usgs-ustopo" in names
+        {"usgs-ustopo", "usfs-fstopo"} & set(names)
         and "ustopo-qmapshack" in reported
         and "ustopo-qmapshack" not in names
     ):
