@@ -419,7 +419,16 @@ bench owes.
 
 ### `hammunition maps gps-tether [--gpsd HOST[:PORT]] [--port N] [--position-port N] [--nmea-socket PATH | --no-nmea-socket]`
 
-What the `gps-tether` launcher runs (**D-061**). It watches gpsd's JSON, as
+What the `gps-tether` launcher ran (**D-061**), and now the way to run it
+once by hand. **The tether is its own project** (D-071 note, 2026-10-02):
+`hammunition install gps-tether` installs `hammunition-gps-tether` from
+<https://github.com/ChiefGyk3D/hammunition-gps-tether> and a systemd user
+service for it. With that tree installed (or a `hammunition-gps-tether` on the PATH or in
+`~/.local/bin`), this verb **runs it in its place**, passing every option given through, and prints on
+stderr where it is running from; root is refused first. Without it, the verb runs
+the engine's own copy as before, with a note on stderr that it will go away in
+a later release. The service and a foreground run cannot share port 10110. The
+rest of this section describes the tether itself. It watches gpsd's JSON, as
 `xgps` and Navit do, and writes `$GPRMC` and `$GPGGA` for every position
 with a 2D or 3D fix. It serves them on **127.0.0.1 port 10110 only**, for
 QMapShack's *Realtime → Add source → GPS TCP/IP* and any other NMEA client, and prints
@@ -739,6 +748,111 @@ With `--json`, prints a `repeaters-removed` document
 ([json-interface.md](json-interface.md)): the layers asked for, the files
 deleted, what each program was told and the all-sources file.
 
+### `hammunition maps infra import (--from-osm [--layers LAYER,LAYER] | --from-nasr | --from-eia | --from-wri)`
+
+Infrastructure and EMCOMM points on your maps, one layer per source
+(**D-075**). Each layer is four files in
+`~/.local/share/hammunition/overlays/infra/` (directory 0700, files 0600,
+each renamed into place): a GPX (`infra-<id>.gpx`) for QMapShack's File >
+Load and phones, a Mapsforge `.poi` QMapShack keeps as a POI collection, a
+Navit textfile, and a GeoJSON the browser map draws. One import writes its
+own layers and leaves every other layer as it is. Refused as root.
+
+- `--from-osm` filters the region extracts installed here with osmium, as
+  you, into eight layers: `osm-medical` (hospitals, clinics and doctors,
+  pharmacies), `osm-responders` (fire stations, police, ambulance stations),
+  `osm-supply` (fuel, supermarkets, hardware, EV charging, drinking water),
+  `osm-shelter-candidates` (schools, community centres and town halls,
+  places of worship: **candidate, not a designated shelter**, in the
+  layer's name and every description), `osm-transport` (aerodromes,
+  helipads, railway stations), `osm-power` (substations and plants),
+  `osm-telecom` (communications masts and towers) and `osm-water` (water
+  works, wastewater plants, pumping stations, water towers). `--layers
+  medical,water` writes only those. Nothing is downloaded. Licence line
+  `© OpenStreetMap contributors, ODbL 1.0`.
+- `--from-nasr` reads the installed `faa-nasr-airports` unit: every
+  airport, heliport and seaplane base in your regions' boxes, with its
+  status and use. Licence line `FAA NASR <cycle>, public domain`.
+- `--from-eia` reads the installed `eia-860m` unit: one point a plant, its
+  operator, technologies and summed nameplate megawatts. Licence line
+  `Source: U.S. Energy Information Administration (<Mon YYYY>), public
+  domain`.
+- `--from-wri` reads the installed `wri-power-plants` unit, outside the US
+  only, and says EIA-860M covers the US. Licence line `WRI Global Power
+  Plant Database v1.3.0 (2021), CC BY 4.0`.
+
+The three data imports keep what lies in the boxes the installed
+extracts' headers carry (a box is a rectangle, so it reaches across a
+state line); an extract without one is named by its number and left out,
+and none at all is refused, naming `hammunition install osm-regions`. A
+layer this import finds empty has its old files deleted and listed; an
+import that finds nothing at all changes nothing and exits 1. QMapShack's
+`[Canvas] poiPaths` holds the directory while any layer has a `.poi`, and
+your Navit copy (`overlays/navit.xml`) carries every repeater and
+infrastructure layer.
+
+```
+$ hammunition maps infra import --from-osm
+© OpenStreetMap contributors, ODbL 1.0
+
+Input: /usr/local/share/hammunition/data/osm-regions (osm-extract)
+Read: 2362 objects, 0 skipped
+Note: filtered on this machine from the region extracts already here; nothing downloaded
+Medical (OpenStreetMap, ODbL, 2026-09-30): 187 points
+...
+```
+
+With `--json`, prints an `infra` document
+([json-interface.md](json-interface.md)): the route, the licence lines,
+what was read (the extracts' directory with no digest), counts and skips,
+each layer's name, count and files, and what QMapShack and Navit were told.
+It carries no place's name or position, no region and no box.
+
+### `hammunition maps infra fetch-fcc-asr`
+
+Fetches the FCC's weekly Antenna Structure Registration file,
+`https://data.fcc.gov/download/pub/uls/complete/r_tower.zip` (37,810,019
+bytes on 2026-09-27; no checksum published), when you run it and at no
+other time, through the repeaters' bounded, HTTPS-only fetch, and writes
+the `fcc-towers` layer, `FCC towers (unverified, YYYY-MM-DD)`, dated by the
+file's own `counts` record (**D-075**: on request, unverified, by the
+maintainer's delegate's ruling). It prints what it is about to fetch first.
+Only `RA.dat` and `CO.dat` are read; **`EN.dat`, the owners' contact names,
+e-mail addresses and telephone numbers, is never opened**, and of `RA` the
+signature and street-address fields are never kept. A structure is kept
+when its registration is constructed or granted, it has no dismantle date,
+it has a structure coordinate, and it lies in your regions' boxes. Licence
+line `FCC Antenna Structure Registration, US Government work, public
+domain`; the sha256 of what arrived is printed and recorded. No `--json`
+form.
+
+### `hammunition maps infra fetch-nwr`
+
+Fetches NOAA Weather Radio's transmitter list,
+`https://www.weather.gov/source/nwr/JS/ccl-data.js` (754,735 bytes on
+2026-10-01), on request only, and writes the `nwr` layer, `NOAA Weather
+Radio (unverified, fetched YYYY-MM-DD)` (**D-075**). Each transmitter keeps
+its callsign, frequency, power, site, forecast office and every county's
+SAME code; **its live status is dropped** before anything is written, so
+check a transmitter is on the air before you rely on it. A transmitter
+within 1.0 degree of a region's box is kept: measured, that keeps every
+transmitter serving Delaware's and Vermont's counties. Licence line
+`NOAA/NWS, public domain, not an official NWS product`. No `--json` form.
+
+### `hammunition maps infra remove [--layer ID]`
+
+Deletes every infrastructure layer's files, and the directory when it is
+left empty; anything else you put there stays. With `--layer` (`osm-medical`,
+`osm-responders`, `osm-supply`, `osm-shelter-candidates`, `osm-transport`,
+`osm-power`, `osm-telecom`, `osm-water`, `faa-airports`, `eia-plants`,
+`wri-plants`, `fcc-towers` or `nwr`) it deletes that layer only. QMapShack's
+`poiPaths` and your Navit copy follow the overlay layers that remain,
+repeaters included. Nothing to remove is exit 0.
+
+With `--json`, prints an `infra-removed` document
+([json-interface.md](json-interface.md)): the layers asked for, the files
+deleted and what each program was told.
+
 ### `hammunition reference books`
 
 The Kiwix books the catalog offers (**D-066**), one per entry of the
@@ -813,40 +927,15 @@ OpenStreetMap contributors" on the map as the licences require, and shows
 your position when `hammunition maps gps-tether` runs. Without the kit the
 landing page says what to install instead.
 
-**Routes (D-076).** When the map has a region and `graphhopper-graph` is
-installed, built by the GraphHopper jar now installed, and `java` is on the
-PATH, the verb also starts GraphHopper's own server as a child:
-
-    java -Xmx4000m -jar /usr/local/share/hammunition/graphhopper/graphhopper-web-11.1.jar server ~/.cache/hammunition/reference/graphhopper/config.yml
-
-on 127.0.0.1 at a port the system chooses, with no admin port, its output in
-`graphhopper.log` beside the configuration (0600), and a parent-death signal
-so it stops if this process is killed. The configuration and a directory of
-links to the installed graph are rewritten in
-`~/.cache/hammunition/reference/graphhopper/` every start, because
-GraphHopper takes a lock file in the graph's directory and the graph is
-root's (measured). The terminal adds:
-
-```
-  routes: GraphHopper starting on 127.0.0.1:<port>, asked through this page only; its log is ~/.cache/hammunition/reference/graphhopper/graphhopper.log
-```
-
-The map then asks `GET /map/route?point=LAT,LON&point=LAT,LON&profile=P` of
-this server, after the same Host rule. Exactly two points, each two finite
-numbers on the globe, and one profile the graph was built with (car, bike,
-foot, hike); anything else, another parameter included, is a 400 with a
-JSON `message`, and nothing reaches GraphHopper. The request GraphHopper
-receives is rebuilt here, with `points_encoded=false`, instructions in
-English and, for every profile but car, `ch.disable=true`; its answer
-(GeoJSON line, distance, time, instructions) is relayed with its status. A
-GraphHopper still starting is a 503 saying so; one that has exited is a
-503 naming its exit code and log, and is reported once in the terminal
-while the books and the map keep serving (unlike kiwix-serve, whose exit
-stops the page). Without a graph nothing is started; with a graph that
-cannot be served (built by another jar, a file missing, no `java`) the
-terminal and the landing page say why and what to run. GraphHopper's own
-server answers every page with `Access-Control-Allow-Origin: *`, which is
-why the map never calls it directly.
+**Infrastructure on the map (D-075).** Tiles built by the converter's
+version 2 carry an `infra` layer (power lines and plants coloured by
+voltage after Open Infrastructure Map, masts, pipelines, water works,
+hydrants), which the page draws over OSM Bright and credits; the style's
+BSD-3-Clause notice is at `/map/infra-style-licence.txt`. Each layer you
+wrote with `hammunition maps infra` is served from your own overlay
+directory as `/map/overlays/infra-<id>.geojson`, listed at
+`/map/overlays.json`, and drawn as a toggled layer with its licence in the
+credit; a layer written while the server runs appears after a restart.
 
 With no books installed, no kiwix-serve is started and the page says how to
 choose some. With books installed and `kiwix-serve` or `kiwix-manage`
@@ -1585,6 +1674,15 @@ carry the `linger on|off` verb behind `station set --unattended` (**D-073
 argument) and records whether Hammunition turned linger on, so only linger
 that is ours is ever turned off.
 
+**The helper is moving to hammunition-tray (D-056, amended 2026-10-02).**
+Where the helper already installed at that path answers `--version` with
+contract 1's line (`hammunition-devctl contract N`), it is the tray's: `apply` then writes neither its wrapper nor an existing polkit action
+(it still writes the action where none exists), says so in the plan, and
+leaves the interpreter check out, because the engine's interpreter is not what
+that helper runs. The engine's own copy is still written where nothing
+answers; it is removed in a later release. What the tray's helper reads
+instead of the engine's catalog is the pair of lists below.
+
 - **All the rules, not only attached devices' —** a udev rule is declarative
   and harmless for a device that is not present, so applying the whole set
   means a supported device works the moment you plug it in, not only if it
@@ -1673,6 +1771,19 @@ that is ours is ever turned off.
   back afterwards. A file at either path without Hammunition's header refuses
   the plan (exit `2`). `--no-gps-resume` leaves the step out; `--no-gps-time`
   does not. See `docs/hardware/power-control.md`, "After suspend".
+- **Exports the helper's two lists (D-056, amended 2026-10-02):**
+  `/etc/hammunition/devctl-devices.yaml` (every catalogued class or device
+  that carries `power_control`: its name, summary, method, quiet verbs and
+  each confirmed identifier as quoted `vendor`/`product` strings, plus
+  `product_string` for an ambiguous one, which is all `state` needs to recognise
+  it on the bus without the catalog; hammunition-tray's contract 1) and `/etc/hammunition/devctl-services.yaml`
+  (`gpsd` is `gpsd.socket`, `time` is `ntpsec.service` or `chrony.service`
+  by whichever daemon the machine has, `gps-resume` is
+  `hammunition-gps-resume.service`). Both are root-owned `0644`, printed whole
+  in the plan, logged (`devctl_export`) and read back afterwards, and a file at
+  either path without Hammunition's header refuses the run (exit `2`). Shapes:
+  `docs/reference/devctl-lists.md`. A user-scope service's row is written by
+  the install of the unit that runs it, not here.
 
 ### `hammunition hardware unapply [--dry-run] [--yes] [--user NAME]`
 
@@ -1725,6 +1836,16 @@ taken back too (below); nothing else is touched.
   `/usr/local/libexec/hammunition-gps-resume` are removed, each only when it
   starts with the header Hammunition writes, and systemd is reloaded. The
   files and the four `.wants` links are re-checked for absence afterwards.
+- **Takes the helper's two lists back (D-056, amended 2026-10-02)**, by
+  content: each of `/etc/hammunition/devctl-devices.yaml` and
+  `/etc/hammunition/devctl-services.yaml` only when it starts with the header
+  Hammunition writes. `/etc/hammunition` stays: `time.yaml` lives there.
+- **Leaves a helper that is now the tray's alone.** Where the installed helper
+  answers `--version`, the log's older record of the engine's own copy is not
+  acted on: the helper and its polkit action belong to hammunition-tray, and
+  removing them is its own uninstall's job (not yet measured). A polkit action
+  this engine wrote because none existed stays until removed by hand, and the
+  run says which logged paths it left.
 
 Exit codes: `0` for a removal that verified absent, nothing recorded to
 remove, every recorded artefact already gone, a `--dry-run`, or declining the
@@ -1819,6 +1940,39 @@ exit 2 when ntpsec is not installed, when the helper is not, or when `ntp.conf`
 no longer has the line an edit anchors to. If ntpsec will not restart on the new
 files, the helper puts the old ones back and starts ntpsec on them. Exit 3 when
 the authentication prompt is dismissed.
+
+### `hammunition services [start|stop|enable|disable NAME] [--dry-run] [--json]`
+
+The services the privileged helper may control, and what each is doing, from
+the helper's own `services state` document (**D-056**, amended 2026-10-02): the
+GPS daemon's socket (`gpsd`), the clock (`time`, ntpsec or chrony), the GPS
+resume step (`gps-resume`) and any user service a catalog unit installed
+(`gps-tether`, `rig`). A service whose unit is not installed is listed as
+`not installed`, never left out. Reads only and asks for no password: it runs
+the installed helper unprivileged, one argv. **The engine never runs
+`systemctl` itself**, and never passes a unit: it passes a name from that list,
+and the helper looks the unit up in `/etc/hammunition/devctl-services.yaml`
+(system scope) or `~/.config/hammunition/devctl-services.yaml` (user scope).
+
+`start NAME`, `stop NAME`, `enable NAME` and `disable NAME` change one. A
+system service goes through `pkexec` and the one polkit action, as `hardware
+park` does; a user service runs as you and never asks for a password. The
+command prints the call before it runs (`--dry-run` prints and stops), is a
+no-op when the service is already where you asked, refuses a name the helper
+does not list and a unit that is not installed (exit `2`, before any prompt),
+and reads the result back from the helper afterwards (**D-031**): a start that
+ends `failed`, a stop that leaves it running, or an enable that does not read
+`enabled` is reported unverified (exit `1`). A start that ends `inactive`
+is only a note, because a one-shot unit runs and exits. Exit `3`: the
+authentication prompt was dismissed.
+
+With `--json` (on the list only: the four verbs change the machine and have no
+JSON form, **D-059**), prints a `services` document
+([json-interface.md](json-interface.md)): the helper's document, checked and
+re-rendered, so a front end reads one shape from the engine or from the
+helper. A helper that predates the `services` verb, or is not installed, is
+refused by name: update or install hammunition-tray. Not yet measured on the
+bench: the verbs against the tray's helper, which is not released.
 
 ### `hammunition station show` / `hammunition station set`
 

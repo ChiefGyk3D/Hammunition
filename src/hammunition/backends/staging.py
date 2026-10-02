@@ -270,7 +270,12 @@ class Staging:
         return None
 
     def run(
-        self, argv: Sequence[str], *, cwd: Path, lock: Path | None = None
+        self,
+        argv: Sequence[str],
+        *,
+        cwd: Path,
+        lock: Path | None = None,
+        stdin: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
         """*argv* in *cwd*, as the operator when the engine is root.
 
@@ -280,7 +285,9 @@ class Staging:
         one lock; a *lock* given must be strictly below the staging directory,
         with no ``..``, whoever the engine is. Returns :data:`REFUSED` (125)
         without starting *argv* when another run holds it, when the lock is
-        refused, or when root has nobody to run as.
+        refused, or when root has nobody to run as. *stdin*, when given, is
+        written to the command's standard input: a file's text goes there, not
+        into argv, which Linux caps at 128 KiB an argument (D-075).
         """
         assignments = [f"{name}={value}" for name, value in self.environ.items()]
         if lock is None:
@@ -324,7 +331,7 @@ class Staging:
             str(lock),
             *argv,
         ]
-        result = self._subprocess(command)
+        result = self._subprocess(command, stdin=stdin)
         lines = result.stderr.splitlines(keepends=True)
         if result.returncode == REFUSED and any(line.strip() == _FLOCK_BUSY for line in lines):
             result.stderr = (
@@ -360,13 +367,17 @@ class Staging:
             )
         return self.run(["find", ".", "-xdev", "-mindepth", "1", "-delete"], cwd=cwd, lock=lock)
 
-    def _subprocess(self, argv: Sequence[str]) -> subprocess.CompletedProcess[str]:
+    def _subprocess(
+        self, argv: Sequence[str], *, stdin: str | None = None
+    ) -> subprocess.CompletedProcess[str]:
         refusal = self._refusal()
         if refusal is not None:
             return subprocess.CompletedProcess(list(argv), REFUSED, "", refusal)
         try:
+            # *stdin* only when given: every other call is what it was.
+            fed: dict[str, Any] = {} if stdin is None else {"input": stdin}
             return subprocess.run(
-                list(argv), capture_output=True, text=True, check=False, **self._as()
+                list(argv), capture_output=True, text=True, check=False, **fed, **self._as()
             )
         except OSError as exc:
             return subprocess.CompletedProcess(list(argv), 127, "", str(exc))

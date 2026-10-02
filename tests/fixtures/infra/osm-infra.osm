@@ -1,0 +1,133 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version="0.6" generator="hammunition tests (synthetic)">
+  <bounds minlat="38.6" minlon="-75.7" maxlat="39.0" maxlon="-75.3"/>
+  <node id="1" version="1" lat="38.7101" lon="-75.5101">
+    <tag k="amenity" v="hospital"/>
+    <tag k="name" v="Testville General Hospital"/>
+    <tag k="emergency" v="yes"/>
+  </node>
+  <node id="2" version="1" lat="38.7202" lon="-75.5202">
+    <tag k="amenity" v="pharmacy"/>
+  </node>
+  <node id="3" version="1" lat="38.7303" lon="-75.5303">
+    <tag k="amenity" v="police"/>
+    <tag k="name" v="Testville Police"/>
+  </node>
+  <node id="4" version="1" lat="38.7404" lon="-75.5404">
+    <tag k="emergency" v="ambulance_station"/>
+    <tag k="name" v="Testville Ambulance"/>
+  </node>
+  <node id="5" version="1" lat="38.7505" lon="-75.5505">
+    <tag k="amenity" v="fuel"/>
+    <tag k="brand" v="TestFuel"/>
+    <tag k="fuel:diesel" v="yes"/>
+  </node>
+  <node id="6" version="1" lat="38.7606" lon="-75.5606">
+    <tag k="shop" v="supermarket"/>
+    <tag k="name" v="Testville Market"/>
+  </node>
+  <node id="7" version="1" lat="38.7707" lon="-75.5707">
+    <tag k="amenity" v="shelter"/>
+    <tag k="shelter_type" v="picnic_shelter"/>
+  </node>
+  <node id="8" version="1" lat="38.7808" lon="-75.5808">
+    <tag k="amenity" v="school"/>
+    <tag k="name" v="Testville Elementary"/>
+  </node>
+  <node id="9" version="1" lat="38.7909" lon="-75.5909">
+    <tag k="amenity" v="place_of_worship"/>
+  </node>
+  <node id="11" version="1" lat="38.8011" lon="-75.6011">
+    <tag k="amenity" v="townhall"/>
+    <tag k="name" v="Testville Town Hall"/>
+  </node>
+  <node id="12" version="1" lat="38.8112" lon="-75.6112">
+    <tag k="aeroway" v="helipad"/>
+  </node>
+  <node id="13" version="1" lat="38.8213" lon="-75.6213">
+    <tag k="railway" v="halt"/>
+    <tag k="name" v="Testville Halt"/>
+  </node>
+  <node id="14" version="1" lat="38.8314" lon="-75.6314">
+    <tag k="power" v="substation"/>
+    <tag k="voltage" v="69000;12470"/>
+    <tag k="operator" v="Test Power"/>
+  </node>
+  <node id="15" version="1" lat="38.8415" lon="-75.6415">
+    <tag k="power" v="plant"/>
+    <tag k="plant:source" v="solar"/>
+    <tag k="name" v="Testville Solar"/>
+  </node>
+  <node id="16" version="1" lat="38.8516" lon="-75.6516">
+    <tag k="man_made" v="mast"/>
+    <tag k="tower:type" v="communication"/>
+    <tag k="operator" v="Test Towers"/>
+  </node>
+  <node id="17" version="1" lat="38.8617" lon="-75.6617">
+    <tag k="man_made" v="mast"/>
+  </node>
+  <node id="18" version="1" lat="38.8718" lon="-75.6718">
+    <tag k="man_made" v="tower"/>
+    <tag k="communication:mobile_phone" v="yes"/>
+  </node>
+  <node id="19" version="1" lat="38.8819" lon="-75.6819">
+    <tag k="man_made" v="water_tower"/>
+  </node>
+  <node id="22" version="1" lat="38.8922" lon="-75.6922">
+    <tag k="man_made" v="wastewater_plant"/>
+    <tag k="name" v="Testville Wastewater"/>
+  </node>
+  <node id="24" version="1" lat="38.9024" lon="-75.4024">
+    <tag k="power" v="generator"/>
+    <tag k="generator:source" v="solar"/>
+  </node>
+  <node id="25" version="1" lat="38.9125" lon="-75.4125">
+    <tag k="emergency" v="fire_hydrant"/>
+  </node>
+  <node id="101" version="1" lat="38.6000" lon="-75.4000"/>
+  <node id="102" version="1" lat="38.6000" lon="-75.4020"/>
+  <node id="103" version="1" lat="38.6020" lon="-75.4020"/>
+  <node id="104" version="1" lat="38.6020" lon="-75.4000"/>
+  <node id="211" version="1" lat="38.6500" lon="-75.4500"/>
+  <node id="212" version="1" lat="38.6500" lon="-75.4520"/>
+  <node id="213" version="1" lat="38.6520" lon="-75.4520"/>
+  <node id="301" version="1" lat="38.9500" lon="-75.3500"/>
+  <node id="302" version="1" lat="38.9500" lon="-75.3600"/>
+  <node id="303" version="1" lat="38.9600" lon="-75.3600"/>
+  <way id="10" version="1">
+    <nd ref="101"/>
+    <nd ref="102"/>
+    <nd ref="103"/>
+    <nd ref="104"/>
+    <nd ref="101"/>
+    <tag k="amenity" v="clinic"/>
+    <tag k="name" v="Testville Clinic"/>
+  </way>
+  <way id="21" version="1">
+    <nd ref="211"/>
+    <nd ref="212"/>
+    <nd ref="213"/>
+    <nd ref="211"/>
+  </way>
+  <way id="30" version="1">
+    <nd ref="301"/>
+    <nd ref="302"/>
+    <nd ref="303"/>
+    <nd ref="301"/>
+    <tag k="aeroway" v="aerodrome"/>
+    <tag k="name" v="Testville Airport"/>
+    <tag k="faa" v="0T0"/>
+  </way>
+  <way id="40" version="1">
+    <nd ref="901"/>
+    <nd ref="902"/>
+    <tag k="amenity" v="hospital"/>
+    <tag k="name" v="Nowhere Hospital"/>
+  </way>
+  <relation id="20" version="1">
+    <member type="way" ref="21" role="outer"/>
+    <tag k="type" v="multipolygon"/>
+    <tag k="amenity" v="fire_station"/>
+    <tag k="name" v="Testville Fire Company"/>
+  </relation>
+</osm>

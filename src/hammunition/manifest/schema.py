@@ -390,6 +390,13 @@ class PinReview(Strict):
         return today > self.due
 
 
+#: The digest a manifest carries while the artifact it will pin has not been
+#: published: 64 zeros. pip can never match it, and the planner refuses it by
+#: name before any step runs, so an unfinished pin fails at `--dry-run`, not
+#: at the pip step after the apt work.
+UNPINNED_SHA256 = "0" * 64
+
+
 def _unhashed(lines: Sequence[str]) -> list[str]:
     """Requirement lines that carry no ``--hash=sha256:`` pin."""
     return [
@@ -1861,6 +1868,34 @@ class UserService(Strict):
     exec: list[str] = Field(min_length=1)
     binds_to_device: str | None = None
     listens: list[UserServiceListen] = Field(default_factory=list)
+    restart: Literal["on-failure", "always", "no"] = Field(
+        default="on-failure",
+        description="systemd's Restart=, from a fixed set; never free text in a unit file.",
+    )
+    restart_sec: int = Field(
+        default=5, ge=1, le=300, description="RestartSec=, in seconds (1 to 300)."
+    )
+    restart_prevent_exit_status: list[Annotated[int, Field(ge=1, le=255)]] = Field(
+        default_factory=list,
+        description=(
+            "Exit codes systemd must not restart after (RestartPreventExitStatus=): "
+            "a program that refuses by exiting 1, such as the tether on a taken "
+            "port, is not retried forever."
+        ),
+    )
+
+    @property
+    def is_plain(self) -> bool:
+        """True when the service needs nothing from the station or the hardware
+        catalog: no ``when_station``, no ``unless_station``, no ``{station.*}``
+        and no ``binds_to_device``. A plain service is always planned (D-073,
+        amended 2026-10-02: the GPS tether)."""
+        return not (
+            self.when_station
+            or self.unless_station
+            or self.binds_to_device
+            or self.station_variables
+        )
 
     @property
     def station_variables(self) -> set[str]:

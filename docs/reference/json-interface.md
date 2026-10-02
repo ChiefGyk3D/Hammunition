@@ -50,11 +50,14 @@ their text follows.
 - `hammunition hardware state`
 - `hammunition install` (with `--dry-run` only)
 - `hammunition list`
+- `hammunition maps infra import`
+- `hammunition maps infra remove`
 - `hammunition maps phone`
 - `hammunition maps regions`
 - `hammunition maps repeaters import`
 - `hammunition maps repeaters remove`
 - `hammunition reference books`
+- `hammunition services`
 - `hammunition show`
 - `hammunition station show`
 - `hammunition status`
@@ -73,12 +76,15 @@ their text follows.
 | `doctor` | [`DoctorDocument`](#doctor) |
 | `error` | [`ErrorDocument`](#error) |
 | `hardware` | [`HardwareDocument`](#hardware) |
+| `infra` | [`InfraDocument`](#infra) |
+| `infra-removed` | [`InfraRemovedDocument`](#infra-removed) |
 | `phone` | [`PhoneDocument`](#phone) |
 | `plan` | [`PlanDocument`](#plan) |
 | `profile` | [`ProfileDocument`](#profile) |
 | `regions` | [`RegionsDocument`](#regions) |
 | `repeaters` | [`RepeatersDocument`](#repeaters) |
 | `repeaters-removed` | [`RepeatersRemovedDocument`](#repeaters-removed) |
+| `services` | [`ServicesDocument`](#services) |
 | `station` | [`StationDocument`](#station) |
 | `status` | [`StatusDocument`](#status) |
 | `unit` | [`UnitDocument`](#unit) |
@@ -1024,6 +1030,374 @@ A catalogued device that is attached but cannot be parked right now.
 
 </details>
 
+### infra
+
+Infrastructure layers written from one source (D-075). Counts, paths,
+names and licence lines only: no place, position or region is carried.
+
+| field | type | meaning |
+|---|---|---|
+| `route` | string | `osm`, `nasr`, `eia`, `wri`, `fcc-asr` or `nwr` |
+| `licences` | list of string | the source's licence line, printed before anything |
+| `inputs` | list of [`InfraInputView`](#infrainputview) | what was read |
+| `read` | integer | objects, rows or records read that belong in a layer |
+| `skipped` | list of [`SkipView`](#skipview) | rows left out, by reason; `first` is empty when several extracts were read |
+| `outside` | integer | rows of a nationwide or worldwide file outside the regions' boxes; 0 for `osm` |
+| `merged` | integer | points two extracts both held, kept once; 0 but for `osm` |
+| `notes` | list of string | sentences the text prints: an extract left out (by number), what another source covers |
+| `layers` | list of [`InfraLayerView`](#infralayerview) | each layer, in layer order |
+| `directory` | string | where the layers are, mode 0700 |
+| `registered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order, for every overlay layer present |
+
+#### `InfraInputView`
+
+One input read.
+
+| field | type | meaning |
+|---|---|---|
+| `path` | string | the installed file, or a fetch's URL; for `osm-extract`, the directory of the region extracts, never a region's name |
+| `format` | string | `osm-extract`, `faa-nasr-apt`, `eia-860m`, `wri-gppd`, `fcc-asr` or `nwr-ccl` |
+| `sha256` | string | the digest of what was read; empty for `osm-extract`, whose extracts' digests would name the regions |
+
+#### `SkipView`
+
+Rows of one input left out for one reason.
+
+| field | type | meaning |
+|---|---|---|
+| `reason` | string | why, e.g. `no usable position` or `no callsign` |
+| `count` | integer | how many rows |
+| `first` | list of integer | the first five: line numbers in a CSV, row numbers in JSON, waypoint numbers in a GPX |
+
+#### `InfraLayerView`
+
+One layer this import wrote, or found empty.
+
+| field | type | meaning |
+|---|---|---|
+| `layer_id` | string | `osm-medical`, `osm-responders`, `osm-supply`, `osm-shelter-candidates`, `osm-transport`, `osm-power`, `osm-telecom`, `osm-water`, `faa-airports`, `eia-plants`, `wri-plants`, `fcc-towers` or `nwr` |
+| `name` | string | the layer's name, as QMapShack and the browser map show it |
+| `written` | integer | points in the layer; 0 when this import found none |
+| `files` | list of string | the files written, mode 0600: GPX, POI, Navit textfile, GeoJSON; empty when none |
+| `removed` | list of string | an earlier version's files, deleted because this import found no point for it |
+
+#### `RegistrationView`
+
+What a program was told about the layer.
+
+| field | type | meaning |
+|---|---|---|
+| `program` | string | `qmapshack` or `navit` |
+| `config` | string | the file edited or written |
+| `outcome` | string | `added`, `already there`, `written`, `removed`, `not there`, `not written` or `refused` |
+| `detail` | string | the sentence the text prints after the outcome |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "InfraInputView": {
+      "additionalProperties": false,
+      "description": "One input read.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "format": {
+          "title": "Format",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "format",
+        "sha256"
+      ],
+      "title": "InfraInputView",
+      "type": "object"
+    },
+    "InfraLayerView": {
+      "additionalProperties": false,
+      "description": "One layer this import wrote, or found empty.",
+      "properties": {
+        "layer_id": {
+          "title": "Layer Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "written": {
+          "title": "Written",
+          "type": "integer"
+        },
+        "files": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Files",
+          "type": "array"
+        },
+        "removed": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Removed",
+          "type": "array"
+        }
+      },
+      "required": [
+        "layer_id",
+        "name",
+        "written",
+        "files",
+        "removed"
+      ],
+      "title": "InfraLayerView",
+      "type": "object"
+    },
+    "RegistrationView": {
+      "additionalProperties": false,
+      "description": "What a program was told about the layer.",
+      "properties": {
+        "program": {
+          "title": "Program",
+          "type": "string"
+        },
+        "config": {
+          "title": "Config",
+          "type": "string"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "program",
+        "config",
+        "outcome",
+        "detail"
+      ],
+      "title": "RegistrationView",
+      "type": "object"
+    },
+    "SkipView": {
+      "additionalProperties": false,
+      "description": "Rows of one input left out for one reason.",
+      "properties": {
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "first": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "First",
+          "type": "array"
+        }
+      },
+      "required": [
+        "reason",
+        "count",
+        "first"
+      ],
+      "title": "SkipView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Infrastructure layers written from one source (D-075). Counts, paths,\nnames and licence lines only: no place, position or region is carried.",
+  "properties": {
+    "route": {
+      "title": "Route",
+      "type": "string"
+    },
+    "licences": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Licences",
+      "type": "array"
+    },
+    "inputs": {
+      "items": {
+        "$ref": "#/$defs/InfraInputView"
+      },
+      "title": "Inputs",
+      "type": "array"
+    },
+    "read": {
+      "title": "Read",
+      "type": "integer"
+    },
+    "skipped": {
+      "items": {
+        "$ref": "#/$defs/SkipView"
+      },
+      "title": "Skipped",
+      "type": "array"
+    },
+    "outside": {
+      "title": "Outside",
+      "type": "integer"
+    },
+    "merged": {
+      "title": "Merged",
+      "type": "integer"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    },
+    "layers": {
+      "items": {
+        "$ref": "#/$defs/InfraLayerView"
+      },
+      "title": "Layers",
+      "type": "array"
+    },
+    "directory": {
+      "title": "Directory",
+      "type": "string"
+    },
+    "registered": {
+      "items": {
+        "$ref": "#/$defs/RegistrationView"
+      },
+      "title": "Registered",
+      "type": "array"
+    }
+  },
+  "required": [
+    "route",
+    "licences",
+    "inputs",
+    "read",
+    "skipped",
+    "outside",
+    "merged",
+    "notes",
+    "layers",
+    "directory",
+    "registered"
+  ],
+  "title": "InfraDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### infra-removed
+
+Infrastructure layers deleted and unregistered. Removing nothing is
+not an error: every list is then empty.
+
+| field | type | meaning |
+|---|---|---|
+| `directory` | string | where the layers are |
+| `layers` | list of string | the layer ids asked for: the one `--layer` named, else every layer |
+| `removed` | list of string | the files deleted |
+| `unregistered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order, for the overlay layers left |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "RegistrationView": {
+      "additionalProperties": false,
+      "description": "What a program was told about the layer.",
+      "properties": {
+        "program": {
+          "title": "Program",
+          "type": "string"
+        },
+        "config": {
+          "title": "Config",
+          "type": "string"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "program",
+        "config",
+        "outcome",
+        "detail"
+      ],
+      "title": "RegistrationView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Infrastructure layers deleted and unregistered. Removing nothing is\nnot an error: every list is then empty.",
+  "properties": {
+    "directory": {
+      "title": "Directory",
+      "type": "string"
+    },
+    "layers": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Layers",
+      "type": "array"
+    },
+    "removed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Removed",
+      "type": "array"
+    },
+    "unregistered": {
+      "items": {
+        "$ref": "#/$defs/RegistrationView"
+      },
+      "title": "Unregistered",
+      "type": "array"
+    }
+  },
+  "required": [
+    "directory",
+    "layers",
+    "removed",
+    "unregistered"
+  ],
+  "title": "InfraRemovedDocument",
+  "type": "object"
+}
+```
+
+</details>
+
 ### phone
 
 The phone files gathered into one folder with a SHA256SUMS, and the
@@ -1637,10 +2011,10 @@ rest of the plan.
 | `unit` | string | the catalog unit carrying it |
 | `name` | string | the systemd user unit, without .service |
 | `path` | string | the unit file written, under the operator's ~/.config/systemd/user/ |
-| `exec` | string | the rigctld command line, with the device serial elided |
+| `exec` | string | the service's command line, with the device serial elided |
 | `fills` | list of string | the station values that fed it, by name; never the values |
 | `listen` | string | the loopback address:port it binds, e.g. 127.0.0.1:4532 |
-| `starts_now` | boolean | whether the plan restarts it now (the radio's port is present) |
+| `starts_now` | boolean | whether the plan restarts it now (a rig service whose radio's port is present) |
 
 #### `DesktopsReadView`
 
@@ -4052,27 +4426,6 @@ One file read.
 | `skipped` | list of [`SkipView`](#skipview) | the rest, by reason |
 | `sha256` | string | the digest of what was read (several logs: of their bytes in order); empty for `osm-extract`, whose extracts' digests would name the regions |
 
-#### `SkipView`
-
-Rows of one input left out for one reason.
-
-| field | type | meaning |
-|---|---|---|
-| `reason` | string | why, e.g. `no usable position` or `no callsign` |
-| `count` | integer | how many rows |
-| `first` | list of integer | the first five: line numbers in a CSV, row numbers in JSON, waypoint numbers in a GPX |
-
-#### `RegistrationView`
-
-What a program was told about the layer.
-
-| field | type | meaning |
-|---|---|---|
-| `program` | string | `qmapshack` or `navit` |
-| `config` | string | the file edited or written |
-| `outcome` | string | `added`, `already there`, `written`, `removed`, `not there`, `not written` or `refused` |
-| `detail` | string | the sentence the text prints after the outcome |
-
 #### `AllSourcesView`
 
 ``repeaters-all.gpx``: the directory layers joined (D-074).
@@ -4551,6 +4904,151 @@ error: every list is then empty.
     "all_sources"
   ],
   "title": "RepeatersRemovedDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### services
+
+The services the privileged helper may start, stop, enable and disable,
+with what each is doing now.
+
+Read fresh on every call, unprivileged, by asking the installed helper
+(`hammunition-devctl services state`); the engine adds nothing to it.
+
+| field | type | meaning |
+|---|---|---|
+| `version` | integer | the helper contract's `services` document version; 1 |
+| `services` | list of [`ServiceView`](#serviceview) | every service in the helper's lists, an uninstalled one included (`enabled: not-found`) |
+| `linger` | [`LingerView`](#lingerview) or null | whether user services outlive the login session; null when the helper did not say |
+
+#### `ServiceView`
+
+One service the helper may start, stop, enable and disable by name.
+
+| field | type | meaning |
+|---|---|---|
+| `name` | string | the name `hammunition services start\|stop\|enable\|disable` takes |
+| `unit` | string | the systemd unit the name stands for, e.g. `gpsd.socket` |
+| `scope` | string | `user` (the operator's own systemd) or `system` |
+| `description` | string | one line, as the helper's service list words it |
+| `active` | string | `active`, `inactive`, `failed`, `activating` or `unknown`: what is running now |
+| `enabled` | string | `enabled`, `disabled`, `static`, `not-found` or `unknown`: whether it starts at boot (system) or login (user). `not-found` means the unit is not installed |
+| `root` | boolean | true when changing it asks for a password (system scope); false when the helper acts for the operator alone |
+
+#### `LingerView`
+
+Whether the operator's user services keep running after logout.
+
+| field | type | meaning |
+|---|---|---|
+| `state` | string | `on` or `off` |
+| `ours` | boolean | true when Hammunition turned it on, so it is Hammunition's to turn off |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "LingerView": {
+      "additionalProperties": false,
+      "description": "Whether the operator's user services keep running after logout.",
+      "properties": {
+        "state": {
+          "title": "State",
+          "type": "string"
+        },
+        "ours": {
+          "title": "Ours",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "state",
+        "ours"
+      ],
+      "title": "LingerView",
+      "type": "object"
+    },
+    "ServiceView": {
+      "additionalProperties": false,
+      "description": "One service the helper may start, stop, enable and disable by name.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "active": {
+          "title": "Active",
+          "type": "string"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "string"
+        },
+        "root": {
+          "title": "Root",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "unit",
+        "scope",
+        "description",
+        "active",
+        "enabled",
+        "root"
+      ],
+      "title": "ServiceView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The services the privileged helper may start, stop, enable and disable,\nwith what each is doing now.\n\nRead fresh on every call, unprivileged, by asking the installed helper\n(`hammunition-devctl services state`); the engine adds nothing to it.",
+  "properties": {
+    "version": {
+      "title": "Version",
+      "type": "integer"
+    },
+    "services": {
+      "items": {
+        "$ref": "#/$defs/ServiceView"
+      },
+      "title": "Services",
+      "type": "array"
+    },
+    "linger": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LingerView"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "version",
+    "services",
+    "linger"
+  ],
+  "title": "ServicesDocument",
   "type": "object"
 }
 ```

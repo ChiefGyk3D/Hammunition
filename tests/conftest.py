@@ -331,6 +331,43 @@ def _no_host_resume_files(
         )
 
 
+@pytest.fixture(autouse=True)
+def _no_host_devctl_export(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[Path]:
+    """The exported list files point somewhere that does not exist, for every
+    test, for the reason `_no_host_resume_files` gives: the field laptop runs this
+    suite and holds the real ones. Also stops the handover probe from running
+    the installed helper: `polkit.installed_helper_version` answers None unless a
+    test says otherwise. Tests that want files request `devctl_export_files`."""
+    from hammunition.hardware import devctl_export, polkit
+
+    root = tmp_path_factory.getbasetemp() / "host-devctl-export-absent"
+    for name, default in devctl_export.PATHS.items():
+        monkeypatch.setattr(devctl_export, name, str(root) + default)
+    monkeypatch.setattr(polkit, "installed_helper_version", lambda *a, **k: None)
+    yield root
+    if root.exists():
+        shutil.rmtree(root)
+        pytest.fail(
+            "a test wrote devctl export files without the devctl_export_files fixture; "
+            "request it so they land in that test's own tmp_path"
+        )
+
+
+@pytest.fixture
+def devctl_export_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, _no_host_devctl_export: Path
+) -> Path:
+    """The exported list files' paths, under tmp_path, with nothing written yet."""
+    from hammunition.hardware import devctl_export
+
+    root = tmp_path / "export-root"
+    for name, default in devctl_export.PATHS.items():
+        monkeypatch.setattr(devctl_export, name, str(root) + default)
+    return root
+
+
 @pytest.fixture
 def resume_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, _no_host_resume_files: Path

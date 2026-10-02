@@ -15,6 +15,13 @@ import pytest
 cli = importlib.import_module("hammunition.cli.main")
 
 
+@pytest.fixture(autouse=True)
+def _no_installed_tether(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These tests are about the engine's own copy; a developer machine that has
+    hammunition-gps-tether installed must not turn them into a call-through."""
+    monkeypatch.setattr(cli, "installed_tether", lambda: None)
+
+
 class Exec(Exception):
     """Raised in place of replacing the test process."""
 

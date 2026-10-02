@@ -311,6 +311,53 @@ def test_every_poi_is_found_by_qmapshacks_own_query_in_exactly_one_tile(tmp_path
     assert data.split("\r")[0] == "name=N0CALL 146.940"
 
 
+def test_the_repeater_poi_is_the_generic_writer_given_repeater_points(tmp_path: Path) -> None:
+    """D-075: one POI writer for repeaters and infrastructure; the repeater
+    file is what the generic writer makes of the same points, table by table."""
+    rows = (_row(), _row(callsign="N0TST", lat=39.8, lon=-89.6))
+    ours = tmp_path / "r.poi"
+    generic = tmp_path / "g.poi"
+    repeaters.write_poi(ours, "Layer", "comment", date(2026, 9, 1), rows)
+    points = [
+        repeaters.PoiPoint(
+            r.lat,
+            r.lon,
+            r.label_text(),
+            r.description(),
+            "communication:amateur_radio:repeater=yes",
+        )
+        for r in rows
+    ]
+    repeaters.write_poi_points(
+        generic,
+        "Layer",
+        "comment",
+        date(2026, 9, 1),
+        points,
+        category=repeaters.POI_CATEGORY,
+    )
+    for table in ("metadata", "poi_categories", "poi_data", "poi_category_map", "poi_index"):
+        query = f"SELECT * FROM {table} ORDER BY 1, 2"
+        assert (
+            sqlite3.connect(ours).execute(query).fetchall()
+            == sqlite3.connect(generic).execute(query).fetchall()
+        ), table
+
+
+def test_the_generic_poi_writer_names_its_own_category(tmp_path: Path) -> None:
+    path = tmp_path / "h.poi"
+    point = repeaters.PoiPoint(38.9, -75.5, "Hospital", "a hospital", "amenity=hospital")
+    repeaters.write_poi_points(
+        path, "Medical", "c", date(2026, 9, 1), [point], category="Medical (test)"
+    )
+    db = sqlite3.connect(path)
+    assert db.execute("SELECT name FROM poi_categories WHERE id=1").fetchone() == (
+        "Medical (test)",
+    )
+    data = db.execute("SELECT data FROM poi_data WHERE id=1").fetchone()[0]
+    assert data.split("\r") == ["name=Hospital", "description=a hospital", "amenity=hospital"]
+
+
 def test_without_the_nudge_a_point_on_a_tile_line_is_lost(tmp_path: Path) -> None:
     """Falsified: the check above fails when the nudge is off."""
     path = tmp_path / "r.poi"

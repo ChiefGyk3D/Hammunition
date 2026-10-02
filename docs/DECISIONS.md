@@ -4454,6 +4454,88 @@ maintainer's bring-up notes, not re-read on 2026-10-01 because the card is out
 of the machine. No `udev` block is carried for any of them (D-028, D-029): an
 identifier naming a chip or a module never names a `/dev` node, and
 ModemManager, BlueZ and the kernel already name what they own.
+### Amendment (2026-10-02): the helper moves to hammunition-tray; the engine exports two lists and a hand-over
+
+**Decided, by the maintainer:** hammunition-tray is the device project, and
+everything device-shaped lives there; components are split into their own
+repositories, and the engine is the installer. The privileged helper
+(`hammunition-devctl`, with its `power`, `polkit` and `linger` modules) is
+therefore moving out of this repository into hammunition-tray, which gains
+verbs this decision never had: `services` (start, stop, enable and disable by
+name) and `radio`. **This change is the engine's half.** It does not move any
+code and does not release anything.
+
+1. **The helper reads two data files, not the engine's catalog.** `hardware
+   apply` writes `/etc/hammunition/devctl-devices.yaml` (every class or
+   device with `power_control`: name, summary, method, quiet verbs, each
+   confirmed identifier as quoted `vendor`/`product` strings plus
+   `product_string` for an ambiguous one, which is everything `state` needs to
+   recognise a device on the bus without the catalog; hammunition-tray's
+   contract 1, whose own reader loaded the real catalog's file without a note)
+   and
+   `/etc/hammunition/devctl-services.yaml` (`gpsd` is `gpsd.socket`, `time`
+   is `ntpsec.service` or `chrony.service` by the daemon the machine has,
+   `gps-resume` is `hammunition-gps-resume.service`). Root-owned `0644`, the
+   header-owned shape of the GPS resume step (issue #177): disclosed whole in
+   the plan, logged as `devctl_export`, read back (D-031), removed by
+   `unapply` only when they start with the header, a foreign file refusing the
+   run. An allow-list is data the helper reads and never an argument, so a
+   name the files do not carry is refused by name and nothing from the caller
+   is ever a unit or a path. Shapes: `docs/reference/devctl-lists.md`. The
+   `time` row follows the machine: ntpsec first (the daemon D-058 disciplines),
+   chrony where only it exists (D-072), and ntpsec named anyway where neither
+   is found, said so in the plan, because a missing row would hide the switch
+   rather than report it not installed.
+2. **`hammunition services`** (document kind `services`, D-059) lists the
+   helper's services and what each is doing; `services start|stop|enable|disable
+   NAME` changes one. The engine asks the *installed helper*
+   (`hammunition-devctl services state`, unprivileged) and never systemd; it
+   passes a name, never a unit; a system service goes through `pkexec` and
+   the one polkit action exactly as `hardware park` does, a user service
+   runs as the operator; the effect is read back from the helper (D-031). The
+   four verbs change the machine and have no JSON form.
+3. **The hand-over.** Where the helper installed at
+   `/usr/local/libexec/hammunition-devctl` answers `--version` with contract 1's
+   one line (`hammunition-devctl contract N`, N at least 1), it is the tray's: `hardware apply` writes neither its wrapper nor an existing polkit
+   action, skips the interpreter-writability gate (the engine's interpreter is
+   not what that helper runs), and says so; `hardware unapply` leaves it and
+   the action alone whatever an older log records. The probe is one argv,
+   no shell, a fixed environment and its own process group, and never as root
+   (as the invoking operator under sudo, as `nobody` otherwise), because
+   planning must not run a user-owned tree as root before the gate that
+   judges it has run. The engine's own copies of `devctl`, `power`, `polkit`
+   and `linger` stay until the next release; where nothing answers `--version`
+   the engine's helper is still written, so nothing regresses today.
+4. **The tray units write neither the wrapper nor the action, and must not.** The
+   first draft of this change put both in `hammunition-tray` and
+   `hammunition-tray-qt` as `config_files`, and the review found it live against a
+   pin (v0.4.0) that ships no helper: it would have written a wrapper over the
+   working one, which exits 2, and the two writers would have traded the path.
+   The tray repository then settled the question by its own design: its wrapper
+   bakes in an interpreter (the engine's venv, so `time` verbs can import the
+   engine), which no catalog file can name; and its `hammunition-devctl` `.deb`
+   owns the polkit file, so a catalog write over it is the clash this decision's
+   hand-over exists to avoid. So the units declare no `config_files` for either
+   (`tests/test_tray_unit_files.py` holds the absence, and the manifests say
+   why), and at the re-pin to the tray release that ships the helper each gains the
+   `hammunition-devctl` `.deb` as a hash-pinned install step, disclosed in the plan.
+   The engine's own `policy_xml()` now carries the tray's policy text byte for
+   byte, so the two never read as drift.
+5. **The probe's own safety.** The `--version` probe also clears the child's
+   supplementary groups (`extra_groups=[]`), so "not as root" is true of the
+   gid list and not only of the uid and gid; it is a deliberately weak identity
+   test (any root-installed executable there that answers passes), which only
+   decides whether the engine stops writing its own copy and authenticates
+   nothing.
+
+**Not measured:** the tray's helper reading these files as installed (it is not
+released; its reader, run by hand against the exporter's output, took them
+without a note); `hardware apply` and the `services` verbs on a real machine;
+that the wrapper the tray's `.deb` writes answers `--version` here (the probe is
+tested against scripts that print contract 1's line, not against the tray's
+wrapper); and that its `time` verbs reach the engine under a `.deb`'s
+`/usr/bin/python3` wrapper, which cannot import a venv (the tray's `install.sh
+--interpreter` is the route that can).
 
 **See also:** `docs/hardware/power-control.md` for the operator-facing page
 — what parking changes, how to inspect it, and how to reverse it.
@@ -7867,6 +7949,15 @@ problems in `catalog/packages/comaps.yaml`; the guide's section 17,
 `tests/test_docs_geoclue.py`, and the socket cases in
 `tests/test_gps_tether.py` and `tests/test_maps_tools.py`.
 
+**Note 2026-10-02: four constants are shared and change together.** The GeoClue
+drop-in's path, its header line, the socket's path and the group are written by
+`hammunition hardware apply` (`src/hammunition/geoclue.py`) and read by the
+tether, which is now its own project (`hammunition-gps-tether`, D-071 note) and
+carries its own copy of all four to decide whether to serve the unix socket by
+default. Changing one here without the other leaves the tether silently not
+serving GeoClue (or serving it where nothing reads it); both repositories change
+in the same step, and the tether's own tests pin its copy.
+
 ## D-070 — A data artifact may be taken from a LAN mirror the operator names, verified the same either way, and the engine can list what it would fetch without a station
 
 **Date:** 2026-09-29. **Status:** proposed (implemented on branch
@@ -8166,6 +8257,21 @@ position listener in `src/hammunition/gps_tether.py`; `--position-port` on
 `catalog/packages/osm-pmtiles.yaml`, `catalog/profiles/navigation.yaml`. The
 operator's page is `docs/guides/offline-navigation.md`, section 16.
 
+**Note 2026-10-02: the tether's new home.** The position listener on
+127.0.0.1:10111, and the NMEA server beside it, no longer live in this engine's
+source as the thing to run: they are `hammunition-gps-tether`
+(<https://github.com/ChiefGyk3D/hammunition-gps-tether>, GPL-3.0-or-later, its
+own releases and tests), installed by the `gps-tether` catalog unit and run as a
+systemd user service (D-073, amended 2026-10-02). Nothing about the decision
+changes: the same two loopback ports, the same `GET /position` stream, the
+same flags. `hammunition maps gps-tether` runs the installed program when it
+is present and the engine's own module, with a deprecation note, when it is
+not; the verb and the module go in a later release. The service and a
+foreground run cannot share port 10110. The engine's `gps_tether.py` stays
+for this release (`reference serve`, `doctor` and the GeoClue code reference
+it); deleting it and the verb is the next step. Not yet run as a service on a
+machine.
+
 ---
 
 ## D-072 — GPS time where the daemon is not ntpsec: a `chrony` unit, installed by name and never in a profile; the time daemon a machine has is the operator's to replace
@@ -8334,6 +8440,63 @@ the radio; the program table against the service; the flrig route; the
 UV-50PRO's keying line and that nothing is written to the serial line, plus the
 start-up keying question and VOX; `--unattended` across a logout. Found while
 measuring and fixed first: issue #174, the launcher that shadowed `rigctl`.
+
+**Amended 2026-10-02: user services generalised.** The block was rig-shaped
+only because the rig was its first user. Measured on the second (the GPS
+tether, which needs no station value and binds no device), four rig
+assumptions came out and the rig's behaviour and tests did not move.
+
+1. **Plain services.** An entry with no `when_station`, no `unless_station`, no
+   `{station.*}` and no `binds_to_device` is *plain*: always planned, needing
+   neither the station nor the hardware catalog, never deferred. An empty
+   `when_station` means always. A manifest may mix plain and rig entries; the
+   rig group is decided on its own as before, deferring by name without a
+   rig or a catalog (the catalog check moved from `plan.py` into
+   `plan_user_services`, same wording).
+2. **The header names the unit.** `# Written by Hammunition (catalog unit
+   `gps-tether`, D-073).` Removal recognises any header of that shape and
+   still leaves a file the operator rewrote. The rig's file is byte for byte
+   what it was (a test holds it).
+3. **Several units in a plan**, each named in the plan view with only what is
+   true of it: the "can key the transmitter" warning stays the rig's, and a
+   service with no device says it is enabled and starts at next login (nothing
+   is started during an install that has no device to wait for); a reinstall
+   runs `systemctl --user try-restart`, which reaches a copy that is running
+   and leaves a stopped one stopped, so a new pin does not leave the old code
+   holding the ports. A venv requirement carrying the all-zero digest
+   (`UNPINNED_SHA256`) is refused by name at plan time, before any step.
+4. **`restart`, `restart_sec` and `restart_prevent_exit_status`** are manifest
+   fields from fixed sets (`on-failure`, `always`, `no`; 1 to 300 seconds;
+   exit codes 1 to 255), defaulting to what every unit already had; a unit
+   carries `RestartPreventExitStatus=` only when asked.
+
+5. **The tray's list.** Installing a unit with `user_services` also writes one
+   row for it, `{name, unit, scope: user, description}` (the name is the
+   catalog unit without a `-service` suffix: `gps-tether`, `rig`; the unit is
+   its first service), to `~/.config/hammunition/devctl-services.yaml`, which
+   hammunition-tray's helper reads (contract v1) to know which user services
+   it may switch. Mode 0600, written atomically through a temporary file
+   renamed over the name, header `# Written by `hammunition install` (D-073,
+   amended 2026-10-02).`, through the operator-home walk when root acts for an
+   operator; a file it cannot parse is left alone and said so. The plan
+   discloses it and uninstall removes the row, deleting the file when none is
+   left. Not yet read by the helper on a machine.
+
+The first plain service is the `gps-tether` unit: `hammunition-gps-tether`
+(its own repository) installed as the tag's source tree, a `binary` tarball
+pinned by sha256 and unpacked with `install_tree` beside skid-finder's, run in
+place by the unit with `/usr/bin/env PYTHONPATH=… /usr/bin/python3 -P -m
+hammunition_gps_tether` on 127.0.0.1:10110 and :10111 (D-071 note). Pin: tag
+`v0.1.0`, commit `58d4bb7eab9fbf5c8b6e8ccce2b0f3178b17d44e`, tarball sha256
+`a707794b330b2127d458ff0741f3a9a506689b4e60b25de3926a4c7e9f76b90a` (fetched
+three times, identical). The project publishes no wheel or release file for
+v0.1.0, which is why the pin is the tag's own tarball; a wheel would be the
+better artifact. A venv requirement carrying the all-zero digest
+(`UNPINNED_SHA256`), the convention for an unfinished pin, is refused by name at
+plan time (a binary artifact is not: fixtures across the suite use zeros for a
+dummy .deb). Not yet run on a machine; the bench owes the service at login and after
+a reboot.
+
 ---
 
 ## D-074 — Repeater data beyond RepeaterBook: one layer per source, Open Repeater pinned as data, OpenStreetMap filtered from the extracts already here, the ETCC and Brandmeister on request with hotspots dropped, and what the station heard kept apart
@@ -8668,6 +8831,243 @@ and `approximate`; `unverified-zip` in the `artifacts` contract;
 `catalog/packages/acma-register.yaml`; tests `tests/test_acma.py`,
 `tests/test_acma_backend.py`, `tests/test_acma_cli.py`, with
 `tests/acma_support.py`; the guide's section 13, `docs/guides/lan-mirror.md`,
+`docs/reference/cli.md`.
+
+## D-075 — Infrastructure and EMCOMM layers: eight OpenStreetMap layers from the extracts already here, FAA NASR, EIA-860M and WRI as pinned data, FCC ASR and NOAA Weather Radio on request, an `infra` tile layer and GeoJSON overlays on the browser map
+
+**Date:** 2026-10-01. **Status:** proposed (the spike's recommendation,
+built with the maintainer's delegate's two rulings below; implemented on
+branch `infra-layers`; the maintainer decides it at review).
+**Spec:** `docs/superpowers/specs/2026-10-01-infra-layers-design.md`.
+**Numbering:** assigned with the task, after D-073 and D-074.
+**Depends on:** D-074 (one layer per source, the shape every piece here
+copies), D-064 (the overlays and their registration), D-049 (a data
+unit), D-066 (a generated pin), D-070 (the mirror and `artifacts`), D-071
+(the browser map and its converter), D-057 (a region says where the
+operator is), D-033 and D-021 (an unverified source, carried on what we
+do with it), D-031 (the input's date), D-059 (documents).
+**Amends:** D-071: the tile converter's profile gains an `infra` layer
+(`tilemaker-pmtiles 2`), and the map page draws it and the overlays.
+D-064: the operator's Navit copy carries the infrastructure layers too, and
+`maps qmapshack` keeps both overlay directories in `poiPaths`.
+
+### What was measured
+
+The spike of 2026-10-01 (scratchpad, not committed) measured every source
+it could find on Delaware and Vermont (Geofabrik extracts of 2026-09-30,
+both MD5-checked), the counts per OpenStreetMap tag set, every federal
+file's size, licence and byte stability, and Open Infrastructure Map's
+pipeline. Measured again on this branch:
+
+- **The eight OpenStreetMap layers through the engine's own filter and real
+  osmium** (2.4 s and 3.5 s): Delaware medical 187, responders 158, supply
+  573, shelter candidates 671, transport 72, power 225, telecom 314, water
+  163; Vermont 199, 367, 885, 1,801, 123, 874, 174, 105. Every count is
+  the spike's but Delaware's responders: two objects carry both a fire
+  station's and an ambulance station's tag and are one point here, two
+  rows in the spike's sum.
+- **The federal files the spike kept, read by the engine's parsers with
+  each extract's header box** (no network): FAA NASR 115 and 190 sites (in
+  the boxes; 38 and 90 in the states, the spike's), EIA-860M 138 and 164
+  operating plants, WRI 0 and 2 plants outside the US, FCC ASR 668 and 489
+  structures in the boxes (266 and 189 registered in the states, exactly
+  the spike's count of constructed or granted, not dismantled, with a
+  structure coordinate), NOAA Weather Radio 12 and 21 transmitters. The
+  EIA workbook's 56 MB sheet streamed in 4.1 s; the process peaked at
+  138 MB with the FCC archive in memory.
+- **The pins, generated once from each publisher and their bytes fetched
+  and matched twice more:** NASR cycle 2026-10-01, 8,030,968 bytes, sha256
+  `aba48ea8…`; EIA-860M August 2026, 13,955,142 bytes, `b4b70abb…`; WRI
+  v1.3.0, 4,178,889 bytes, `59f3e573…`, MD5 `8b4e4715…` equal to S3's
+  ETag. All three digests are the spike's.
+- **HEADs, 2026-10-01:** nfdc.faa.gov answered a HEAD of the pinned NASR
+  file with 503 twice while serving it by GET. data.fcc.gov answered a HEAD
+  of `r_tower.zip` from User-Agent `hammunition` with 403, from curl and
+  from `hammunition (+https://github.com/ChiefGyk3D/Hammunition)` with 200
+  (37,810,019 bytes, Last-Modified 2026-09-27); one request each, so the
+  User-Agent is the observed difference, not a proven cause. weather.gov
+  served `ccl-data.js` with 200, no length, Last-Modified that day,
+  `max-age=180`.
+- **The tile layer:** Debian's tilemaker 3.0.0 (the spike's extracted
+  package) ran the generated profile on the Delaware extract: exit 0 in
+  27 s at `--threads 2`, 20,602,464 bytes against the spike's 20,113,393
+  without it (+2.4 %), `infra` the 17th layer with `class`, `subclass`,
+  `voltage_kv` (a number), `operator`, `name`, `plant:source` and
+  `generator:source`.
+- **The browser map**, drawn by headless Chromium against 127.0.0.1 with
+  the spike's local copy of the kit (not the pinned archives), those tiles
+  and three real overlays (Delaware's medical and power layers and its
+  NASR sites): idle at zoom 12, 119 infra tile features and 45 overlay
+  points rendered, no map error, no request off loopback, every licence
+  line in the credit.
+- QMapShack 1.17.1's built-in waypoint symbols, from
+  `helpers/CWptIconManager.cpp` (the source D-064 measured): 97 distinct
+  names; the spike's `Radio Beacon` is not one, and would draw as
+  `Default`. Navit 0.5.6's stock layout draws and labels `poi_custom0` to
+  `poi_customf` with the item's own `icon_src`; every icon used is a file
+  the `navit` package ships.
+
+### The rule
+
+1. **One layer per source**, four files under its own name in
+   `~/.local/share/hammunition/overlays/infra/` (directory 0700, files
+   0600, each renamed into place): `infra-<id>.gpx`, `.poi`, `.navit.txt`
+   and `.geojson`. Thirteen layer ids: `osm-medical`, `osm-responders`,
+   `osm-supply`, `osm-shelter-candidates`, `osm-transport`, `osm-power`,
+   `osm-telecom`, `osm-water`, `faa-airports`, `eia-plants`, `wri-plants`,
+   `fcc-towers`, `nwr`. Each has a QMapShack built-in symbol and its own
+   Navit `poi_custom1` to `poi_customd` type with a stock icon. One command
+   writes its own layers and leaves the others; refused as root.
+2. **OpenStreetMap, the tag sets exactly as the spike measured them**,
+   filtered by `maps infra import --from-osm [--layers …]` with one
+   `osmium tags-filter` per installed extract, as the operator; nothing is
+   downloaded. A node is placed where it is, a way at the mean of its
+   distinct nodes, a relation at the mean of its member nodes and member
+   ways' nodes. An object in two kinds of one layer is one point; a point
+   two overlapping extracts both hold is kept once and counted. Licence
+   line `© OpenStreetMap contributors, ODbL 1.0`. **Not points:**
+   `amenity=shelter`, sirens, defibrillators, assembly points, emergency
+   phones and water points, `emergency=shelter`, social facilities, power
+   towers, poles and generators, hydrants, bridges and lines.
+3. **Three D-049 data units, in no profile** (the maintainer decides),
+   mirror-aware and listed by `artifacts` like any pinned data:
+   `faa-nasr-airports` (the NASR APT CSV zip at its dated 28-day URL;
+   `scripts/gen_nasr_pin.py` computes the AIRAC cycle from 2026-01-22 and
+   writes URL, sha256, size, the cycle as `version` and the licence line
+   `FAA NASR <cycle>, public domain`, which is what the plan prints;
+   `--check` fetches the file by GET and goes red on a newer cycle),
+   `eia-860m` (the month's workbook; `scripts/gen_eia860m_pin.py` pins the
+   newest month with EIA's acknowledgment, exactly `Source: U.S. Energy
+   Information Administration (<Mon YYYY>), public domain`; `--check` names
+   a newer month and the move to `archive/xls/`; `--follow-move` keeps the
+   pinned month at its archive address after matching its digest) and
+   `wri-power-plants` (WRI v1.3.0, CC BY 4.0; `scripts/gen_wri_pin.py`
+   checks the bytes' MD5 against S3's ETag, the publisher's checksum, and
+   records it beside our sha256; `--check` HEADs the ETag). The weekly pin
+   review runs all three. `--from-nasr`, `--from-eia` and `--from-wri` read
+   the installed file only and keep what lies in the installed extracts'
+   header boxes. **WRI is used outside the US only**: its US rows are
+   EIA's of 2019, every one is dropped, and the import says EIA-860M
+   covers the US.
+4. **FCC ASR and NOAA Weather Radio are fetched on request**
+   (`maps infra fetch-fcc-asr`, `fetch-nwr`), through D-064's bounded,
+   HTTPS-only fetch with a descriptive User-Agent, parsed in memory, kept
+   to the boxes, marked unverified with the observed sha256, no `--json`
+   form. **FCC: only `RA.dat` and `CO.dat` are opened**; `EN.dat`, the
+   owners' contact names, e-mail addresses and telephone numbers, never
+   is, and of `RA` the signature and street-address fields are never kept.
+   A structure is kept when constructed or granted, not dismantled, with a
+   structure coordinate. Layer `FCC towers (unverified, <file date>)`,
+   licence line `FCC Antenna Structure Registration, US Government work,
+   public domain`. **NWR: frequency, power, WFO and every county's SAME
+   code are kept; `status` is never read.** A transmitter within 1.0° of a
+   box is kept (0.5° missed one of Vermont's twelve covering transmitters;
+   1.0° missed none). Licence line `NOAA/NWS, public domain, not an
+   official NWS product`.
+5. **Registration as D-074's.** QMapShack's `[Canvas] poiPaths` holds the
+   directory while any layer has a `.poi`; the operator's Navit copy
+   carries every repeater and infrastructure layer; `maps qmapshack` and
+   `navit-offline` keep both kinds. `maps infra remove [--layer ID]` is
+   idempotent. A layer an import finds empty has its old files deleted and
+   listed; an import finding nothing changes nothing and exits 1.
+6. **The browser map.** The converter writes, as the operator, a wrapper
+   Lua that `dofile`s the kit's unchanged `process-openmaptiles.lua` and
+   adds an `infra` layer at zoom 10 to 14, and the kit's config with that
+   layer; `CONVERTER` is `tilemaker-pmtiles 2`, so every region is rebuilt
+   once. Style layers written here draw it over OSM Bright, power coloured
+   by Open Infrastructure Map's `voltage_scale` (commit 5f20a29a) under its
+   BSD-3-Clause notice, copied verbatim to
+   `src/hammunition/map_style/LICENSE.openinframap`, served at
+   `/map/infra-style-licence.txt` and named in the credit. Each infra
+   layer's GeoJSON is found in the operator's directory when `reference
+   serve` starts, served by exact name at `/map/overlays/<file>`, listed at
+   `/map/overlays.json`, drawn as a toggled circle layer with its licence
+   (escaped) in the attribution. A new pin or fetch never rebuilds tiles.
+7. **Documents** `infra` and `infra-removed`, D-074's shape: route,
+   licence lines, inputs (the extracts' directory with no digest), counts,
+   skips, each layer's name, count and files, registration. No place's
+   name or position, no region, no box, no extract digest.
+
+### Rulings
+
+- **From the maintainer's delegate (2026-10-01):** shelter-candidate
+  layers carry "candidate, not a designated shelter" in the layer name and
+  every waypoint description; FCC ASR is an on-request unverified fetch
+  with an observed sha256, like the ETCC, not a data unit whose pin dies
+  weekly.
+- **Made on the way:** one QMapShack symbol per layer (the brief's), the
+  kind in each name and description; NWR's symbol is `Information`, not
+  the spike's `Radio Beacon`; the regions are the installed extracts'
+  header boxes, never printed, so a layer reaches across a state line;
+  `voltage_kv` (the first value, in kV) replaces the raw voltage so the
+  ramp's step has a number; towers and poles stay out of the tile layer,
+  as in the spike's measured Lua; no label layers on the tiles (glyph
+  stacks unmeasured); NASR's check fetches by GET because the FAA refused
+  HEAD; WRI has a weekly HEAD check though the brief named only NASR and
+  EIA; the generators' licence lines are written quoted (EIA's is not plain
+  YAML); months are named from our own table, never the locale; overlays
+  appear after a server restart, as region maps do.
+- **From the final review:** the converter first handed the profile's text
+  to the operator's shell as one argument, which Linux caps at 128 KiB: a
+  kit config past that failed the region with "Argument list too long"
+  (reproduced by a test before the fix). The text now goes to the
+  operator's `cat` on standard input; `Staging.run` takes `stdin`, and
+  every other call is unchanged.
+
+### Not carried, and why
+
+**HIFLD Open**: DHS retired it; its page describes only HIFLD Secure ("a
+GII account, a profile, and an approved Data Use Agreement"); what remains
+are REST copies on other organisations and a cell-tower layer under the
+Esri Master License Agreement. **OpenGridWorks**: `robots.txt` and its
+plant page answered 429 behind a Vercel security checkpoint, no terms
+could be read and no bulk file or API was found; its stated sources (EIA,
+OpenStreetMap) are carried directly. **FEMA NSS open shelters**: live only,
+five open nationwide on the day measured; useless offline outside an
+event. **911 PSAP boundaries**: not public nationally. **USGS National
+Structures**: 82 MB for Delaware's 998 points, which OpenStreetMap matches
+or beats. **OpenFEMA**: county areas, not points, with no licence in its
+metadata and a terms page that returned 403. Named routes, not built:
+Canada's ISED TAFL file, the UK's OS OpenData, Europe's INSPIRE services,
+Global Energy Monitor's trackers.
+
+### What has run
+
+The test suite: every tag set and placement on a synthetic extract (and
+through real osmium where it is installed), each federal parser on
+synthetic files in the publishers' layouts, the FCC contacts canary
+(falsified: the street field put back turns it red), the NWR status never
+written, the generators against faked fetches with their offline checks
+falsified, both fetches against a loopback server, both documents
+validated with nothing private in them, the converter's profile written as
+the operator, the overlays served and listed. On the development host: the
+pins generated and matched, the parsers and the OSM filter on the spike's
+real files, tilemaker on Delaware, and the page in headless Chromium, as
+above. No GUI was started and nothing was installed.
+
+**Owed to the bench:** QMapShack drawing each layer's POI collection and
+GPX with these symbols (in a VM, never on the desktop); Navit drawing the
+`poi_custom1` to `poi_customd` layers with their icons; the browser map
+with the pinned kit and a rebuilt region; `install` of the three units
+from the publishers and from a Bunker; a real `fetch-fcc-asr` (the
+User-Agent finding above) and `fetch-nwr`; `--from-osm` over the laptop's
+own extracts; FCC ASR's bytes across a weekly rollover.
+
+**Consequences.** `src/hammunition/infra.py`, `src/hammunition/infra_sources.py`,
+`src/hammunition/interface/infra.py`, `src/hammunition/map_style/`; the
+`maps infra` verbs and shared overlay registration in
+`src/hammunition/cli/main.py`; the generic POI writer in
+`src/hammunition/repeaters.py`; the converter in
+`src/hammunition/backends/pmtiles.py`; the overlays in
+`src/hammunition/map_page.py` and `src/hammunition/reference.py`;
+`catalog/packages/faa-nasr-airports.yaml`, `catalog/packages/eia-860m.yaml`,
+`catalog/packages/wri-power-plants.yaml`; `scripts/data_pin.py`,
+`scripts/gen_nasr_pin.py`, `scripts/gen_eia860m_pin.py`,
+`scripts/gen_wri_pin.py` and their weekly CI steps; tests
+`tests/test_infra.py`, `tests/test_infra_cli.py`,
+`tests/test_infra_sources.py`, `tests/test_gen_infra_pins.py`,
+`tests/test_map_style.py`, `tests/test_map_overlays.py`; the
+offline-navigation guide's section 18, `docs/guides/lan-mirror.md` and
 `docs/reference/cli.md`.
 ---
 

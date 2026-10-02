@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 95 | 2 | 214 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 95 | 2 | 214 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 92 | 3 | 216 |
-| kali-rolling *(unswept)* | 0 | 0 | 88 | 1 | 222 |
-| parrot *(unswept)* | 0 | 0 | 93 | 2 | 216 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 92 | 3 | 216 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 90 | 7 | 214 |
+| debian-13 *(unswept)* | 0 | 0 | 99 | 2 | 214 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 99 | 2 | 214 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 96 | 3 | 216 |
+| kali-rolling *(unswept)* | 0 | 0 | 92 | 1 | 222 |
+| parrot *(unswept)* | 0 | 0 | 97 | 2 | 216 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 96 | 3 | 216 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 94 | 7 | 214 |
 
-**311 manifests** against **7 targets**.
+**315 manifests** against **7 targets**.
 
 ---
 
@@ -119,9 +119,11 @@ build HAS been run in a container say so in their own install notes.
 | `dumpvdl2` | git | git | git | git | git | git | git |
 | `ebook2cw` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `ebook2cwgui` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `eia-860m` | data | data | data | data | data | data | data |
 | `electronics-radio-dev` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `esptool` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `evolution` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `faa-nasr-airports` | data | data | data | data | data | data | data |
 | `fbb` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `fccexam` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `fl-moxgen` | source | source | source | source | source | source | source |
@@ -150,6 +152,7 @@ build HAS been run in a container say so in their own install notes.
 | `goldendict-ng` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gpa` | source | apt ? | apt ? | source | source | apt ? | source |
 | `gpredict` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `gps-tether` | binary | binary | binary | binary | binary | binary | binary |
 | `gpsbabel` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gpsd` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gpsd-clients` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -348,6 +351,7 @@ build HAS been run in a container say so in their own install notes.
 | `wfview` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `wireshark` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `wordsworth` | binary | binary | binary | binary | binary | binary | binary |
+| `wri-power-plants` | data | data | data | data | data | data | data |
 | `wsjtx` | git | git | git | git | git | git | git |
 | `wsjtx-improved` | binary | binary | binary | apt ? | binary | binary | — |
 | `wwl` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

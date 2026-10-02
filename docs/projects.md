@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**311 programs and packages** from the catalog, laid out the way the
+**315 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -109,7 +109,10 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 | [dem-3dep](packages/dem-3dep.md) | USGS 3DEP bare-earth elevation for your US map regions, when you choose it | [usgs.gov/3d-elevation-program](https://www.usgs.gov/3d-elevation-program) |
 | [dem-copernicus](packages/dem-copernicus.md) | Copernicus GLO-30 elevation tiles for your map regions, verified | [registry.opendata.aws/copernicus-dem](https://registry.opendata.aws/copernicus-dem/) |
 | [dem-qmapshack](packages/dem-qmapshack.md) | Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles | [gdal.org](https://gdal.org/) |
+| [eia-860m](packages/eia-860m.md) | EIA's monthly inventory of US power plants (EIA-860M), for the infrastructure layers | [eia.gov/electricity/data/eia860m](https://www.eia.gov/electricity/data/eia860m/) |
+| [faa-nasr-airports](packages/faa-nasr-airports.md) | The FAA's airport, heliport and seaplane base list (NASR), for the infrastructure layers | [faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription](https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/) |
 | [gdal-bin](packages/gdal-bin.md) | GDAL's command-line tools for rasters and elevation data | [gdal.org](https://gdal.org/) |
+| [gps-tether](packages/gps-tether.md) | Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service | [github.com/ChiefGyk3D/hammunition-gps-tether](https://github.com/ChiefGyk3D/hammunition-gps-tether) |
 | [graphhopper](packages/graphhopper.md) | GraphHopper, the offline router behind the browser map's car, bike, foot and hiking routes | [github.com/graphhopper/graphhopper](https://github.com/graphhopper/graphhopper) |
 | [graphhopper-graph](packages/graphhopper-graph.md) | GraphHopper's route graph built from your own regions, for routes on the browser map | [github.com/graphhopper/graphhopper](https://github.com/graphhopper/graphhopper) |
 | [mapsforge-map](packages/mapsforge-map.md) | Mapsforge vector maps of your OpenStreetMap regions, for phone map apps | [github.com/mapsforge/mapsforge](https://github.com/mapsforge/mapsforge) |
@@ -130,6 +133,7 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 | [usgs-ustopo](packages/usgs-ustopo.md) | USGS US Topo 7.5-minute map sheets for your US map regions, verified | [usgs.gov/programs/national-geospatial-program/us-topo-maps-america](https://www.usgs.gov/programs/national-geospatial-program/us-topo-maps-america) |
 | [ustopo-qmapshack](packages/ustopo-qmapshack.md) | The US Topo sheets as one seamless QMapShack map, collars cropped | [gdal.org](https://gdal.org/) |
 | [vector-map-kit](packages/vector-map-kit.md) | The fixed files the offline browser map needs, from their publishers, pinned | [openmaptiles.org](https://openmaptiles.org/) |
+| [wri-power-plants](packages/wri-power-plants.md) | WRI's Global Power Plant Database, for the infrastructure layers outside the US | [datasets.wri.org/dataset/globalpowerplantdatabase](https://datasets.wri.org/dataset/globalpowerplantdatabase) |
 
 ### Locators & Bearings
 

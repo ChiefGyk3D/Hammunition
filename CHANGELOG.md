@@ -11,6 +11,27 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **User services generalised; the GPS tether installed from its own project
+  as one** (**D-073** amended 2026-10-02, **D-071** note). A `user_services`
+  entry with no station condition, no station value and no device is *plain*:
+  always planned, needing neither the station nor the hardware catalog. The
+  unit file's header names the catalog unit that wrote it, several units can
+  share a plan, and `restart` / `restart_sec` are fixed-set manifest fields;
+  the rig's unit renders byte for byte as before; `restart_prevent_exit_status`
+  keeps systemd from retrying a refusal. A new `gps-tether` unit (in
+  `navigation`) installs the project's v0.1.0 source tree, pinned by tag,
+  commit and tarball sha256, as `hammunition-gps-tether` (now its own
+  repository), and runs it as `hammunition-gps-tether.service` on 127.0.0.1
+  ports 10110 and 10111, enabled at install and started at next login (a
+  reinstall `try-restart`s a running one). A venv requirement
+  with the all-zero placeholder digest is refused by name at plan time. `hammunition maps gps-tether` runs
+  the installed tether when there is one (and says so) and its own copy, with a
+  deprecation note, otherwise. The service and a foreground run cannot share
+  port 10110. Installing any `user_services` unit also writes its row to
+  `~/.config/hammunition/devctl-services.yaml` (0600), the list the tray's
+  helper reads for its Services group; uninstall removes it. Not yet run on a
+  machine.
+
 - **WWAN modem, Bluetooth and camera as controllable devices** (**D-056**,
   amended 2026-10-02). Three hardware classes, `wwan-modem`,
   `bluetooth-controller` and `camera`, each `power_control:
@@ -21,6 +42,24 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   documented gap (`pci_runtime` stays refused; the radio switch is the
   route). No park has been run on any of them, so none is
   maintainer-verified. Catalog is now 31 devices, 9 classes.
+- **The device helper moves to hammunition-tray: the engine exports its lists
+  and gains `hammunition services`** (**D-056**, amended 2026-10-02). `hardware
+  apply` now writes `/etc/hammunition/devctl-devices.yaml` (every catalogued
+  device with a `power_control` block, with what `state` needs to match it on
+  the bus) and `/etc/hammunition/devctl-services.yaml` (`gpsd`, `time` by
+  whichever of ntpsec or chrony the machine has, `gps-resume`): root-owned,
+  disclosed whole in the plan, logged as `devctl_export`, read back, and
+  removed by `unapply` only when they carry Hammunition's header. Where the
+  installed helper answers `--version` it is the tray's, and `apply` writes
+  neither its wrapper nor an existing polkit action while `unapply` leaves
+  both. `hammunition services [--json]` (document kind `services`) lists the
+  helper's services and `services start|stop|enable|disable NAME` changes one,
+  by asking the installed helper, through `pkexec` for a system service and
+  never through `systemctl` from the engine. `hammunition-tray` and
+  `hammunition-tray-qt` write neither (a test holds the absence; the tray's own
+  release installs them, and the re-pin adds its `.deb`), and the engine's own
+  polkit action now carries the tray's wording. Shapes: `docs/reference/devctl-lists.md`. Not measured: the
+  tray's helper reading the lists, and `apply` and `services` on a machine.
 - **Australia's repeaters from the regulator** (D-074, amended
   2026-10-01). `acma-register` installs the ACMA's Register of
   Radiocommunications Licences, one 67.5 MB zip rebuilt daily, through a
@@ -69,6 +108,29 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   `project_file` as the source subdirectory, as the schema always said.
   Measured on one Copernicus tile and in a container; not yet run through
   an install on a real region.
+- **Infrastructure and EMCOMM layers on the maps** (D-075). `hammunition
+  maps infra import --from-osm` filters the installed region extracts with
+  osmium into eight layers (medical, responders, supply, shelter
+  candidates, which say "candidate, not a designated shelter", transport,
+  power, telecom, water), each a GPX, a QMapShack POI collection, a Navit
+  map and a GeoJSON in `~/.local/share/hammunition/overlays/infra/`;
+  nothing is downloaded. Three new data units in no profile:
+  `faa-nasr-airports` (FAA NASR cycle 2026-10-01), `eia-860m` (August 2026)
+  and `wri-power-plants` (v1.3.0, outside the US only), read by
+  `--from-nasr`, `--from-eia` and `--from-wri` and kept to the regions'
+  boxes; their pins are written by `scripts/gen_nasr_pin.py`,
+  `scripts/gen_eia860m_pin.py` (with `--follow-move` for EIA's monthly
+  archive move) and `scripts/gen_wri_pin.py`, all three in the weekly pin
+  review. `fetch-fcc-asr` (only the registration and coordinate records;
+  the owners' contact file is never opened) and `fetch-nwr` (the live
+  status dropped) fetch on request, unverified. `maps infra remove
+  [--layer ID]`; documents `infra` and `infra-removed`. The browser map's
+  tiles gain an `infra` layer (the converter is `tilemaker-pmtiles 2`, so
+  each region is rebuilt once), power coloured by Open Infrastructure Map's
+  voltage ramp under its BSD-3-Clause notice, and every infra layer is a
+  toggled overlay with its licence in the credit. The operator's Navit copy
+  and QMapShack's `poiPaths` now carry repeater and infrastructure layers
+  together.
 
 - **The rig is station data: one shared `rigctld` for every program**
   (**D-073**, status proposed, bench owed). A `rig` hardware class and a

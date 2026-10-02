@@ -145,3 +145,13 @@ copy to the ACMA; the plan says "unverified" either way. The file also
 holds licensees' names and addresses, which the ACMA's licence does not let
 you pass on for a private person: a Bunker serving it to your own machines
 is a copy you keep, not one you share.
+
+The infrastructure layers' three data units (**D-075**) mirror like any
+pinned data: `faa-nasr-airports/APT_CSV.zip`, `eia-860m/eia860m.xlsx` and
+`wri-power-plants/global_power_plant_database.zip`, about 26 MB together.
+Two of them move under the catalog: the FAA publishes a new NASR cycle
+every 28 days, and EIA moves each month's workbook to its archive address
+when the next one is out, so a Bunker holding the pinned bytes keeps an
+install working between a move and the pin's regeneration. The FCC tower
+file and NOAA Weather Radio's list are fetched on request, unverified, and
+are not in the list.

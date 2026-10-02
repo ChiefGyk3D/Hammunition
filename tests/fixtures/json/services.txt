@@ -1,0 +1,14 @@
+service      scope   running     at boot/login  unit
+gps-tether   user    active      enabled        hammunition-gps-tether.service
+gpsd         system  active      enabled        gpsd.socket
+time         system  inactive    disabled       ntpsec.service
+gps-resume   system  inactive    not installed  hammunition-gps-resume.service
+
+  gps-tether: GPS position for QMapShack and the browser map on 127.0.0.1
+  gpsd: the GPS daemon (socket-activated)
+  time: the clock
+  gps-resume: re-adds the receiver to gpsd after sleep
+
+Linger (user services after logout): off
+
+`hammunition services start NAME`, `stop NAME`, `enable NAME` and `disable NAME` change one. A system service asks for your password once; a user service never does.

@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**311 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**315 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -214,11 +214,13 @@ Desktop mail clients and PGP, carried for stations that move traffic by mail.
 - [gpa](gpa.md) — GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic
 - [thunderbird](thunderbird.md) — Mozilla's full-featured mail client — the household name
 
-### `emcomm` — 11
+### `emcomm` — 14
 
 Net control, message forms, weather charts and the rest of the public-service stack.
 
 - [a2d](a2d.md) — Bridges APRS messages to DAPNET pagers
+- [eia-860m](eia-860m.md) — EIA's monthly inventory of US power plants (EIA-860M), for the infrastructure layers
+- [faa-nasr-airports](faa-nasr-airports.md) — The FAA's airport, heliport and seaplane base list (NASR), for the infrastructure layers
 - [flamp](flamp.md) — Sends files over radio in numbered blocks that can be filled in later
 - [flmsg](flmsg.md) — Fills in and transmits the standard message forms EMCOMM runs on
 - [flnet](flnet.md) — Net control operator's list — who checked in, in what order
@@ -228,6 +230,7 @@ Net control, message forms, weather charts and the rest of the public-service st
 - [ics-forms](ics-forms.md) — FEMA's 39 fillable ICS forms, 205 radio communications plan and 213 general message among them
 - [js8spotter](js8spotter.md) — JS8Call's companion — spot tracking, forms, APRS and SMS gateways
 - [svxlink-server](svxlink-server.md) — Repeater controller and EchoLink node in software
+- [wri-power-plants](wri-power-plants.md) — WRI's Global Power Plant Database, for the infrastructure layers outside the US
 - [xygrib](xygrib.md) — Views GRIB weather files — wind, pressure, waves, on a map
 
 ### `exams` — 3
@@ -238,12 +241,13 @@ Practice tests for the US, Canadian and commercial licence exams.
 - [fccexam](fccexam.md) — Practice tests for the US FCC commercial radio licence exams
 - [hamexam](hamexam.md) — Practice tests for the United States amateur radio licence exams
 
-### `gps-gnss` — 9
+### `gps-gnss` — 10
 
 GPS receivers and the daemon that shares one, format converters, and a GNSS receiver in software.
 
 - [chrony](chrony.md) — The clock follows your GPS receiver when the network is gone — chrony reading gpsd
 - [gnss-sdr](gnss-sdr.md) — A complete GPS and GNSS receiver built entirely in software
+- [gps-tether](gps-tether.md) — Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service
 - [gpsbabel](gpsbabel.md) — Converts between GPS file formats and talks to the receiver
 - [gpsd](gpsd.md) — GPS service daemon — one process owns the receiver, everything else asks it
 - [gpsd-clients](gpsd-clients.md) — Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode
@@ -319,7 +323,7 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 32
+### `navigation-maps` — 36
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
@@ -333,7 +337,10 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [dem-3dep](dem-3dep.md) — USGS 3DEP bare-earth elevation for your US map regions, when you choose it
 - [dem-copernicus](dem-copernicus.md) — Copernicus GLO-30 elevation tiles for your map regions, verified
 - [dem-qmapshack](dem-qmapshack.md) — Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles
+- [eia-860m](eia-860m.md) — EIA's monthly inventory of US power plants (EIA-860M), for the infrastructure layers
+- [faa-nasr-airports](faa-nasr-airports.md) — The FAA's airport, heliport and seaplane base list (NASR), for the infrastructure layers
 - [gdal-bin](gdal-bin.md) — GDAL's command-line tools for rasters and elevation data
+- [gps-tether](gps-tether.md) — Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service
 - [graphhopper](graphhopper.md) — GraphHopper, the offline router behind the browser map's car, bike, foot and hiking routes
 - [graphhopper-graph](graphhopper-graph.md) — GraphHopper's route graph built from your own regions, for routes on the browser map
 - [mapsforge-map](mapsforge-map.md) — Mapsforge vector maps of your OpenStreetMap regions, for phone map apps
@@ -355,6 +362,7 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [usgs-ustopo](usgs-ustopo.md) — USGS US Topo 7.5-minute map sheets for your US map regions, verified
 - [ustopo-qmapshack](ustopo-qmapshack.md) — The US Topo sheets as one seamless QMapShack map, collars cropped
 - [vector-map-kit](vector-map-kit.md) — The fixed files the offline browser map needs, from their publishers, pinned
+- [wri-power-plants](wri-power-plants.md) — WRI's Global Power Plant Database, for the infrastructure layers outside the US
 
 ### `nbems` — 5
 
@@ -786,9 +794,11 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [dumpvdl2](dumpvdl2.md) | VDL Mode 2 decoder for aircraft datalink | git |
 | [ebook2cw](ebook2cw.md) | Converts a text file or ebook into Morse code audio at a chosen speed | apt |
 | [ebook2cwgui](ebook2cwgui.md) | Graphical front end for ebook2cw | apt |
+| [eia-860m](eia-860m.md) | EIA's monthly inventory of US power plants (EIA-860M), for the infrastructure layers | data |
 | [electronics-radio-dev](electronics-radio-dev.md) | Metapackage pulling in the Blend's RF circuit-design tools | apt |
 | [esptool](esptool.md) | Flash and inspect ESP8266 and ESP32 chips over their serial bootloader | apt |
 | [evolution](evolution.md) | GNOME's integrated mail, calendar and groupware client | apt |
+| [faa-nasr-airports](faa-nasr-airports.md) | The FAA's airport, heliport and seaplane base list (NASR), for the infrastructure layers | data |
 | [fbb](fbb.md) | The classic packet radio BBS and mailbox | apt |
 | [fccexam](fccexam.md) | Practice tests for the US FCC commercial radio licence exams | apt |
 | [fl-moxgen](fl-moxgen.md) | Designs Moxon rectangle antennas and prints them to scale | source |
@@ -817,6 +827,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [goldendict-ng](goldendict-ng.md) | A desktop dictionary that looks words up in dictd and in Kiwix books | apt |
 | [gpa](gpa.md) | GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic | apt, source |
 | [gpredict](gpredict.md) | Real-time satellite tracking and pass prediction, with radio control | apt |
+| [gps-tether](gps-tether.md) | Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service | binary |
 | [gpsbabel](gpsbabel.md) | Converts between GPS file formats and talks to the receiver | apt |
 | [gpsd](gpsd.md) | GPS service daemon — one process owns the receiver, everything else asks it | apt |
 | [gpsd-clients](gpsd-clients.md) | Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode | apt |
@@ -1015,6 +1026,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [wfview](wfview.md) | Control a modern Icom radio, waterfall and all, over USB or the network | apt |
 | [wireshark](wireshark.md) | Protocol analyser — decodes captured traffic across two thousand protocols | apt |
 | [wordsworth](wordsworth.md) | Generate Morse practice text the Wordsworth way — words, not characters | binary |
+| [wri-power-plants](wri-power-plants.md) | WRI's Global Power Plant Database, for the infrastructure layers outside the US | data |
 | [wsjtx](wsjtx.md) | Weak-signal digital modes — FT8, FT4, JT65, JT9, WSPR, Q65 | git |
 | [wsjtx-improved](wsjtx-improved.md) | Community fork of WSJT-X with additional decoding and UI features | apt, binary |
 | [wwl](wwl.md) | Distance and bearing between two Maidenhead locators, from the command line | apt |

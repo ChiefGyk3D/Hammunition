@@ -1,0 +1,138 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gps-tether
+version: "0.1.0"
+summary: Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service
+categories: [navigation-maps, gps-gnss]
+
+# ADD (D-061, D-069, D-071, D-073 amended 2026-10-02). The tether began as a
+# module of this engine (`hammunition maps gps-tether`, started by hand or from
+# QMapShack's launcher). It is now its own project, hammunition-gps-tether (GPL-3.0-or-later,
+# the same maintainer, carried on the same terms as everything else here: a
+# published, hash-pinned artifact), installed by this unit and run as a systemd
+# *user* service so the position is there at every login with no window to
+# leave open.
+#
+# Standard library only, so the install is the tag's source tree and nothing
+# else: GitHub's tarball of tag v0.1.0 (annotated tag c16012a, commit
+# 58d4bb7eab9fbf5c8b6e8ccce2b0f3178b17d44e, resolved 2026-10-02 with
+# `gh api`), pinned by sha256 and unpacked to
+# /usr/local/share/hammunition/gps-tether like skid-finder's tree, with no build,
+# no pip and no network after the fetch. The tarball was fetched twice on
+# 2026-10-02 and hashed identically (140967 bytes). Run from an unpacked copy:
+# `PYTHONPATH=<tree>/src python3 -m hammunition_gps_tether --version` printed
+# "hammunition-gps-tether 0.1.0" on Debian 13 (Python 3.13.5). The project
+# publishes no wheel or release asset for v0.1.0 (no release exists on
+# 2026-10-02), so the tag's own tarball is what there is to pin; a published
+# wheel would be the better artifact and the pin moves to it when it exists.
+#
+# The tree is run in place with the archive's python3 and PYTHONPATH, through
+# `/usr/bin/env` so the unit's ExecStart is one absolute program and plain
+# argv words (no shell); `-P` keeps the working directory off sys.path. The tether needs Python 3.11 or later, which every
+# target but Ubuntu 22.04 and Pop!_OS 22.04 ships.
+install:
+  - install:
+      method: binary
+      artifact:
+        url: https://github.com/ChiefGyk3D/hammunition-gps-tether/archive/refs/tags/v0.1.0.tar.gz
+        sha256: a707794b330b2127d458ff0741f3a9a506689b4e60b25de3926a4c7e9f76b90a
+      format: tarball
+      install_tree: true
+      # GitHub's tag tarball has one top directory, which extraction strips.
+      tree_marker: src/hammunition_gps_tether/__main__.py
+    note: >-
+      The tag's source tree, installed to /usr/local/share/hammunition/gps-tether
+      and handed to the operator. Nothing is built; nothing runs as root but the
+      copy. The tree is the operator's, so anything running as you can change the
+      program the service runs.
+
+depends: [gpsd, python3]
+
+# The service the program is for. The unit file is rendered by the engine
+# from these fields (D-073 §6), never written by hand: it runs the installed
+# program with no arguments, which serves 127.0.0.1:10110 (NMEA for QMapShack
+# and CoMaps' GeoClue route) and 127.0.0.1:10111 (`GET /position`, the browser
+# map's stream). Neither binds a device, so no radio port gates it, and it
+# starts at your next login, not during the install.
+user_services:
+  - name: hammunition-gps-tether
+    description: GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue
+    exec:
+      - /usr/bin/env
+      - PYTHONPATH=/usr/local/share/hammunition/gps-tether/src
+      - /usr/bin/python3
+      - -P
+      - -m
+      - hammunition_gps_tether
+    listens:
+      - {protocol: tcp, address: 127.0.0.1, port: 10110}
+      - {protocol: tcp, address: 127.0.0.1, port: 10111}
+    restart: on-failure
+    restart_sec: 5
+    # The tether exits 1 when it refuses (a taken port, root), so that is not
+    # retried. Exit 1 is also what an uncaught Python exception returns, so a
+    # crash is not retried either; the start limit (5 in 30 s) would have stopped
+    # a taken-port loop anyway. Upstream's own unit makes the same choice. A
+    # distinct refusal code upstream would let this be narrowed.
+    restart_prevent_exit_status: [1]
+
+update:
+  probe:
+    method: github_release
+    repo: ChiefGyk3D/hammunition-gps-tether
+  strategy: reinstall
+  cadence_hint: >-
+    Tagged releases, no release assets yet. A tag is a new tarball URL and a new
+    digest; re-pin both (and the tag in the comment).
+
+documentation:
+  what_it_does: >-
+    Reads your position from gpsd and serves it, on this machine only, in the
+    two shapes programs ask for: NMEA sentences on 127.0.0.1 port 10110, the
+    GPS TCP/IP source QMapShack and many other mapping programs offer, and a
+    server-sent-event stream at http://127.0.0.1:10111/position that the
+    offline browser map draws your dot from. Where `hammunition hardware
+    apply` has set GeoClue up it also serves GeoClue a unix socket, which is
+    how CoMaps gets a position (D-069). This unit installs the program and a
+    systemd user service that starts it at login and restarts it if it stops.
+  why_you_want_it: >-
+    QMapShack and the browser map have no gpsd client of their own. The
+    tether is the small, local bridge: one process, started once, that every
+    map reads. As a service it is simply there — no terminal window to leave
+    open and forget — and it is a separate project with its own releases, so
+    a fix to it does not wait for an engine release. It is the alternative to
+    running `hammunition maps gps-tether` by hand or from QMapShack's menu
+    entry.
+  prerequisites: >-
+    gpsd running with a receiver that has a fix (the `station` profile's gpsd
+    is socket-activated; the first client wakes it). Nothing in station config.
+    The service starts at your next login; to start it now run
+    `systemctl --user start hammunition-gps-tether.service` (the install does
+    not, and says so in the plan).
+  known_problems: >-
+    **One tether per machine.** The service and a foreground run — QMapShack's
+    "GPS position for QMapShack" menu entry, or `hammunition maps gps-tether` —
+    cannot share port 10110: whichever starts second reports "cannot listen"
+    and stops. With the service enabled you do not need the menu entry; stop
+    the service first (`systemctl --user stop hammunition-gps-tether.service`)
+    if you want a foreground run, for another gpsd with `--gpsd HOST` say. It
+    listens on loopback only, but loopback is not per-user: any local account
+    can read your position from it. The user service starts at login only
+    when your user manager is running; on a machine you never log in to
+    graphically it does not start until you do (or `loginctl enable-linger`,
+    which `hammunition` does not set for this unit). The tether needs Python
+    3.11 or later; Ubuntu 22.04 and Pop!_OS 22.04 ship 3.10, where it will
+    not start. The unit does not restart a tether that exited 1, its refusal
+    (a taken port, root). There is no `hammunition-gps-tether` command on your
+    PATH: the program is the installed tree run by the service, and
+    `hammunition maps gps-tether` runs the same tree in a terminal. Not yet
+    measured: the service started on a machine from this unit, and a reboot
+    with it enabled. A change to the tether's options means editing the unit by hand
+    or running it yourself — the engine renders the unit with no arguments
+    and replaces it whole on a reinstall.
+  upstream_url: https://github.com/ChiefGyk3D/hammunition-gps-tether
+  upstream_support: >-
+    Issues on the hammunition-gps-tether repository for the tether itself;
+    gpsd's own mailing list and `gpsmon` / `cgps` for a receiver that has no
+    fix.

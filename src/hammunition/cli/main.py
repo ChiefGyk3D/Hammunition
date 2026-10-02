@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import dataclasses
+import hashlib
 import os
 import shutil
 import sqlite3
@@ -131,10 +132,12 @@ from hammunition.geofabrik import (
     region_ids,
 )
 from hammunition.geofabrik import resolve as resolve_region
-from hammunition.hardware import gps_resume
+from hammunition.hardware import devctl_export, gps_resume
+from hammunition.hardware import polkit as hardware_polkit
 from hammunition.hardware.apply import HardwarePlan
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.interface import envelope
+from hammunition.interface.services import ServicesDocument, ServiceView
 from hammunition.kernel import KernelProbe
 from hammunition.kiwix import (
     BookFile,
@@ -229,6 +232,8 @@ from hammunition.ustopo import load_index as load_ustopo_index
 if TYPE_CHECKING:
     from hammunition.geoclue import GeoClueGrants, GeoClueState
     from hammunition.hardware.power import KeptEntry, Parkable
+    from hammunition.infra import Gathered
+    from hammunition.infra_sources import SourceRead
     from hammunition.interface.repeaters import AllSourcesView, RegistrationView
     from hammunition.qmapshack_config import BRouterSetup
     from hammunition.repeaters import ParsedInput
@@ -1305,21 +1310,29 @@ def _replace_atomically(path: Path, text: str, mode: int | None) -> None:
 
 
 def _repeater_poi_paths(text: str) -> tuple[str, bool]:
-    """*text* with the operator's repeater directory in ``[Canvas] poiPaths``
-    while it holds a ``.poi``, and out of it while not; and whether it does.
+    """*text* with each of the operator's overlay directories (repeaters,
+    D-064; infrastructure, D-075) in ``[Canvas] poiPaths`` while it holds a
+    ``.poi``, and out of it while not; and whether any does.
 
-    A QMapShack open during ``maps repeaters import`` writes its own list
-    back when it exits, so the launcher puts the path back before each start
-    (D-064). Raises :class:`~hammunition.qmapshack_config.QmsConfigError`
-    like :func:`~hammunition.qmapshack_config.ensure_paths`."""
+    A QMapShack open during an import writes its own list back when it
+    exits, so the launcher puts the paths back before each start (D-064).
+    Raises :class:`~hammunition.qmapshack_config.QmsConfigError` like
+    :func:`~hammunition.qmapshack_config.ensure_paths`."""
+    from hammunition import infra
     from hammunition.qmapshack_config import Wanted, ensure_paths
     from hammunition.repeaters import overlay_dir
 
-    directory = overlay_dir()
-    want = Wanted("Canvas", "poiPaths", (str(directory),))
-    if _repeater_files(directory, 1):
-        return ensure_paths(text, (want,)), True
-    return ensure_paths(text, (), remove=(want,)), False
+    keep: list[str] = []
+    drop: list[str] = []
+    for directory, present in (
+        (overlay_dir(), bool(_repeater_files(overlay_dir(), 1))),
+        (infra.overlay_dir(), bool(infra.layer_paths(infra.overlay_dir(), 1))),
+    ):
+        (keep if present else drop).append(str(directory))
+    # One Wanted per key each way: ensure_paths edits a key's line once.
+    wants = [Wanted("Canvas", "poiPaths", tuple(keep))] if keep else []
+    gone = [Wanted("Canvas", "poiPaths", tuple(drop))] if drop else []
+    return ensure_paths(text, wants, remove=gone), bool(keep)
 
 
 def _repeater_files(directory: Path, index: int) -> list[Path]:
@@ -1473,7 +1486,7 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
     try:
         data = data_root(DEFAULT_PREFIX)
         with_paths = ensure_paths(text, wanted(data), remove=superseded(data))
-        with_poi, has_poi = _repeater_poi_paths(with_paths)
+        with_poi, _ = _repeater_poi_paths(with_paths)
         selected = select_database(with_poi)
         brouter = _installed_brouter(DEFAULT_PREFIX)
         updated, brouter_notes = (
@@ -1500,8 +1513,8 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
         )
     if with_poi != with_paths:
         print(
-            f"{'adding' if has_poi else 'taking out'} your repeater POI collection "
-            f"{'to' if has_poi else 'of'} [Canvas] poiPaths in {path} (D-064)",
+            f"keeping your overlay POI collections (repeaters, infrastructure) in "
+            f"[Canvas] poiPaths in {path} exactly while they exist (D-064, D-075)",
             file=sys.stderr,
         )
     if selected != with_poi:
@@ -1535,6 +1548,74 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
     return EXIT_FAILED
+
+
+#: The program the GPS tether became: its own project, installed by the
+#: `gps-tether` catalog unit (D-071 note, 2026-10-02).
+TETHER_PROGRAM = "hammunition-gps-tether"
+
+#: Where that unit installs the project's source tree (a `binary` tarball with
+#: `install_tree`, at `<prefix>/share/hammunition/<unit>`); a variable so a test
+#: can point it at a scratch tree.
+TETHER_TREE = Path("/usr/local/share/hammunition/gps-tether")
+
+
+def installed_tether() -> tuple[list[str], str] | None:
+    """The installed GPS tether as ``(argv, where)``, or None.
+
+    The catalog unit's tree first: run in place with the archive's python3, as
+    the user service does. Failing that a ``hammunition-gps-tether`` on the PATH
+    or in the operator's ``~/.local/bin`` (a menu entry Plasma starts has no
+    ``~/.local/bin`` on its PATH, issue #145), which is how a ``pip install
+    --user`` of the project would leave it.
+    """
+    if (TETHER_TREE / "src" / "hammunition_gps_tether" / "__main__.py").is_file():
+        argv = [
+            "/usr/bin/env",
+            f"PYTHONPATH={TETHER_TREE / 'src'}",
+            "/usr/bin/python3",
+            "-P",  # no working directory on sys.path (Python 3.11+, which the tether needs)
+            "-m",
+            "hammunition_gps_tether",
+        ]
+        return argv, str(TETHER_TREE)
+    found = shutil.which(TETHER_PROGRAM) or shutil.which(
+        TETHER_PROGRAM, path=str(user_bin_dir(None))
+    )
+    return None if found is None else ([found], found)
+
+
+def _tether_call_through(installed: tuple[list[str], str], args: argparse.Namespace) -> int:
+    """Run the installed tether in this process's place, with the options given."""
+    if os.geteuid() == 0:
+        print(
+            "error: the GPS tether reads gpsd as any user can; run it as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    prefix, where = installed
+    argv = list(prefix)
+    for flag, value in (
+        ("--gpsd", args.gpsd),
+        ("--port", args.port),
+        ("--position-port", args.position_port),
+        ("--nmea-socket", args.nmea_socket),
+    ):
+        if value is not None:
+            argv += [flag, value]
+    if args.no_nmea_socket:
+        argv.append("--no-nmea-socket")
+    print(
+        f"hammunition: running the installed tether from {where} (hammunition-gps-tether). "
+        f"Run it directly; this verb will go away in a later release.",
+        file=sys.stderr,
+        flush=True,
+    )
+    try:
+        os.execv(argv[0], argv)  # replaces this process; returns only by raising
+    except OSError as exc:
+        print(f"error: cannot run {argv[0]}: {exc.strerror or exc}.", file=sys.stderr)
+        return EXIT_FAILED
 
 
 def cmd_maps_splat(args: argparse.Namespace) -> int:
@@ -1600,6 +1681,16 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
     """
     from hammunition import geoclue, gps_tether
 
+    installed = installed_tether()
+    if installed is not None:
+        return _tether_call_through(installed, args)
+    print(
+        "note: running the engine's own copy of the GPS tether. The tether is its own "
+        "project now: `hammunition install gps-tether` installs hammunition-gps-tether, "
+        "and this verb will go away in a later release.",
+        file=sys.stderr,
+        flush=True,
+    )
     try:
         port = gps_tether.PORT if args.port is None else gps_tether.serve_port(args.port)
         gpsd = gps_tether.GPSD if args.gpsd is None else gps_tether.gpsd_address(args.gpsd)
@@ -1792,17 +1883,34 @@ def _qmapshack_poi_path(directory: Path, *, present: bool) -> RegistrationView:
     return RegistrationView("qmapshack", str(path), "removed", detail)
 
 
+def _overlay_navit_maps() -> list[Path]:
+    """Every overlay layer's Navit textfile, repeaters first (D-064, D-074),
+    then infrastructure (D-075): the operator's one Navit copy carries all."""
+    from hammunition import infra
+    from hammunition.repeaters import overlay_dir
+
+    return _repeater_files(overlay_dir(), 2) + infra.layer_paths(infra.overlay_dir(), 2)
+
+
 def _register_repeaters(directory: Path) -> tuple[RegistrationView, RegistrationView]:
     """QMapShack and Navit told about every repeater layer left in
-    *directory*: the directory in ``poiPaths`` and the operator's Navit copy
-    with each layer's textfile while any layer is there; both taken out when
-    none is.  D-064, D-074."""
+    *directory*: the directory in ``poiPaths`` while any layer is there, and
+    the operator's Navit copy rewritten from every overlay layer.  D-064,
+    D-074, D-075."""
+    return _register_overlays(directory, present=bool(_repeater_files(directory, 1)))
+
+
+def _register_overlays(
+    directory: Path, *, present: bool
+) -> tuple[RegistrationView, RegistrationView]:
+    """*directory* in QMapShack's ``poiPaths`` exactly while *present*, and
+    the operator's Navit copy carrying every overlay layer's textfile (the
+    repeaters' and the infrastructure's), or deleted when there is none."""
     from hammunition.interface.repeaters import RegistrationView
     from hammunition.repeaters import overlays_root
 
     user = overlays_root() / "navit.xml"
-    maps = _repeater_files(directory, 2)
-    present = bool(_repeater_files(directory, 1))
+    maps = _overlay_navit_maps()
     qmapshack = _qmapshack_poi_path(directory, present=present)
     if maps:
         return qmapshack, _navit_user_config(maps, user, _generated_navit_config())
@@ -2360,6 +2468,361 @@ def cmd_maps_repeaters_remove(args: argparse.Namespace) -> int:
     return code
 
 
+# --- maps infra (D-075) -------------------------------------------------------------
+
+
+def _write_infra(gathered: Gathered, args: argparse.Namespace) -> int:
+    """Write each gathered layer (a layer with no point is removed instead),
+    register every overlay layer, print or emit.  D-075."""
+    from hammunition import infra
+    from hammunition.interface.infra import (
+        InfraDocument,
+        InfraInputView,
+        InfraLayerView,
+        render_infra,
+    )
+    from hammunition.interface.repeaters import SkipView
+
+    directory = infra.overlay_dir()
+    if not any(layer.points for layer in gathered.layers):
+        print(
+            f"error: no point of any layer asked for was found, so the layers in "
+            f"{directory} were left as they are. Nothing was changed.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    views: list[InfraLayerView] = []
+    try:
+        for layer in gathered.layers:
+            if layer.points:
+                files = infra.write_layer(directory, layer)
+                views.append(
+                    InfraLayerView(
+                        layer.layer_id, layer.name, len(layer.points), tuple(map(str, files)), ()
+                    )
+                )
+            else:
+                gone = infra.remove_layer(directory, layer.layer_id)
+                views.append(
+                    InfraLayerView(layer.layer_id, layer.name, 0, (), tuple(map(str, gone)))
+                )
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        print(f"error: cannot write the layers in {directory}: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    registered = _register_overlays(directory, present=bool(infra.layer_paths(directory, 1)))
+    doc = InfraDocument(
+        route=gathered.route,
+        licences=gathered.licences,
+        inputs=tuple(InfraInputView(*item) for item in gathered.inputs),
+        read=gathered.read,
+        skipped=tuple(SkipView(r, c, f) for r, c, f in gathered.skipped),
+        outside=gathered.outside,
+        merged=gathered.merged,
+        notes=gathered.notes,
+        layers=tuple(views),
+        directory=str(directory),
+        registered=registered,
+    )
+    code = EXIT_FAILED if any(r.outcome == "refused" for r in registered) else EXIT_OK
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return code
+    for line in render_infra(doc):
+        print(line)
+    return code
+
+
+def _infra_from_osm(layers: str | None) -> Gathered:
+    """The eight OpenStreetMap layers, or those *layers* names, filtered by
+    osmium out of every installed extract as the operator.  D-075."""
+    from hammunition import infra
+    from hammunition import repeater_sources as rs
+
+    given = [name.strip() for name in (layers or ",".join(infra.OSM_LAYERS)).split(",")]
+    unknown = [name for name in given if name not in infra.OSM_LAYERS]
+    if unknown or not any(given):
+        raise infra.InfraInputError(
+            f"no OpenStreetMap layer {(unknown or [''])[0]!r}; the layers are "
+            f"{', '.join(infra.OSM_LAYERS)}"
+        )
+    wanted = [key for key in infra.OSM_LAYERS if key in given]
+    extracts = rs.installed_extracts(DEFAULT_PREFIX)
+    folder = infra.extracts_dir(DEFAULT_PREFIX)
+    if not extracts:
+        raise infra.InfraInputError(
+            f"no map region is installed in {folder}: `hammunition install osm-regions` "
+            f"fetches your regions, and this filters the layers out of them"
+        )
+    points: dict[str, list[infra.Point]] = {key: [] for key in wanted}
+    seen: set[tuple[str, str, str, float, float]] = set()
+    skipped: dict[str, list[int]] = {}
+    read = merged = 0
+    with tempfile.TemporaryDirectory(prefix="hammunition-osm-infra-") as scratch:
+        for number, (pbf, _) in enumerate(extracts, start=1):
+            label = f"region extract {number} of {len(extracts)}"
+            one = infra.filter_extract(pbf, Path(scratch), wanted, label=label)
+            read += one.read
+            for reason, numbers in one.skipped.items():
+                skipped.setdefault(reason, []).extend(numbers)
+            for key, found in one.points.items():
+                for point in found:
+                    # Neighbouring extracts overlap at their edges.
+                    mark = (key, point.name, point.kind, round(point.lat, 5), round(point.lon, 5))
+                    if mark in seen:
+                        merged += 1
+                        continue
+                    seen.add(mark)
+                    points[key].append(point)
+    day = rs.extracts_date(extracts)
+    return infra.Gathered(
+        route="osm",
+        licences=(infra.OSM_LICENCE,),
+        # One input for the whole directory: a region's name, or its digest,
+        # says where the operator is (D-057).
+        inputs=((str(folder), "osm-extract", ""),),
+        read=read,
+        skipped=infra.skip_counts(skipped, numbered=len(extracts) == 1),
+        layers=tuple(
+            infra.InfraLayer(
+                f"osm-{key}",
+                infra.osm_layer_name(key, day),
+                infra.OSM_LICENCE,
+                infra.OSM_SOURCE,
+                day,
+                tuple(points[key]),
+            )
+            for key in wanted
+        ),
+        merged=merged,
+        notes=(
+            "filtered on this machine from the region extracts already here; nothing downloaded",
+        ),
+    )
+
+
+def _infra_boxes() -> tuple[list[tuple[float, float, float, float]], list[str]]:
+    """The installed extracts' boxes, or InfraInputError naming the unit."""
+    from hammunition import infra
+
+    boxes, notes = infra.region_boxes(DEFAULT_PREFIX)
+    if not boxes:
+        raise infra.InfraInputError(
+            f"no map region with a bounding box is installed in "
+            f"{infra.extracts_dir(DEFAULT_PREFIX)}: `hammunition install osm-regions` "
+            f"fetches your regions, and this keeps what lies in them"
+        )
+    return boxes, notes
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _infra_from_file(route: str) -> Gathered:
+    """``--from-nasr``, ``--from-eia`` or ``--from-wri``: the installed data
+    unit's file, kept to the regions' boxes.  D-075."""
+    from hammunition import infra
+    from hammunition import infra_sources as src
+
+    unit = src.UNITS[route]
+    path = data_root(DEFAULT_PREFIX) / unit.file
+    if not path.is_file():
+        raise infra.InfraInputError(
+            f"no {unit.what} at {path}: `hammunition install {unit.unit}` installs it "
+            f"({unit.size}, {unit.licence_short})"
+        )
+    boxes, notes = _infra_boxes()
+    found = unit.read(path, boxes)
+    return _gathered(route, found, str(path), unit.format, _file_sha256(path), notes)
+
+
+def _gathered(
+    route: str,
+    found: SourceRead,
+    where: str,
+    fmt: str,
+    sha256: str,
+    notes: Sequence[str],
+) -> Gathered:
+    from hammunition import infra
+
+    return infra.Gathered(
+        route=route,
+        licences=(found.licence,),
+        inputs=((where, fmt, sha256),),
+        read=found.read,
+        skipped=infra.skip_counts(found.skipped),
+        layers=(
+            infra.InfraLayer(
+                found.layer_id, found.name, found.licence, found.source, found.day, found.points
+            ),
+        ),
+        outside=found.outside,
+        notes=(*notes, *found.notes),
+    )
+
+
+@envelope.json_capable()
+def cmd_maps_infra_import(args: argparse.Namespace) -> int:
+    """Infrastructure and EMCOMM layers from one source.  D-075.
+
+    ``--from-osm`` filters the installed region extracts with osmium as the
+    operator (eight layers, or ``--layers``), downloading nothing;
+    ``--from-nasr``, ``--from-eia`` and ``--from-wri`` read the installed
+    ``faa-nasr-airports``, ``eia-860m`` and ``wri-power-plants`` data units
+    and keep what lies in the regions' boxes. Each source writes its own
+    layers and leaves the others. Refused as root: the files are the
+    operator's."""
+    from hammunition import infra
+
+    if _refuse_root("infrastructure overlays"):
+        return EXIT_FAILED
+    route = (
+        "osm" if args.from_osm else "nasr" if args.from_nasr else "eia" if args.from_eia else "wri"
+    )
+    if args.layers is not None and route != "osm":
+        print(
+            "error: --layers picks OpenStreetMap layers; it goes with --from-osm. "
+            "Nothing was written.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    try:
+        gathered = _infra_from_osm(args.layers) if route == "osm" else _infra_from_file(route)
+    except infra.InfraInputError as exc:
+        print(f"error: {exc}\nNothing was changed in {infra.overlay_dir()}.", file=sys.stderr)
+        return EXIT_FAILED
+    return _write_infra(gathered, args)
+
+
+def _fetch_infra(
+    *,
+    route: str,
+    url: str,
+    limit: int,
+    disclosure: str,
+    parse: Callable[..., SourceRead],
+    fmt: str,
+    args: argparse.Namespace,
+) -> int:
+    """A file fetched on request through D-064's fetch (bounded, HTTPS-only
+    redirects), parsed from memory, kept to the regions' boxes and written
+    as its own layer, marked unverified with its observed sha256.  D-075."""
+    from hammunition import infra, repeaters
+    from hammunition import infra_sources as src
+
+    if _refuse_root("infrastructure overlays"):
+        return EXIT_FAILED
+    try:
+        boxes, notes = _infra_boxes()
+    except infra.InfraInputError as exc:
+        print(f"error: {exc}. Nothing was fetched.", file=sys.stderr)
+        return EXIT_FAILED
+    print(disclosure, flush=True)
+    try:
+        body, digest, when = repeaters.fetch_list(url, limit=limit, user_agent=src.USER_AGENT)
+    except repeaters.RepeaterFetchError as exc:
+        print(f"error: {exc}. Nothing was written.", file=sys.stderr)
+        return EXIT_FAILED
+    try:
+        found = parse(body, url, boxes, fetched=when, sha256=digest)
+    except infra.InfraInputError as exc:
+        print(f"error: {exc}. Nothing was written.", file=sys.stderr)
+        return EXIT_FAILED
+    finally:
+        del body  # never kept: FCC's archive carries owners' contact details
+    return _write_infra(_gathered(route, found, url, fmt, digest, notes), args)
+
+
+def cmd_maps_infra_fetch_fcc_asr(args: argparse.Namespace) -> int:
+    """Fetch the FCC's Antenna Structure Registration file, on request.  D-075.
+
+    Ruling of 2026-10-01: fetched when asked, unverified, with its observed
+    sha256, like the ETCC (D-074), not a data unit whose pin dies weekly.
+    Only ``RA.dat`` and ``CO.dat`` are read; ``EN.dat``, the owners'
+    contact details, is never opened. No ``--json`` form."""
+    from hammunition import infra_sources as src
+
+    return _fetch_infra(
+        route="fcc-asr",
+        url=src.FCC_ASR_URL,
+        limit=src.FCC_ASR_LIMIT,
+        disclosure=(
+            f"This fetches the FCC's weekly Antenna Structure Registration file from "
+            f"{src.FCC_ASR_URL} (about 38 MB), now and only now, and converts it on this "
+            f"machine. Only its registration and coordinate records are read; the owners' "
+            f"contact records are never opened. The FCC publishes no checksum, so what "
+            f"arrives is recorded by its sha256 and marked unverified."
+        ),
+        parse=src.parse_fcc_asr,
+        fmt="fcc-asr",
+        args=args,
+    )
+
+
+def cmd_maps_infra_fetch_nwr(args: argparse.Namespace) -> int:
+    """Fetch NOAA Weather Radio's transmitter list, on request.  D-075.
+
+    Frequency, power and every county's SAME code are kept; the live
+    status is dropped before anything is written (it changes on every
+    outage). Unverified, with its observed sha256. No ``--json`` form."""
+    from hammunition import infra_sources as src
+
+    return _fetch_infra(
+        route="nwr",
+        url=src.NWR_URL,
+        limit=src.NWR_LIMIT,
+        disclosure=(
+            f"This fetches NOAA Weather Radio's transmitter list from {src.NWR_URL} (about "
+            f"755 kB), now and only now, and converts it on this machine. Each transmitter's "
+            f"frequency, power and counties' SAME codes are kept; its live status is dropped. "
+            f"NWS publishes no checksum, so what arrives is recorded by its sha256 and "
+            f"marked unverified."
+        ),
+        parse=src.parse_nwr,
+        fmt="nwr-ccl",
+        args=args,
+    )
+
+
+@envelope.json_capable()
+def cmd_maps_infra_remove(args: argparse.Namespace) -> int:
+    """Delete infrastructure layers and unregister what is gone.  D-075.
+
+    Every layer by default, one with ``--layer ID``. QMapShack's
+    ``poiPaths`` and the operator's Navit copy follow what remains of every
+    overlay. Idempotent: nothing to remove is exit 0."""
+    from hammunition import infra
+    from hammunition.interface.infra import InfraRemovedDocument, render_infra_removed
+
+    if _refuse_root("infrastructure overlays"):
+        return EXIT_FAILED
+    directory = infra.overlay_dir()
+    try:
+        removed = infra.remove_layer(directory, args.layer)
+    except OSError as exc:
+        print(f"error: {exc}. Nothing more was removed.", file=sys.stderr)
+        return EXIT_FAILED
+    registered = _register_overlays(directory, present=bool(infra.layer_paths(directory, 1)))
+    doc = InfraRemovedDocument(
+        directory=str(directory),
+        layers=(args.layer,) if args.layer else tuple(infra.LAYERS),
+        removed=tuple(str(p) for p in removed),
+        unregistered=registered,
+    )
+    code = EXIT_FAILED if any(r.outcome == "refused" for r in registered) else EXIT_OK
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return code
+    for line in render_infra_removed(doc):
+        print(line)
+    return code
+
+
 def cmd_maps_navit(args: argparse.Namespace) -> int:
     """Start Navit on the offline maps, with the operator's overlays.  D-064.
 
@@ -2369,7 +2832,7 @@ def cmd_maps_navit(args: argparse.Namespace) -> int:
     and Navit opens that; with none, Navit opens the generated file and a
     stale copy of ours is removed. Under root it opens the generated file and
     writes nothing. No ``--json`` form: it replaces itself with a GUI."""
-    from hammunition.repeaters import overlay_dir, overlays_root
+    from hammunition.repeaters import overlays_root
 
     generated = _generated_navit_config()
     if not generated.is_file():
@@ -2381,7 +2844,7 @@ def cmd_maps_navit(args: argparse.Namespace) -> int:
         return EXIT_FAILED
     target = generated
     if os.geteuid() != 0:
-        overlays = _repeater_files(overlay_dir(), 2)
+        overlays = _overlay_navit_maps()
         user = overlays_root() / "navit.xml"
         if overlays:
             view = _navit_user_config(overlays, user, generated)
@@ -2496,7 +2959,10 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
     except (KiwixError, SystemExit):
         books = {}  # the page still serves every file, named by its file name
     shelf = reference.find_shelf(data_root(DEFAULT_PREFIX), books)
-    map_shelf = find_map(data_root(DEFAULT_PREFIX))  # D-071
+    from hammunition import infra
+
+    # D-071; the operator's infrastructure layers as overlays, D-075.
+    map_shelf = find_map(data_root(DEFAULT_PREFIX), overlays=infra.overlay_dir())
     if shelf.books:
         missing = [t for t in ("kiwix-serve", "kiwix-manage") if shutil.which(t) is None]
         if missing:
@@ -3767,11 +4233,19 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
             for svc in unit_manifest.user_services
         )
     )
+    user_service_units = list(
+        dict.fromkeys(
+            unit
+            for unit in uninstall_units
+            if (unit_manifest := packages.get(unit)) is not None and unit_manifest.user_services
+        )
+    )
     if user_service_names:
         uninstall_user = operator(args)
         commands.extend(
             user_service_removal_steps(
                 user_service_names,
+                units=user_service_units,
                 home=user_config_base(uninstall_user or None),
                 machine=(
                     uninstall_user if euid == 0 and uninstall_user not in ("", "root") else None
@@ -4271,6 +4745,34 @@ def _stage_gps_resume(plan: HardwarePlan, staging_dir: Path) -> list[Command]:
     return _gps_resume_commands(plan, str(staging_dir))
 
 
+def _disclose_devctl_export(plan: HardwarePlan) -> None:
+    """The helper hand-over, and the two lists' disclosure (D-056, amended 2026-10-02)."""
+    if plan.polkit.handed_over is not None:
+        print(
+            f"The privileged helper at {plan.polkit.helper_path} is hammunition-tray's "
+            f"(it answers --version: {plan.polkit.handed_over}). This run does not write "
+            f"it, and writes the polkit action only where none exists."
+        )
+    if plan.devctl_export is not None:
+        for line in devctl_export.disclose(plan.devctl_export):
+            print(line)
+
+
+def _devctl_export_commands(plan: HardwarePlan, staging_root: str) -> list[Command]:
+    if plan.devctl_export is None:
+        return []
+    return devctl_export.install_commands(plan.devctl_export, staging_root)
+
+
+def _stage_devctl_export(plan: HardwarePlan, staging_dir: Path) -> list[Command]:
+    """Stage the two lists; return their commands as they will run, so the apply
+    loop can log each one (``devctl_export``)."""
+    if plan.devctl_export is None:
+        return []
+    devctl_export.stage(plan.devctl_export, staging_dir)
+    return _devctl_export_commands(plan, str(staging_dir))
+
+
 def cmd_hardware_apply(args: argparse.Namespace) -> int:
     """Write the catalog's udev rules and join the device-access groups."""
     from hammunition.gpstime.grants import disclose, grant_commands, stage_grants, verify_grants
@@ -4296,6 +4798,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             user_groups_now=groups_now,
             with_time=not getattr(args, "no_gps_time", False),
             with_gps_resume=not getattr(args, "no_gps_resume", False),
+            with_devctl_export=True,
         )
     except TimeError as exc:
         print(
@@ -4303,7 +4806,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return EXIT_UNPLANNABLE
-    except gps_resume.GpsResumeError as exc:
+    except (gps_resume.GpsResumeError, devctl_export.DevctlExportError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNPLANNABLE
     from hammunition import geoclue
@@ -4330,8 +4833,14 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         print(
             "Nothing to do: the rules file already matches, you are in every access "
             "group, the power-control helper and its polkit action are installed, and "
-            "GPS time's grants are in place. Hardware setup is complete."
+            "GPS time's grants and the helper's device and service lists are in place. "
+            "Hardware setup is complete."
         )
+        if plan.polkit.handed_over is not None:
+            print(
+                f"The helper is hammunition-tray's ({plan.polkit.handed_over}); "
+                f"this engine no longer writes it."
+            )
         if geo is not None and geo.installed:
             print("GeoClue already reads the GPS tether's socket (D-069).")
         return EXIT_OK
@@ -4419,6 +4928,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         )
         built += time_cmds
         built += _gps_resume_commands(plan, staging_root)
+        built += _devctl_export_commands(plan, staging_root)
         return built, helper_cmd, policy_cmd, time_cmds
 
     if not plan.rules_already_current:
@@ -4443,6 +4953,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     for line in _geoclue_disclosure(args, geo):
         print(line)
     _disclose_gps_resume(plan)
+    _disclose_devctl_export(plan)
 
     preview_commands, preview_helper, preview_policy, _preview_time = build_commands("<staging>")
     if geo is not None:
@@ -4533,6 +5044,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         if geo is not None:
             geoclue.stage_grants(geo, staging_dir)
         resume_steps = _stage_gps_resume(plan, staging_dir)
+        export_steps = _stage_devctl_export(plan, staging_dir)
 
         runner = SubprocessRunner()
         print("\nRunning:")
@@ -4565,6 +5077,15 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                 TransactionLog(owner=user).append(
                     {
                         "event": "gps_resume",
+                        "version": 1,
+                        "description": command.description,
+                        "argv": list(command.argv),
+                    }
+                )
+            if command in export_steps:
+                TransactionLog(owner=user).append(
+                    {
+                        "event": "devctl_export",
                         "version": 1,
                         "description": command.description,
                         "argv": list(command.argv),
@@ -4650,6 +5171,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             problems += geoclue.verify_grants(geo)
         if plan.gps_resume is not None:
             problems += gps_resume.verify(plan.gps_resume)
+        if plan.devctl_export is not None:
+            problems += devctl_export.verify(plan.devctl_export)
         if problems:
             for problem in problems:
                 print(f"  unverified: {problem}", file=sys.stderr)
@@ -4731,9 +5254,15 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     geo_present = not geo_removal.is_empty
     resume_removal = gps_resume.plan_gps_resume_removal()
     resume_present = not resume_removal.is_empty
+    export_removal = devctl_export.plan_removal()
+    export_present = not export_removal.is_empty
     owned = {HELPER_PATH, POLICY_PATH}
+    # D-056, amended 2026-10-02: where the installed helper answers --version it is
+    # hammunition-tray's, whatever an older log says the engine once wrote there.
+    handed_over = hardware_polkit.installed_helper_version(HELPER_PATH)
     recorded: list[str] = []
     skipped: list[str] = []
+    left_to_tray: list[str] = []
     for entry in TransactionLog(owner=user).read():
         if entry.get("event") != "hardware_artifacts":
             continue
@@ -4753,8 +5282,25 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
                 if path not in recorded and path not in skipped:
                     skipped.append(path)
                 continue
+            if handed_over is not None:
+                if path not in left_to_tray:
+                    left_to_tray.append(path)
+                continue
             if path not in recorded:
                 recorded.append(path)
+
+    if handed_over is not None:
+        print(
+            f"The privileged helper at {HELPER_PATH} is hammunition-tray's now (it answers "
+            f"--version: {handed_over}), so this command leaves it and its polkit action "
+            f"alone; removing them is the tray's own uninstall's job."
+        )
+        for path in left_to_tray:
+            print(
+                f"The log records {path} as written by an earlier apply; it is left in "
+                f"place. (A polkit action this engine wrote because none existed stays "
+                f"until it is removed by hand.)"
+            )
 
     if (
         not recorded
@@ -4763,6 +5309,22 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         and not time_present
         and not resume_present
         and not geo_present
+        and not export_present
+        and left_to_tray
+    ):
+        print(
+            "Nothing to remove: the only artefacts the log records are the helper and its "
+            "polkit action, left to hammunition-tray (above)."
+        )
+        return EXIT_OK
+    if (
+        not recorded
+        and not skipped
+        and not kept_present
+        and not time_present
+        and not resume_present
+        and not geo_present
+        and not export_present
     ):
         print(
             "Nothing to remove: the transaction log records no hardware artefacts "
@@ -4781,6 +5343,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         and not time_present
         and not resume_present
         and not geo_present
+        and not export_present
     ):
         print("Nothing to do: no artefact this command owns is recorded.")
         return EXIT_OK
@@ -4795,6 +5358,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         and not time_present
         and not resume_present
         and not geo_present
+        and not export_present
     ):
         print("Nothing to do: every recorded artefact is already gone.")
         return EXIT_OK
@@ -4862,7 +5426,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     time_preview = removal_commands(removal, "<staging>")
     resume_commands = gps_resume.removal_commands(resume_removal)
     geo_commands = geoclue.removal_commands(geo_removal)
-    shown = [*commands, *time_preview, *resume_commands, *geo_commands]
+    export_commands = devctl_export.removal_commands(export_removal)
+    shown = [*commands, *time_preview, *resume_commands, *geo_commands, *export_commands]
     euid = os.geteuid()
     print(f"\nCommands ({len(shown)}):")
     for command in shown:
@@ -4907,6 +5472,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             to_run += removal_commands(removal, str(staging_dir))
         to_run += geo_commands
         to_run += resume_commands
+        to_run += export_commands
         runner = SubprocessRunner()
         print("\nRunning:")
         for command in to_run:
@@ -4926,6 +5492,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     if geo_present:
         problems += geoclue.verify_removal(geo_removal)
     problems += gps_resume.verify_removal(resume_removal)
+    problems += devctl_export.verify_removal(export_removal)
     if problems:
         for problem in problems:
             print(f"  unverified: {problem}", file=sys.stderr)
@@ -4944,6 +5511,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         after.append("GeoClue no longer reads the tether; `hardware apply` sets it up again.")
     if resume_present:
         after.append("`hardware apply` reinstalls the GPS resume step.")
+    if export_present:
+        after.append("`hardware apply` writes the helper's device and service lists again.")
     print("\nDone and verified. " + " ".join(after))
     return EXIT_OK
 
@@ -5204,6 +5773,189 @@ def cmd_time_mode(args: argparse.Namespace) -> int:
     return _run_helper(
         command, "Done and verified. `hammunition time` shows what the clock follows now."
     )
+
+
+# ---------------------------------------------------------------------------
+# services — the helper's service list (D-056, amended 2026-10-02)
+# ---------------------------------------------------------------------------
+
+
+def _services_helper_missing() -> int | None:
+    """An exit code when the installed helper cannot be asked, else None."""
+    if Path(HELPER_PATH).is_file():
+        return None
+    print(
+        f"error: the privileged helper is not installed at {HELPER_PATH}. It is "
+        f"hammunition-tray's: `hammunition install hammunition-tray` (or "
+        f"`hammunition install hammunition-tray-qt` outside Plasma) carries it. "
+        f"`hammunition hardware apply` installs the engine's older copy, which has no "
+        f"`services` verb.",
+        file=sys.stderr,
+    )
+    return EXIT_UNPLANNABLE
+
+
+def _read_services() -> tuple[ServicesDocument | None, int]:
+    """Ask the installed helper for its services document: unprivileged, one argv.
+
+    Returns the document, or None and the exit code to leave with. The engine
+    never asks systemd anything: the helper is the one that does.
+    """
+    from hammunition.interface.services import ServicesError, parse_helper_services
+
+    missing = _services_helper_missing()
+    if missing is not None:
+        return None, missing
+    command = Command(
+        argv=(HELPER_PATH, "services", "state"),
+        description="Ask the helper which services it controls and what each is doing",
+    )
+    try:
+        result = SubprocessRunner().run(command)
+    except BackendError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return None, EXIT_FAILED
+    if result.returncode == EXIT_UNPLANNABLE:
+        print(
+            "error: the installed helper has no `services` verb (it predates contract 1): "
+            "update hammunition-tray.",
+            file=sys.stderr,
+        )
+        return None, EXIT_UNPLANNABLE
+    if result.returncode != 0:
+        print(
+            f"error: the helper exited {result.returncode}: "
+            f"{result.stderr.strip()[:300] or 'no message'}",
+            file=sys.stderr,
+        )
+        return None, EXIT_FAILED
+    try:
+        return parse_helper_services(result.stdout), EXIT_OK
+    except ServicesError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return None, EXIT_FAILED
+
+
+@envelope.json_capable()
+def cmd_services(args: argparse.Namespace) -> int:
+    """The services the helper may start, stop, enable and disable, and what each is doing."""
+    from hammunition.interface.services import render_services
+
+    doc, code = _read_services()
+    if doc is None:
+        return code
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_services(doc):
+        print(line)
+    return EXIT_OK
+
+
+def _service_effect(verb: str, row: ServiceView, unit_journal: str) -> tuple[bool, str]:
+    """D-031: whether the unit now is what the verb asked, read back from the helper.
+
+    Returns (ok, message). A start that ends ``inactive`` is a note, not a failure:
+    a one-shot unit runs and exits.
+    """
+    if verb == "start":
+        if row.active in ("active", "activating"):
+            return True, f"{row.unit} is {row.active}."
+        if row.active == "failed":
+            return False, f"{row.unit} is failed after the start; `{unit_journal}` says why."
+        return True, (
+            f"{row.unit} is {row.active} after the start. A one-shot unit runs and exits, "
+            f"which reads this way; `{unit_journal}` shows what it did."
+        )
+    if verb == "stop":
+        if row.active in ("inactive", "failed"):
+            return True, f"{row.unit} is {row.active}."
+        return False, f"{row.unit} is still {row.active} after the stop."
+    want = "enabled" if verb == "enable" else "disabled"
+    if row.enabled == want:
+        return True, f"{row.unit} is {row.enabled}."
+    return False, f"{row.unit} reads {row.enabled}, not {want}, after the {verb}."
+
+
+def cmd_services_act(args: argparse.Namespace) -> int:
+    """Start, stop, enable or disable one service, through the helper (D-056 amended)."""
+    verb: str = args.action
+    doc, code = _read_services()
+    if doc is None:
+        return code
+    row = next((s for s in doc.services if s.name == args.name), None)
+    if row is None:
+        known = ", ".join(s.name for s in doc.services) or "none"
+        print(
+            f"error: {args.name!r} is not a service the helper controls. Its list: {known}.",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+    if row.enabled == "not-found":
+        print(
+            f"error: {row.unit} ({row.name}) is not installed, so there is nothing to {verb}.",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+    already = {
+        "start": row.active in ("active", "activating"),
+        "stop": row.active == "inactive",
+        "enable": row.enabled == "enabled",
+        "disable": row.enabled == "disabled",
+    }[verb]
+    if already:
+        state = row.active if verb in ("start", "stop") else row.enabled
+        print(f"{row.name} ({row.unit}) is already {state}; nothing to do.")
+        return EXIT_OK
+    if row.root and shutil.which("pkexec") is None:
+        print(
+            "error: pkexec is not on PATH, so a system service cannot be changed from here. "
+            "It comes from the `polkit` package (`policykit-1` on Debian-family targets).",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+    argv: tuple[str, ...] = (HELPER_PATH, "services", verb, row.name)
+    if row.root:
+        argv = ("pkexec", *argv)
+    command = Command(argv=argv, description=f"{verb.capitalize()} {row.unit} ({row.scope} scope)")
+    when = "now" if verb in ("start", "stop") else ("at boot" if row.root else "at login")
+    print(f"{verb.capitalize()}ing {row.name}: {row.unit}, {row.scope} scope, {when}\n")
+    print(
+        "The helper carries the request out; this command never runs systemctl itself, "
+        "and passes a name, never a unit."
+    )
+    print(f"\n  # {command.description}\n  $ {command.display()}")
+    if args.dry_run:
+        print("\nDry run: nothing above was executed.")
+        return EXIT_OK
+    try:
+        result = SubprocessRunner().run(command)
+    except BackendError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    if row.root and result.returncode in (126, 127):
+        # pkexec's own codes for a dismissed or denied prompt. A user-scope call has
+        # no prompt, and 127 there is a missing interpreter: not the same story.
+        print("The authentication prompt was dismissed; nothing was changed.", file=sys.stderr)
+        return EXIT_CONSENT
+    if result.returncode == EXIT_UNPLANNABLE:
+        print(result.stderr.strip() or "the helper refused the request", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    if result.returncode != 0:
+        print(result.stderr.strip()[:400] or f"helper exited {result.returncode}", file=sys.stderr)
+        return EXIT_FAILED
+    after, code = _read_services()
+    now = next((s for s in after.services if s.name == row.name), None) if after else None
+    if now is None:
+        print(f"unverified: could not read {row.name} back from the helper.", file=sys.stderr)
+        return EXIT_FAILED
+    journal = ("journalctl " if row.root else "journalctl --user ") + f"-u {row.unit}"
+    ok, message = _service_effect(verb, now, journal)
+    if not ok:
+        print(f"unverified: {message}", file=sys.stderr)
+        return EXIT_FAILED
+    print(f"\nDone and verified: {message}")
+    return EXIT_OK
 
 
 # ---------------------------------------------------------------------------
@@ -5945,6 +6697,71 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_rep_remove.set_defaults(func=cmd_maps_repeaters_remove)
 
+    from hammunition import infra as infra_layers
+
+    p_maps_infra = maps_sub.add_parser(
+        "infra",
+        help="infrastructure and EMCOMM points on the map, one layer per source (D-075)",
+    )
+    infra_sub = p_maps_infra.add_subparsers(dest="maps_infra_command", required=True)
+    p_inf_import = infra_sub.add_parser(
+        "import",
+        help="write layers from the map regions installed here (--from-osm) or an installed "
+        "data unit (--from-nasr, --from-eia, --from-wri); offline",
+    )
+    inf_from = p_inf_import.add_mutually_exclusive_group(required=True)
+    inf_from.add_argument(
+        "--from-osm",
+        action="store_true",
+        help="medical, responders, supply, shelter candidates, transport, power, telecom and "
+        "water from your region extracts, filtered by osmium; downloads nothing",
+    )
+    inf_from.add_argument(
+        "--from-nasr",
+        action="store_true",
+        help="airports and heliports from the installed faa-nasr-airports unit",
+    )
+    inf_from.add_argument(
+        "--from-eia",
+        action="store_true",
+        help="US power plants from the installed eia-860m unit",
+    )
+    inf_from.add_argument(
+        "--from-wri",
+        action="store_true",
+        help="power plants outside the US from the installed wri-power-plants unit",
+    )
+    p_inf_import.add_argument(
+        "--layers",
+        metavar="LAYER,LAYER",
+        default=None,
+        help="with --from-osm, only these: medical, responders, supply, shelter-candidates, "
+        "transport, power, telecom, water",
+    )
+    p_inf_import.set_defaults(func=cmd_maps_infra_import)
+    p_inf_fcc = infra_sub.add_parser(
+        "fetch-fcc-asr",
+        help="fetch the FCC's antenna structure registrations now (38 MB) and keep your "
+        "regions' towers; recorded as unverified",
+    )
+    p_inf_fcc.set_defaults(func=cmd_maps_infra_fetch_fcc_asr)
+    p_inf_nwr = infra_sub.add_parser(
+        "fetch-nwr",
+        help="fetch NOAA Weather Radio's transmitter list now; live status dropped, recorded "
+        "as unverified",
+    )
+    p_inf_nwr.set_defaults(func=cmd_maps_infra_fetch_nwr)
+    p_inf_remove = infra_sub.add_parser(
+        "remove", help="delete infrastructure layers and take them out of QMapShack and Navit"
+    )
+    p_inf_remove.add_argument(
+        "--layer",
+        choices=tuple(infra_layers.LAYERS),
+        default=None,
+        help="remove only this layer (default: every layer)",
+    )
+    p_inf_remove.set_defaults(func=cmd_maps_infra_remove)
+
     p_reference = sub.add_parser(
         "reference", help="the offline reference: Kiwix books, ICS forms, dictionaries (D-066)"
     )
@@ -6165,6 +6982,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="print every write, the restart and the privileged call, then stop",
     )
     p_time_mode.set_defaults(func=cmd_time_mode)
+
+    p_services = sub.add_parser(
+        "services",
+        help="the services the helper controls, and start, stop, enable or disable one",
+    )
+    p_services.set_defaults(func=cmd_services)
+    services_sub = p_services.add_subparsers(dest="services_command")
+    for service_verb, service_help in (
+        ("start", "start a service now"),
+        ("stop", "stop a service now"),
+        ("enable", "start a service at boot (system) or login (user)"),
+        ("disable", "stop starting a service at boot (system) or login (user)"),
+    ):
+        p_service_verb = services_sub.add_parser(service_verb, help=service_help)
+        p_service_verb.add_argument(
+            "name", metavar="NAME", help="a name from `hammunition services`"
+        )
+        p_service_verb.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="print the helper call, then stop",
+        )
+        p_service_verb.set_defaults(func=cmd_services_act, action=service_verb)
 
     p_station = sub.add_parser("station", help="the values only you can supply")
     station_sub = p_station.add_subparsers(dest="station_command", required=True)
