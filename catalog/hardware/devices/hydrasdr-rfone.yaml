@@ -1,0 +1,168 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: hydrasdr-rfone
+summary: HydraSDR RFOne -- a USB receive-only SDR, successor to the Airspy host design
+vendor: HydraSDR
+status: supported
+
+# HARDWARE WITHOUT HARDWARE, 2026-10-02. The maintainer does not own an RFOne;
+# nothing here was captured from one. The identifiers are mined from the
+# vendor's own published files, the way the LoRa boards and the HackRF product
+# strings were, and cited by commit so they can be re-read:
+#   - hydrasdr/hydrasdr-host at v1.1.1 (d2812bd001f5), the revision Debian sid,
+#     Kali and Ubuntu package: its udev rules file names 38af:0001 "HydraSDR
+#     RFOne Normal operation mode", 1d50:60a1 for the same board in legacy
+#     firmware, and 1fc9:000c as the NXP DFU recovery mode; and libhydrasdr's
+#     device registry (libhydrasdr/src/hydrasdr.c lines 64-65) lists the same
+#     two RFOne pairs as "Legacy VID/PID" and "Official VID/PID". Two
+#     independent files in one tree agree. The rules file is identical at the
+#     head, v1.1.3 (16942cb). Kali's libhydrasdr1 and Ubuntu 26.04's
+#     libhydrasdr0 each ship that same file as their own rule (read from
+#     containers), and Debian's Hamradio Team carries the source for sid.
+#     Plainly: that is the vendor's file repackaged, not a second reading of
+#     the board, and none of it is in the Debian 13 sweep (which has no such
+#     package), so scripts/check_rule_citations.py cannot check it; the
+#     citations are by URL and commit, and tests/test_sdr_adds.py checks that
+#     they name the commits the package manifests pin.
+#   - `status: supported` is D-027's shape and not a claim about hardware:
+#     the identifiers are right on the evidence above and rules built from
+#     them will match; nobody here has plugged an RFOne in. maintainer_verified
+#     is unset. The software unit was built on four targets and run without a
+#     board (hydrasdr-host's note); nothing past enumeration was measured.
+#   - D-028: no symlink is emitted. It is a libusb device (the tools open it
+#     through libusb) with no /dev node to name, and the vendor's own rule
+#     makes /dev/hydrasdr_rfone-<bus path>, which is a name for a USB port.
+#     The binding below names a symlink only because the schema requires one;
+#     serial_suffix is unset, so rules_for() omits it and writes permissions
+#     only. docs/reference/device-naming.md counts the binding as a symlink
+#     anyway, as it does the airspy entry's.
+#   - 1d50:60a1 is NOT carried as an identifier. It is the OpenMoko Airspy id,
+#     the airspy entry already carries it with the same group, and nothing
+#     descriptor-side that this entry can read says which board has it
+#     (see rejected_ids). A board on legacy firmware therefore still gets its
+#     permissions, from the Airspy rule.
+
+identification_gap: >-
+  Not owned, so no descriptor has been read. Unknown: the manufacturer and
+  product strings and whether the board reports a per-unit serial (the vendor's
+  rule matches VID:PID only, so a rule that tells two RFOnes apart, or an RFOne
+  from an Airspy on the legacy identifier, has nothing to match on); whether a
+  board still on legacy firmware exists in the field; and every behaviour past
+  enumeration. Closing it needs an RFOne attached, in normal mode, from an
+  owner; `scripts/identify-device.sh hydrasdr-rfone` does it read-only, no root.
+gap_closure: unverified_by_maintainer
+
+usb_ids:
+  - vendor: "38af"
+    product: "0001"
+    description: HydraSDR RFOne in normal operation -- its own USB identifier
+    evidence: >-
+      Vendor source, not a capture. The udev rules file at
+      https://github.com/hydrasdr/hydrasdr-host/blob/d2812bd001f55ebee4c5d629fe47744cdd64aeec/hydrasdr-tools/51-hydrasdr.rules
+      names idVendor 38af ("VERNOUX BENJAMIN", the maintainer of the design)
+      and idProduct 0001 ("HydraSDR RFOne Normal operation mode"), and the
+      device registry at
+      https://github.com/hydrasdr/hydrasdr-host/blob/d2812bd001f55ebee4c5d629fe47744cdd64aeec/libhydrasdr/src/hydrasdr.c
+      (lines 64-65) lists {0x38af, 0x0001} as "HydraSDR RFOne Official
+      VID/PID". Kali's libhydrasdr1 (1.1.1+dfsg-1) and Ubuntu 26.04's
+      libhydrasdr0 (1.0.3-1) install the same rule, read from containers on
+      2026-10-02.
+    confirmed: true
+    node_kind: libusb
+
+rejected_ids:
+  - vendor: "1d50"
+    product: "60a1"
+    description: HydraSDR RFOne on pre-official firmware, and an Airspy R2 or Mini
+    assumed_to_be: an RFOne in its legacy identifier (OpenMoko vendor, Airspy product)
+    why_rejected: >-
+      Upstream's own tables list it for the RFOne ("Legacy VID/PID", the rules
+      file's "uses historic OpenMoko VID 1d50"), and it is also the identifier
+      of the Airspy R2 and Mini, which the airspy entry carries from Debian's
+      libairspy0 rule. Nothing this entry can read separates the two boards on
+      it, and a rule on it would name an Airspy an RFOne. Left to the airspy
+      entry's rule, which gives the same group; recorded here so the next
+      reader does not add it. Source: libhydrasdr/src/hydrasdr.c line 64 at
+      the commit cited above.
+
+# D-029 and the Airspy entry's note: a libusb device has no /dev node worth a
+# symlink, and the serial is unread, so this writes permissions only.
+udev: {symlink: hydrasdr-rfone, group: plugdev}
+
+firmware:
+  - kind: vendor_tool
+    packages: [hydrasdr-host]
+    note: >-
+      Upstream's firmware guide (hydrasdr/rfone_fw, Linux-how-to-flash-hydrasdr-firmware.md,
+      head 6c7c1fe, 2026-09-11) updates a working board over USB with
+      `hydrasdr_spiflash -w <file>` from the host tools, then a replug. This
+      writes the board's flash: not run here, and the firmware file is
+      upstream's to download, not carried.
+  - kind: dfu
+    packages: [dfu-util]
+    dfu_usb_id:
+      vendor: "1fc9"
+      product: "000c"
+      description: NXP LPC4330 ROM bootloader -- the RFOne in USB DFU recovery
+      evidence: >-
+        Vendor source, not a capture. The udev rules file at
+        https://github.com/hydrasdr/hydrasdr-host/blob/d2812bd001f55ebee4c5d629fe47744cdd64aeec/hydrasdr-tools/51-hydrasdr.rules
+        lists idVendor 1fc9, idProduct 000c as "NXP DFU mode device (Firmware
+        update mode)". It is the same pair the HackRF entries record from
+        Debian's 60-libhackrf0.rules, because both boards are built on an NXP
+        LPC4330 whose ROM presents it.
+      confirmed: true
+      node_kind: libusb
+      ambiguity:
+        basis: shared_across_products
+        evidence: >-
+          Debian 13's 60-libhackrf0.rules carries 1fc9:000c for the HackRF and
+          rad1o, and upstream's rule above for the RFOne: three products on one
+          ROM identifier, which names the microcontroller and nothing else.
+        also_used_by:
+          - hackrf-one
+          - hackrf-pro
+          - rad1o
+          - any device built on an NXP LPC4330
+    note: >-
+      Upstream's recovery procedure (the same rfone_fw guide) needs the case
+      opened and a boot switch, SW2, moved to 1-2 before attaching, then its
+      own lpcdfu download from hydrasdr.com, and moving the switch back
+      afterwards. That download is not carried and is not checksummed by this
+      catalog. In this mode the board is an NXP part and says nothing about
+      being a HydraSDR: select it by the port you plugged it into, and do not
+      have two LPC4330 boards in DFU at once.
+
+groups: [plugdev]
+packages: [hydrasdr-host, soapysdr-module-hydrasdr]
+
+documentation:
+  what_it_is: >-
+    A USB software defined radio receiver from HydraSDR, designed by Benjamin
+    Vernoux, the author of the Airspy host code and firmware this design
+    descends from. Upstream's README gives it a range of 24 MHz to 1.8 GHz at
+    up to 10 MSPS and three RF ports, one of them with a bias tee. It is a
+    receiver: the host library has no transmit call.
+  what_you_can_do_with_it: >-
+    General wideband listening through any program that speaks SoapySDR (SDR++,
+    GQRX, CubicSDR, GNU Radio) or the vendor's own tools. Coverage, sensitivity
+    and dynamic range are deliberately not quoted beyond upstream's README:
+    this project has enumerated the software against no board, and D-027 keeps
+    "the identifiers are right" and "it was run here" apart.
+  setup_steps: >-
+    Install the `hydrasdr-host` and `soapysdr-module-hydrasdr` units, run
+    `hammunition hardware apply` to write the udev rule and add yourself to
+    `plugdev`, and log out and back in. `hydrasdr_info` then reports the board
+    and its firmware, and `SoapySDRUtil --find` should list a `hydrasdr`
+    device. Debian 13, Parrot and Ubuntu 24.04 build the host software into
+    /usr/local; Kali and Ubuntu 26.04 take it from apt.
+  known_problems: >-
+    **It shares an identifier with the Airspy R2 and Mini** on boards still on
+    the legacy one (1d50:60a1), which no rule here can tell apart; programs
+    that select by VID:PID pick either. **Nothing was run against a board.**
+    The vendor's firmware tools write the board's flash. A board in DFU
+    recovery is indistinguishable from a HackRF in DFU by identifier. Ubuntu
+    26.04's package is 1.0.3, older than the 1.1.1 the other targets get.
+  upstream_url: https://hydrasdr.com/
