@@ -8454,13 +8454,16 @@ source as the thing to run: they are `hammunition-gps-tether`
 own releases and tests), installed by the `gps-tether` catalog unit and run as a
 systemd user service (D-073, amended 2026-10-02). Nothing about the decision
 changes: the same two loopback ports, the same `GET /position` stream, the
-same flags. `hammunition maps gps-tether` runs the installed program when it
-is present and the engine's own module, with a deprecation note, when it is
-not; the verb and the module go in a later release. The service and a
-foreground run cannot share port 10110. The engine's `gps_tether.py` stays
-for this release (`reference serve`, `doctor` and the GeoClue code reference
-it); deleting it and the verb is the next step. Not yet run as a service on a
-machine.
+same flags. `hammunition maps gps-tether` runs the installed program and, where it is
+absent, refuses with `hammunition install gps-tether`. **Retired 2026-10-02
+(later):** the engine's `gps_tether.py` and its tests are deleted;
+`src/hammunition/tether_contract.py` holds the only values the engine shares
+with the tether (the two ports and the four GeoClue constants), and
+`tests/test_tether_contract.py` asserts they equal the tether project's
+(skipped, saying so, where its source is not beside the checkout or
+installed). `reference serve` validates `--position-port` with
+`reference.position_port`. The service and a foreground run cannot share
+port 10110. Not yet run as a service on a machine.
 
 ---
 
@@ -9011,6 +9014,16 @@ the ACMA and from a Bunker; `--from-acma` over a real Australian extract's
 header (only synthetic headers have been read); QMapShack and Navit drawing
 the layer; and the maintainer's decision whether a Bunker may hold a file
 that carries licensees' client information.
+
+**Ruling, 2026-10-02 (maintainer).** A Hammunition Bunker may hold the
+register zip although it contains `client.csv` (licensees' names and
+addresses, which clause 8 of the register's licence bars passing on),
+because the Bunker exists for operators to download their own data and set
+up their station, the mirror is LAN-only by documented rule, and the engine
+never opens `client.csv`. An operator who does not want it on their NAS sets
+Bunker's `hold_unverified = false` (a switch being added to Bunker now).
+The "owed to the bench" question above is closed by this ruling; the
+install-through-the-engine and drawing checks are still owed.
 
 **Consequences.** `src/hammunition/acma.py`; `RegisterInstall` in
 `src/hammunition/manifest/schema.py`; `Fetcher.fetch_checked`;

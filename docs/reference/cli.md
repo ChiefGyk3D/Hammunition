@@ -464,9 +464,9 @@ once by hand. **The tether is its own project** (D-071 note, 2026-10-02):
 <https://github.com/ChiefGyk3D/hammunition-gps-tether> and a systemd user
 service for it. With that tree installed (or a `hammunition-gps-tether` on the PATH or in
 `~/.local/bin`), this verb **runs it in its place**, passing every option given through, and prints on
-stderr where it is running from; root is refused first. Without it, the verb runs
-the engine's own copy as before, with a note on stderr that it will go away in
-a later release. The service and a foreground run cannot share port 10110. The
+stderr where it is running from; root is refused first. Without it, the verb
+refuses (exit 1) and names `hammunition install gps-tether`; the engine carries
+no copy. The service and a foreground run cannot share port 10110. The
 rest of this section describes the tether itself. It watches gpsd's JSON, as
 `xgps` and Navit do, and writes `$GPRMC` and `$GPGGA` for every position
 with a 2D or 3D fix. It serves them on **127.0.0.1 port 10110 only**, for

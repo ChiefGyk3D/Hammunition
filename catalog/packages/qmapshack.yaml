@@ -85,8 +85,8 @@ documentation:
     its own project, `hammunition-gps-tether`, installed by the `gps-tether`
     unit and run as a user service; the `gps-tether` launcher still runs
     `hammunition maps gps-tether`, which runs that installed program (found on
-    the PATH or in ~/.local/bin, which a menu entry's PATH lacks) and falls back
-    to the engine's own copy, with a note, where it is not installed. **The
+    the PATH or in ~/.local/bin, which a menu entry's PATH lacks) and refuses,
+    naming `hammunition install gps-tether`, where it is not installed. **The
     service and this launcher cannot share port 10110**: with the service
     enabled the launcher's tether says it cannot listen and stops, and the
     service's feed is already the one QMapShack wants. It reads gpsd's

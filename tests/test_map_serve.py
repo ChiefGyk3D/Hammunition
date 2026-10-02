@@ -195,9 +195,24 @@ def test_localhost_is_as_good_as_127_0_0_1(served: int) -> None:
     assert status == 200
 
 
-def test_the_server_is_bound_to_loopback(served: int) -> None:
-    from test_gps_tether import _listening_addresses
+def _listening_addresses(port: int) -> set[str]:
+    """Local addresses of sockets listening on *port*, from /proc/net/tcp."""
+    from pathlib import Path
 
+    found: set[str] = set()
+    for table in ("/proc/net/tcp", "/proc/net/tcp6"):
+        path = Path(table)
+        if not path.exists():
+            continue
+        for line in path.read_text().splitlines()[1:]:
+            fields = line.split()
+            address, port_hex = fields[1].rsplit(":", 1)
+            if int(port_hex, 16) == port and fields[3] == "0A":  # TCP_LISTEN
+                found.add(address)
+    return found
+
+
+def test_the_server_is_bound_to_loopback(served: int) -> None:
     assert _listening_addresses(served) == {"0100007F"}
 
 
@@ -250,3 +265,21 @@ def test_reference_serve_takes_a_position_port(
     monkeypatch.setattr(os, "geteuid", lambda: 1000)
     assert cli.main(["reference", "serve", "--position-port", "80"]) == cli.EXIT_FAILED
     assert "--position-port 80" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("text", "words"),
+    [
+        ("1023", "below 1024"),
+        ("65536", "above 65535"),
+        ("ten", "not a number"),
+        ("-1", "below 1024"),
+    ],
+)
+def test_the_position_port_is_refused_by_name_outside_1024_to_65535(text: str, words: str) -> None:
+    from hammunition import reference
+
+    with pytest.raises(ValueError, match=f"--position-port {text}.*{words}"):
+        reference.position_port(text)
+    assert reference.position_port("10111") == 10111
+    assert reference.position_port("65535") == 65535

@@ -44,6 +44,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from hammunition.backends.base import BackendError, Command, CommandRunner
+from hammunition.tether_contract import (
+    GEOCLUE_DROPIN,
+    GEOCLUE_GROUP,
+    GEOCLUE_HEADER,
+    GEOCLUE_SOCKET,
+)
 
 __all__ = [
     "DAEMON",
@@ -79,7 +85,7 @@ DAEMON = "/usr/libexec/geoclue"
 """GeoClue's daemon, from Debian's ``geoclue-2.0``. Its absence means GeoClue is
 not installed, and nothing here is planned."""
 
-DROPIN = "/etc/geoclue/conf.d/90-hammunition-gps.conf"
+DROPIN = GEOCLUE_DROPIN
 """Read after ``/etc/geoclue/geoclue.conf``, every ``*.conf`` here in order,
 the later winning (``gclue-config.c`` at 2.7.2)."""
 
@@ -90,7 +96,7 @@ SOCKET_DIR = "/run/hammunition-gps"
 """Not under /home, /tmp or /run/user: GeoClue's unit runs as user ``geoclue``
 with ProtectSystem=strict, ProtectHome=true and PrivateTmp=true."""
 
-SOCKET = "/run/hammunition-gps/nmea.sock"
+SOCKET = GEOCLUE_SOCKET
 """Where the tether listens when the drop-in is in place."""
 
 PATHS: dict[str, str] = {
@@ -102,7 +108,7 @@ PATHS: dict[str, str] = {
 }
 """Each attribute and its real default, for the fixtures that repoint them."""
 
-GROUP = "geoclue"
+GROUP = GEOCLUE_GROUP
 """The group GeoClue's daemon runs as (Debian's ``geoclue-2.0`` creates it)."""
 
 DIR_MODE = 0o2750
@@ -115,7 +121,7 @@ DEMO_AGENT = "org.freedesktop.GeoClue2.DemoAgent"
 2026-10-01). ``geoclue-2.0`` autostarts it on every desktop but GNOME from
 ``/etc/xdg/autostart/geoclue-demo-agent.desktop``; GNOME Shell is its own agent."""
 
-HEADER = "# Written by `hammunition hardware apply` (D-069)."
+HEADER = GEOCLUE_HEADER
 
 DISCLOSURES: tuple[str, ...] = (
     "GeoClue reads its configuration only when it starts; it exits after 60 s with "
