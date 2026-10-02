@@ -735,6 +735,8 @@ the CAT service and the PTT-only service are two complete services chosen by
 | `exec` | `list[str]` | **yes** |  |
 | `binds_to_device` | `str \| None` | no |  |
 | `listens` | `list[UserServiceListen]` | no |  |
+| `restart` | `Literal[on-failure, always, no]` | no (default `on-failure`) | systemd's Restart=, from a fixed set; never free text in a unit file. |
+| `restart_sec` | `int` | no (default `5`) | RestartSec=, in seconds (1 to 300). |
 
 ### `UserServiceListen`
 

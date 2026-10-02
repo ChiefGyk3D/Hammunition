@@ -589,7 +589,9 @@ class UserServiceLine(Strict):
     exec: str = described("the service's command line, with the device serial elided")
     fills: tuple[str, ...] = described("the station values that fed it, by name; never the values")
     listen: str = described("the loopback address:port it binds, e.g. 127.0.0.1:4532")
-    starts_now: bool = described("whether the plan restarts it now (a rig service whose radio's port is present)")
+    starts_now: bool = described(
+        "whether the plan restarts it now (a rig service whose radio's port is present)"
+    )
 
 
 @dataclass(frozen=True)
