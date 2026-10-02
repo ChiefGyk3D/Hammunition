@@ -122,7 +122,8 @@ def test_the_installed_program_is_really_run_and_its_exit_follows(
         [
             sys.executable,
             "-c",
-            "import sys; from hammunition.cli.main import main; main(sys.argv[1:])",
+            "import os, sys; os.geteuid = lambda: 1000  # also true under unshare -r\n"
+            "from hammunition.cli.main import main; main(sys.argv[1:])",
             "maps",
             "gps-tether",
             "--port",
