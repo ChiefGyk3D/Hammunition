@@ -22,22 +22,128 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   maintainer's ruling that a Bunker may hold the ACMA register zip (it contains
   `client.csv`, never opened by the engine) is recorded, with Bunker's
   `hold_unverified = false` as the opt-out.
-- **The tray units re-pinned to hammunition-tray v0.5.0, and they install its
-  device helper** (**D-056** amended 2026-10-02, later). The release publishes
-  no `.deb` yet, so both units pin the tag's archive (sha256 `614148fb…`,
-  measured twice) and the engine places its files: the Plasma applet, the Qt
-  tray, and the helper (`devctl_helper`: code copied to
-  `/usr/local/lib/hammunition-devctl`, the tray's wrapper with the engine's venv
-  interpreter, the polkit action), all printed in the plan, read back with
-  `--version`, removed by `uninstall` on the log's say-so and only when no other
-  tray unit still needs the helper. A helper another installer owns (a `.deb`,
-  the tray's `install.sh`) is left alone and the plan names the owner, an earlier
-  run of this engine's is refreshed, and a file a package owns is never written
-  over or removed; an interpreter tree any account can write refuses, one only its
-  owner can write asks a `yes` that `--yes` does not answer. New manifest
-  fields `placements`, `placement_dirs` and `devctl_helper` on a `binary`
-  archive, with an allow-list of destinations; `depends` carries what the
-  `.deb`'s Depends line did.
+
+## v0.19.0 — 2026-10-02 — the rig as station data, repeater sources, infrastructure layers, GraphHopper, terrain for coverage plots, the tether as its own project, device and service control for the tray
+
+Twenty pull requests since v0.18.0 (#176, #178-#196), 20 entries.
+
+- **The rig is station data: one shared `rigctld` for every program**
+  (**D-073**, status proposed, bench owed). A `rig` hardware class and a
+  `rig` block on a radio's manifest describe the radio — a hamlib model and
+  CAT port, or a `ptt_only` shape for a radio with no CAT — and five station
+  values (`rig`, `rig_device`, `rig_baud`, `rig_ptt_line`, `rig_owner`),
+  checked against the catalog and this machine's hamlib as you set them, say
+  which radio is on the station. A new `rig-service` unit in the `station`
+  profile carries a `user_services` manifest block: the engine renders one
+  `rigctld` as a systemd **user** service bound to `127.0.0.1:4532`, enables
+  it, discloses the unit file and the no-password warning in the plan, and
+  removes only its own file on uninstall. A missing value defers the service
+  and the rest installs (D-035); `rig_owner: flrig` and VOX skip it. The
+  FT-991A (CAT) and the UV-50PRO (PTT-only) ship `untested`. Opt-in
+  `hammunition station set --unattended` keeps user services running after
+  logout through a new `hammunition-devctl linger` verb behind the existing
+  polkit action. A browser-producible HTTP POST was measured to key hamlib's
+  dummy model over loopback, so a small loopback filter (`hammunition.rigproxy`)
+  sits in front: `rigctld` binds `127.0.0.1:4632` and the filter binds the port
+  programs use, 4532, dropping any connection that opens with an HTTP request
+  line; a regression test guards it. `doctor` checks both services read-only and
+  never keys the transmitter. gpredict's radio file is written for the shared
+  `rigctld`; `docs/guides/rig-control.md` is rewritten around the service.
+
+- **Repeater data beyond RepeaterBook, one layer per source** (D-074).
+  `open-repeater` is a new data unit: Open Repeater's CC0 list (241 kB,
+  461 repeaters, none yet in the US), pinned by sha256 in its manifest by
+  `scripts/gen_open-repeater-pin.py`, checked weekly, mirrorable through a
+  Bunker. `hammunition maps repeaters import` gains
+  `--from-open-repeater [FILE]`, `--from-osm` (the repeaters tagged in the
+  region extracts already installed, filtered by osmium, nothing
+  downloaded) and `--from-direwolf-log FILE...` (the APRS repeater objects
+  your station heard, its own layer, never merged). `fetch-etcc` (the
+  UK's RSGB list) and `fetch-brandmeister` (DMR repeaters only; every
+  hotspot dropped before anything is written) fetch on request and are
+  marked unverified. Each source is its own layer; with two or more,
+  `repeaters-all.gpx` joins them by a stated precedence and counts every
+  join. `maps repeaters remove --layer ID` removes one. The `repeaters`
+  and `repeaters-removed` documents gain `layer_id`, `layers` and
+  `all_sources`. RepeaterBook bulk, RadioReference, RFinder, the ARRL
+  directory, FCC ULS, RadioID, the WIA list, repeatermap.de and the D-STAR,
+  YSF and NXDN lists are documented as not carried; ACMA's register is
+  named as a later data unit.
+
+- **Australia's repeaters from the regulator** (D-074, amended
+  2026-10-01). `acma-register` installs the ACMA's Register of
+  Radiocommunications Licences, one 67.5 MB zip rebuilt daily, through a
+  new `register` install method. The ACMA publishes no checksum (its ETag
+  is a storage version stamp, not a digest), so nothing is pinned: the
+  zip's own CRC-32s and the tables the import reads are checked, the plan
+  says **unverified**, and the unit is in no profile. `hammunition maps
+  repeaters import --from-acma` writes the `acma` layer, *Repeaters (ACMA,
+  YYYY-MM-DD)*, from the granted amateur repeater licences whose site lies
+  inside an installed map region's bounding box, with the attribution the
+  licence requires; it never opens the licensees' table. The regulator
+  comes second in the all-sources precedence, after your own export.
+  `hammunition artifacts` lists it for a Bunker as `unverified-zip`, with
+  the day's size and no digest.
+
+- **Infrastructure and EMCOMM layers on the maps** (D-075). `hammunition
+  maps infra import --from-osm` filters the installed region extracts with
+  osmium into eight layers (medical, responders, supply, shelter
+  candidates, which say "candidate, not a designated shelter", transport,
+  power, telecom, water), each a GPX, a QMapShack POI collection, a Navit
+  map and a GeoJSON in `~/.local/share/hammunition/overlays/infra/`;
+  nothing is downloaded. Three new data units in no profile:
+  `faa-nasr-airports` (FAA NASR cycle 2026-10-01), `eia-860m` (August 2026)
+  and `wri-power-plants` (v1.3.0, outside the US only), read by
+  `--from-nasr`, `--from-eia` and `--from-wri` and kept to the regions'
+  boxes; their pins are written by `scripts/gen_nasr_pin.py`,
+  `scripts/gen_eia860m_pin.py` (with `--follow-move` for EIA's monthly
+  archive move) and `scripts/gen_wri_pin.py`, all three in the weekly pin
+  review. `fetch-fcc-asr` (only the registration and coordinate records;
+  the owners' contact file is never opened) and `fetch-nwr` (the live
+  status dropped) fetch on request, unverified. `maps infra remove
+  [--layer ID]`; documents `infra` and `infra-removed`. The browser map's
+  tiles gain an `infra` layer (the converter is `tilemaker-pmtiles 2`, so
+  each region is rebuilt once), power coloured by Open Infrastructure Map's
+  voltage ramp under its BSD-3-Clause notice, and every infra layer is a
+  toggled overlay with its licence in the credit. The operator's Navit copy
+  and QMapShack's `poiPaths` now carry repeater and infrastructure layers
+  together.
+
+- **Routes on the browser map: GraphHopper** (D-076). Two units, installed
+  by name only and in no profile: `graphhopper`, Maven Central's
+  `graphhopper-web-11.1.jar` pinned by the sha256 measured equal to
+  Central's own (its PGP signature recorded, not verified), installed as a
+  tree of one file now that a binary `executable` block may install as a
+  tree; and `graphhopper-graph`, a new `graphhopper-import` converter that
+  merges the station's regions with `osmium` and builds one graph with car,
+  bike, foot and hike profiles as the operator, the plan disclosing 3.7x
+  the downloads on disk and 1.2 GB of memory from one measured region.
+  `hammunition reference serve` starts GraphHopper on a loopback port the
+  system chooses, through links to the read-only graph in the operator's
+  cache, and answers `/map/route` itself after its Host rule, rebuilding
+  the request; a GraphHopper that exits is reported once and the page keeps
+  serving. The map gains *Route for*, *Route* and *Clear*, starting from the
+  tether's position, and `#route=` in the address. `update` names the graph
+  in its rebuild command. Measured on the development host with synthetic
+  regions; a real region and a desktop browser are owed by the bench.
+
+- **SPLAT! and Signal-Server terrain from the station's elevation**
+  (D-061, amended 2026-10-02; the gap report's A5). `splat-sdf` makes
+  SPLAT Data Files for every square the map regions touch, at one and three
+  arc seconds, from the Copernicus tiles or from 3DEP when the station chose
+  it, with SPLAT's own `srtm2sdf` tools run as `-n -32767` (by default they
+  replace every elevation below zero) and kept bzip2-compressed, which both
+  readers read; a link beside each file carries Signal-Server's name.
+  `signal-server` is W3AXL's fork at 7f6242a: Cloud-RF's repository now
+  holds only a history README. It is built with the release flags without
+  `NDEBUG`, because its ITWOM arrays are allocated inside `assert()`, and the
+  guide's command passes `-nothreads`, because the threaded plot crashed 2
+  times in 10. Both join `antenna`, where `splat` is. `hammunition maps
+  splat` writes `~/.splat_path` when there is none. The plan's Terrain block
+  says what is made, in text and JSON. CMake builds now honour
+  `project_file` as the source subdirectory, as the schema always said.
+  Measured on one Copernicus tile and in a container; not yet run through
+  an install on a real region.
 
 - **User services generalised; the GPS tether installed from its own project
   as one** (**D-073** amended 2026-10-02, **D-071** note). A `user_services`
@@ -70,6 +176,7 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   documented gap (`pci_runtime` stays refused; the radio switch is the
   route). No park has been run on any of them, so none is
   maintainer-verified. Catalog is now 31 devices, 9 classes.
+
 - **The device helper moves to hammunition-tray: the engine exports its lists
   and gains `hammunition services`** (**D-056**, amended 2026-10-02). `hardware
   apply` now writes `/etc/hammunition/devctl-devices.yaml` (every catalogued
@@ -88,100 +195,116 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   release installs them, and the re-pin adds its `.deb`), and the engine's own
   polkit action now carries the tray's wording. Shapes: `docs/reference/devctl-lists.md`. Not measured: the
   tray's helper reading the lists, and `apply` and `services` on a machine.
-- **Australia's repeaters from the regulator** (D-074, amended
-  2026-10-01). `acma-register` installs the ACMA's Register of
-  Radiocommunications Licences, one 67.5 MB zip rebuilt daily, through a
-  new `register` install method. The ACMA publishes no checksum (its ETag
-  is a storage version stamp, not a digest), so nothing is pinned: the
-  zip's own CRC-32s and the tables the import reads are checked, the plan
-  says **unverified**, and the unit is in no profile. `hammunition maps
-  repeaters import --from-acma` writes the `acma` layer, *Repeaters (ACMA,
-  YYYY-MM-DD)*, from the granted amateur repeater licences whose site lies
-  inside an installed map region's bounding box, with the attribution the
-  licence requires; it never opens the licensees' table. The regulator
-  comes second in the all-sources precedence, after your own export.
-  `hammunition artifacts` lists it for a Bunker as `unverified-zip`, with
-  the day's size and no digest.
-- **Routes on the browser map: GraphHopper** (D-076). Two units, installed
-  by name only and in no profile: `graphhopper`, Maven Central's
-  `graphhopper-web-11.1.jar` pinned by the sha256 measured equal to
-  Central's own (its PGP signature recorded, not verified), installed as a
-  tree of one file now that a binary `executable` block may install as a
-  tree; and `graphhopper-graph`, a new `graphhopper-import` converter that
-  merges the station's regions with `osmium` and builds one graph with car,
-  bike, foot and hike profiles as the operator, the plan disclosing 3.7x
-  the downloads on disk and 1.2 GB of memory from one measured region.
-  `hammunition reference serve` starts GraphHopper on a loopback port the
-  system chooses, through links to the read-only graph in the operator's
-  cache, and answers `/map/route` itself after its Host rule, rebuilding
-  the request; a GraphHopper that exits is reported once and the page keeps
-  serving. The map gains *Route for*, *Route* and *Clear*, starting from the
-  tether's position, and `#route=` in the address. `update` names the graph
-  in its rebuild command. Measured on the development host with synthetic
-  regions; a real region and a desktop browser are owed by the bench.
-- **SPLAT! and Signal-Server terrain from the station's elevation**
-  (D-061, amended 2026-10-02; the gap report's A5). `splat-sdf` makes
-  SPLAT Data Files for every square the map regions touch, at one and three
-  arc seconds, from the Copernicus tiles or from 3DEP when the station chose
-  it, with SPLAT's own `srtm2sdf` tools run as `-n -32767` (by default they
-  replace every elevation below zero) and kept bzip2-compressed, which both
-  readers read; a link beside each file carries Signal-Server's name.
-  `signal-server` is W3AXL's fork at 7f6242a: Cloud-RF's repository now
-  holds only a history README. It is built with the release flags without
-  `NDEBUG`, because its ITWOM arrays are allocated inside `assert()`, and the
-  guide's command passes `-nothreads`, because the threaded plot crashed 2
-  times in 10. Both join `antenna`, where `splat` is. `hammunition maps
-  splat` writes `~/.splat_path` when there is none. The plan's Terrain block
-  says what is made, in text and JSON. CMake builds now honour
-  `project_file` as the source subdirectory, as the schema always said.
-  Measured on one Copernicus tile and in a container; not yet run through
-  an install on a real region.
-- **Infrastructure and EMCOMM layers on the maps** (D-075). `hammunition
-  maps infra import --from-osm` filters the installed region extracts with
-  osmium into eight layers (medical, responders, supply, shelter
-  candidates, which say "candidate, not a designated shelter", transport,
-  power, telecom, water), each a GPX, a QMapShack POI collection, a Navit
-  map and a GeoJSON in `~/.local/share/hammunition/overlays/infra/`;
-  nothing is downloaded. Three new data units in no profile:
-  `faa-nasr-airports` (FAA NASR cycle 2026-10-01), `eia-860m` (August 2026)
-  and `wri-power-plants` (v1.3.0, outside the US only), read by
-  `--from-nasr`, `--from-eia` and `--from-wri` and kept to the regions'
-  boxes; their pins are written by `scripts/gen_nasr_pin.py`,
-  `scripts/gen_eia860m_pin.py` (with `--follow-move` for EIA's monthly
-  archive move) and `scripts/gen_wri_pin.py`, all three in the weekly pin
-  review. `fetch-fcc-asr` (only the registration and coordinate records;
-  the owners' contact file is never opened) and `fetch-nwr` (the live
-  status dropped) fetch on request, unverified. `maps infra remove
-  [--layer ID]`; documents `infra` and `infra-removed`. The browser map's
-  tiles gain an `infra` layer (the converter is `tilemaker-pmtiles 2`, so
-  each region is rebuilt once), power coloured by Open Infrastructure Map's
-  voltage ramp under its BSD-3-Clause notice, and every infra layer is a
-  toggled overlay with its licence in the credit. The operator's Navit copy
-  and QMapShack's `poiPaths` now carry repeater and infrastructure layers
-  together.
 
-- **The rig is station data: one shared `rigctld` for every program**
-  (**D-073**, status proposed, bench owed). A `rig` hardware class and a
-  `rig` block on a radio's manifest describe the radio — a hamlib model and
-  CAT port, or a `ptt_only` shape for a radio with no CAT — and five station
-  values (`rig`, `rig_device`, `rig_baud`, `rig_ptt_line`, `rig_owner`),
-  checked against the catalog and this machine's hamlib as you set them, say
-  which radio is on the station. A new `rig-service` unit in the `station`
-  profile carries a `user_services` manifest block: the engine renders one
-  `rigctld` as a systemd **user** service bound to `127.0.0.1:4532`, enables
-  it, discloses the unit file and the no-password warning in the plan, and
-  removes only its own file on uninstall. A missing value defers the service
-  and the rest installs (D-035); `rig_owner: flrig` and VOX skip it. The
-  FT-991A (CAT) and the UV-50PRO (PTT-only) ship `untested`. Opt-in
-  `hammunition station set --unattended` keeps user services running after
-  logout through a new `hammunition-devctl linger` verb behind the existing
-  polkit action. A browser-producible HTTP POST was measured to key hamlib's
-  dummy model over loopback, so a small loopback filter (`hammunition.rigproxy`)
-  sits in front: `rigctld` binds `127.0.0.1:4632` and the filter binds the port
-  programs use, 4532, dropping any connection that opens with an HTTP request
-  line; a regression test guards it. `doctor` checks both services read-only and
-  never keys the transmitter. gpredict's radio file is written for the shared
-  `rigctld`; `docs/guides/rig-control.md` is rewritten around the service.
+- **`hammunition-tray` and `hammunition-tray-qt` re-pinned to v0.4.0**
+  (GPS-time plan Task 11, D-058). Both catalog manifests moved from v0.3.0
+  to the v0.4.0 release assets, measured against the published SHA256SUMS:
+  `hammunition-tray_0.4.0_all.deb` (15270 bytes,
+  `451bea9322376dbb9cd00834834f96e0f5d5ce487735d5fbe2349e2ae41e97bd`) and
+  `hammunition-tray-qt_0.4.0_all.deb` (18198 bytes,
+  `21ccc91e2f8a46a5213c9200fc0f33661d2075bfaee360cc50b0158981a46527`); both
+  Depends lines are unchanged from 0.3.0. 0.4.0 adds the Time section to
+  both trays: what the clock follows and the four GPS-time modes, read
+  without a password and changed through one polkit prompt to
+  `hammunition-devctl`, needing Hammunition 0.18.0 or later. Both
+  `what_it_does` fields gain a sentence for it, and the two places that had
+  written "its 0.3.0" for the still-unreleased Time section
+  (`docs/guides/gps-time.md` §5, D-058's "The tray" paragraph) are corrected
+  to 0.4.0.
+
+- **The tray units re-pinned to hammunition-tray v0.5.0, and they install its
+  device helper** (**D-056** amended 2026-10-02, later). The release publishes
+  no `.deb` yet, so both units pin the tag's archive (sha256 `614148fb…`,
+  measured twice) and the engine places its files: the Plasma applet, the Qt
+  tray, and the helper (`devctl_helper`: code copied to
+  `/usr/local/lib/hammunition-devctl`, the tray's wrapper with the engine's venv
+  interpreter, the polkit action), all printed in the plan, read back with
+  `--version`, removed by `uninstall` on the log's say-so and only when no other
+  tray unit still needs the helper. A helper another installer owns (a `.deb`,
+  the tray's `install.sh`) is left alone and the plan names the owner, an earlier
+  run of this engine's is refreshed, and a file a package owns is never written
+  over or removed; an interpreter tree any account can write refuses, one only its
+  owner can write asks a `yes` that `--yes` does not answer. New manifest
+  fields `placements`, `placement_dirs` and `devctl_helper` on a `binary`
+  archive, with an allow-list of destinations; `depends` carries what the
+  `.deb`'s Depends line did.
+
+- **piHPSDR and DroidStar are carried; FreeDV 2.x is not yet** (gap
+  analysis D.10, first batch; Q-022 says these need a D-032 check and a
+  measured build, not a ruling). `pihpsdr` is the operating program for
+  OpenHPSDR transceivers (ANAN, Hermes Lite 2), a `make` build of DL1YCF's
+  tag v3.0 in the `sdr` profile beside Quisk. `droidstar` is a reflector
+  client for M17, DMR, D-STAR, Fusion, P25 and NXDN with its vocoders
+  compiled in, an own-choice commit pin in `digital-modes` beside `qtel`, on
+  Debian 13, Parrot, Kali and Ubuntu 26.04 (Ubuntu 24.04 and Mint have Qt
+  6.4, below its floor); a two-line patch turns off its ARM-only MD-380
+  firmware vocoder, and only its executable is installed because its
+  install rule deploys Qt into the prefix. Both transmit when keyed, and
+  their pages and profiles say so. FreeDV 2.4.0 builds, but fetches RADE's
+  C port and RNNoise from `main` while building: `source-build-gaps.md` #9,
+  a row in `not-carried.md` (whose generator now validates the
+  gap-analysis "Not added" rows too), and a note on `freedv`, which is
+  1.8.11 without RADE on every target.
+
+- **dump978-fa, nrsc5, LibreVNA, k5prog and radio_tool are carried;
+  tar1090 is not yet** (gap analysis D.10, second batch). `dump978-fa`
+  decodes 978 MHz UAT, the second ADS-B link, beside `readsb` in
+  `listening`, which readsb can take as a second input. `nrsc5` receives HD
+  Radio in `listening`; its build's FAAD2 download is made sha256-checked
+  by a two-line patch (`source-build-gaps.md` #10). `librevna` is the
+  program for the open-hardware LibreVNA in `electronics`, with a device
+  entry that is not owned; its SCPI server listens on every address by
+  default, and its page says so. `k5prog` (Quansheng UV-K5) and
+  `radio-tool` (OpenRTX's Linux flasher for TYT, Baofeng and Radioddity
+  DMR radios) write firmware to radios: ungated by D-026, in no profile,
+  and their pages say what they write. radio_tool is pinned past its last
+  tag, which cannot flash. tar1090's installer was read and not run; its
+  page works from a static server on loopback over readsb's JSON, so its
+  route is a `reference serve` page, which is engine work (`not-carried.md`).
+  Every build was run in rootless containers; no radio, dongle or VNA was.
+
+- **The GPS receiver gets a resume step** (issue #177, D-058 amended
+  2026-10-01). Measured on the field laptop: a USB receiver is not
+  re-enumerated across a suspend, so gpsd can keep a tty that has gone quiet
+  and the fix does not come back. Where gpsd is installed,
+  `hammunition hardware apply` now installs
+  `/usr/local/libexec/hammunition-gps-resume` and
+  `hammunition-gps-resume.service`, a oneshot that runs after every suspend
+  or hibernation. It does nothing when no `/dev/gpsN` exists, so a parked
+  receiver stays parked. Otherwise it runs `gpsdctl remove` and `add` for
+  each receiver, and `systemctl try-restart gpsd.service` if gpsd then
+  reports no device, logging one journal line per action. It makes no
+  check that data flows, so a receiver gpsd still lists but that stays
+  silent is left to the manual steps: a gpsd restart, then park and wake.
+  Both files are printed in the plan, read back after the run and removed
+  by `hardware unapply`. `--no-gps-resume` opts
+  out, and `doctor` reports the step when a receiver is attached. The
+  catalog names the step (`resume: {step: gpsd_reopen}` on the
+  `gps-receiver` class), and that class's page gains "After suspend". It
+  has not yet run on the field laptop; the bench steps are on the issue.
+  After merge: `hammunition hardware apply`.
+
+- **CoMaps can show "you are here", through GeoClue** (D-069, amended
+  2026-10-01). `hammunition maps gps-tether` gains `--nmea-socket PATH`: a
+  unix socket, mode 0660 in GeoClue's group, fed by the same fan-out as TCP
+  10110; it is on by default once GeoClue is set up, and `--no-nmea-socket`
+  turns it off. `hammunition hardware apply` writes
+  `/etc/geoclue/conf.d/90-hammunition-gps.conf` (GeoClue's network-NMEA
+  source reads that socket) and `/etc/tmpfiles.d/hammunition-gps.conf`
+  (`/run/hammunition-gps`, 2750, setgid `geoclue`), with every file, the
+  inspect and reverse steps and four disclosures in the plan; GeoClue's own
+  beacondb and GeoIP lookups are not changed, and the plan says so.
+  `--no-geoclue` skips it, and `hardware unapply` removes it by content.
+  `doctor` reports the files, the directory and whether GeoClue's demo
+  agent is running. `comaps` depends on `geoclue-2.0` and
+  `libqt6positioning6-plugins`. No `[app.comaps.comaps]` entry: a native
+  CoMaps is a system app to GeoClue. Measured with Debian's GeoClue in a
+  private namespace, not yet on a desktop; the guide's section 17 lists
+  what the bench owes. After merge: `hammunition hardware apply`, then log
+  out and back in. Where CoMaps is already built, `hammunition install
+  comaps --dry-run` shows whether the two new packages are planned (not
+  checked on a machine with CoMaps at its pin); if they are not,
+  `sudo apt install geoclue-2.0 libqt6positioning6-plugins` adds them.
 
 - **Forest Service FSTopo sheets and USGS 3DEP bare-earth elevation**
   (D-068, amended 2026-10-01). `usfs-fstopo` installs the FSTopo
@@ -206,22 +329,6 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   default and stays installed. The plan prints both, per region, in text
   and JSON. QMapShack drawing either is not yet measured.
 
-- **`hammunition-tray` and `hammunition-tray-qt` re-pinned to v0.4.0**
-  (GPS-time plan Task 11, D-058). Both catalog manifests moved from v0.3.0
-  to the v0.4.0 release assets, measured against the published SHA256SUMS:
-  `hammunition-tray_0.4.0_all.deb` (15270 bytes,
-  `451bea9322376dbb9cd00834834f96e0f5d5ce487735d5fbe2349e2ae41e97bd`) and
-  `hammunition-tray-qt_0.4.0_all.deb` (18198 bytes,
-  `21ccc91e2f8a46a5213c9200fc0f33661d2075bfaee360cc50b0158981a46527`); both
-  Depends lines are unchanged from 0.3.0. 0.4.0 adds the Time section to
-  both trays: what the clock follows and the four GPS-time modes, read
-  without a password and changed through one polkit prompt to
-  `hammunition-devctl`, needing Hammunition 0.18.0 or later. Both
-  `what_it_does` fields gain a sentence for it, and the two places that had
-  written "its 0.3.0" for the still-unreleased Time section
-  (`docs/guides/gps-time.md` §5, D-058's "The tray" paragraph) are corrected
-  to 0.4.0.
-
 - **Kiwix books come through the LAN mirror, and `artifacts` lists them**
   (issue #159, D-070 amended 2026-10-01, D-066). The books backend fetched
   from download.kiwix.org only, whatever the station's mirror; it now asks
@@ -234,61 +341,6 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   and it is now among the default units. The `artifacts` document gains
   `reference_books`. Books are the largest data the catalog fetches, up to
   127 GB.
-- **`import hammunition.fetch` no longer raises a circular `ImportError`
-  when it is the first `hammunition` import in the process** (issue #158).
-  `src/hammunition/backends/__init__.py` eagerly imports every backend, six of
-  which (`apt_repo`, `binary`, `data`, `git`, `node`, `regions`, `source`,
-  `venv`) named `hammunition.fetch` symbols at module scope purely for type
-  annotations or late-needed helpers; `hammunition.cli.main`'s own import
-  order happened to prime `sys.modules` around it, which is why the engine's
-  CLI never hit it while Hammunition Bunker's `enginelib.py` did. Those
-  imports now move under `TYPE_CHECKING` (annotations, deferred by
-  `from __future__ import annotations` anyway) or become local imports at
-  their one or two call sites (`MirrorPath`, `fetch_disclosure`,
-  `record_fetch`, `safe_name`, `operator_dir`, `remove_tree`,
-  `UrllibTransport`) — never a bare `try`/`except ImportError`.
-  `tests/test_import_isolation.py` imports every `hammunition` module alone
-  in a fresh subprocess so this cannot come back silently.
-
-- **The GPS receiver gets a resume step** (issue #177, D-058 amended
-  2026-10-01). Measured on the field laptop: a USB receiver is not
-  re-enumerated across a suspend, so gpsd can keep a tty that has gone quiet
-  and the fix does not come back. Where gpsd is installed,
-  `hammunition hardware apply` now installs
-  `/usr/local/libexec/hammunition-gps-resume` and
-  `hammunition-gps-resume.service`, a oneshot that runs after every suspend
-  or hibernation. It does nothing when no `/dev/gpsN` exists, so a parked
-  receiver stays parked. Otherwise it runs `gpsdctl remove` and `add` for
-  each receiver, and `systemctl try-restart gpsd.service` if gpsd then
-  reports no device, logging one journal line per action. It makes no
-  check that data flows, so a receiver gpsd still lists but that stays
-  silent is left to the manual steps: a gpsd restart, then park and wake.
-  Both files are printed in the plan, read back after the run and removed
-  by `hardware unapply`. `--no-gps-resume` opts
-  out, and `doctor` reports the step when a receiver is attached. The
-  catalog names the step (`resume: {step: gpsd_reopen}` on the
-  `gps-receiver` class), and that class's page gains "After suspend". It
-  has not yet run on the field laptop; the bench steps are on the issue.
-  After merge: `hammunition hardware apply`.
-- **Repeater data beyond RepeaterBook, one layer per source** (D-074).
-  `open-repeater` is a new data unit: Open Repeater's CC0 list (241 kB,
-  461 repeaters, none yet in the US), pinned by sha256 in its manifest by
-  `scripts/gen_open-repeater-pin.py`, checked weekly, mirrorable through a
-  Bunker. `hammunition maps repeaters import` gains
-  `--from-open-repeater [FILE]`, `--from-osm` (the repeaters tagged in the
-  region extracts already installed, filtered by osmium, nothing
-  downloaded) and `--from-direwolf-log FILE...` (the APRS repeater objects
-  your station heard, its own layer, never merged). `fetch-etcc` (the
-  UK's RSGB list) and `fetch-brandmeister` (DMR repeaters only; every
-  hotspot dropped before anything is written) fetch on request and are
-  marked unverified. Each source is its own layer; with two or more,
-  `repeaters-all.gpx` joins them by a stated precedence and counts every
-  join. `maps repeaters remove --layer ID` removes one. The `repeaters`
-  and `repeaters-removed` documents gain `layer_id`, `layers` and
-  `all_sources`. RepeaterBook bulk, RadioReference, RFinder, the ARRL
-  directory, FCC ULS, RadioID, the WIA list, repeatermap.de and the D-STAR,
-  YSF and NXDN lists are documented as not carried; ACMA's register is
-  named as a later data unit.
 
 - **A generated launcher no longer takes a PATH binary's name** (issue
   #174). `~/.local/bin/rigctl`, libhamlib-utils' launcher, ran ahead of
@@ -308,59 +360,22 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   list. `hammunition menus apply` removes a generated launcher that shadows
   a PATH binary, with its menu entry, and writes the renamed one; `doctor`'s
   launchers check names one. After merge: `hammunition menus apply`.
-- **CoMaps can show "you are here", through GeoClue** (D-069, amended
-  2026-10-01). `hammunition maps gps-tether` gains `--nmea-socket PATH`: a
-  unix socket, mode 0660 in GeoClue's group, fed by the same fan-out as TCP
-  10110; it is on by default once GeoClue is set up, and `--no-nmea-socket`
-  turns it off. `hammunition hardware apply` writes
-  `/etc/geoclue/conf.d/90-hammunition-gps.conf` (GeoClue's network-NMEA
-  source reads that socket) and `/etc/tmpfiles.d/hammunition-gps.conf`
-  (`/run/hammunition-gps`, 2750, setgid `geoclue`), with every file, the
-  inspect and reverse steps and four disclosures in the plan; GeoClue's own
-  beacondb and GeoIP lookups are not changed, and the plan says so.
-  `--no-geoclue` skips it, and `hardware unapply` removes it by content.
-  `doctor` reports the files, the directory and whether GeoClue's demo
-  agent is running. `comaps` depends on `geoclue-2.0` and
-  `libqt6positioning6-plugins`. No `[app.comaps.comaps]` entry: a native
-  CoMaps is a system app to GeoClue. Measured with Debian's GeoClue in a
-  private namespace, not yet on a desktop; the guide's section 17 lists
-  what the bench owes. After merge: `hammunition hardware apply`, then log
-  out and back in. Where CoMaps is already built, `hammunition install
-  comaps --dry-run` shows whether the two new packages are planned (not
-  checked on a machine with CoMaps at its pin); if they are not,
-  `sudo apt install geoclue-2.0 libqt6positioning6-plugins` adds them.
-- **piHPSDR and DroidStar are carried; FreeDV 2.x is not yet** (gap
-  analysis D.10, first batch; Q-022 says these need a D-032 check and a
-  measured build, not a ruling). `pihpsdr` is the operating program for
-  OpenHPSDR transceivers (ANAN, Hermes Lite 2), a `make` build of DL1YCF's
-  tag v3.0 in the `sdr` profile beside Quisk. `droidstar` is a reflector
-  client for M17, DMR, D-STAR, Fusion, P25 and NXDN with its vocoders
-  compiled in, an own-choice commit pin in `digital-modes` beside `qtel`, on
-  Debian 13, Parrot, Kali and Ubuntu 26.04 (Ubuntu 24.04 and Mint have Qt
-  6.4, below its floor); a two-line patch turns off its ARM-only MD-380
-  firmware vocoder, and only its executable is installed because its
-  install rule deploys Qt into the prefix. Both transmit when keyed, and
-  their pages and profiles say so. FreeDV 2.4.0 builds, but fetches RADE's
-  C port and RNNoise from `main` while building: `source-build-gaps.md` #9,
-  a row in `not-carried.md` (whose generator now validates the
-  gap-analysis "Not added" rows too), and a note on `freedv`, which is
-  1.8.11 without RADE on every target.
-- **dump978-fa, nrsc5, LibreVNA, k5prog and radio_tool are carried;
-  tar1090 is not yet** (gap analysis D.10, second batch). `dump978-fa`
-  decodes 978 MHz UAT, the second ADS-B link, beside `readsb` in
-  `listening`, which readsb can take as a second input. `nrsc5` receives HD
-  Radio in `listening`; its build's FAAD2 download is made sha256-checked
-  by a two-line patch (`source-build-gaps.md` #10). `librevna` is the
-  program for the open-hardware LibreVNA in `electronics`, with a device
-  entry that is not owned; its SCPI server listens on every address by
-  default, and its page says so. `k5prog` (Quansheng UV-K5) and
-  `radio-tool` (OpenRTX's Linux flasher for TYT, Baofeng and Radioddity
-  DMR radios) write firmware to radios: ungated by D-026, in no profile,
-  and their pages say what they write. radio_tool is pinned past its last
-  tag, which cannot flash. tar1090's installer was read and not run; its
-  page works from a static server on loopback over readsb's JSON, so its
-  route is a `reference serve` page, which is engine work (`not-carried.md`).
-  Every build was run in rootless containers; no radio, dongle or VNA was.
+
+- **`import hammunition.fetch` no longer raises a circular `ImportError`
+  when it is the first `hammunition` import in the process** (issue #158).
+  `src/hammunition/backends/__init__.py` eagerly imports every backend, six of
+  which (`apt_repo`, `binary`, `data`, `git`, `node`, `regions`, `source`,
+  `venv`) named `hammunition.fetch` symbols at module scope purely for type
+  annotations or late-needed helpers; `hammunition.cli.main`'s own import
+  order happened to prime `sys.modules` around it, which is why the engine's
+  CLI never hit it while Hammunition Bunker's `enginelib.py` did. Those
+  imports now move under `TYPE_CHECKING` (annotations, deferred by
+  `from __future__ import annotations` anyway) or become local imports at
+  their one or two call sites (`MirrorPath`, `fetch_disclosure`,
+  `record_fetch`, `safe_name`, `operator_dir`, `remove_tree`,
+  `UrllibTransport`) — never a bare `try`/`except ImportError`.
+  `tests/test_import_isolation.py` imports every `hammunition` module alone
+  in a fresh subprocess so this cannot come back silently.
 
 - **`CHECKS` now names `sha1-publisher`** (**D-070**, **D-069**). The
   `artifacts` document's `check` field was already described as able to
