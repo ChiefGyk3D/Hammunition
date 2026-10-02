@@ -1818,17 +1818,21 @@ class UserService(Strict):
         # interpreter that rendered the unit, as a launcher embeds the engine
         # path, #145). Nothing else: a bare name resolves against systemd's own
         # PATH, not ours.
-        if self.exec[0] != "{python}" and not self.exec[0].startswith("/"):
+        if (
+            self.exec[0] != "{python}"
+            and not self.exec[0].startswith("{user_bin}/")
+            and not self.exec[0].startswith("/")
+        ):
             raise ManifestError(
-                f"user service {self.name!r}: exec[0] {self.exec[0]!r} must be an absolute path "
-                f"or {{python}}"
+                f"user service {self.name!r}: exec[0] {self.exec[0]!r} must be an absolute path, "
+                f"{{python}} or begin {{user_bin}}/ (the operator's ~/.local/bin)"
             )
         for word in self.exec:
             # A {station.*} reference stands in for a value re-checked after
             # substitution (D-073 §4, §6a); strip it before the word check so a
             # legitimate reference is not mistaken for a metacharacter. {python}
             # is likewise an engine placeholder, not a shell token.
-            bare = STATION_REF.sub("X", word).replace("{python}", "X")
+            bare = STATION_REF.sub("X", word).replace("{python}", "X").replace("{user_bin}", "X")
             if any(c in bare for c in _EXEC_FORBIDDEN):
                 raise ManifestError(
                     f"user service {self.name!r}: exec element {word!r} is not one argv word; "

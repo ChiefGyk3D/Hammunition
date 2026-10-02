@@ -43,7 +43,15 @@ _RIG: dict[str, Any] = {
     "name": "hammunition-rigctld",
     "description": "hamlib rigctld",
     "when_station": {"rig_kind": "cat"},
-    "exec": ["/usr/bin/rigctld", "-m", "{station.rig_hamlib_model}", "-T", "127.0.0.1", "-t", "4632"],
+    "exec": [
+        "/usr/bin/rigctld",
+        "-m",
+        "{station.rig_hamlib_model}",
+        "-T",
+        "127.0.0.1",
+        "-t",
+        "4632",
+    ],
     "binds_to_device": "{station.rig_device}",
     "listens": [{"protocol": "tcp", "address": "127.0.0.1", "port": 4632}],
 }
@@ -74,13 +82,20 @@ def test_restart_defaults_keep_a_unit_as_it_was() -> None:
 
 
 def test_restart_and_restart_sec_are_settable_within_bounds() -> None:
-    (svc,) = _manifest("gps-tether", [{**_PLAIN, "restart": "always", "restart_sec": 30}]).user_services
+    (svc,) = _manifest(
+        "gps-tether", [{**_PLAIN, "restart": "always", "restart_sec": 30}]
+    ).user_services
     assert (svc.restart, svc.restart_sec) == ("always", 30)
 
 
 @pytest.mark.parametrize(
     "extra",
-    [{"restart": "sometimes"}, {"restart_sec": 0}, {"restart_sec": 301}, {"restart": "on-failure; x"}],
+    [
+        {"restart": "sometimes"},
+        {"restart_sec": 0},
+        {"restart_sec": 301},
+        {"restart": "on-failure; x"},
+    ],
 )
 def test_restart_values_outside_the_fixed_set_are_refused(extra: dict[str, Any]) -> None:
     with pytest.raises((ValidationError, ManifestError)):
@@ -176,7 +191,9 @@ def test_a_mixed_manifest_plans_the_plain_entry_and_defers_the_rig_one() -> None
 def test_an_empty_when_station_means_always_for_a_rig_entry() -> None:
     from hammunition.manifest.load import load_hardware
 
-    _classes, devices = load_hardware(Path(__file__).resolve().parent.parent / "catalog" / "hardware")
+    _classes, devices = load_hardware(
+        Path(__file__).resolve().parent.parent / "catalog" / "hardware"
+    )
     entry = {
         "name": "hammunition-anyrig",
         "description": "anyrig",
@@ -268,3 +285,37 @@ def test_a_rig_service_still_carries_the_transmitter_warning() -> None:
     _view, text = _view_text(*planned)
     assert "can key the transmitter" in text
     assert "rig-service: hammunition-rigctld" in text
+
+
+# -- {user_bin}: the operator's ~/.local/bin, where a venv's wrapper lands --
+
+
+def test_user_bin_fills_the_operators_bin_directory() -> None:
+    entry = {**_PLAIN, "exec": ["{user_bin}/hammunition-gps-tether"]}
+    manifest = _manifest("gps-tether", [entry])
+    (svc,) = manifest.user_services
+    assert svc.is_plain  # a placeholder for a directory is not a station value
+    planned, deferrals, _ = plan_user_services(
+        manifest, Station(), None, user_bin=Path("/home/op/.local/bin")
+    )
+    assert not deferrals
+    assert planned[0].exec_argv == ("/home/op/.local/bin/hammunition-gps-tether",)
+    assert "ExecStart=/home/op/.local/bin/hammunition-gps-tether\n" in planned[0].unit_body
+
+
+def test_user_bin_with_whitespace_is_refused_at_render() -> None:
+    from hammunition.userservice import PlanUserServiceError
+
+    entry = {**_PLAIN, "exec": ["{user_bin}/hammunition-gps-tether"]}
+    with pytest.raises(PlanUserServiceError):
+        plan_user_services(
+            _manifest("gps-tether", [entry]), Station(), None, user_bin=Path("/home/a b/.local/bin")
+        )
+
+
+def test_user_bin_is_allowed_only_at_the_start_of_the_program_word() -> None:
+    entry = {**_PLAIN, "exec": ["/usr/bin/env", "{user_bin}/x"]}
+    # as an argument it is allowed (it is one safe word), as exec[0] it is the program
+    _manifest("gps-tether", [entry])
+    with pytest.raises((ValidationError, ManifestError)):
+        _manifest("gps-tether", [{**_PLAIN, "exec": ["x{user_bin}/y"]}])

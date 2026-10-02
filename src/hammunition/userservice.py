@@ -22,9 +22,11 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hammunition.manifest.schema import STATION_REF, UserService
+from hammunition.paths import user_bin_dir
 from hammunition.rig import RigError, resolve_rig
 from hammunition.station import Station
 
@@ -65,8 +67,10 @@ def is_ours(text: str) -> bool:
     """True when *text* is a unit file this engine wrote: its first line is a
     header naming a catalog unit, whichever one."""
     first = text.split("\n", 1)[0]
-    return first.startswith(HEADER_PREFIX) and first.endswith("`, D-073).") and (
-        "`" not in first[len(HEADER_PREFIX) : -len("`, D-073).")]
+    return (
+        first.startswith(HEADER_PREFIX)
+        and first.endswith("`, D-073).")
+        and ("`" not in first[len(HEADER_PREFIX) : -len("`, D-073).")])
     )
 
 
@@ -175,7 +179,7 @@ def _matches(conditions: Mapping[str, str], facts: Mapping[str, str]) -> bool:
     return all(facts.get(key) == value for key, value in conditions.items())
 
 
-def _substitute(word: str, values: Mapping[str, str], interpreter: str) -> str:
+def _substitute(word: str, values: Mapping[str, str], interpreter: str, user_bin: str = "") -> str:
     """Replace every ``{station.*}`` and ``{python}`` in *word*, re-checking the
     result is one safe argv word. A reference with no value is a bug (the caller
     decides what is needed before calling); an unsafe result raises."""
@@ -186,7 +190,9 @@ def _substitute(word: str, values: Mapping[str, str], interpreter: str) -> str:
             raise PlanUserServiceError(f"no value for {{station.{key}}}")
         return values[key]
 
-    result = STATION_REF.sub(repl, word).replace("{python}", interpreter)
+    result = (
+        STATION_REF.sub(repl, word).replace("{python}", interpreter).replace("{user_bin}", user_bin)
+    )
     # A quote or backslash is as much a shell token to systemd as the others;
     # RIG_DEVICE already excludes them, this is defence in depth (review minor).
     if any(c in result for c in " \t\n\r;|&$`%<>\"'\\"):
@@ -211,6 +217,7 @@ def plan_user_services(
     *,
     model_lister: Callable[[], Mapping[int, tuple[int, int]]] | None = None,
     interpreter: str | None = None,
+    user_bin: Path | None = None,
 ) -> tuple[list[PlannedUserService], list[Deferral], list[str]]:
     """Plan *manifest*'s user services against *station*.
 
@@ -225,6 +232,9 @@ def plan_user_services(
 
     ``interpreter`` fills ``{python}`` in an exec (the loopback filter runs
     under the engine's own interpreter); it defaults to :data:`sys.executable`.
+    ``user_bin`` fills ``{user_bin}``, the operator's ``~/.local/bin`` where a
+    venv unit's wrapper lands (the GPS tether's); it defaults to the running
+    user's.
     """
     import sys
 
@@ -232,16 +242,17 @@ def plan_user_services(
         return [], [], []
 
     python = interpreter or sys.executable
+    bin_dir = str(user_bin if user_bin is not None else user_bin_dir(None))
     planned: list[PlannedUserService] = []
     for svc in manifest.user_services:
         if svc.is_plain:
-            exec_argv = tuple(_substitute(word, {}, python) for word in svc.exec)
+            exec_argv = tuple(_substitute(word, {}, python, bin_dir) for word in svc.exec)
             planned.append(_planned(manifest, svc, exec_argv, None, ()))
     rig_entries = [svc for svc in manifest.user_services if not svc.is_plain]
     if not rig_entries:
         return planned, [], []
     rig_planned, deferrals, notes = _plan_rig(
-        manifest, rig_entries, station, devices, model_lister, python
+        manifest, rig_entries, station, devices, model_lister, python, bin_dir
     )
     return planned + rig_planned, deferrals, notes
 
@@ -283,6 +294,7 @@ def _plan_rig(
     devices: Mapping[str, DeviceManifest | DeviceClass] | None,
     model_lister: Callable[[], Mapping[int, tuple[int, int]]] | None,
     python: str,
+    bin_dir: str,
 ) -> tuple[list[PlannedUserService], list[Deferral], list[str]]:
     """The station-driven entries: resolve the rig, defer or skip, render."""
     from hammunition.plan import Deferral
@@ -392,7 +404,7 @@ def _plan_rig(
         return planned, deferrals, notes
 
     for svc in selected:
-        exec_argv = tuple(_substitute(word, values, python) for word in svc.exec)
+        exec_argv = tuple(_substitute(word, values, python, bin_dir) for word in svc.exec)
         filled = _station_sources(svc, res)
         device_path = station.rig_device if svc.binds_to_device else None
         planned.append(_planned(manifest, svc, exec_argv, device_path, filled))
