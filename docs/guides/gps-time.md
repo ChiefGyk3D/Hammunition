@@ -225,4 +225,6 @@ Hammunition's header. `hardware apply` puts GPS time back.
 
 Debian 13, Ubuntu and Kali use `systemd-timesyncd` by default, which cannot
 read a GPS. There, `hammunition time` and `doctor` say so and `time mode`
-refuses by name. Hammunition does not switch your time daemon for you.
+refuses by name. Hammunition does not switch your time daemon for you; the
+route for those targets is the `chrony` unit, which you choose and install
+yourself ([Time and position](time-and-gps.md), **D-072**).

@@ -115,7 +115,10 @@ to a browser tab.
 
 The same page carries the offline map when `osm-pmtiles` is installed
 (**D-071**): <http://127.0.0.1:8480/map/> draws your map regions in the
-browser, and shows your position while `hammunition maps gps-tether` runs.
+browser, and shows your position while the GPS tether runs (the
+`hammunition-gps-tether` login service, [section 11 of the navigation
+guide](offline-navigation.md#11-your-position-in-qmapshack-the-gps-tether), or
+`hammunition maps gps-tether` by hand).
 The page's *Map* section links to it, or says what to install.
 [Offline navigation](offline-navigation.md#16-a-map-in-the-browser)
 describes it. The server answers only requests that name 127.0.0.1 or
