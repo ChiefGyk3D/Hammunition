@@ -84,6 +84,35 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   debian/copyright reading "licensed exclusively for HydraSDR products"); the
   unit's page says so and the catalog follows the LICENSE.md files (D-033).
 
+- **tar1090, the ADS-B aircraft map, as a page in `reference serve`**
+  (**D-071** amended 2026-10-02; D.10b's route). A new `tar1090` unit
+  (`listening`, depends on `readsb`, so deferred by name where readsb is) is a
+  `data` unit: GitHub's archive of upstream's commit `e784ee5` (no tags, no
+  distribution packages it: own-choice pin, D-024), sha256 pinned, `html/` and
+  the GPL-2.0-or-later licence kept. Its root `wget | bash` installer and
+  lighttpd on port 80 are not used. `hammunition reference serve` serves the
+  page at `/aircraft/` on 127.0.0.1, with `data/` read from readsb's directory
+  (`/run/readsb`, or `--readsb-json DIR`), read-only. The page cannot call
+  out: tar1090's settings for photographs, routes and overlays are switched
+  off, its online layers are replaced by the station's PMTiles map (a blank
+  background, with the reason on the page, when `osm-pmtiles` is absent), and
+  every response carries a Content-Security-Policy that names no host. The
+  page is given a reduced `receiver.json` so it reads plain `aircraft.json`
+  (readsb 3.14.1630 also writes `aircraft.binCraft.zst`, which tar1090 would
+  otherwise ask for). The aircraft database is not carried (upstream's one commit cannot be pinned).
+  Tested in headless Chromium: the aircraft appear, no request leaves
+  loopback, the same page as upstream ships it does ask other hosts, and the
+  policy alone refuses them. Not measured: a live receiver, Firefox, a real
+  region at street zoom.
+- **Docs sweep after the 2026-10-02 batch** (documentation only, no code). A
+  guide for the tray's Controls panel and `hammunition services`
+  (`docs/guides/tray-controls.md`); contradictions between pages resolved in
+  favour of the code, the bench record and `docs/DECISIONS.md` (park and wake
+  on hardware, the helper's lists, the rig's default owner, the tether as a
+  service, desktop tray versions); the README status table gains the rows
+  v0.19.0 left out; the nav and entry pages reach every guide; and
+  `docs/contributing/docs-sweep.md` is the checklist, now a release step.
+
 ## v0.19.0 — 2026-10-02 — the rig as station data, repeater sources, infrastructure layers, GraphHopper, terrain for coverage plots, the tether as its own project, device and service control for the tray
 
 Twenty pull requests since v0.18.0 (#176, #178-#196), 20 entries.

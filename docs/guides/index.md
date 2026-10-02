@@ -11,7 +11,7 @@ these pick up from there.
 
 ## Set up the station once
 
-Everything else leans on these four. Do them in this order the first time.
+Everything else leans on these. Do them in this order the first time.
 
 1. **[Rig control (CAT)](rig-control.md)** — one program owns the radio's
    serial port and every other program asks it. The single biggest cause of
@@ -20,10 +20,19 @@ Everything else leans on these four. Do them in this order the first time.
    and back, at the right level. Every digital mode needs it.
 3. **[Time and position](time-and-gps.md)** — FT8 and its relatives need the
    clock within a second. With a network that is automatic; without one, a
-   GPS keeps it.
+   GPS keeps it. On a machine running ntpsec (Parrot's security edition),
+   [GPS time on ntpsec](gps-time.md) is the route, with four modes you can
+   switch.
 4. **[Your callsign in each program](station-settings.md)** — what
    Hammunition writes for you from `hammunition station set`, and the settings
    dialog to visit in each program it does not write.
+
+Then, when you want to switch things off and on:
+
+- **[The tray's Controls panel](tray-controls.md)** — park the GPS or a modem
+  you are not using, start and stop the services behind your position and
+  your clock, and switch the machine's radios, from the tray or from
+  `hammunition services`, and which of those asks for a password.
 
 ## Modes
 
@@ -48,6 +57,9 @@ Everything else leans on these four. Do them in this order the first time.
   with no network at all.
 - **[Offline reference](offline-reference.md)** — Wikipedia, WikiMed, a
   dictionary and the ICS forms on the laptop, on one local page.
+- **[A LAN mirror for map and reference data](lan-mirror.md)** — keep a
+  verified copy of the big downloads on a machine on your own network and take
+  them from it.
 - **[Operating at a conference](conference-operating.md)** — a portable
   station in a hotel full of other people's RF.
 - **[Rayhunter](rayhunter.md)** — watching for cell-site simulators with EFF's
