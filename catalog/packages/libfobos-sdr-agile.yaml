@@ -1,0 +1,127 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: libfobos-sdr-agile
+version: "3.3.0"
+summary: Host library for RigExpert Fobos SDR boards running the "agile" firmware
+categories: [sdr-hardware]
+
+# ADD, "hardware without hardware" (see libfobos). Carried because
+# SoapyFobosSDR's CMakeLists makes it a hard requirement
+# (find_package(LIBFOBOS_SDR_AGILE) ends in FATAL_ERROR), so the Soapy module
+# cannot be built without it. Measured 2026-10-02:
+#   - D-032: github.com/rigexpert/libfobos-sdr-agile, default branch `main`,
+#     head 2753965 committed 2026-07-17 ("rx_auto_bandwidth"), which is the
+#     tag v.3.3.0 (the dot after the v is upstream's spelling). Six tags,
+#     1.0 and v.3.0.1 (2025) to v.3.3.0. Active.
+#   - Licence: LICENSE is the GNU Lesser General Public Licence 2.1.
+#   - Archives (Debian 13, Kali, Parrot, Ubuntu 24.04 and 26.04 by
+#     apt-cache policy; sources.debian.org; Launchpad): not packaged anywhere,
+#     so there is no distribution revision to follow, and the pin is the
+#     upstream tag (D-024's tag case).
+install:
+  - install:
+      method: git
+      repo: https://github.com/rigexpert/libfobos-sdr-agile
+      ref: v.3.3.0
+      # D-069: the tag must still resolve to this commit.
+      commit: 2753965dee361267df86e4a713b8278ad9ae46bb
+      build_system: cmake
+      configure_args: [-DCMAKE_INSTALL_RPATH=/usr/local/lib]
+      patches:
+        - file: CMakeLists.txt
+          description: >-
+            This tree installs its udev rule on Linux to the absolute path
+            /etc/udev/rules.d/fobos-sdr.rules, unconditionally and with no
+            variable to move it, so a `cmake --install` run as root writes a
+            rule giving the board to whoever holds it. Measured on debian:13
+            2026-10-02: the file appeared. The hardware entry carries the
+            same identifier and the rule that is wanted, written by
+            `hammunition hardware apply` where the plan names it, so this
+            removes the install rule. The file is CRLF, as upstream commits it,
+            and the diff keeps the carriage returns in its hunk lines (patch
+            2.8 refuses an LF diff against it: "different line endings").
+            Applied and built on debian:13, ubuntu:24.04, ubuntu:26.04 and
+            kali-rolling; no /etc/udev/rules.d afterwards.
+          unified_diff: "--- a/CMakeLists.txt\n\
+            +++ b/CMakeLists.txt\n\
+            @@ -101,12 +101,8 @@\n\
+            \x20########################################################################\r\n\
+            \x20# Install udev rules\r\n\
+            \x20########################################################################\r\n\
+            -if (CMAKE_SYSTEM_NAME STREQUAL \"Linux\")\r\n\
+            -    install(\r\n\
+            -        FILES fobos-sdr.rules\r\n\
+            -        DESTINATION \"/etc/udev/rules.d\"\r\n\
+            -        COMPONENT \"udev\")\r\n\
+            -endif()\r\n\
+            +# Not installed here: the install rule below wrote an absolute /etc/udev path\r\n\
+            +# outside the prefix, and the hardware catalog owns the udev rule.\r\n\
+            \x20########################################################################\r\n\
+            \x20\r\n\
+            \x20########################################################################\r\n"
+    build_depends:
+      - build-essential
+      - cmake
+      - pkg-config
+      - patch
+      - libusb-1.0-0-dev
+    note: >-
+      Built on 2026-10-02 in rootless containers the way this block runs it
+      (patch, cmake configure, `cmake --build --parallel 2`, `cmake
+      --install` into /usr/local): debian:13, ubuntu:24.04, ubuntu:26.04 and
+      kali-rolling all exit 0 in about a second with no compiler warnings.
+      The install leaves libfobos_sdr.so, fobos_sdr.h and libfobos_sdr.pc
+      under the prefix. Upstream builds four tools (fobos_sdr_devinfo,
+      fobos_sdr_recorder, fobos_sdr_scanner, fobos_sdr_fwloader) and installs
+      none of them; this unit does not copy them out, so only the library is
+      carried. Built on x86_64 only; arm64 is unmeasured. Not measured: a
+      board.
+
+installed_files:
+  - lib/libfobos_sdr.so
+  - lib/pkgconfig/libfobos_sdr.pc
+  - include/fobos_sdr.h
+
+update:
+  probe:
+    method: github_tags
+    repo: rigexpert/libfobos-sdr-agile
+  strategy: rebuild
+  cadence_hint: >-
+    Six tags (1.0, then v.3.0.1 to v.3.3.0, from March 2025), and the head
+    is the newest tag, 2026-07-17. The tag and its commit move together. The
+    tag names begin "v." with a dot and one is a bare "1.0", which a
+    tag-sorting probe may order oddly; read the list by eye.
+
+documentation:
+  what_it_does: >-
+    The host library for the RigExpert Fobos SDR when it runs the "agile"
+    firmware family: the same board, opened through a different API with
+    "agile" controls, a fast frequency-scan mode and automatic receive
+    bandwidth, which the original libfobos does not have. It builds a shared
+    library only here; upstream's four example programs are built but not
+    installed.
+  why_you_want_it: >-
+    You do not install it for itself. The SoapySDR module for the Fobos links
+    both libraries, so without this one `soapysdr-module-fobos` will not
+    build, whichever firmware your board runs. Upstream's README says the two
+    libraries can be installed side by side.
+  prerequisites: >-
+    None beyond a compiler and CMake to build it. To use a board with it you
+    need the `fobos-sdr` hardware entry's udev rule and group, and
+    firmware of the agile family: upstream says hardware revisions 2 and 3
+    need special firmware loaded for it and revision 4 and higher run it
+    natively.
+  known_problems: >-
+    **The agile and original libraries open different boards.** Both look for
+    USB 16d0:132e, and they are told apart by bcdDevice: this library opens
+    0x0101, libfobos opens 0x0000. A board running one firmware is
+    invisible to the other library. **This build deletes upstream's udev
+    install rule** (it wrote an absolute /etc path outside the plan); see the
+    patch. The tree is carried as a library only. **Not measured:**
+    everything that needs a board.
+  upstream_url: https://github.com/rigexpert/libfobos-sdr-agile
+  upstream_support: >-
+    Issues on the repository above and rigexpert.com, who make the hardware.
+    Licence: LGPL-2.1.

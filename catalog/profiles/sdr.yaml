@@ -55,7 +55,11 @@ documentation:
     the FUNcube all have manifests and none is installed here, because a
     one-dongle user needs one module and installing twelve to be safe is
     exactly what D-020 exists to avoid. Install the one matching your hardware
-    by name. `soapysdr-module-rtlsdr` is the exception on frequency grounds
+    by name. **The HydraSDR RFOne and the RigExpert Fobos SDR** (`hydrasdr-host`
+    and `soapysdr-module-hydrasdr`; `libfobos`, `libfobos-sdr-agile` and
+    `soapysdr-module-fobos`) are the same case and a heavier one: on most
+    targets they are source builds, so installing them for hardware you do
+    not own would compile five projects for nothing. `soapysdr-module-rtlsdr` is the exception on frequency grounds
     rather than principle: an RTL-SDR is what most people have.
 
     Also excludes transmit-capable research and interception tooling, which
