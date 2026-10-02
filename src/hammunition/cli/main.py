@@ -594,9 +594,12 @@ def _resolve_rig_flags(args: argparse.Namespace, current: Station) -> _RigFlags 
         return _RigFlags(None, None, None, None, None, ["rig"], ["  rig            (cleared)"])
 
     rig: str | None = args.rig or current.rig
+    rig_changed = args.rig is not None and args.rig != current.rig
     rig_device: str | None = args.rig_device or current.rig_device
-    rig_baud: int | None = args.rig_baud if args.rig_baud is not None else current.rig_baud
-    ptt_line: str | None = args.rig_ptt_line or current.rig_ptt_line
+    rig_baud: int | None = (
+        args.rig_baud if args.rig_baud is not None else None if rig_changed else current.rig_baud
+    )
+    ptt_line: str | None = args.rig_ptt_line or (None if rig_changed else current.rig_ptt_line)
     owner: str | None = args.rig_owner or current.rig_owner
 
     touched = any(
