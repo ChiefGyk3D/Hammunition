@@ -172,6 +172,7 @@ from hammunition.paths import (
 )
 from hammunition.phone_plan import build_phone_run
 from hammunition.plan import NO_MAP_REGIONS, Blocker, InstallPlan, PlanError, resolve
+from hammunition.progress import Progress
 from hammunition.routing_plan import build_graph_run, graphhopper_jar
 from hammunition.state import (
     RemovalError,
@@ -1607,8 +1608,7 @@ def _tether_call_through(installed: tuple[list[str], str], args: argparse.Namesp
     if args.no_nmea_socket:
         argv.append("--no-nmea-socket")
     print(
-        f"hammunition: running the installed tether from {where} (hammunition-gps-tether). "
-        f"Run it directly; this verb will go away in a later release.",
+        f"hammunition: running the installed tether from {where} (hammunition-gps-tether).",
         file=sys.stderr,
         flush=True,
     )
@@ -1664,127 +1664,23 @@ def cmd_maps_splat(args: argparse.Namespace) -> int:
 
 
 def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
-    """Serve gpsd's position as NMEA on 127.0.0.1 for QMapShack.  D-061.
+    """Run the installed GPS tether in this process's place.  D-061, D-071 note.
 
-    The engine watches gpsd's JSON and writes RMC and GGA itself
-    (:mod:`hammunition.gps_tether`); nothing is executed. ``--gpsd`` names
-    a gpsd on another machine, ``--port`` a port other than 10110; the
-    tether listens on loopback only whatever they say. Any number of clients
-    at once, each sent every sentence; only while the operator runs it, and
-    never as root. Ctrl-C stops it, exit 0. No ``--json`` form: it is a
-    server, not a document (D-059).
-
-    D-069: with ``--nmea-socket PATH``, or by default once ``hardware apply``
-    has written GeoClue's drop-in, it also serves a unix socket GeoClue reads;
-    ``--no-nmea-socket`` leaves it off. The default failing (its directory
-    missing, say) is a note and TCP still serves; a path the operator named
-    failing stops the tether.
+    The tether is its own project, hammunition-gps-tether, installed by
+    ``hammunition install gps-tether``; the engine carries no copy. This verb
+    passes its options to the installed program and replaces itself with it.
+    Absent, it refuses and names the install command. Never as root. No
+    ``--json`` form: it is a server, not a document (D-059).
     """
-    from hammunition import geoclue, gps_tether
-
     installed = installed_tether()
-    if installed is not None:
-        return _tether_call_through(installed, args)
-    print(
-        "note: running the engine's own copy of the GPS tether. The tether is its own "
-        "project now: `hammunition install gps-tether` installs hammunition-gps-tether, "
-        "and this verb will go away in a later release.",
-        file=sys.stderr,
-        flush=True,
-    )
-    try:
-        port = gps_tether.PORT if args.port is None else gps_tether.serve_port(args.port)
-        gpsd = gps_tether.GPSD if args.gpsd is None else gps_tether.gpsd_address(args.gpsd)
-        position_port = (
-            gps_tether.POSITION_PORT
-            if args.position_port is None
-            else gps_tether.serve_port(args.position_port, flag="--position-port")
-        )
-        if position_port == port:
-            raise ValueError(
-                f"--port {port} and --position-port {position_port} are the same port; "
-                f"the map's position stream is on {gps_tether.POSITION_PORT} unless "
-                f"--position-port names another"
-            )
-        if args.nmea_socket is not None and args.no_nmea_socket:
-            raise ValueError("--nmea-socket and --no-nmea-socket ask for opposite things")
-    except ValueError as exc:
-        print(f"error: {exc}.", file=sys.stderr)
-        return EXIT_FAILED
-    if os.geteuid() == 0:
+    if installed is None:
         print(
-            "error: the GPS tether reads gpsd as any user can; run it as yourself, not as root.",
+            "error: the GPS tether is not installed. It is its own project now "
+            "(hammunition-gps-tether): `hammunition install gps-tether` installs it.",
             file=sys.stderr,
         )
         return EXIT_FAILED
-    try:
-        listener = gps_tether.listen(port)
-    except OSError as exc:
-        print(
-            f"error: cannot listen on {gps_tether.HOST} port {port}: "
-            f"{exc.strerror or exc}. Is another tether already running? "
-            f"--port N serves another port.",
-            file=sys.stderr,
-        )
-        return EXIT_FAILED
-    try:
-        http = gps_tether.listen(position_port)
-    except OSError as exc:
-        listener.close()
-        print(
-            f"error: cannot listen on {gps_tether.HOST} port {position_port} for the map's "
-            f"position: {exc.strerror or exc}. --position-port N serves it on another port.",
-            file=sys.stderr,
-        )
-        return EXIT_FAILED
-
-    def log(line: str) -> None:
-        print(line, file=sys.stderr, flush=True)
-
-    socket_path: str | None = args.nmea_socket
-    if socket_path is None and not args.no_nmea_socket and geoclue.configured():
-        socket_path = geoclue.SOCKET
-    unix = None
-    if socket_path is not None:
-        try:
-            unix = gps_tether.listen_unix(socket_path, group=geoclue.GROUP, log=log)
-        except (OSError, ValueError) as exc:
-            why = exc.strerror if isinstance(exc, OSError) and exc.strerror else str(exc)
-            if args.nmea_socket is not None:
-                listener.close()
-                http.close()
-                print(f"error: cannot listen on {socket_path}: {why}.", file=sys.stderr)
-                return EXIT_FAILED
-            hint = (
-                f" Its directory comes from {geoclue.TMPFILES}; `sudo systemd-tmpfiles "
-                f"--create {geoclue.TMPFILES}` makes it."
-                if isinstance(exc, FileNotFoundError)
-                else ""
-            )
-            log(
-                f"Not serving GeoClue: cannot listen on {socket_path} ({why}).{hint} "
-                f"QMapShack and the map are served as usual."
-            )
-            socket_path = None
-    print(
-        gps_tether.instructions(
-            port, gpsd=gpsd, position_port=position_port, nmea_socket=socket_path
-        ),
-        flush=True,
-    )
-
-    try:
-        gps_tether.serve(
-            listener, http=http, unix=None if unix is None else unix[0], gpsd=gpsd, log=log
-        )
-    except KeyboardInterrupt:
-        log("Stopped.")
-    finally:
-        listener.close()
-        http.close()
-        if unix is not None and socket_path is not None:
-            gps_tether.close_unix(unix[0], socket_path, unix[1])
-    return EXIT_OK
+    return _tether_call_through(installed, args)
 
 
 @envelope.json_capable()
@@ -2932,7 +2828,7 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
     """
     import subprocess
 
-    from hammunition import gps_tether, reference
+    from hammunition import reference
     from hammunition.backends.source import tree_destination
     from hammunition.graphhopper import GRAPH_UNIT, PROGRAM_UNIT, RouterSpec, plan_router
     from hammunition.map_page import find_map
@@ -2943,7 +2839,7 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
         position_port = (
             reference.POSITION_PORT
             if args.position_port is None
-            else gps_tether.serve_port(args.position_port, flag="--position-port")
+            else reference.position_port(args.position_port)
         )
     except ValueError as exc:
         print(f"error: {exc}.", file=sys.stderr)
@@ -3087,38 +2983,48 @@ def resolve_map_regions(
     files: list[RegionFile] = []
     kept: list[KeptRegion] = []
     refused: list[str] = []
-    for region in station.map_regions:
-        try:
-            resolved = resolve_region(
-                region, station.freshness, today=today, pins=pins, probe=probe
-            )
-        except (GeofabrikError, OSError) as exc:
-            slug = region.replace("/", "-")
-            pbf = installed / f"{slug}.osm.pbf"
-            if pbf.is_file():
-                kept.append(KeptRegion(region, slug, installed_snapshot(pbf), str(exc)))
-            else:
-                refused.append(f"  {region}: {exc}")
-            continue
-        pbf = installed / f"{resolved.slug}.osm.pbf"
-        if not region_current(pbf, resolved):
+    bar = Progress()
+    bar.start("map regions against Geofabrik", len(station.map_regions))
+    try:
+        for index, region in enumerate(station.map_regions):
+            if index:
+                bar.tick()  # the previous region is finished
             try:
-                status, _, _ = probe.head(resolved.url)
-                problem = (
-                    None if status == 200 else f"{resolved.url} answered HTTP {status}, not 200"
+                resolved = resolve_region(
+                    region, station.freshness, today=today, pins=pins, probe=probe
                 )
             except (GeofabrikError, OSError) as exc:
-                # The probe's message already names the URL; not repeated.
-                problem = str(exc)
-            if problem is not None:
-                # Spec §8: offline, an installed region stays installed. Only
-                # a region with nothing installed is refused.
+                slug = region.replace("/", "-")
+                pbf = installed / f"{slug}.osm.pbf"
                 if pbf.is_file():
-                    kept.append(KeptRegion(region, resolved.slug, installed_snapshot(pbf), problem))
+                    kept.append(KeptRegion(region, slug, installed_snapshot(pbf), str(exc)))
                 else:
-                    refused.append(f"  {region}: {problem}")
+                    refused.append(f"  {region}: {exc}")
                 continue
-        files.append(resolved)
+            pbf = installed / f"{resolved.slug}.osm.pbf"
+            if not region_current(pbf, resolved):
+                try:
+                    status, _, _ = probe.head(resolved.url)
+                    problem = (
+                        None if status == 200 else f"{resolved.url} answered HTTP {status}, not 200"
+                    )
+                except (GeofabrikError, OSError) as exc:
+                    # The probe's message already names the URL; not repeated.
+                    problem = str(exc)
+                if problem is not None:
+                    # Spec §8: offline, an installed region stays installed. Only
+                    # a region with nothing installed is refused.
+                    if pbf.is_file():
+                        kept.append(
+                            KeptRegion(region, resolved.slug, installed_snapshot(pbf), problem)
+                        )
+                    else:
+                        refused.append(f"  {region}: {problem}")
+                    continue
+            files.append(resolved)
+        bar.tick()
+    finally:
+        bar.done()
     if refused:
         raise GeofabrikError(
             f"{len(refused)} map region(s) could not be resolved and are not installed "

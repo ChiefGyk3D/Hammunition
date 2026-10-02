@@ -61,6 +61,25 @@ unchanged. Every document, and which commands have one, is in
 never driven through JSON. A command with no JSON form refuses it and runs
 nothing.
 
+**Progress for slow plans.** A plan asks publishers questions before it prints
+anything: one `HEAD` per terrain tile, US Topo or FSTopo sheet, Kiwix book and
+CoMaps map the plan would fetch, and a Geofabrik answer per map region (those
+are asked one at a time). When
+stderr is a terminal the engine says so, on stderr only:
+
+```text
+checking 412 terrain tiles against the Copernicus DEM bucket (needs the network)…
+  137/412
+checked 412 terrain tiles against the Copernicus DEM bucket in 31.2 s
+```
+
+The counter rewrites one line, at most twice a second. Nothing is written to
+stdout, so `--json` and a piped plan are byte-identical to before.
+`HAMMUNITION_PROGRESS=1` forces the lines on when stderr is not a terminal
+(a log file gets a counter line every five seconds); otherwise a pipe or CI
+run stays silent. The tile, sheet, book and map checks run four at a time and
+report exactly as they did one at a time (**D-061**, amended 2026-10-02).
+
 No long option is accepted abbreviated, with or without `--json`:
 `--dry` is `unrecognized arguments`, never `--dry-run` (**D-059**). A CLI
 that guards installs and consent gates behind exact flags does not guess
@@ -425,9 +444,9 @@ once by hand. **The tether is its own project** (D-071 note, 2026-10-02):
 <https://github.com/ChiefGyk3D/hammunition-gps-tether> and a systemd user
 service for it. With that tree installed (or a `hammunition-gps-tether` on the PATH or in
 `~/.local/bin`), this verb **runs it in its place**, passing every option given through, and prints on
-stderr where it is running from; root is refused first. Without it, the verb runs
-the engine's own copy as before, with a note on stderr that it will go away in
-a later release. The service and a foreground run cannot share port 10110. The
+stderr where it is running from; root is refused first. Without it, the verb
+refuses (exit 1) and names `hammunition install gps-tether`; the engine carries
+no copy. The service and a foreground run cannot share port 10110. The
 rest of this section describes the tether itself. It watches gpsd's JSON, as
 `xgps` and Navit do, and writes `$GPRMC` and `$GPGGA` for every position
 with a 2D or 3D fix. It serves them on **127.0.0.1 port 10110 only**, for

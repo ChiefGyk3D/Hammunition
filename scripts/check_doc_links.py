@@ -107,6 +107,11 @@ ALLOW_MISSING = {
     "bin/runner.sh",
     "bin/template-maker.sh",
     "bin/remove.sh",
+    # the engine's own GPS tether, retired 2026-10-02 (D-071 note): the
+    # decision record and the old plans cite it as it was
+    "src/hammunition/gps_tether.py",
+    "tests/test_gps_tether.py",
+    "tests/test_gps_position.py",
 }
 
 
