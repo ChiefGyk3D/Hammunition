@@ -200,6 +200,7 @@ nav:
           - Orbic RC400L (Rayhunter): hardware/orbic-rc400l.md
           - Badgelife boards: hardware/badgelife-class.md
       - Programmers: hardware/programmer-class.md
+      - LibreVNA (vector network analyser): hardware/librevna.md
   - Troubleshooting:
       - troubleshooting/index.md
       - Installing: troubleshooting/install-failures.md

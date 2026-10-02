@@ -1,0 +1,130 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: dump978-fa
+version: "11.1"
+summary: Decoder for 978 MHz UAT, the second ADS-B link -- US general aviation below 18,000 ft
+menu_title: 978 MHz UAT aircraft decoder (dump978-fa)
+categories: [aircraft]
+
+# ADD, 2026-09 gap analysis section B Group 4 and section D item 10 (second
+# batch). Measured 2026-10-01:
+#   - D-032: FlightAware's repository, default branch `master`, head
+#     f40aa9a0d2d0 committed 2026-07-01 ("update official version to 11.1"),
+#     which is the tag v11.1; v11.0 2026-05, v10.x through 2025.
+#   - Licence: LICENSE is the two-clause BSD licence (Oliver Jowett 2015,
+#     FlightAware 2019). The bundled libs/fec is from Phil Karn's fec-3.0.1
+#     and libs/json.hpp is nlohmann/json 3.5.0 (MIT).
+#   - Archives (scripts/apt-policy-sweep.sh, seven targets): no target offers
+#     `dump978`, `dump978-fa`, `skyaware978` or `uat2tools`. Upstream's
+#     README points Raspberry Pi users at FlightAware's own prebuilt
+#     packages (the PiAware route, which the gap report leaves to a feeder
+#     page); the AUR builds v10.2 and nixpkgs has no package. Nothing a
+#     distribution reviews packages it, so the pin is upstream's own release
+#     tag (D-024's tag case).
+install:
+  - install:
+      method: git
+      repo: https://github.com/flightaware/dump978
+      ref: v11.1
+      # D-069: the tag must still resolve to this commit.
+      commit: f40aa9a0d2d0a0067c0c628b44ba316f7049b8ce
+      # The Makefile's default target builds dump978-fa and skyaware978 at
+      # the top of the tree; it has no install rule (the .deb's debian/
+      # directory does the installing). It takes its version string from
+      # `git rev-parse` in the checkout.
+      build_system: make
+      provides_install_target: false
+    build_depends:
+      - build-essential
+      - git
+      - pkg-config
+      - libboost-program-options-dev
+      - libboost-regex-dev
+      - libboost-filesystem-dev
+      - libsoapysdr-dev
+    note: >-
+      Built on 2026-10-01 in a rootless debian:13 container the way this
+      block runs it -- `make -j 2` in the checkout as an unprivileged user,
+      with the build_depends above: exit 0, 59 s wall, 873 MiB peak for the
+      largest compiler process, no compiler warnings (the Makefile builds
+      with -Werror). dump978-fa is 15 MB and skyaware978 12 MB, both linking
+      Boost and dump978-fa SoapySDR. The build dependencies came to 107
+      packages and about 650 MB on a bare debian:13 image. The same build in a kali-rolling container (Boost 1.90)
+      took 82 s, 806 MiB peak, also with no warnings, and decoded the same
+      sample to the same 21 aircraft.
+
+binaries:
+  - produced: dump978-fa
+    install_as: dump978-fa
+  - produced: skyaware978
+    install_as: skyaware978
+
+update:
+  probe:
+    method: github_tags
+    repo: flightaware/dump978
+  strategy: rebuild
+  cadence_hint: >-
+    FlightAware tags with each PiAware release (v10.0 2025-02 to v11.1
+    2026-07). Move the tag and its commit together. The Makefile builds
+    with -Werror, so a newer compiler or Boost can turn a warning into a
+    failed build: rebuild on the newest target before moving.
+
+documentation:
+  what_it_does: >-
+    dump978-fa decodes UAT, the ADS-B link on 978 MHz, from an SDR through
+    SoapySDR. It listens on the frequency, demodulates the bursts, corrects
+    their errors and serves what it hears: raw messages on a TCP port
+    (`--raw-port`, 30978 by FlightAware's convention), decoded JSON on
+    another (`--json-port`), or either on standard output. The second
+    program, `skyaware978`, connects to that raw port and keeps an
+    `aircraft.json` and its history up to date in a directory, the files a
+    web map reads. Receive only.
+  why_you_want_it: >-
+    In the United States, aircraft flying below 18,000 feet may carry UAT
+    instead of the 1090 MHz transponder link, and many light aircraft do.
+    `readsb` (in this profile) hears 1090 MHz only, so without this a US
+    receiver misses those aircraft; UAT also carries the FIS-B weather and
+    TIS-B traffic the ground stations broadcast. Outside the US there is
+    usually nothing on 978 MHz to hear. readsb can take dump978-fa's raw
+    port as a second input (`--net-connector 127.0.0.1,30978,uat_in`) and
+    show both links in one set of JSON.
+  prerequisites: >-
+    An SDR that tunes 978 MHz -- an RTL-SDR is the usual one -- with an
+    antenna cut for 978 MHz, and the SoapySDR module for that receiver:
+    `soapysdr-module-rtlsdr` for an RTL-SDR (the `rtl-sdr` hardware entry
+    lists it). FlightAware's package starts it as `dump978-fa --sdr
+    driver=rtlsdr --format CS8 --raw-port 30978 --json-port 30979`
+    (`debian/dump978-fa.default` in the tree); run by hand, write the ports
+    as `127.0.0.1:30978` and `127.0.0.1:30979` unless you mean other
+    machines to reach them.
+  known_problems: >-
+    **It needs its own receiver.** A dongle on 978 MHz cannot also be
+    listening on 1090 MHz, so UAT and 1090 together means two dongles, and
+    any program already holding the device stops it starting. **A port
+    given without a host listens on every interface**: `--raw-port 30978`
+    serves what your receiver hears to the whole network, so name
+    127.0.0.1 unless that is the intent. Nothing in this build starts at
+    boot: FlightAware's package adds a systemd service, an account and a
+    lighttpd page (SkyAware978), and this manifest installs only the two
+    programs. The web page itself is not installed.
+
+    What was measured: built on Debian 13 and Kali; both programs print their help
+    (`--help`, exit status 64). Upstream's own sample of 1,143 raw UAT
+    messages (439 from aircraft, the rest ground uplinks), stamped with the
+    current time and served on a loopback port
+    in dump978-fa's raw format, was decoded by skyaware978 into an
+    `aircraft.json` of 21 aircraft; skyaware978 discards messages more
+    than 15 seconds old, so the unstamped sample decodes to nothing. With
+    `--raw-port 30978 --json-port 127.0.0.1:30979` the container's
+    /proc/net/tcp showed 0.0.0.0:30978 and 127.0.0.1:30979. The same
+    sample, fed to Debian's readsb with `--net-connector
+    127.0.0.1,30978,uat_in`, came out in readsb's JSON as the same 21
+    aircraft. Not measured: an SDR, a live 978 MHz signal, FIS-B uplink
+    decoding, or SkyAware978's web page, which is not installed.
+  upstream_url: https://github.com/flightaware/dump978
+  upstream_support: >-
+    FlightAware's repository: issues at the URL above, and the README,
+    which lists the options. The PiAware forum at flightaware.com covers
+    it as part of their receiver software. Licence: BSD-2-Clause.

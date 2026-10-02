@@ -11,6 +11,20 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Australia's repeaters from the regulator** (D-074, amended
+  2026-10-01). `acma-register` installs the ACMA's Register of
+  Radiocommunications Licences, one 67.5 MB zip rebuilt daily, through a
+  new `register` install method. The ACMA publishes no checksum (its ETag
+  is a storage version stamp, not a digest), so nothing is pinned: the
+  zip's own CRC-32s and the tables the import reads are checked, the plan
+  says **unverified**, and the unit is in no profile. `hammunition maps
+  repeaters import --from-acma` writes the `acma` layer, *Repeaters (ACMA,
+  YYYY-MM-DD)*, from the granted amateur repeater licences whose site lies
+  inside an installed map region's bounding box, with the attribution the
+  licence requires; it never opens the licensees' table. The regulator
+  comes second in the all-sources precedence, after your own export.
+  `hammunition artifacts` lists it for a Bunker as `unverified-zip`, with
+  the day's size and no digest.
 - **Routes on the browser map: GraphHopper** (D-076). Two units, installed
   by name only and in no profile: `graphhopper`, Maven Central's
   `graphhopper-web-11.1.jar` pinned by the sha256 measured equal to
@@ -214,6 +228,22 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   a row in `not-carried.md` (whose generator now validates the
   gap-analysis "Not added" rows too), and a note on `freedv`, which is
   1.8.11 without RADE on every target.
+- **dump978-fa, nrsc5, LibreVNA, k5prog and radio_tool are carried;
+  tar1090 is not yet** (gap analysis D.10, second batch). `dump978-fa`
+  decodes 978 MHz UAT, the second ADS-B link, beside `readsb` in
+  `listening`, which readsb can take as a second input. `nrsc5` receives HD
+  Radio in `listening`; its build's FAAD2 download is made sha256-checked
+  by a two-line patch (`source-build-gaps.md` #10). `librevna` is the
+  program for the open-hardware LibreVNA in `electronics`, with a device
+  entry that is not owned; its SCPI server listens on every address by
+  default, and its page says so. `k5prog` (Quansheng UV-K5) and
+  `radio-tool` (OpenRTX's Linux flasher for TYT, Baofeng and Radioddity
+  DMR radios) write firmware to radios: ungated by D-026, in no profile,
+  and their pages say what they write. radio_tool is pinned past its last
+  tag, which cannot flash. tar1090's installer was read and not run; its
+  page works from a static server on loopback over readsb's JSON, so its
+  route is a `reference serve` page, which is engine work (`not-carried.md`).
+  Every build was run in rootless containers; no radio, dongle or VNA was.
 
 - **`CHECKS` now names `sha1-publisher`** (**D-070**, **D-069**). The
   `artifacts` document's `check` field was already described as able to

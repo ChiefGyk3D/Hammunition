@@ -8,17 +8,17 @@
 
 ## What it installs
 
-Six device programmers covering AVR, SPI flash, ARM debug probes, FPGAs, ST-LINK and the STM32 serial bootloader; command-line control of the ADALM2000 lab instrument, and libiio's tools, which find and talk to it and to a PlutoSDR; desktop front ends for the two instruments most likely to be on a ham's bench, the tinySA spectrum analyser and the NanoVNA; and three calculators — a Smith chart, a coil designer and an arbitrary transmission-line solver.
+Six device programmers covering AVR, SPI flash, ARM debug probes, FPGAs, ST-LINK and the STM32 serial bootloader; command-line control of the ADALM2000 lab instrument, and libiio's tools, which find and talk to it and to a PlutoSDR; desktop front ends for the two instruments most likely to be on a ham's bench, the tinySA spectrum analyser and the NanoVNA, and the program for the open-hardware LibreVNA, built from source; and three calculators — a Smith chart, a coil designer and an arbitrary transmission-line solver.
 
-**Disk footprint:** Around 250 MB. The Qt front ends for the tinySA and NanoVNA are most of it; the programmers themselves are small.
+**Disk footprint:** Around 250 MB, before LibreVNA: its source build adds Qt 6's development packages (218 packages and about 780 MB on a bare Debian 13 image, measured 2026-10-01) and took 14 minutes at the lowest priority. The Qt front ends for the tinySA and NanoVNA are most of the rest; the programmers themselves are small.
 
 ## Why these belong together
 
 This is the half of the hobby that happens at a bench rather than at an operating position. It is deliberately opt-in: a station that only operates needs none of it, and a person building or repairing equipment wants all of it. The instrument front ends are here rather than in `antenna` because you reach for them for anything you have built, not only for antennas.
 
-## Packages (13)
+## Packages (14)
 
-[`avrdude`](../packages/avrdude.md), [`flashrom`](../packages/flashrom.md), [`openocd`](../packages/openocd.md), [`openfpgaloader`](../packages/openfpgaloader.md), [`stlink-tools`](../packages/stlink-tools.md), [`stm32flash`](../packages/stm32flash.md), [`m2kcli`](../packages/m2kcli.md), [`libiio-utils`](../packages/libiio-utils.md), [`qttinysa`](../packages/qttinysa.md), [`nanovna-saver`](../packages/nanovna-saver.md), [`gsmc`](../packages/gsmc.md), [`coil64`](../packages/coil64.md), [`atlc`](../packages/atlc.md)
+[`avrdude`](../packages/avrdude.md), [`flashrom`](../packages/flashrom.md), [`openocd`](../packages/openocd.md), [`openfpgaloader`](../packages/openfpgaloader.md), [`stlink-tools`](../packages/stlink-tools.md), [`stm32flash`](../packages/stm32flash.md), [`m2kcli`](../packages/m2kcli.md), [`libiio-utils`](../packages/libiio-utils.md), [`qttinysa`](../packages/qttinysa.md), [`nanovna-saver`](../packages/nanovna-saver.md), [`librevna`](../packages/librevna.md), [`gsmc`](../packages/gsmc.md), [`coil64`](../packages/coil64.md), [`atlc`](../packages/atlc.md)
 
 ## What it deliberately excludes
 
@@ -26,4 +26,4 @@ The EDA cluster — KiCad, Fritzing, ngspice, gspiceui. Those are reserved to th
 
 ## What you configure by hand afterward
 
-**Programmers and instruments need device permissions and this profile does not grant them.** Most need membership of `plugdev` or `dialout` and a udev rule; the hardware catalog carries the rules and applying them is M4 work that is not written yet. Until then, a device that works under `sudo` and not otherwise is a permissions problem, not a broken cable. Know your tinySA's input power limit before connecting it to anything transmitting — it is the instrument most often destroyed on its first day.
+**Programmers and instruments need device permissions and this profile does not grant them.** Most need membership of `plugdev` or `dialout` and a udev rule; the hardware catalog carries the rules and applying them is M4 work that is not written yet. Until then, a device that works under `sudo` and not otherwise is a permissions problem, not a broken cable. Know your tinySA's input power limit before connecting it to anything transmitting — it is the instrument most often destroyed on its first day. **LibreVNA-GUI starts a SCPI server on TCP port 19542 on every network address, with no password**, by its own default; turn it off in its Preferences unless another program drives it.

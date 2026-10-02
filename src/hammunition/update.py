@@ -49,6 +49,7 @@ from hammunition.manifest.schema import (
     NodeInstall,
     PackageManifest,
     RegionalDataInstall,
+    RegisterInstall,
     SourceInstall,
     TopoQuadsInstall,
     VenvInstall,
@@ -498,6 +499,16 @@ def report(
                     planned.name,
                     ON_INSTALL,
                     "pip resolves the venv on every install; nothing to compare offline",
+                    strategy,
+                )
+            )
+        elif isinstance(method, RegisterInstall):
+            rows.append(
+                UpdateRow(
+                    planned.name,
+                    ON_INSTALL,
+                    "the publisher rebuilds the file daily and pins nothing to compare "
+                    "against; `install` fetches the day's file (D-074, amended 2026-10-01)",
                     strategy,
                 )
             )

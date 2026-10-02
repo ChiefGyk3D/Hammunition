@@ -109,10 +109,10 @@ One remote artifact, or one the selection cannot list and why.
 | `unit` | string | the catalog unit (`osm-regions`, `dem-copernicus`, `country-files`, `kiwix-library`) |
 | `name` | string or null | the artifact's stable name within the unit: a region path, a tile name, a data file's name, a Kiwix book id as the pin file names it. A LAN mirror serves it at `<mirror>/<unit>/<name>`. Null only for a deferred entry that covers the whole unit |
 | `url` | string or null | the publisher URL the engine itself fetches; null when deferred |
-| `check` | string or null | how the download is verified: `sha256` (pinned by Hammunition), `md5-publisher` (Geofabrik's published MD5), `etag-md5` (the Copernicus object's ETag), `sha1-publisher` (the SHA-1 and size in CoMaps' own map index at the pinned commit, carried in the catalog) or `sha256-publisher` (no unit uses it today); null when deferred |
-| `digest` | string or null | the expected digest, in hex, of the kind `check` names: the pin, or the publisher's checksum as the engine read it while resolving; null when deferred |
+| `check` | string or null | how the download is verified: `sha256` (pinned by Hammunition), `md5-publisher` (Geofabrik's published MD5), `etag-md5` (the Copernicus object's ETag), `sha1-publisher` (the SHA-1 and size in CoMaps' own map index at the pinned commit, carried in the catalog), `sha256-publisher` (no unit uses it today) or `unverified-zip` (the ACMA register: no digest exists, so the zip's own CRC-32s and the tables its reader needs are checked; D-074, amended 2026-10-01); null when deferred |
+| `digest` | string or null | the expected digest, in hex, of the kind `check` names: the pin, or the publisher's checksum as the engine read it while resolving; null when deferred and for `unverified-zip`, which has none |
 | `checksum_url` | string or null | where a publisher checksum is read: the `.md5` beside a Geofabrik file, or the tile URL whose `HEAD` carries the ETag; null for a pinned sha256 and when deferred |
-| `size` | integer or null | bytes, known before the fetch; null when deferred |
+| `size` | integer or null | bytes, known before the fetch (for `unverified-zip`, the publisher's `HEAD` today: the file changes daily); null when deferred |
 | `licence` | string | the licence line the plan prints for the unit, or for a Kiwix book that book's own |
 | `deferred` | string or null | null, or why this artifact cannot be listed for this selection |
 
@@ -1341,6 +1341,8 @@ An offline-data unit: sizes and licence, before anything downloads (D-049).
 | `licence_url` | string | where that licence is stated |
 | `artifacts` | list of [`DataArtifactLine`](#dataartifactline) | each file fetched |
 | `installs_under` | string | where it is installed, relative to the prefix |
+| `verified_by` | string | how the download is checked: `sha256, pinned by Hammunition` for a `data` block; for a `register` block (D-074, amended 2026-10-01) a sentence starting `unverified:` that says what is checked instead |
+| `approximate` | boolean | the sizes are a measurement of a file that changes, not a declaration the fetch checks (a `register` block) |
 
 #### `DataArtifactLine`
 
@@ -1349,7 +1351,7 @@ One file of an offline dataset.
 | field | type | meaning |
 |---|---|---|
 | `url` | string | where it is fetched from |
-| `size` | integer | bytes, as declared and verified on fetch |
+| `size` | integer | bytes, as declared and verified on fetch; for a `register` block the size measured when the unit was written, since the file changes daily (`approximate`) |
 | `size_human` | string | the size as the text prints it |
 
 #### `MapSectionView`
@@ -2067,6 +2069,14 @@ A unit and files.
         "installs_under": {
           "title": "Installs Under",
           "type": "string"
+        },
+        "verified_by": {
+          "title": "Verified By",
+          "type": "string"
+        },
+        "approximate": {
+          "title": "Approximate",
+          "type": "boolean"
         }
       },
       "required": [
@@ -2076,7 +2086,9 @@ A unit and files.
         "licence",
         "licence_url",
         "artifacts",
-        "installs_under"
+        "installs_under",
+        "verified_by",
+        "approximate"
       ],
       "title": "DataLine",
       "type": "object"
@@ -3995,7 +4007,7 @@ only: no repeater's callsign or position, and no region, is carried.
 
 | field | type | meaning |
 |---|---|---|
-| `layer_id` | string | `export` (D-064's layer), `open-repeater`, `osm`, `etcc`, `brandmeister` or `aprs-heard` (D-074) |
+| `layer_id` | string | `export` (D-064's layer), `open-repeater`, `osm`, `etcc`, `brandmeister` or `aprs-heard` (D-074), `acma` (D-074, amended 2026-10-01) |
 | `layer` | string | the layer's name, as QMapShack's project and POI file show it |
 | `exported` | string | YYYY-MM-DD: `--exported`, else the oldest input's modification date; a fetch's own date |
 | `licences` | list of string | each source's licence text, printed before anything |
@@ -4016,8 +4028,8 @@ One file read.
 | field | type | meaning |
 |---|---|---|
 | `path` | string | the file as given; a fetch's URL; for `osm-extract`, the directory of the region extracts, never a region's name |
-| `format` | string | `repeaterbook-gpx`, `repeaterbook-csv`, `hearham-json` or `hand-csv` (D-064); `open-repeater-json`, `osm-extract`, `etcc-csv`, `brandmeister-json` or `direwolf-log` (D-074) |
-| `read` | integer | rows, objects, devices or waypoints in it |
+| `format` | string | `repeaterbook-gpx`, `repeaterbook-csv`, `hearham-json` or `hand-csv` (D-064); `open-repeater-json`, `osm-extract`, `etcc-csv`, `brandmeister-json` or `direwolf-log` (D-074); `acma-register` (D-074, amended 2026-10-01) |
+| `read` | integer | rows, objects, devices or waypoints in it; for `acma-register`, the transmitters on amateur repeater licences |
 | `used` | integer | of those, the ones kept: a position and a callsign or frequency |
 | `skipped` | list of [`SkipView`](#skipview) | the rest, by reason |
 | `sha256` | string | the digest of what was read (several logs: of their bytes in order); empty for `osm-extract`, whose extracts' digests would name the regions |

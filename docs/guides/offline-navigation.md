@@ -1021,6 +1021,49 @@ Open Repeater's download address carries no date, so the catalog's pin goes
 stale whenever the site changes; the install then refuses the file by its
 digest until the pin is regenerated (the weekly check says when).
 
+**Australia: the regulator's register (ACMA).** The Australian
+Communications and Media Authority publishes its whole Register of
+Radiocommunications Licences as one file, rebuilt every day, under a
+licence that allows a derived map layer with attribution. On 2026-10-01 it
+held 1,784 amateur repeater transmitters with a site position.
+
+```
+hammunition station set --map-regions australia-oceania/australia/tasmania
+hammunition install osm-regions
+hammunition install acma-register
+hammunition maps repeaters import --from-acma
+```
+
+`install acma-register` downloads the whole register, about 67.5 MB, and
+**the plan says it is unverified**: the ACMA publishes no checksum (the
+`ETag` its server sends is a storage version stamp, not a digest of the
+file) and the file changes every day, so Hammunition cannot pin it. What is
+checked is that the zip is whole (every member's CRC-32) and holds the
+tables the import reads. That catches a damaged download, not a
+deliberately altered one; for that reason the unit is in no profile and is
+installed only when you name it. A LAN mirror can serve it, checked the
+same way.
+
+The import keeps the transmitters on granted *Amateur Repeater* licences
+whose site lies inside the bounding box of a map region you have installed,
+so install an Australian region first (the four lines above use Tasmania).
+Outside Australia, or with no Australian region, it says the layer would be
+empty and writes nothing. The layer is *Repeaters (ACMA, YYYY-MM-DD)*, dated
+by the register itself, and every file carries the attribution the licence
+requires: "Based on Australian Communications and Media Authority
+information". Each repeater shows its output, the input paired from the
+same licence's receiver, the emission in plain words with its designator
+(`FM (16K0F3E)`), the site's name and how precisely the ACMA records it, and
+the licence number. The register has no CTCSS tones. A bounding box is a
+rectangle, so a region's box can take in sites just over a state border.
+
+The installed file is the whole register, including licensees' names and
+addresses. The import never opens that table and the layer carries none of
+it; the licence forbids passing on a private person's details, so keep the
+installed file to yourself. A copy you downloaded works the same:
+`--from-acma ~/Downloads/spectra_rrl.zip`. Reading it takes about
+20 seconds.
+
 **Your OpenStreetMap regions.** No download at all: the repeaters tagged in
 the region extracts you already installed for the maps.
 
@@ -1085,8 +1128,9 @@ With two directory layers or more, every import, fetch and remove rebuilds
 QMapShack's *File → Load*. Two entries from different sources are the same
 repeater when their output frequency matches and they are within about
 2 km, or carry the same callsign within about 25 km. Where they disagree,
-the better source wins: your own export or list, then the ETCC, Open
-Repeater, hearham, Brandmeister, OpenStreetMap; a detail the winner lacks
+the better source wins: your own export or list, then the regulator (the
+ACMA), the ETCC, Open Repeater, hearham, Brandmeister, OpenStreetMap; a
+detail the winner lacks
 (an offset, a tone) is filled from the next. Each entry says every source
 that listed it, and the import prints how many were joined. The APRS layer
 is never in it. QMapShack and Navit show every layer anyway, so in them the
@@ -1102,7 +1146,8 @@ hammunition maps repeaters remove --layer osm
 The first deletes every layer and the all-sources file and takes the
 directory out of QMapShack's settings; Navit goes back to the generated
 configuration at its next start. The second deletes one layer
-(`export`, `open-repeater`, `osm`, `etcc`, `brandmeister` or `aprs-heard`)
+(`export`, `acma`, `open-repeater`, `osm`, `etcc`, `brandmeister` or
+`aprs-heard`)
 and rebuilds the rest.
 
 ### Not carried
@@ -1121,9 +1166,6 @@ and rebuilds the rest.
   has no positions), the WIA's CSV (all rights reserved, no positions),
   repeatermap.de (a token on request only), and the D-STAR, YSF and NXDN
   lists (personal-use pages, or internet reflectors without positions).
-- Australia's ACMA register is open and has positions, but it is a 67.5 MB
-  daily file for about 500 repeaters; it is a route named for a later data
-  unit, not built yet.
 - An APRS-IS capture, and the US coordinators' and Brandmeister's lists
   under an explicit licence: those wait on the maintainer's decision
   (D-074).
@@ -1998,6 +2040,12 @@ Service publishes no checksum at all:
   or a web page in its place; nothing catches a sheet altered at the source.
   Like hearham's repeater list (section 13), it is data Hammunition cannot
   verify, and the plan counts these sheets in a warning every time.
+
+The ACMA's repeater register (section 13) gets a third: **"unverified: the
+ACMA publishes no checksum ... the zip's own CRC-32s and the tables the
+repeater import reads are checked"**. The file changes daily, so nothing can
+be pinned; the zip's own checksums catch a damaged or cut-off download and a
+web page in its place, never a file altered at the source.
 
 Today no tile is pinned, so every tile gets the second wording. The pin
 list grows as Hammunition measures tiles, in a fixed order that covers the
