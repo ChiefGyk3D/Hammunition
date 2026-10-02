@@ -8016,6 +8016,18 @@ position listener in `src/hammunition/gps_tether.py`; `--position-port` on
 `catalog/packages/osm-pmtiles.yaml`, `catalog/profiles/navigation.yaml`. The
 operator's page is `docs/guides/offline-navigation.md`, section 16.
 
+**Note 2026-10-02: the tether's new home.** The position listener on
+127.0.0.1:10111, and the NMEA server beside it, no longer live in this engine's
+source as the thing to run: they are `hammunition-gps-tether`
+(<https://github.com/ChiefGyk3D/hammunition-gps-tether>, GPL-3.0-or-later, its
+own releases and tests), installed by the `gps-tether` catalog unit and run as a
+systemd user service (D-073, amended 2026-10-02). Nothing about the decision
+changes: the same two loopback ports, the same `GET /position` stream, the
+same flags. `hammunition maps gps-tether` runs the installed program when it
+is present and the engine's own module, with a deprecation note, when it is
+not; the verb and the module go in a later release. The service and a
+foreground run cannot share port 10110. Not yet run as a service on a machine.
+
 ---
 
 ## D-072 — GPS time where the daemon is not ntpsec: a `chrony` unit, installed by name and never in a profile; the time daemon a machine has is the operator's to replace
@@ -8184,6 +8196,38 @@ the radio; the program table against the service; the flrig route; the
 UV-50PRO's keying line and that nothing is written to the serial line, plus the
 start-up keying question and VOX; `--unattended` across a logout. Found while
 measuring and fixed first: issue #174, the launcher that shadowed `rigctl`.
+
+**Amended 2026-10-02: user services generalised.** The block was rig-shaped
+only because the rig was its first user. Measured on the second (the GPS
+tether, which needs no station value and binds no device), four rig
+assumptions came out and the rig's behaviour and tests did not move.
+
+1. **Plain services.** An entry with no `when_station`, no `unless_station`, no
+   `{station.*}` and no `binds_to_device` is *plain*: always planned, needing
+   neither the station nor the hardware catalog, never deferred. An empty
+   `when_station` means always. A manifest may mix plain and rig entries; the
+   rig group is decided on its own as before, deferring by name without a
+   rig or a catalog (the catalog check moved from `plan.py` into
+   `plan_user_services`, same wording).
+2. **The header names the unit.** `# Written by Hammunition (catalog unit
+   `gps-tether`, D-073).` Removal recognises any header of that shape and
+   still leaves a file the operator rewrote. The rig's file is byte for byte
+   what it was (a test holds it).
+3. **Several units in a plan**, each named in the plan view with only what is
+   true of it: the "can key the transmitter" warning stays the rig's, and a
+   service with no device says it is enabled and starts at next login (nothing
+   is started during an install that has no device to wait for).
+4. **`restart` and `restart_sec`** are manifest fields from a fixed set
+   (`on-failure`, `always`, `no`; 1 to 300 seconds), defaulting to what every
+   unit already had. `{user_bin}` joins `{python}` as a placeholder in an
+   exec: the operator's `~/.local/bin`, where a venv unit's wrapper lands,
+   re-checked as one safe word like every substitution.
+
+The first plain service is the `gps-tether` unit: `hammunition-gps-tether`
+installed from its own repository as a hash-pinned wheel in a venv, running on
+127.0.0.1:10110 and :10111 (D-071 note). Not yet run on a machine; the bench
+owes the service at login and after a reboot.
+
 ---
 
 ## D-074 — Repeater data beyond RepeaterBook: one layer per source, Open Repeater pinned as data, OpenStreetMap filtered from the extracts already here, the ETCC and Brandmeister on request with hotspots dropped, and what the station heard kept apart

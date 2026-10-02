@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**306 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**307 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -237,12 +237,13 @@ Practice tests for the US, Canadian and commercial licence exams.
 - [fccexam](fccexam.md) — Practice tests for the US FCC commercial radio licence exams
 - [hamexam](hamexam.md) — Practice tests for the United States amateur radio licence exams
 
-### `gps-gnss` — 9
+### `gps-gnss` — 10
 
 GPS receivers and the daemon that shares one, format converters, and a GNSS receiver in software.
 
 - [chrony](chrony.md) — The clock follows your GPS receiver when the network is gone — chrony reading gpsd
 - [gnss-sdr](gnss-sdr.md) — A complete GPS and GNSS receiver built entirely in software
+- [gps-tether](gps-tether.md) — Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service
 - [gpsbabel](gpsbabel.md) — Converts between GPS file formats and talks to the receiver
 - [gpsd](gpsd.md) — GPS service daemon — one process owns the receiver, everything else asks it
 - [gpsd-clients](gpsd-clients.md) — Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode
@@ -318,7 +319,7 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 29
+### `navigation-maps` — 30
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
@@ -332,6 +333,7 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [dem-copernicus](dem-copernicus.md) — Copernicus GLO-30 elevation tiles for your map regions, verified
 - [dem-qmapshack](dem-qmapshack.md) — Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles
 - [gdal-bin](gdal-bin.md) — GDAL's command-line tools for rasters and elevation data
+- [gps-tether](gps-tether.md) — Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service
 - [mapsforge-map](mapsforge-map.md) — Mapsforge vector maps of your OpenStreetMap regions, for phone map apps
 - [mapsforge-poi](mapsforge-poi.md) — Mapsforge points-of-interest files of your regions, for searching on a phone
 - [mkgmap](mkgmap.md) — Builds Garmin-format maps from OpenStreetMap data
@@ -810,6 +812,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [goldendict-ng](goldendict-ng.md) | A desktop dictionary that looks words up in dictd and in Kiwix books | apt |
 | [gpa](gpa.md) | GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic | apt, source |
 | [gpredict](gpredict.md) | Real-time satellite tracking and pass prediction, with radio control | apt |
+| [gps-tether](gps-tether.md) | Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service | venv |
 | [gpsbabel](gpsbabel.md) | Converts between GPS file formats and talks to the receiver | apt |
 | [gpsd](gpsd.md) | GPS service daemon — one process owns the receiver, everything else asks it | apt |
 | [gpsd-clients](gpsd-clients.md) | Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode | apt |

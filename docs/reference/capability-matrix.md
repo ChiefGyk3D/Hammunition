@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 206 | 8 | 90 | 2 | 0 |
-| ubuntu-26.04 | 208 | 6 | 90 | 2 | 0 |
-| ubuntu-24.04 | 201 | 15 | 87 | 3 | 0 |
-| kali-rolling | 214 | 8 | 83 | 1 | 0 |
-| parrot | 211 | 5 | 88 | 2 | 0 |
-| linuxmint-22.3 | 201 | 15 | 87 | 3 | 0 |
-| debian-13-arm64 | 205 | 9 | 85 | 7 | 0 |
+| debian-13 | 206 | 8 | 91 | 2 | 0 |
+| ubuntu-26.04 | 208 | 6 | 91 | 2 | 0 |
+| ubuntu-24.04 | 201 | 15 | 88 | 3 | 0 |
+| kali-rolling | 214 | 8 | 84 | 1 | 0 |
+| parrot | 211 | 5 | 89 | 2 | 0 |
+| linuxmint-22.3 | 201 | 15 | 88 | 3 | 0 |
+| debian-13-arm64 | 205 | 9 | 86 | 7 | 0 |
 
-**306 manifests** against **7 targets**.
+**307 manifests** against **7 targets**.
 
 ---
 
@@ -226,6 +226,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `goldendict-ng` | apt | apt | apt | apt | apt | apt | apt |
 | `gpa` | source | apt | apt | source | source | apt | source |
 | `gpredict` | apt | apt | apt | apt | apt | apt | apt |
+| `gps-tether` | venv | venv | venv | venv | venv | venv | venv |
 | `gpsbabel` | apt | apt | apt | apt | apt | apt | apt |
 | `gpsd` | apt | apt | apt | apt | apt | apt | apt |
 | `gpsd-clients` | apt | apt | apt | apt | apt | apt | apt |
