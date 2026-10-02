@@ -663,7 +663,7 @@ Kiwix books and the per-region vector-tile builds have the same shape.
 - *Generic, from the rendered text, never per unit.* Two steps share a template
   when they are the engine's own in-process steps (a fetch, a convert, an
   install-data) of the same kind and privilege, have the same number of tokens
-  and agree on at least half of them (`interface/plan_group.py`). A command
+  and agree on at least half of them (`src/hammunition/interface/plan_group.py`). A command
   never groups: `install -m 0755 a /usr/local/b` then the same for `c` are two
   modifications an operator reads one by one. The tokens that differ are
   the per-item arguments. A repeating unit of up to four steps (fetch, install,
