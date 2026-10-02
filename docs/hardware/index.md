@@ -12,11 +12,14 @@ One page per catalogued device: what it is, how it identifies itself on USB, wha
 | [c5-wardriver](c5-wardriver.md) | supported | ✅ | C5 Wardriver v1.1 — justcallmekoko's ESP32 survey board, runs Marauder-family firmware |
 | [catsniffer-v3](catsniffer-v3.md) | supported | ✅ | Electronic Cats CatSniffer v3 — multiprotocol sub-GHz, BLE and 802.15.4 |
 | [clip-boy](clip-boy.md) | supported | ✅ | Open-source DEF CON badge — ESP32-S3 with an LVGL touch UI |
+| [dell-dw5821e](dell-dw5821e.md) | untested | — | Dell DW5821e — Snapdragon X20 LTE modem on USB, the field laptop's current WWAN card |
+| [dell-dw5930e](dell-dw5930e.md) | untested | — | Dell DW5930e — Snapdragon X55 5G modem on PCIe/MHI, a documented gap for parking with the radio switch as the way to quiet it |
 | [flipper-zero](flipper-zero.md) | supported | — | Flipper Zero — multi-protocol handheld for sub-GHz, NFC, RFID, infrared and iButton |
 | [free-wili-2](free-wili-2.md) | supported | ✅ | Free-WiLi 2 — multi-function hardware-hacking tool presenting six USB devices |
 | [funcube-dongle](funcube-dongle.md) | supported | — | FUNcube Dongle Pro and Pro+ — AMSAT-UK's receive-only satellite SDR |
 | [hackrf-one](hackrf-one.md) | supported | — | Half-duplex 1 MHz - 6 GHz software defined radio, transmit capable |
 | [hackrf-pro](hackrf-pro.md) | supported | ✅ | HackRF Pro — Great Scott Gadgets' successor to the HackRF One |
+| [intel-ax210-bluetooth](intel-ax210-bluetooth.md) | untested | — | Intel AX210 Bluetooth — the Bluetooth half of the field laptop's Wi-Fi 6E card, on USB |
 | [krakensdr](krakensdr.md) | untested | — | KrakenSDR — five coherent RTL-SDR receivers for direction finding |
 | [librevna](librevna.md) | untested | — | LibreVNA — open-hardware two-port vector network analyser, 100 kHz to 6 GHz, over USB |
 | [limesdr](limesdr.md) | supported | — | LimeSDR USB and Mini — full-duplex transmit-capable SDR |
@@ -28,6 +31,7 @@ One page per catalogued device: what it is, how it identifies itself on USB, wha
 | [proxmark3](proxmark3.md) | supported | ✅ | Proxmark3 v3 and v5 — RFID and NFC research tool (RDV4 not covered) |
 | [rtl-sdr](rtl-sdr.md) | supported | — | RTL2832U DVB-T dongle repurposed as a wideband receive-only SDR |
 | [sdrplay-rsp](sdrplay-rsp.md) | untested | — | SDRplay RSP series — receive-only SDR needing a closed-source vendor API |
+| [sunplus-integrated-webcam-fhd](sunplus-integrated-webcam-fhd.md) | untested | — | Sunplus Integrated_Webcam_FHD — the field laptop's built-in FHD webcam, a UVC camera on USB |
 | [ubertooth-one](ubertooth-one.md) | supported | — | 2.4 GHz wireless development platform for Bluetooth monitoring |
 | [uconsole](uconsole.md) | planned | — | ClockworkPi uConsole — portable handheld Linux terminal used as a field radio host |
 | [usrp](usrp.md) | supported | — | Ettus USRP — the research-grade SDR family, B200/B210 and older USB models |
@@ -39,10 +43,13 @@ One page per catalogued device: what it is, how it identifies itself on USB, wha
 Families with shared Linux needs; a device in a class inherits its rules and tooling.
 
 - [badgelife](badgelife-class.md) — Conference badges and SAOs — serial console, flashing, and the USB bridges they use
+- [bluetooth-controller](bluetooth-controller-class.md) — USB Bluetooth controllers — parked for power and radio silence, or switched off through BlueZ
+- [camera](camera-class.md) — USB cameras, including a laptop's built-in webcam — parked when nobody is using them
 - [dmr-radio](dmr-radio-class.md) — DMR handhelds being programmed over USB — codeplug read and write
 - [gps-receiver](gps-receiver-class.md) — USB GNSS receivers — position for APRS and grid squares, and time for FT8
 - [nfc-reader](nfc-reader-class.md) — PN53x-based NFC readers — the contactless equivalent of the badgelife class
 - [programmer](programmer-class.md) — In-circuit programmers and debug probes — JTAG, SWD, SPI flash, AVR and FPGA
 - [rig](rig-class.md) — Transceivers with CAT or PTT control — one shared rigctld for every program
+- [wwan-modem](wwan-modem-class.md) — Cellular modems (4G/5G WWAN cards) — parked from the CLI, a menu entry or the tray when the station is not using the network
 
 Own hardware that is not here, or is marked untested? [Closing a gap takes one lsusb](../contributing/hardware.md).

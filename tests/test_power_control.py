@@ -511,16 +511,137 @@ def test_the_shipped_gps_receiver_class_is_parkable() -> None:
     assert len(control.note) >= 10
 
 
-def test_no_other_catalog_entry_is_parkable_yet() -> None:
-    """pci_runtime ships refused and no wwan-modem class exists on this
-    branch. A second parkable entry appearing here is a thing to notice."""
+PARKABLE_ENTRIES = [
+    "bluetooth-controller",
+    "camera",
+    "dell-dw5930e",
+    "gps-receiver",
+    "wwan-modem",
+]
+
+
+def test_the_parkable_catalog_entries_are_exactly_the_ones_named_here() -> None:
+    """Every `power_control` block in the catalog, listed. A new one appearing
+    is a thing to notice: parking is opt-in per entry (D-056) and this is the
+    list the maintainer signed off on (D-056, amended 2026-10-02)."""
     from hammunition.manifest.load import load_hardware
 
     classes, devices = load_hardware(REPO_ROOT / "catalog" / "hardware")
-    parkables = [
+    parkables = sorted(
         name for name, entry in {**classes, **devices}.items() if entry.power_control is not None
-    ]
-    assert parkables == ["gps-receiver"]
+    )
+    assert parkables == PARKABLE_ENTRIES
+
+
+@pytest.mark.parametrize("name", ["wwan-modem", "bluetooth-controller", "camera"])
+def test_the_new_classes_park_by_usb_deauthorize_with_nothing_to_quiet(name: str) -> None:
+    from hammunition.manifest.load import load_hardware
+
+    classes, _ = load_hardware(REPO_ROOT / "catalog" / "hardware")
+    control = classes[name].power_control
+    assert control is not None
+    assert control.method == "usb_deauthorize"
+    # `quiet` verbs ship refused (D-056); a class that named one could never be parked.
+    assert control.quiet == []
+    # A parked USB device is unconfigured, not unpowered at the port: the note
+    # must not promise otherwise.
+    assert "unconfigured" in control.note
+    assert "not unpowered" in control.note or "does not cut" in control.note
+
+
+def test_the_wwan_note_names_the_radio_switch() -> None:
+    from hammunition.manifest.load import load_hardware
+
+    classes, devices = load_hardware(REPO_ROOT / "catalog" / "hardware")
+    assert "radio off wwan" in classes["wwan-modem"].power_control.note  # type: ignore[union-attr]
+    assert "radio off bluetooth" in classes["bluetooth-controller"].power_control.note  # type: ignore[union-attr]
+    assert "radio off wwan" in devices["dell-dw5930e"].power_control.note  # type: ignore[union-attr]
+
+
+def test_the_field_laptops_usb_devices_resolve_to_their_classes() -> None:
+    """Identifiers read from the field laptop (lsusb, udevadm, 2026-10-01)."""
+    from hammunition.manifest.load import load_hardware
+
+    classes, devices = load_hardware(REPO_ROOT / "catalog" / "hardware")
+    want = {
+        "wwan-modem": "413c:81d7",
+        "bluetooth-controller": "8087:0032",
+        "camera": "1bcf:2a03",
+    }
+    for cls, pair in want.items():
+        assert [str(i) for i in classes[cls].usb_ids] == [pair]
+        assert all(i.confirmed for i in classes[cls].usb_ids)
+    assert [str(i) for i in devices["dell-dw5821e"].usb_ids] == ["413c:81d7"]
+    assert [str(i) for i in devices["intel-ax210-bluetooth"].usb_ids] == ["8087:0032"]
+    assert [str(i) for i in devices["sunplus-integrated-webcam-fhd"].usb_ids] == ["1bcf:2a03"]
+    for name, cls in (
+        ("dell-dw5821e", "wwan-modem"),
+        ("intel-ax210-bluetooth", "bluetooth-controller"),
+        ("sunplus-integrated-webcam-fhd", "camera"),
+    ):
+        assert devices[name].device_class == cls
+
+
+def test_nothing_the_new_entries_ship_has_been_run() -> None:
+    """D-027: `maintainer_verified` only for what was run. Parking none of these
+    has been run, so none may claim it."""
+    from hammunition.manifest.load import load_hardware
+
+    _, devices = load_hardware(REPO_ROOT / "catalog" / "hardware")
+    for name in (
+        "dell-dw5821e",
+        "dell-dw5930e",
+        "intel-ax210-bluetooth",
+        "sunplus-integrated-webcam-fhd",
+    ):
+        assert devices[name].maintainer_verified is None, name
+        assert devices[name].status == "untested", name
+
+
+def test_the_dw5930e_is_a_documented_gap_that_parking_refuses() -> None:
+    """MHI/PCIe: `pci_runtime` is schema-valid and refused at plan time. The
+    entry exists so the gap, its reason and the route to it are written down."""
+    from hammunition.manifest.load import load_hardware
+
+    _, devices = load_hardware(REPO_ROOT / "catalog" / "hardware")
+    entry = devices["dell-dw5930e"]
+    assert entry.power_control is not None
+    assert entry.power_control.method == "pci_runtime"
+    assert entry.usb_ids == []
+    assert entry.identification_gap
+    # Same refusal the helper gives, reached through the real catalog entry.
+    parked = Parkable(
+        name=entry.name,
+        summary=entry.summary,
+        method=entry.power_control.method,
+        quiet=tuple(entry.power_control.quiet),
+        sysfs_path="/sys/bus/pci/devices/0000:00:00.0",
+        identifier="0000:0000",
+        parked=False,
+    )
+    with pytest.raises(PowerError, match="pci_runtime"):
+        plan_park(parked)
+
+
+def test_no_new_entry_carries_a_serial_a_hostname_or_a_symlink() -> None:
+    """D-028 and the global rules: a chip identifier never names a /dev node,
+    and nothing machine-specific is written into the catalog."""
+    import re
+
+    hardware = REPO_ROOT / "catalog" / "hardware"
+    for path in (
+        hardware / "classes" / "wwan-modem.yaml",
+        hardware / "classes" / "bluetooth-controller.yaml",
+        hardware / "classes" / "camera.yaml",
+        hardware / "devices" / "dell-dw5821e.yaml",
+        hardware / "devices" / "dell-dw5930e.yaml",
+        hardware / "devices" / "intel-ax210-bluetooth.yaml",
+        hardware / "devices" / "sunplus-integrated-webcam-fhd.yaml",
+    ):
+        text = path.read_text()
+        assert not re.search(r"^udev:", text, re.MULTILINE), f"{path.name} names a symlink"
+        assert "ID_USB_SERIAL_SHORT" not in text, path.name
+        assert not re.search(r"^\s*serial\s*:", text, re.MULTILINE), path.name
 
 
 def _gps(address: str = "3-5.1", identifier: str = "1546:01a9") -> Parkable:

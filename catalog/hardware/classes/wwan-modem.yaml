@@ -1,0 +1,97 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: class
+name: wwan-modem
+summary: Cellular modems (4G/5G WWAN cards) — parked from the CLI, a menu entry or the tray when the station is not using the network
+
+# A class rather than devices, and for a different reason than gps-receiver's:
+# a WWAN card is a laptop's own internal module, not something an operator
+# buys by the dozen, and the one identifier below was read from one machine.
+# It is here so the park/wake machinery (D-056) has something to name, and so
+# a second modem the catalog learns about joins the same documentation.
+
+# NO udev RULE AND NO SYMLINK (D-028, D-029). ModemManager already owns these
+# devices and names every port it opens; nothing in this class writes a /dev
+# name, and 413c:81d7 appears on the generated ambiguity list in any case.
+
+usb_ids:
+  - vendor: "413c"
+    product: "81d7"
+    description: Dell DW5821e Snapdragon X20 LTE modem
+    evidence: >-
+      Read from the field laptop on 2026-10-01 with `lsusb -d 413c:81d7`
+      ("Dell Computer Corp. DW5821e Snapdragon X20 LTE") and `udevadm info`
+      on /sys/bus/usb/devices/4-4 (ID_USB_MODEL "DW5821e Snapdragon X20 LTE",
+      ID_USB_MODEL_ID 81d7, six interfaces, bound to cdc_mbim and option).
+      The kernel's modules.alias binds the pair to qmi_wwan and option. The
+      identifier is the card's, read live; nothing was written to the device.
+    confirmed: true
+    node_kind: network
+    product_string: DW5821e Snapdragon X20 LTE
+    ambiguity:
+      basis: shared_across_products
+      evidence: >-
+        On the generated list in docs/reference/usb-ambiguity.md: the sweep
+        sees 413c:81d7 in modemmanager's rules and in usb-modeswitch-data, and
+        reads two names for it, "Dell DW5821e" and "if 05: diag/qcdm port" --
+        the second is modemmanager labelling interface 05 of the same card,
+        not another product, so this is the sweep's rule firing on a port
+        comment. Carried as shared because the list says so, and because Dell
+        sold more than one module in this family (413c:81e0 is the eSIM
+        variant).
+      also_used_by:
+        - modemmanager and usb-modeswitch-data rules, both naming the DW5821e
+
+packages: []
+
+# D-056 (amended 2026-10-02). A WWAN modem draws power and keeps a radio up
+# whether or not a connection is active, which is the field laptop's two
+# worries in the one card. Parking writes 0 to the device's `authorized`; the
+# kernel drops its interfaces and ModemManager sees an unplug. That is a
+# statement about the USB port, not about the radio, and not a power cut.
+power_control:
+  method: usb_deauthorize
+  quiet: []
+  note: >-
+    A parked USB modem is unconfigured, not unpowered at the port: the kernel
+    drops its interfaces and ModemManager and NetworkManager see an ordinary
+    unplug, but the port is only allowed to suspend and the card keeps its USB
+    entry. This does not cut the card's supply. The cheaper way to silence the
+    radio is NetworkManager's switch, `nmcli radio wwan off`, which the
+    helper's `radio off wwan` verb and the tray's Radios toggle are to wrap
+    (planned, not yet released), which needs no
+    root in the active session and leaves the device attached. Park for
+    power and silence together; use the radio switch to go quiet quickly. The
+    `networkmanager_autoconnect` quiet verb is deliberately not named: it
+    ships refused (D-056) and a class that named it could never be parked.
+    Parking has not been run on a modem here (unmeasured): that is bench work,
+    and what NetworkManager does when the device returns on wake is the open
+    question.
+
+documentation:
+  what_it_is: >-
+    A cellular modem as a family: a 4G or 5G WWAN module, fitted in a laptop's
+    M.2 slot or sold as a USB dongle, that gives the station a data link and,
+    on some, a GNSS receiver. On the field laptop it is a Dell DW5821e that
+    presents on USB as six interfaces: an MBIM pair and four serial ports,
+    one of which is a diagnostic channel.
+  what_you_can_do_with_it: >-
+    Park it when the station is not on the network, to stop the card drawing
+    power and holding a radio up in the field, and wake it for the next
+    session. Where only silence is wanted, the radio switch does that without
+    touching the device. The same card is the host modem for cellular tooling
+    (see Rayhunter, issue #69), which is a different use of it.
+  setup_steps: >-
+    Nothing to install: ModemManager and NetworkManager ship with the desktop
+    and the card is already theirs. Park and wake are
+    `hammunition hardware park wwan-modem` and `hammunition hardware wake
+    wwan-modem`, through the devctl helper the tray also uses; the radio
+    switch is `nmcli radio wwan off` or the tray's toggle.
+  known_problems: >-
+    A parked modem is gone from ModemManager until it is woken, and wake makes
+    the kernel re-enumerate it, so it may take several seconds to register
+    again; how NetworkManager behaves meanwhile is unmeasured. The platform
+    rfkill switch `dell-wwan` is not this device and is not touched. A modem
+    on PCIe/MHI (the DW5930e) is not a USB node and cannot be parked this way:
+    see its own entry.

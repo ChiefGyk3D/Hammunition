@@ -4427,6 +4427,34 @@ of Hammunition's catalog can be pointed straight at a small, single-purpose
 tray applet without being handed a 249-package ham-radio catalog to get one
 power switch.
 
+### Amendment (2026-10-02): three more controllable classes, and the field laptop's entries
+
+The suite's design gave the tray one place to switch every device that has a
+control, and the catalog had exactly one `power_control` block. Three classes
+join it, each `usb_deauthorize` with no quiet verbs: **`wwan-modem`**,
+**`bluetooth-controller`** and **`camera`**. Four device entries carry the
+field laptop's own hardware, their identifiers read-only on 2026-10-01
+(`lsusb`, `udevadm info`, sysfs reads; nothing written, nothing parked):
+`dell-dw5821e` (`413c:81d7`, the modem fitted now), `intel-ax210-bluetooth`
+(`8087:0032`), `sunplus-integrated-webcam-fhd` (`1bcf:2a03`, named from
+`udevadm`'s model string), and `dell-dw5930e`, the 5G card that is MHI/PCIe,
+not USB.
+
+What the amendment does not claim. **No park has been run on any of the three
+new classes**, so none of the entries carries `maintainer_verified`, and each
+class note says so. A USB park leaves the device unconfigured, not unpowered
+at the port; the radios have a lighter switch (`nmcli radio wwan off`,
+`bluetoothctl power off`) that the tray's planned Radios panel will wrap, and
+the camera has none. **The DW5930e is the documented gap**: `pci_runtime`
+stays schema-valid and refused (nothing is shipped that has not been run),
+the entry exists so the gap, its reason (no USB node; the hardware report
+reads USB only, so the entry is never offered for parking) and its route (the
+radio switch) are on the page, and its PCI identifier is prose from the
+maintainer's bring-up notes, not re-read on 2026-10-01 because the card is out
+of the machine. No `udev` block is carried for any of them (D-028, D-029): an
+identifier naming a chip or a module never names a `/dev` node, and
+ModemManager, BlueZ and the kernel already name what they own.
+
 **See also:** `docs/hardware/power-control.md` for the operator-facing page
 — what parking changes, how to inspect it, and how to reverse it.
 

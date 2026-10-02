@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: dell-dw5930e
+summary: Dell DW5930e — Snapdragon X55 5G modem on PCIe/MHI, a documented gap for parking with the radio switch as the way to quiet it
+vendor: Dell
+status: untested
+gap_closure: maintainer_hardware
+
+# THE GAP, ITS REASON AND ITS ROUTE (CLAUDE.md: a thing that cannot work yet is
+# carried with all three, never dropped).
+#
+# Gap: this card cannot be parked through the helper.
+# Reason: it is not a USB device. It is a PCIe card driven by mhi_pci_generic
+# (the maintainer's bring-up notes record the PCI identifier 105b:e0b1), so there
+# is no /sys/bus/usb node whose `authorized` can be written, and `usb_deauthorize`
+# does not apply. The method that would apply, `pci_runtime`, is
+# schema-valid (D-056) and refused at plan time: nothing is shipped that has not
+# been run, and a PCI function that is runtime-suspended is not parked in any
+# sense an operator can read back. The hardware report also reads the USB bus
+# only, so this entry is never matched to an attached device and `hardware
+# state` does not list it. Its power_control block exists so the method, the
+# refusal and the route are in the catalog and on the generated page.
+# Route: the NetworkManager radio switch (`nmcli radio wwan off`;
+# the helper's `radio off wwan` verb and the tray's Radios toggle are to wrap it,
+# planned and not yet released), which needs no root in the
+# active session. The card keeps its supply and its PCIe link; the radio is off.
+# The card's runtime-PM behaviour is a separate, measured problem with its own
+# udev rule on the maintainer's machine (the D3cold crash loop) and nothing
+# here touches it.
+identification_gap: >-
+  No USB identifier exists to carry: the card is PCIe/MHI. The catalog's
+  identifier model is USB-only, so the PCI identifier (105b:e0b1, recorded by
+  the maintainer's bring-up notes when the card was fitted on 2026-09-21)
+  is prose here, not a field, and was not re-read on 2026-10-01 because the
+  card is not in the machine at the moment; the DW5821e is. Closing this needs
+  the card back in the machine and `lspci -nn` plus a decision on a PCI
+  identifier model, which is the maintainer's.
+
+power_control:
+  method: pci_runtime
+  quiet: []
+  note: >-
+    Not implemented, by design: `pci_runtime` is refused at plan time
+    (D-056) and this card is not a USB node, so nothing here can be parked.
+    The route is the radio switch, `nmcli radio wwan off` (the
+    helper's `radio off wwan` verb and the tray's Radios toggle are to wrap it,
+    planned and not yet released), which silences
+    the radio without detaching the card and needs no root. A runtime-suspended
+    PCIe function is not parked in a sense `state` could read back, and a
+    card that crash-loops on D3cold (this one did, until its own udev rule)
+    is the wrong thing to suspend by hand. Unmeasured: nothing about parking
+    this card has been run.
+
+documentation:
+  what_it_is: >-
+    A Dell-branded Foxconn 5G modem built on the Qualcomm Snapdragon X55
+    (Foxconn T99W175), a PCIe card that talks to the host over MHI and is
+    driven by mhi_pci_generic. It is the 5G card the field laptop is meant to
+    carry; the 4G DW5821e is in its slot at the moment.
+  what_you_can_do_with_it: >-
+    Carry the station's data link and, through its diagnostic channel, host
+    cellular tooling (issue #69). To quiet it, use the radio switch; parking
+    through the helper is not available for a PCIe/MHI card.
+  setup_steps: >-
+    Nothing to install; ModemManager and NetworkManager drive it. The
+    maintainer's machine carries a udev rule that holds the card out of
+    runtime suspend, because without it the card crash-loops; it is the
+    maintainer's, it is not shipped, and this entry does not change it.
+  known_problems: >-
+    Cannot be parked: see the gap above. The antenna leads and the runtime-PM
+    behaviour are the physical and kernel problems the maintainer's bring-up
+    records; neither is a catalog matter.

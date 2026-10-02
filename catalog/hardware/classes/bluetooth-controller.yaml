@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: class
+name: bluetooth-controller
+summary: USB Bluetooth controllers — parked for power and radio silence, or switched off through BlueZ
+
+# The identifier is a chipset's, not a product's: the AX210's Bluetooth half
+# presents as 8087:0032 in every machine that carries one. It is on no
+# ambiguity list, and the class carries it because the class needs one
+# confirmed identifier and this one was read on the field laptop. D-029: BlueZ
+# and the kernel's btusb own the device and its naming; nothing here writes a
+# udev rule or a symlink, and a Bluetooth controller has no /dev node to name.
+usb_ids:
+  - vendor: "8087"
+    product: "0032"
+    description: Intel AX210 Bluetooth controller
+    evidence: >-
+      Read from the field laptop on 2026-10-01: `lsusb -d 8087:0032` ("Intel
+      Corp. AX210 Bluetooth") and `udevadm info` on /sys/bus/usb/devices/3-10
+      (ID_USB_MODEL_ID 0032, TYPE 224/1/1, two e0/01/01 interfaces bound to
+      btusb). The descriptor carries no manufacturer or product string, so
+      none is recorded.
+    confirmed: true
+
+packages: []
+
+# D-056 (amended 2026-10-02).
+power_control:
+  method: usb_deauthorize
+  quiet: []
+  note: >-
+    A parked USB Bluetooth controller is unconfigured, not unpowered at the
+    port: btusb drops hci0, BlueZ sees the adapter vanish and every paired
+    device (a headset, a keyboard) disconnects, and the port is only allowed
+    to suspend. This does not cut the controller's supply. The lighter switch
+    is BlueZ's own, `bluetoothctl power off`, which
+    the helper's `radio off bluetooth` verb and the tray's Radios toggle are
+    to wrap (planned, not yet released), which needs no root
+    and keeps the adapter attached. Park a Bluetooth controller only when
+    nothing you are using is Bluetooth: a Bluetooth mouse or keyboard goes
+    with it. Parking has not been run on a controller here (unmeasured).
+
+documentation:
+  what_it_is: >-
+    The Bluetooth radio of a laptop or dongle, as the kernel sees it: a USB
+    device (on the field laptop, the Bluetooth half of an Intel AX210 combo
+    card, whose Wi-Fi half is on PCIe and is not this device) driven by btusb
+    and managed by BlueZ.
+  what_you_can_do_with_it: >-
+    Turn the radio off for the field, where it draws power and advertises the
+    machine for no reason, and on again when a headset, a keyboard or a
+    Meshtastic node's Bluetooth link is wanted. Two ways: the radio switch,
+    which is quick and reversible, and a park, which also detaches the
+    controller from the bus.
+  setup_steps: >-
+    Nothing to install; BlueZ is part of the desktop. The radio switch is
+    `bluetoothctl power off` or the tray's toggle; park and wake are
+    `hammunition hardware park bluetooth-controller` and
+    `hammunition hardware wake bluetooth-controller`.
+  known_problems: >-
+    Parking takes every Bluetooth input device with it, so do not park the
+    controller you are typing on. The platform rfkill switch `dell-bluetooth`
+    is not this device and is not touched. After a wake the adapter returns
+    as a new hciN and may come back powered off, depending on BlueZ's
+    AutoEnable setting; unmeasured here.
