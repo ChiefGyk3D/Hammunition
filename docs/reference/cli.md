@@ -944,11 +944,13 @@ archive's `html/` by exact installed name, a `config.js` and an
 `hammunition-layers.js` of the engine's own, and `/aircraft/data/<name>.json`
 read from readsb's directory (a plain `name.json` of letters, digits, `_` and
 `-`, a regular file, never a link, sent `no-store`; nothing else under
-`data/`). `/aircraft` redirects to `/aircraft/`. The page cannot call out:
+`data/`; `receiver.json` is built from readsb's own, reduced to version,
+refresh and position, so the page reads plain `aircraft.json` and never asks
+for the binary or globe forms). `/aircraft` redirects to `/aircraft/`. The page cannot call out:
 tar1090's settings for photographs, routes and overlays are off, its online
 map layers do not exist, and every response carries a Content-Security-Policy
 naming no host (`default-src 'self'`, `connect-src 'self'`, `img-src 'self'
-data: blob:`, `form-action 'none'`). The one base map is your PMTiles regions
+data: blob:`, `form-action 'none'`, `frame-ancestors 'none'`). The one base map is your PMTiles regions
 (with `vector-map-kit` and `osm-pmtiles`); without them there is none, the
 aircraft are drawn on a plain background and the page says why. The Host
 check applies. The directory is read when a request arrives, so readsb may

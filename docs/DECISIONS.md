@@ -8410,14 +8410,16 @@ licence are kept.
 **The page may not call out, in three layers.** tar1090 reaches the internet
 in many places (its online tile, weather and airspace layers; aircraft
 photographs; a route service; FAA, weather and airspace overlays; a
-heywhatsthat range file): `layers.js` alone names 31 distinct hosts in its
-text (counted on the pinned tree, attribution links included). So (1) the served `config.js` (ours; upstream's is
+heywhatsthat range file): `layers.js` alone names more than thirty hosts in
+its text (attribution links included; the number depends on how the
+`{a-d}.` sub-domain templates are counted). So (1) the served `config.js` (ours; upstream's is
 all comments) sets tar1090's own switches off (`planespottersAPI`,
 `planespottingAPI`, `showPictures`, `useRouteAPI`, `routeApiUrl`, `tfrs`,
 the picture links); (2) `hammunition-layers.js`, loaded after tar1090's
 `layers.js`, replaces `createBaseLayers` so that no remote layer exists;
 (3) every response under `/aircraft/` carries a Content-Security-Policy that
-names no host, so the browser refuses a request to anywhere else. The tests
+names no host (and `frame-ancestors 'none'`, so no other site can frame it),
+so the browser refuses a request to anywhere else. The tests
 show each half: the page served as upstream ships it asks `openfreemap`,
 `arcgis`, `carto` and `api.planespotters.net` for things, and that same page
 with only the policy asks nobody and the console says it was refused
@@ -8450,9 +8452,31 @@ readsb's output directory: `/run/readsb` (Debian's service writes it there,
 measured in a `debian:13` container on 2026-10-01; `/var/run/readsb` is the
 same directory), or the directory `--readsb-json DIR` names (absolute). One
 plain name of letters, digits, `_` and `-` ending `.json`, a regular file and
-never a link, read-only and sent `no-store`; nothing joins a path. No
-`chunks/` or `traces/`: tar1090's history service is not run, so a track is
-what the page saw since it opened. The directory is read on each request:
+never a link (opened without following one, and checked on the descriptor),
+read-only and sent `no-store`; nothing joins a path. No `chunks/` or
+`traces/`: tar1090's history service is not run, so a track is what the page
+saw since it opened.
+
+**`receiver.json` is rewritten, to five keys.** tar1090 reads it first and
+chooses from it how to read everything else, and measured on the installed
+Debian readsb 3.14.1630 (run with no SDR, 2026-10-02) the decoder writes
+`aircraft.json` *and* `aircraft.binCraft.zst`, and the binary's own strings
+show `binCraft`, `zstd` and `globeIndexGrid` keys in the file it writes:
+tar1090 asks for `aircraft.binCraft.zst` when it sees the first two, for
+globe files on the third, and for history chunks when `history` is above one.
+None of those is served, and a page that asked would get 404s and show
+nothing (and a page with no receiver.json at all reloads itself every ten
+seconds and never draws: measured). So `/aircraft/data/receiver.json` is
+built, not relayed: `version`, `refresh` and `lat`/`lon` from readsb's file
+when it parses (validated, at most 1 MiB, never a link), `readsb` when it
+says so, `history: 0`, and nothing else; the page then reads
+`aircraft.json`, which readsb always writes. When readsb's file is missing
+or unusable but `aircraft.json` is there, defaults stand in (a dump978-fa
+JSON directory gets a page too); with no `aircraft.json` the answer is 404
+and the page asks again. The render test gives the page a receiver.json that
+says `binCraft`, `zstd` and `history: 120`, and a junk
+`aircraft.binCraft.zst`; the mutation that passes those keys through turns
+it red. The directory is read on each request:
 readsb may start after the page does.
 
 **Not carried.** `wiedehopf/tar1090-db`, the aircraft database. Upstream
@@ -8476,9 +8500,11 @@ unresolvable and its network log read back: with a synthetic `aircraft.json`
 and a synthetic one-tile region, both aircraft appear in the table and the
 selected one in the panel; the tile is decoded (features counted by the
 page); no request left loopback; the policy never fired; without the map the
-page says why. **Not measured:** a live readsb (the data is synthetic; the
-shape of `aircraft.json` is what readsb writes, and the earlier spike drew
-21 real decoded aircraft through a static server); the page in Firefox; a
+page says why. **Not measured:** a live readsb with an SDR (the data is
+synthetic; the installed readsb writes no `receiver.json` without a
+receiver, so the real file's contents were read only as strings in the
+binary; the earlier spike drew 21 real decoded aircraft through a static
+server); the page in Firefox; a
 real region at street zoom (the fixture has one tile at zoom 0, and the tile
 loader's zoom, header-box and several-region paths are exercised only by
 reading); the page on a phone.

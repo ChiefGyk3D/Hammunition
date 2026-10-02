@@ -24,7 +24,9 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   off, its online layers are replaced by the station's PMTiles map (a blank
   background, with the reason on the page, when `osm-pmtiles` is absent), and
   every response carries a Content-Security-Policy that names no host. The
-  aircraft database is not carried (upstream's one commit cannot be pinned).
+  page is given a reduced `receiver.json` so it reads plain `aircraft.json`
+  (readsb 3.14.1630 also writes `aircraft.binCraft.zst`, which tar1090 would
+  otherwise ask for). The aircraft database is not carried (upstream's one commit cannot be pinned).
   Tested in headless Chromium: the aircraft appear, no request leaves
   loopback, the same page as upstream ships it does ask other hosts, and the
   policy alone refuses them. Not measured: a live receiver, Firefox, a real

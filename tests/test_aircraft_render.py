@@ -106,7 +106,7 @@ def _install_map(data: Path) -> None:
     write_pmtiles(data / TILES_UNIT / "testville.pmtiles")
 
 
-def _readsb(directory: Path) -> None:
+def _readsb(directory: Path, *, receiver: bool = True) -> None:
     directory.mkdir()
     now = time.time()
     aircraft = [
@@ -140,9 +140,24 @@ def _readsb(directory: Path) -> None:
     (directory / "aircraft.json").write_text(
         json.dumps({"now": now, "messages": 200, "aircraft": aircraft})
     )
-    (directory / "receiver.json").write_text(
-        json.dumps({"version": "test", "refresh": 1000, "history": 0, "lat": 0.0, "lon": 0.0})
-    )
+    if receiver:
+        # What Debian's readsb 3.14 can say of itself: the binary and zstd
+        # forms and history chunks, none of which the page is allowed to ask for.
+        (directory / "receiver.json").write_text(
+            json.dumps(
+                {
+                    "version": "test",
+                    "refresh": 1000,
+                    "history": 120,
+                    "readsb": True,
+                    "binCraft": True,
+                    "zstd": True,
+                    "lat": 0.0,
+                    "lon": 0.0,
+                }
+            )
+        )
+        (directory / "aircraft.binCraft.zst").write_bytes(b"not served")
 
 
 def _render(
@@ -201,12 +216,12 @@ def _off_loopback(net_log: Path) -> list[str]:
     return sorted(u for u in page if urlsplit(u).hostname != "127.0.0.1")
 
 
-def _setup(tmp_path: Path, *, basemap: bool) -> aircraft_page.AircraftShelf:
+def _setup(tmp_path: Path, *, basemap: bool, receiver: bool = True) -> aircraft_page.AircraftShelf:
     data = tmp_path / "data"
     _install_tar1090(data)
     if basemap:
         _install_map(data)
-    _readsb(tmp_path / "run-readsb")
+    _readsb(tmp_path / "run-readsb", receiver=receiver)
     shelf = find_aircraft(data, find_map(data), json_dir=tmp_path / "run-readsb")
     assert shelf is not None and shelf.basemap is basemap
     return shelf
@@ -236,7 +251,10 @@ def test_the_aircraft_appear_over_the_offline_map_and_nothing_leaves_loopback(
     off = _off_loopback(net_log)
     assert off == [], f"the page asked for something off loopback: {off}"
     page, _ = _page_requests(net_log)
-    assert any(u.endswith("/aircraft/data/aircraft.json") or "aircraft.json" in u for u in page)
+    assert any(u.endswith("/aircraft/data/aircraft.json") for u in page)
+    assert not any("binCraft" in u or "globe" in u for u in page), (
+        "only the plain JSON is asked for"
+    )
     assert any(u.endswith("/map/tiles/testville.pmtiles") for u in page), "the basemap was read"
     assert 'id="hammunition-notice"' not in dom
 
@@ -249,6 +267,15 @@ def test_without_the_map_the_aircraft_still_appear_and_the_page_says_why(tmp_pat
     assert _off_loopback(net_log) == []
     assert 'id="hammunition-notice"' in dom and "No basemap" in dom
     assert "never loads a map from the internet" in dom
+
+
+@needs_chromium
+def test_a_directory_with_only_aircraft_json_draws_the_aircraft(tmp_path: Path) -> None:
+    """dump978-fa's JSON directory, or a hand-run decoder's: no receiver.json."""
+    shelf = _setup(tmp_path, basemap=False, receiver=False)
+    dom, stderr, net_log = _render(tmp_path, shelf)
+    _assert_aircraft_drawn(dom, stderr)
+    assert _off_loopback(net_log) == []
 
 
 @needs_chromium

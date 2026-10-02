@@ -12,7 +12,8 @@ loopback server the offline map already runs, at ``/aircraft/``:
 * each file of that tree, by exact installed name;
 * ``/aircraft/data/<name>.json``, read from readsb's output directory
   (Debian's service writes ``/run/readsb``), one plain JSON name at a time,
-  read-only, never cached;
+  read-only, never cached; ``receiver.json`` is the one file rewritten, to
+  the five keys the page needs (see :func:`receiver_document`);
 * ``index.html`` and ``config.js`` are ours (the tree's are not served).
 
 **The page may not call out.** Three layers, because tar1090 reaches for the
@@ -41,10 +42,12 @@ from __future__ import annotations
 
 import html
 import json
+import math
+import os
 import stat
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import IO, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .map_page import MapShelf
@@ -67,6 +70,11 @@ PMTILES_SCRIPT = '<script src="/map/kit/pmtiles/dist/pmtiles.js"></script>'
 REPLACED = frozenset({"index.html", "config.js", LAYERS_FILE})
 #: ``<name>.json`` and nothing else: no directory, no dot file, no compression.
 JSON_NAME_CHARS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
+RECEIVER = "receiver.json"
+#: readsb's own receiver.json is read up to this size and no more.
+RECEIVER_LIMIT = 1 << 20
+#: The one aircraft file the page is told to read (see :func:`receiver_document`).
+AIRCRAFT_JSON = "aircraft.json"
 #: What the page may do: read from this server and nothing else. No source
 #: names a host, so the browser refuses a request to any other.
 CONTENT_SECURITY_POLICY = (
@@ -80,7 +88,8 @@ CONTENT_SECURITY_POLICY = (
     "frame-src 'none'; "
     "object-src 'none'; "
     "base-uri 'self'; "
-    "form-action 'none'"
+    "form-action 'none'; "
+    "frame-ancestors 'none'"
 )
 
 NO_KIT = (
@@ -223,7 +232,7 @@ _LAYERS = """\
                                 return format.readFeatures(t.data, {
                                     extent: extent, featureProjection: projection});
                             });
-                        });
+                        }).catch(function () { return []; });  // one bad region is not every region
                     })).then(function (parts) {
                         tile.setFeatures([].concat.apply([], parts));
                     }).catch(function () { tile.setState(3); });
@@ -322,7 +331,10 @@ def find_aircraft(
     index = tree / "index.html"
     if not index.is_file() or index.is_symlink():
         raise ValueError(f"{tree} has no index.html: `hammunition install {UNIT}` again")
-    text = index.read_text(encoding="utf-8")
+    try:
+        text = index.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(f"{index} cannot be read ({exc.strerror or exc})") from exc
     if ANCHOR not in text:
         raise ValueError(
             f"{index} does not load layers.js where the pinned page does, so it is not the "
@@ -388,6 +400,79 @@ def data_file(shelf: AircraftShelf, name: str) -> Path | None:
     except OSError:
         return None
     return path if stat.S_ISREG(mode) else None
+
+
+def open_regular(path: Path) -> IO[bytes] | None:
+    """*path* opened for reading if it is a regular file and not a link, else
+    None. Opened without following a link and without blocking, and checked
+    on the descriptor, so a file swapped for a link or a FIFO between a
+    listing and this call is refused (review, 2026-10-02)."""
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    except OSError:
+        return None
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            os.close(fd)
+            return None
+        return os.fdopen(fd, "rb")
+    except OSError:
+        return None
+
+
+def _number(value: object, low: float, high: float) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value) if math.isfinite(value) and low <= value <= high else None
+
+
+def receiver_document(shelf: AircraftShelf) -> bytes | None:
+    """The ``receiver.json`` the page is served: five keys, and no more.
+
+    tar1090 reads this file first and chooses how to read everything else from
+    it. Debian's readsb 3.14.1630 writes ``aircraft.binCraft.zst`` beside
+    ``aircraft.json`` (measured 2026-10-02), and tar1090 asks for the binary
+    form when this file says ``binCraft`` or ``zstd``, for globe-index files
+    when it names a ``globeIndexGrid``, for a re-api when ``reapi``, and for
+    history chunks when ``history`` is more than one. None of those is served
+    here, so none of those keys is passed on: the page reads ``aircraft.json``
+    every second, which readsb always writes, and takes the receiver's
+    version, refresh interval and position from what readsb says.
+
+    Built from readsb's file when there is one that parses, else from
+    nothing: a directory that holds only ``aircraft.json`` (dump978-fa's
+    ``--json-port`` output, a hand-run decoder) gets a page too. None when
+    there is no ``aircraft.json`` at all (readsb is not running yet): 404, and
+    tar1090 asks again.
+    """
+    if data_file(shelf, AIRCRAFT_JSON) is None:
+        return None
+    source: dict[str, object] = {}
+    path = data_file(shelf, RECEIVER)
+    handle = open_regular(path) if path is not None else None
+    if handle is not None:
+        with handle:
+            raw = handle.read(RECEIVER_LIMIT + 1)
+        if len(raw) <= RECEIVER_LIMIT:
+            try:
+                loaded = json.loads(raw)
+            except ValueError:
+                loaded = None
+            if isinstance(loaded, dict):
+                source = loaded
+    version = source.get("version")
+    refresh = _number(source.get("refresh"), 100, 60000)
+    document: dict[str, object] = {
+        "version": version if isinstance(version, str) and len(version) <= 64 else "unknown",
+        "refresh": refresh if refresh is not None else 1000,
+        "history": 0,
+    }
+    if source.get("readsb") is True:
+        document["readsb"] = True
+    lat, lon = _number(source.get("lat"), -90, 90), _number(source.get("lon"), -180, 180)
+    if lat is not None and lon is not None:
+        document["lat"], document["lon"] = lat, lon
+    return (json.dumps(document) + "\n").encode("utf-8")
 
 
 def landing_section(shelf: AircraftShelf | None) -> str:

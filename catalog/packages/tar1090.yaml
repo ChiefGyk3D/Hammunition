@@ -48,8 +48,9 @@ install:
     note: >-
       The page's files only, under /usr/local/share/hammunition/data/tar1090/.
       Nothing is run and no web server is configured. It installs on every
-      target that offers `readsb`; where readsb is absent (Linux Mint 22.3,
-      Ubuntu 24.04) this unit is deferred by name.
+      target that offers `readsb`; where readsb is absent (Ubuntu 24.04 and
+      Linux Mint 22.3: no candidate in the 2026-10-01 sweep, recorded in
+      docs/reference/catalog-gaps-2026-09.md) this unit is deferred by name.
 
 update:
   probe:
@@ -107,10 +108,16 @@ documentation:
     clicking one is your navigation, not the page calling out. The basemap is
     drawn by the page from your regions' vector tiles with a small style of
     its own, plainer than the map at /map/, and covers only the regions you
-    built: an aircraft outside them is drawn on the plain background. Measured
-    in headless Chromium with a synthetic aircraft.json and a synthetic tile
-    (tests/test_aircraft_render.py); not yet seen with a live receiver, and
-    not in Firefox. The data unit is an archive of GitHub's making: see the
+    built: an aircraft outside them is drawn on the plain background. The
+    page always reads readsb's plain aircraft.json: readsb 3.14.1630 also
+    writes aircraft.binCraft.zst (measured, run with no SDR, 2026-10-02), and
+    its receiver.json can say to read that, or globe files or history
+    chunks, so the receiver.json the page is given has only the version,
+    refresh interval and position. Measured in headless Chromium with a
+    synthetic aircraft.json and a synthetic tile
+    (tests/test_aircraft_render.py); not yet seen with a live receiver (the
+    installed readsb writes no receiver.json without an SDR, so the real
+    file's contents were not read), and not in Firefox. The data unit is an archive of GitHub's making: see the
     note above on its hash.
   upstream_url: https://github.com/wiedehopf/tar1090
   upstream_support: >-

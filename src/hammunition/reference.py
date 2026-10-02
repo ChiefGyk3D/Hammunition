@@ -439,7 +439,16 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         if path.startswith(aircraft_page.DATA):
             # readsb's output, one plain ``name.json`` at a time: nothing is
             # joined to a directory but a name of letters, digits, _ and -.
-            found = aircraft_page.data_file(shelf, unquote(path[len(aircraft_page.DATA) :]))
+            name = unquote(path[len(aircraft_page.DATA) :])
+            if name == aircraft_page.RECEIVER:
+                document = aircraft_page.receiver_document(shelf)
+                if document is None:
+                    self._send(404, b"not found\n", "text/plain")
+                    return
+                self.extra = (*self.extra, ("Cache-Control", "no-store"))
+                self._send(200, document, "application/json")
+                return
+            found = aircraft_page.data_file(shelf, name)
             if found is None:
                 self._send(404, b"not found\n", "text/plain")
                 return
@@ -455,9 +464,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
     def _send_file(self, path: Path) -> None:
         """A file, whole or the one byte range asked for, and HEAD its size."""
         kind = KINDS.get(path.suffix, "application/octet-stream")
-        try:
-            handle = path.open("rb")
-        except OSError:
+        handle = aircraft_page.open_regular(path)
+        if handle is None:
             self._send(404, b"not found\n", "text/plain")
             return
         with handle:
@@ -494,11 +502,11 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 left -= len(chunk)
 
     def do_GET(self) -> None:
+        self.extra = ()
         if not self._host_ok():
             self._send(403, b"refused: ask for 127.0.0.1 or localhost\n", "text/plain")
             return
         path, _, query = self.path.partition("?")
-        self.extra = ()
         if self.server.aircraft is not None and (
             path == aircraft_page.AIRCRAFT.rstrip("/") or path.startswith(aircraft_page.AIRCRAFT)
         ):

@@ -14,6 +14,8 @@ by headless Chromium over the real pinned files, is ``test_aircraft_render``.
 from __future__ import annotations
 
 import http.client
+import json
+import os
 from collections.abc import Iterator
 from pathlib import Path
 from threading import Thread
@@ -30,6 +32,8 @@ from hammunition.aircraft_page import (
     data_file,
     find_aircraft,
     landing_section,
+    open_regular,
+    receiver_document,
 )
 from hammunition.map_page import KIT_UNIT, REQUIRED, TILES_UNIT, find_map
 from hammunition.reference import make_server
@@ -310,6 +314,7 @@ def test_every_page_response_carries_the_policy_that_forbids_leaving_loopback(
     policy = CONTENT_SECURITY_POLICY
     assert "connect-src 'self'" in policy and "img-src 'self' data: blob:" in policy
     assert "default-src 'self'" in policy and "form-action 'none'" in policy
+    assert "frame-ancestors 'none'" in policy
     assert "http" not in policy  # no source names a host
 
 
@@ -321,7 +326,9 @@ def test_readsbs_json_is_read_from_its_directory_and_never_cached(
     assert status == 200 and body == AIRCRAFT_JSON
     assert headers["Content-Type"] == "application/json"
     assert headers["Cache-Control"] == "no-store"
-    assert _get(port, "/aircraft/data/receiver.json")[0] == 200
+    status, headers, body = _get(port, "/aircraft/data/receiver.json")
+    assert status == 200 and headers["Cache-Control"] == "no-store"
+    assert json.loads(body)["history"] == 0
 
 
 def test_a_json_file_readsb_has_not_written_is_404(served: tuple[int, AircraftShelf]) -> None:
@@ -333,14 +340,17 @@ def test_a_json_file_readsb_has_not_written_is_404(served: tuple[int, AircraftSh
     [
         "/aircraft/data/../aircraft/index.html",
         "/aircraft/data/%2e%2e/receiver.json",
+        "/aircraft/data/%2e%2e/%2e%2e/secret.json",
+        "/aircraft/data/sub/x.json",
+        "/aircraft/data/sub%2Fx.json",
         "/aircraft/data/chunks/chunks.json",
         "/aircraft/data/traces/00/trace_recent_a1b2c3.json",
         "/aircraft/data/.hidden.json",
         "/aircraft/data/aircraft.json.gz",
         "/aircraft/data/aircraft.txt",
+        "/aircraft/data/dir.json",
         "/aircraft/data/",
         "/aircraft/data",
-        "/aircraft/data/a%2Fb.json",
         "/aircraft/data/%00.json",
         "/aircraft/db2/anything.js",
         "/aircraft/upintheair.json",
@@ -348,9 +358,24 @@ def test_a_json_file_readsb_has_not_written_is_404(served: tuple[int, AircraftSh
     ],
 )
 def test_only_a_plain_json_name_in_readsbs_directory_is_served(
-    served: tuple[int, AircraftShelf], path: str
+    tmp_path: Path, readsb: Path, path: str
 ) -> None:
-    assert _get(served[0], path)[0] in (301, 404)
+    """Every refused name has a real file where a loose guard would find it:
+    the check is the guard, not the absence of a file."""
+    (readsb / ".hidden.json").write_text("{}")
+    (readsb / "aircraft.json.gz").write_bytes(b"gz")
+    (readsb / "aircraft.txt").write_text("text")
+    (readsb / "dir.json").mkdir()
+    (readsb / "sub").mkdir()
+    (readsb / "sub" / "x.json").write_text("{}")
+    (readsb / "chunks").mkdir()
+    (readsb / "chunks" / "chunks.json").write_text("{}")
+    (tmp_path / "secret.json").write_text('{"secret": true}')  # beside readsb's directory
+    (tmp_path / "receiver.json").write_text('{"secret": true}')
+    for port, _ in _serve(tmp_path, readsb):
+        status, _, body = _get(port, path)
+        assert status in (301, 404), path
+        assert b"secret" not in body
 
 
 def test_a_link_in_readsbs_directory_is_not_followed(
@@ -398,6 +423,174 @@ def test_the_server_is_still_bound_to_loopback(served: tuple[int, AircraftShelf]
     from test_gps_tether import _listening_addresses
 
     assert _listening_addresses(served[0]) == {"0100007F"}
+
+
+# -- receiver.json ----------------------------------------------------------------------
+
+
+def test_receiver_json_is_reduced_to_what_a_plain_aircraft_json_page_needs(
+    tmp_path: Path, readsb: Path
+) -> None:
+    """Debian's readsb writes ``aircraft.binCraft.zst`` too, and tar1090 asks for
+    it, for globe-index files or for history chunks when this file says so:
+    none is served, so none of those keys may reach the page."""
+    (readsb / "receiver.json").write_text(
+        json.dumps(
+            {
+                "version": "3.14.1630",
+                "refresh": 1000,
+                "history": 120,
+                "readsb": True,
+                "binCraft": True,
+                "aircraft_binCraft": True,
+                "zstd": True,
+                "reapi": True,
+                "haveTraces": True,
+                "globeIndexGrid": 3,
+                "globeIndexSpecialTiles": [{"north": 1, "south": 0, "east": 1, "west": 0}],
+                "dbServer": True,
+                "lat": 12.5,
+                "lon": -45.25,
+                "outlineJson": "x",
+            }
+        )
+    )
+    shelf = _shelf(tmp_path, readsb)
+    document = receiver_document(shelf)
+    assert document is not None
+    assert json.loads(document) == {
+        "version": "3.14.1630",
+        "refresh": 1000.0,
+        "history": 0,
+        "readsb": True,
+        "lat": 12.5,
+        "lon": -45.25,
+    }
+
+
+def test_a_directory_with_only_aircraft_json_still_gets_a_receiver_document(
+    tmp_path: Path, readsb: Path
+) -> None:
+    (readsb / "receiver.json").unlink()
+    shelf = _shelf(tmp_path, readsb)
+    assert json.loads(receiver_document(shelf) or b"") == {
+        "version": "unknown",
+        "refresh": 1000,
+        "history": 0,
+    }
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "not json",
+        "[1, 2]",
+        '{"refresh": "fast", "lat": 91, "lon": 0, "version": 7}',
+        '{"refresh": 5, "lat": true, "lon": true}',
+        '{"refresh": NaN, "lat": NaN, "lon": 1}',
+        "x" * (1 << 21),
+    ],
+)
+def test_a_receiver_json_that_is_not_usable_is_replaced_by_the_defaults(
+    tmp_path: Path, readsb: Path, text: str
+) -> None:
+    (readsb / "receiver.json").write_text(text)
+    shelf = _shelf(tmp_path, readsb)
+    assert json.loads(receiver_document(shelf) or b"") == {
+        "version": "unknown",
+        "refresh": 1000,
+        "history": 0,
+    }
+
+
+def test_there_is_no_receiver_document_before_readsb_has_written_aircraft_json(
+    tmp_path: Path, readsb: Path, served: tuple[int, AircraftShelf]
+) -> None:
+    (readsb / "aircraft.json").unlink()
+    assert receiver_document(served[1]) is None
+    assert _get(served[0], "/aircraft/data/receiver.json")[0] == 404
+
+
+def test_a_receiver_json_that_is_a_link_is_not_read(tmp_path: Path, readsb: Path) -> None:
+    target = tmp_path / "elsewhere.json"
+    target.write_text('{"version": "from-a-link"}')
+    (readsb / "receiver.json").unlink()
+    (readsb / "receiver.json").symlink_to(target)
+    document = receiver_document(_shelf(tmp_path, readsb))
+    assert document is not None and b"from-a-link" not in document
+
+
+# -- reading without following ------------------------------------------------------------
+
+
+def test_open_regular_refuses_a_link_a_directory_and_a_fifo(tmp_path: Path) -> None:
+    plain = tmp_path / "plain"
+    plain.write_text("x")
+    (tmp_path / "link").symlink_to(plain)
+    (tmp_path / "dir").mkdir()
+    os.mkfifo(tmp_path / "fifo")
+    handle = open_regular(plain)
+    assert handle is not None
+    with handle:
+        assert handle.read() == b"x"
+    assert open_regular(tmp_path / "link") is None
+    assert open_regular(tmp_path / "dir") is None
+    assert open_regular(tmp_path / "fifo") is None  # and does not block
+    assert open_regular(tmp_path / "absent") is None
+
+
+def test_a_tree_file_swapped_for_a_link_after_the_listing_is_not_served(
+    tmp_path: Path, readsb: Path, served: tuple[int, AircraftShelf]
+) -> None:
+    port, shelf = served
+    path = shelf.files["/aircraft/style.css"]
+    path.unlink()
+    path.symlink_to("/etc/hostname")
+    assert _get(port, "/aircraft/style.css")[0] == 404
+
+
+def test_an_unreadable_index_is_named_not_a_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _tree(tmp_path)
+
+    def refuse(self: Path, *args: object, **kwargs: object) -> str:
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(Path, "read_text", refuse)
+    with pytest.raises(ValueError, match="cannot be read"):
+        find_aircraft(tmp_path, None)
+
+
+# -- the redirect, HEAD and ranges carry the same rules --------------------------------------
+
+
+def test_the_redirect_head_and_a_range_carry_the_policy_and_the_host_check(
+    served: tuple[int, AircraftShelf],
+) -> None:
+    port, _ = served
+    for method, path, headers, want in (
+        ("GET", "/aircraft", {}, 301),
+        ("HEAD", "/aircraft/", {}, 200),
+        ("HEAD", "/aircraft/data/aircraft.json", {}, 200),
+        ("GET", "/aircraft/style.css", {"Range": "bytes=0-1"}, 206),
+        ("GET", "/aircraft/style.css", {"Range": "bytes=999-"}, 416),
+    ):
+        status, response, body = _get(port, path, method=method, headers=headers)
+        assert status == want, (method, path)
+        assert response["Content-Security-Policy"] == CONTENT_SECURITY_POLICY, (method, path)
+        if method == "HEAD":
+            assert body == b""
+    for method, path in (("GET", "/aircraft"), ("HEAD", "/aircraft/")):
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        try:
+            conn.putrequest(method, path, skip_host=True)
+            conn.putheader("Host", "evil.example")
+            conn.endheaders()
+            response_ = conn.getresponse()
+            assert response_.status == 403, (method, path)
+        finally:
+            conn.close()
 
 
 # -- the landing page -------------------------------------------------------------------
