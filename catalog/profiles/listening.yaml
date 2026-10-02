@@ -16,6 +16,7 @@ packages:
   - multimon
   - dsdcc
   - readsb
+  - dump978-fa
   - mlat-client-adsbfi
   - gr-air-modes
   - rtl-ais
@@ -24,6 +25,7 @@ packages:
   - gnuaisgui
   - welle-io
   - dablin
+  - nrsc5
   - satdump
   - kalibrate-rtl
   - morse2ascii
@@ -35,8 +37,10 @@ documentation:
   what_it_installs: >-
     The aeronautical decoder cluster — ACARS, VDL Mode 2 and HFDL, with the
     shared library that turns their raw text into structured messages and a
-    database to keep what was heard. Aircraft transponder decoding with a
-    multilateration feeder. Marine AIS three ways. DAB in a window and in a pipe.
+    database to keep what was heard. Aircraft transponder decoding on both
+    ADS-B links, 1090 MHz and the US-only 978 MHz UAT, with a
+    multilateration feeder. Marine AIS three ways. DAB in a window and in a
+    pipe, and HD Radio, the digital side of North American FM and AM.
     A multi-channel airband scanner, digital voice protocol decoding, paging
     and classic mode decoding, weather satellite imaging, two Morse
     decoders, and an offline signal-identification reference (Artemis, the
@@ -67,7 +71,10 @@ documentation:
     will multiply what a stub on a desk achieves, and 1090 MHz is line of sight
     so height is everything. **Determine the dongle's PPM correction** — the
     two AIS channels are 50 kHz apart and an uncorrected offset silently puts
-    one outside the filter, which reads as poor propagation.
+    one outside the filter, which reads as poor propagation. **One dongle
+    hears one band at a time**: readsb on 1090 MHz and dump978-fa on 978
+    MHz together need two, and readsb can take dump978-fa's raw port as a
+    second input so both links land in one set of JSON.
 
     Each decoder is configured separately and none is configured here; the
     aeronautical tools in particular want frequencies for your region.
@@ -77,5 +84,6 @@ documentation:
     as well as for you.
   disk_footprint_hint: >-
     Around 400 MB. Six of these are source or pinned-git builds — the whole
-    aeronautical cluster plus kalibrate-rtl — so the install takes longer than
+    aeronautical cluster plus kalibrate-rtl — and dump978-fa and nrsc5 are
+    two more, so the install takes longer than
     the size suggests.

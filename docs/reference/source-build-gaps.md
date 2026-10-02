@@ -358,3 +358,26 @@ not oblige a backend feature, and this one is not proposed here. The routes
 that need nothing from the engine: a distribution packages FreeDV 2.x (no
 target does: all seven carry 1.8.11, which is the catalog's `freedv`), or
 upstream pins the two branches and hashes the Opus archive.
+
+### 10. A build that fetches a dependency at a tag, unchecked — `nrsc5` — **closed by a patch, 2026-10-01**
+
+nrsc5 v3.2.0 links a patched FAAD2 for HD Radio's audio, and upstream's CMake
+gets it by an `ExternalProject` step that clones `knik0/faad2` at `GIT_TAG
+2.11.2` while building. It is #9's shape with one difference that decides it:
+the ref is a tag, not a branch, and it is written in the one tree the
+manifest checks out. So the manifest carries a two-line patch that
+replaces the clone with the GitHub archive of that tag and a `URL_HASH
+SHA256`, and CMake itself refuses the archive unless it matches. The plan
+prints the patch's description, so the download is disclosed before anything
+runs.
+
+Measured in a rootless `debian:13` container: with the patch the build logged
+"verifying file" and exited 0 in 40 s; with one digit of the hash changed it
+stopped at "Hash mismatch" and exited 2 (D-031). nixpkgs pins the same FAAD2
+tag by hash too: it fetches it ahead of the build and deletes the clone lines.
+
+This is the route for a nested fetch the engine cannot pin from outside: a
+patch to a hashed URL, when the fetch is in the checked-out tree and names an
+immutable-looking ref. A define is tried first: `radio_tool`'s CMake fetches
+SimpleBLE for Bluetooth LE cloning, and `-DBUILD_BLE=OFF` removes the fetch
+without a patch.

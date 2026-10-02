@@ -126,6 +126,13 @@ BLOCKS: dict[str, tuple[str, str]] = {
         "Usable now through the confirmed RTL-SDR identifiers. Only a "
         "board-level control rule is missing, and nothing needs one.",
     ),
+    "librevna": (
+        "an owner's lsusb",
+        "Not owned. Its three identifiers are read from upstream's source at "
+        "v1.6.5, so no rule is generated until one is seen on hardware; until "
+        "then the program reaches the device only with access granted some "
+        "other way. Nothing else in the catalog waits on it.",
+    ),
     "sdrplay-rsp": (
         "M4",
         "The recorded Mirics identifiers work for the open driver. What is "
