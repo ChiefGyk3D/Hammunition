@@ -209,7 +209,7 @@ class GdalDemConverter:
         tiles = self.data_dir(manifest) / "contours" / "tiles"
         return [
             t
-            for t in self.resolution.tiles
+            for t in self.resolution.available
             if not (
                 (tiles / f"{t}{TIF}").is_file()
                 and installed_converter(tiles / f"{t}{TIF}") == CONVERTER
@@ -224,7 +224,7 @@ class GdalDemConverter:
         except OSError:
             return False
         return (
-            recorded == render_record(self.resolution.tiles, self.provider)
+            recorded == render_record(self.resolution.available, self.provider)
             and (out / "dem" / "dem.vrt").is_file()
             and (out / "contours" / "contours.vrt").is_file()
         )
@@ -384,7 +384,7 @@ class GdalDemConverter:
         return "; removed " + " and ".join(str(v) for v in gone)
 
     def _rasters(self, source: Path, out: Path, writer: PrefixWriter) -> str:
-        wanted = self.resolution.tiles
+        wanted = self.resolution.available
         tiles = [t for t in wanted if (source / f"{t}{TIF}").is_file()]
         drawn = [
             out / "contours" / "tiles" / f"{t}{TIF}"
