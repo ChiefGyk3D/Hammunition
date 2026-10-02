@@ -68,6 +68,7 @@ __all__ = [
     "WRAPPER_MARK",
     "HelperPlan",
     "dpkg_owner",
+    "dpkg_owners",
     "helper_destinations",
     "plan_helper",
     "under_prefix",
@@ -147,6 +148,34 @@ def dpkg_owner(path: str) -> str | None:
     return proc.stdout.splitlines()[0].split(":", 1)[0].strip() or None
 
 
+def dpkg_owners(paths: Collection[str]) -> dict[str, str]:
+    """The package that owns each of *paths*, for the ones some package does.
+
+    One ``dpkg-query -S`` for all of them. It exits 1 when any path is unowned
+    but still prints the owned ones as ``package[, package]: path``; a diversion
+    line (``diversion by ...``) names no owner and is ignored.
+    """
+    wanted = [p for p in paths if p]
+    if not wanted:
+        return {}
+    try:
+        proc = subprocess.run(
+            ["dpkg-query", "-S", "--", *wanted],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {}
+    found: dict[str, str] = {}
+    for line in proc.stdout.splitlines():
+        owners, sep, path = line.partition(": ")
+        if sep and path in wanted and not owners.startswith("diversion by"):
+            found[path] = owners.split(",")[0].strip()
+    return found
+
+
 @dataclass(frozen=True)
 class HelperPlan:
     """What installing the helper would do here, and whose files are in the way."""
@@ -167,6 +196,11 @@ class HelperPlan:
     refresh: bool = False
     """True when the files at the fixed path are this engine's own earlier
     install and are replaced by this pin's."""
+
+    problem: str | None = None
+    """Why the helper that is left alone cannot serve this pin, when it cannot
+    (a package's helper that answers no contract at all). A plan with a problem
+    is refused by name where its steps are built, never discovered afterwards."""
 
     unsafe_interpreter: WritabilityFinding | None = None
     unsafe_package: WritabilityFinding | None = None
@@ -242,11 +276,22 @@ def plan_helper(
     wrapper = wrapper_path if wrapper_path is not None else Path(HELPER_PATH)
     package = (owner_of or dpkg_owner)(policy_path)
     if package is not None:
+        answered = polkit.installed_helper_version(str(wrapper))
+        match = _CONTRACT.fullmatch(answered) if answered else None
+        enough = match is not None and int(match["number"]) >= helper.min_contract
         return HelperPlan(
             install=False,
             owner=f"the {package} package (apt), which owns {policy_path}",
             interpreter=python,
-            version=polkit.installed_helper_version(str(wrapper)),
+            version=answered,
+            problem=None
+            if enough
+            else (
+                f"the {package} package owns {policy_path} and the helper at {wrapper} does "
+                f"not answer contract {helper.min_contract} or newer ({answered or 'no answer'}); "
+                f"this engine never writes over a package's file -- upgrade or remove "
+                f"{package} (apt), then install again"
+            ),
         )
 
     text = _read(wrapper)

@@ -55,10 +55,12 @@ files are not yet reversed; the log records them, and the plan says that too.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+from hammunition import devctl_helper
 from hammunition.devctl_helper import (
     ENTRY_NAME,
     HELPER_PATH,
@@ -295,6 +297,7 @@ def plan_removal(
     paths: RemovalPaths,
     attributed_files: frozenset[str] = frozenset(),
     log: TransactionLog | None = None,
+    owners: Callable[[Collection[str]], Mapping[str, str]] | None = None,
 ) -> RemovalPlan:
     """Resolve names to a removal plan, or raise with every blocker at once.
 
@@ -302,7 +305,10 @@ def plan_removal(
     (from ``AptBackend.probe``) — what is installed *now*, not what the log
     said at install time. ``attributed_files`` is
     :func:`files_installed_by_hammunition` over the same log; ``log`` itself
-    is only consulted for vendor-.deb digest attribution.
+    is only consulted for vendor-.deb digest attribution. ``owners`` answers
+    which package owns a path (``dpkg-query -S`` by default): the log says what
+    this engine once installed, and a file a package has since taken over is the
+    package's to remove, so it is asked again here and the file is left.
     """
     blockers: list[str] = []
     units: list[str] = []
@@ -354,15 +360,22 @@ def plan_removal(
             elif dest.exists():
                 left_unattributed.setdefault(unit, []).append(str(dest))
 
+    def package_owned(candidates: Collection[Path]) -> Mapping[str, str]:
+        found = (owners or devctl_helper.dpkg_owners)([str(c) for c in candidates])
+        return {path: pkg for path, pkg in found.items()}
+
     def plan_placed(unit: str, install: BinaryInstall) -> None:
         """What a ``binary`` block spread over the filesystem, on log evidence.
 
         Files first, so each is un-attributed by its own ``rm -f``; then the
         directories that held only this unit's files, which go whole.
         """
+        taken = package_owned([under_prefix(p.dest, paths.prefix) for p in install.placements])
         for placement in install.placements:
             dest = under_prefix(placement.dest, paths.prefix)
-            if str(dest) in attributed_files:
+            if str(dest) in taken:
+                left_unattributed.setdefault(unit, []).append(str(dest))
+            elif str(dest) in attributed_files:
                 add(unit, ArtifactRemoval("binary", dest, "log", requires_root=True))
             elif dest.exists():
                 left_unattributed.setdefault(unit, []).append(str(dest))
@@ -370,6 +383,7 @@ def plan_removal(
             inside = directory + "/"
             if any(
                 str(under_prefix(p.dest, paths.prefix)) in attributed_files
+                and str(under_prefix(p.dest, paths.prefix)) not in taken
                 for p in install.placements
                 if p.dest.startswith(inside)
             ):
@@ -406,8 +420,9 @@ def plan_removal(
         entry = libdir / ENTRY_NAME
         wrapper = under_prefix(HELPER_PATH, paths.prefix)
         policy = Path(POLICY_PATH)
-        if str(entry) not in attributed_files:
-            # Another owner's (a .deb, the tray's own installer), or never ours.
+        if str(entry) not in attributed_files or package_owned([policy]):
+            # Another owner's (a .deb now owns the action, the tray's own
+            # installer), or never ours.
             if wrapper.exists():
                 left_unattributed.setdefault(unit, []).append(str(wrapper))
             return
@@ -416,7 +431,15 @@ def plan_removal(
             if held:
                 kept_shared.setdefault(unit, []).extend(held)
             return
-        for path in (wrapper, policy, entry):
+        # Every file the log attributes goes by its own `rm -f --`, so the replay
+        # un-attributes each; the directory then goes whole.
+        inside = f"{libdir}/"
+        files = [
+            wrapper,
+            policy,
+            *(Path(f) for f in sorted(attributed_files) if f.startswith(inside)),
+        ]
+        for path in files:
             if str(path) in attributed_files:
                 add(unit, ArtifactRemoval("binary", path, "log", requires_root=True))
         add(unit, ArtifactRemoval("tree", libdir, "log", requires_root=True))

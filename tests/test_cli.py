@@ -1020,9 +1020,13 @@ def test_a_tray_unit_dry_run_leaves_a_helper_a_package_owns_and_names_the_packag
     monkeypatch: pytest.MonkeyPatch, capsys: Any
 ) -> None:
     from hammunition import devctl_helper
+    from hammunition.hardware import polkit
 
     _xfce(monkeypatch)
     monkeypatch.setattr(devctl_helper, "dpkg_owner", lambda _path: "hammunition-devctl")
+    monkeypatch.setattr(
+        polkit, "installed_helper_version", lambda *a, **k: "hammunition-devctl contract 1"
+    )
     rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "hammunition-tray-qt"])
     out = capsys.readouterr().out
     assert rc == EXIT_OK
@@ -1051,6 +1055,27 @@ def test_an_interpreter_any_account_can_write_refuses_even_a_dry_run(
     assert rc == EXIT_UNPLANNABLE
     assert "refusing to install the device helper" in err
     assert "writable by any local account" in err
+
+
+def test_a_unit_already_installed_at_its_pin_is_not_gated_for_a_helper_it_will_not_write(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    from hammunition import devctl_helper
+    from hammunition.hardware import polkit
+
+    _xfce(monkeypatch)
+    cli = importlib.import_module("hammunition.cli.main")
+    monkeypatch.setattr(devctl_helper, "dpkg_owner", lambda _path: None)
+    monkeypatch.setattr(
+        polkit,
+        "writable_including_symlink_target",
+        lambda path, **kw: polkit.WritabilityFinding(
+            str(path), polkit.WritabilityRisk.GROUP_OR_OTHER_WRITABLE
+        ),
+    )
+    monkeypatch.setattr(cli, "already_built", lambda *a, **k: frozenset({"hammunition-tray-qt"}))
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "hammunition-tray-qt"])
+    assert rc == EXIT_OK, capsys.readouterr().err
 
 
 def test_yes_does_not_answer_the_owned_by_one_account_confirmation(

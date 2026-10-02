@@ -15,9 +15,12 @@ into a staging directory, and reading the helper's answer back.
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
+import tarfile
+import zipfile
+from collections.abc import Callable, Collection, Mapping
 from pathlib import Path
 
+from hammunition import devctl_helper
 from hammunition.devctl_helper import (
     ENTRY_NAME,
     HELPER_PATH,
@@ -37,12 +40,36 @@ __all__ = ["helper_steps", "placement_steps"]
 
 
 def placement_steps(
-    *, name: str, placements: list[Placement], src: Path, prefix: Path
+    *,
+    name: str,
+    placements: list[Placement],
+    src: Path,
+    prefix: Path,
+    owners: Callable[[Collection[str]], Mapping[str, str]] | None = None,
 ) -> list[Action | Command]:
-    """One privileged ``install`` per placed file, from the unpacked tree."""
+    """One privileged ``install`` per placed file, from the unpacked tree.
+
+    A file some package already owns is never written over (CLAUDE.md, D-022):
+    ``dpkg-query -S`` is asked about every destination first, and the step list
+    is refused by name, with the remedy, rather than leaving a file two owners
+    fight over. The 0.4.0 tray units were ``.deb``s, so a machine that installed
+    one meets this exactly once.
+    """
     steps: list[Action | Command] = []
+    dests = {placement.dest: under_prefix(placement.dest, prefix) for placement in placements}
+    owned = (owners or devctl_helper.dpkg_owners)([str(d) for d in dests.values()])
+    clashes = {str(dest): owned[str(dest)] for dest in dests.values() if str(dest) in owned}
+    if clashes:
+        packages = sorted(set(clashes.values()))
+        raise BackendError(
+            f"{name} would write over files that the {', '.join(packages)} package"
+            f"{'s' if len(packages) > 1 else ''} owns "
+            f"({', '.join(sorted(clashes)[:3])}{', ...' if len(clashes) > 3 else ''}): this "
+            f"engine never overwrites a package's file. Remove the package first "
+            f"(`sudo apt-get remove {' '.join(packages)}`), then install {name} again."
+        )
     for placement in placements:
-        dest = under_prefix(placement.dest, prefix)
+        dest = dests[placement.dest]
         steps.append(
             Command(
                 argv=(
@@ -70,15 +97,86 @@ def _existing(path: Path) -> Path:
 
 
 def _stage(staging: Path, wrapper: str, policy: str) -> str:
-    staging.mkdir(parents=True, exist_ok=True)
-    os.chmod(staging, 0o700)
-    for name, body in (("wrapper", wrapper), ("policy", policy)):
-        target = staging / name
-        target.unlink(missing_ok=True)
-        descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-        with os.fdopen(descriptor, "w") as handle:
-            handle.write(body)
+    """Write the two rendered files into a fresh directory only this process made.
+
+    The directory is removed and recreated through the descriptor of its parent
+    (the engine's own safe removal), then opened ``O_NOFOLLOW`` and written by
+    descriptor, so a symlink put where the directory was cannot send a root
+    process's write, or its ``unlink``, anywhere else.
+    """
+    from hammunition.fetch import operator_dir, remove_tree
+
+    with operator_dir(staging.parent) as parent_fd:
+        if staging.is_symlink():
+            # The link goes, never what it points at.
+            if parent_fd is None:
+                staging.unlink()
+            else:
+                os.unlink(staging.name, dir_fd=parent_fd)
+        remove_tree(staging.parent, parent_fd, staging.name)
+        if parent_fd is None:
+            staging.mkdir(mode=0o700)
+        else:
+            os.mkdir(staging.name, 0o700, dir_fd=parent_fd)
+    directory = os.open(staging, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fchmod(directory, 0o700)
+        for name, body in (("wrapper", wrapper), ("policy", policy)):
+            descriptor = os.open(
+                name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o600,
+                dir_fd=directory,
+            )
+            with os.fdopen(descriptor, "w") as handle:
+                handle.write(body)
+    finally:
+        os.close(directory)
     return f"staged the wrapper and the polkit action in {staging} (mode 0600, read by the next commands)"
+
+
+def _archive_member(archive: Path, relative: str) -> bytes:
+    """The bytes of *relative* in *archive*, where the archive's one top-level
+    directory (stripped on unpacking) is not part of the name."""
+
+    def matches(name: str) -> bool:
+        return name == relative or name.split("/", 1)[-1] == relative
+
+    if tarfile.is_tarfile(archive):
+        with tarfile.open(archive) as tar:
+            for member in tar.getmembers():
+                if member.isfile() and matches(member.name):
+                    handle = tar.extractfile(member)
+                    if handle is not None:
+                        return handle.read()
+    elif zipfile.is_zipfile(archive):
+        with zipfile.ZipFile(archive) as bundle:
+            for name in bundle.namelist():
+                if matches(name):
+                    return bundle.read(name)
+    raise BackendError(f"{relative} is not in the verified archive {archive.name}")
+
+
+def _verify_installed_code(archive: Path, helper: DevctlHelper, entry: Path, package: Path) -> str:
+    """The root-owned copies are the verified archive's bytes, file for file.
+
+    The archive is hash-checked when it is fetched; what root copies is the
+    unpacked tree in the operator's cache, which is not. Reading each installed
+    file back against the archive closes that gap, and it runs before the wrapper
+    polkit authorises is installed, so a mismatch leaves nothing that can be run
+    through the action.
+    """
+    pairs = [(entry, f"{helper.source}/{ENTRY_NAME}")] + [
+        (package / module, f"{helper.source}/{PACKAGE_DIR}/{module}") for module in helper.modules
+    ]
+    for installed, relative in pairs:
+        if installed.read_bytes() != _archive_member(archive, relative):
+            raise BackendError(
+                f"{installed} differs from {relative} in the verified archive "
+                f"{archive.name}: the unpacked tree changed between unpacking and the copy. "
+                f"The wrapper was not installed; remove {installed.parent} and run again."
+            )
+    return f"{len(pairs)} installed files equal the verified archive's"
 
 
 def helper_steps(
@@ -91,12 +189,18 @@ def helper_steps(
     prefix: Path,
     policy_dest: Path | None = None,
     probe: Callable[[str], str | None] | None = None,
+    archive: Callable[[], Path] | None = None,
 ) -> list[Action | Command]:
     """The steps that install the helper, or the one that says it is left alone.
 
     *src* is the unpacked archive's root. *policy_dest* defaults to the polkit
     action's fixed path and exists so a test can write it somewhere it may.
+    *archive* names the verified archive on disk once it is fetched; with it the
+    installed code is compared with the archive's own bytes before the wrapper
+    is installed.
     """
+    if plan.problem is not None:
+        raise BackendError(plan.problem)
     if not plan.install:
         message = (
             f"left alone: the helper at {HELPER_PATH} is owned by {plan.owner}"
@@ -170,6 +274,18 @@ def helper_steps(
                 requires_root=root(package),
             )
         )
+    if archive is not None:
+        steps.append(
+            Action(
+                kind="devctl-source-verify",
+                description=f"Compare the installed helper code with the verified archive ({name})",
+                detail=(
+                    f"{entry} and {package}/*.py against the archive's own bytes, before the "
+                    f"wrapper that polkit authorises is installed"
+                ),
+                perform=lambda: _verify_installed_code(archive(), helper, entry, package),
+            )
+        )
     steps.append(
         Command(
             argv=("install", "-D", "-m", "0755", str(staging / "wrapper"), str(wrapper_dest)),
@@ -191,6 +307,12 @@ def helper_steps(
     def verify() -> str:
         from hammunition.hardware import polkit
 
+        for installed, expected in ((wrapper_dest, wrapper_text), (policy, policy_text)):
+            if installed.read_text() != expected:
+                raise BackendError(
+                    f"{installed} is not what was staged for it: it changed between the "
+                    f"staging step and the install. Remove it and run again."
+                )
         answer = (probe or polkit.installed_helper_version)(str(wrapper_dest))
         if answer is None:
             raise BackendError(

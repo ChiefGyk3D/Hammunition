@@ -713,6 +713,16 @@ def build_effects_present(planned: PlannedPackage, *, prefix: Path) -> bool | No
         path = prefix / extra
         present.append(path.is_file() and not path.is_symlink())
     present.extend(path.is_file() for path in placed_files(planned.block, prefix))
+    method = planned.block.install
+    if isinstance(method, BinaryInstall) and method.devctl_helper is not None:
+        # A helper that answers nothing is not installed, whoever owns it: its
+        # files being there is what a deleted venv leaves behind (the wrapper's
+        # interpreter), and a re-run must repair that rather than call it done.
+        from hammunition.hardware import polkit
+
+        present.append(
+            polkit.installed_helper_version(str(under_prefix(HELPER_PATH, prefix))) is not None
+        )
     if not present:
         return None
     return all(present)

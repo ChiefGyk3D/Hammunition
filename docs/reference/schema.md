@@ -683,7 +683,7 @@ by surprise (a test compares the list with the pinned archive).
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `source` | `str` | **yes** | A file inside the unpacked tree, relative to its root. |
-| `dest` | `str` | **yes** | Where it is installed: an absolute path under one of PLACEMENT_ROOTS. Under /usr/local/ it follows the engine's prefix. |
+| `dest` | `str` | **yes** | Where it is installed: an absolute path under one of PLACEMENT_ROOTS, with a path component named for this project. Under /usr/local/ it follows the engine's prefix. |
 | `mode` | `str` | no (default `0644`) |  |
 
 ### `PrepareStep`

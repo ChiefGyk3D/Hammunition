@@ -387,7 +387,10 @@ def test_old_modules_are_cleared_before_the_new_ones_land(tmp_path: Path) -> Non
     assert clear < first_module
 
 
-def test_a_helper_left_alone_is_one_step_that_names_the_owner(tmp_path: Path) -> None:
+def test_a_helper_left_alone_is_one_step_that_names_the_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _answers(monkeypatch, CONTRACT_LINE)
     helper = _helper()
     plan = plan_helper(
         helper,
@@ -415,6 +418,17 @@ def test_the_verify_step_fails_loudly_when_the_wrapper_answers_nothing(tmp_path:
     assert isinstance(verify, Action) and verify.kind == "devctl-verify"
     from hammunition.backends import BackendError
 
+    # What the install steps would have written, so the read-back reaches the probe.
+    wrapper = tmp_path / "prefix" / "libexec" / "hammunition-devctl"
+    wrapper.parent.mkdir(parents=True)
+    wrapper.write_text(
+        wrapper_script(
+            "/engine/venv/bin/python",
+            str(tmp_path / "prefix/lib/hammunition-devctl/hammunition-devctl"),
+        )
+    )
+    (tmp_path / "polkit").mkdir()
+    (tmp_path / "polkit" / "x.policy").write_text(polkit.policy_xml())
     with pytest.raises(BackendError, match="does not answer --version"):
         verify.perform()
 
@@ -429,7 +443,7 @@ def test_under_prefix_is_the_identity_for_the_real_prefix() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skipif(
+_ROOT_SKIP = pytest.mark.skipif(
     os.geteuid() == 0,
     reason=(
         "run as root, the helper refuses a tree below a world-writable directory (/tmp) -- "
@@ -437,8 +451,11 @@ def test_under_prefix_is_the_identity_for_the_real_prefix() -> None:
         "unprivileged `make check` run is the one that proves the answer"
     ),
 )
+
+
+@_ROOT_SKIP
 def test_the_installed_wrapper_answers_the_contract_line_against_the_pinned_tree(
-    pinned_tray: Path, helper_block: DevctlHelper, tmp_path: Path
+    pinned_tray: Path, pinned_tray_archive: Path, helper_block: DevctlHelper, tmp_path: Path
 ) -> None:
     """The steps run for real into a temporary prefix: stage, copy, wrapper,
     policy, then `--version` through the wrapper, the way pkexec's caller does."""
@@ -460,7 +477,9 @@ def test_the_installed_wrapper_answers_the_contract_line_against_the_pinned_tree
         prefix=prefix,
         policy_dest=policy,
         probe=lambda path: _run_version(path),
+        archive=lambda: pinned_tray_archive,
     )
+    assert any(isinstance(s, Action) and s.kind == "devctl-source-verify" for s in steps)
     runner = SubprocessRunner()
     outcomes = []
     for step in steps:
@@ -505,3 +524,124 @@ def test_the_constants_repeated_to_keep_the_module_a_leaf_equal_the_polkit_modul
 
     assert devctl_helper.HELPER_PATH == polkit.HELPER_PATH
     assert devctl_helper.POLICY_PATH == polkit.POLICY_PATH
+
+
+# ---------------------------------------------------------------------------
+# Review findings (2026-10-02): the staging directory, the copy, and a package
+# ---------------------------------------------------------------------------
+
+
+def test_staging_never_writes_or_unlinks_through_a_symlink(tmp_path: Path) -> None:
+    """Run as root the engine writes into the operator's build directory: a
+    symlink put where the staging directory should be must not send that
+    write, or the `unlink` before it, anywhere else."""
+    victim = tmp_path / "victim"
+    victim.mkdir()
+    (victim / "wrapper").write_text("must survive")
+    (tmp_path / "stage").symlink_to(victim)
+    stage = next(s for s in _steps(tmp_path) if isinstance(s, Action) and s.kind == "devctl-stage")
+    stage.perform()
+    assert (victim / "wrapper").read_text() == "must survive"
+    assert not (tmp_path / "stage").is_symlink()
+    assert (tmp_path / "stage" / "wrapper").read_text().startswith("#!/bin/sh")
+    assert ((tmp_path / "stage").stat().st_mode & 0o777) == 0o700
+    assert ((tmp_path / "stage" / "wrapper").stat().st_mode & 0o777) == 0o600
+
+
+def test_a_package_helper_that_answers_no_contract_is_refused_at_plan_time(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _answers(monkeypatch, None)
+    helper = _helper()
+    plan = plan_helper(
+        helper,
+        wrapper_path=tmp_path / "none",
+        owner_of=lambda _p: "hammunition-devctl",
+        interpreter="/x/python",
+    )
+    assert plan.problem is not None and "never writes over a package's file" in plan.problem
+    from hammunition.backends import BackendError
+
+    with pytest.raises(BackendError, match="upgrade or remove hammunition-devctl"):
+        helper_steps(
+            name="t",
+            helper=helper,
+            plan=plan,
+            src=tmp_path,
+            staging=tmp_path / "s",
+            prefix=tmp_path,
+        )
+
+
+def _run_through(steps: list[Action | Command], *, stop_before: str | None = None) -> None:
+    runner = SubprocessRunner()
+    for step in steps:
+        if isinstance(step, Action):
+            if step.kind == stop_before:
+                return
+            step.perform()
+        else:
+            result = runner.run(step)
+            assert result.ok, f"{step.argv}: {result.stderr}"
+
+
+def _real_steps(
+    tmp_path: Path, pinned_tray: Path, pinned_tray_archive: Path, helper_block: DevctlHelper
+) -> list[Action | Command]:
+    prefix = tmp_path / "prefix"
+    plan = plan_helper(
+        helper_block,
+        wrapper_path=prefix / "libexec" / "hammunition-devctl",
+        owner_of=NO_OWNER,
+        interpreter=sys.executable,
+    )
+    return helper_steps(
+        name="hammunition-tray",
+        helper=helper_block,
+        plan=plan,
+        src=pinned_tray,
+        staging=tmp_path / "stage",
+        prefix=prefix,
+        policy_dest=tmp_path / "polkit" / "act.policy",
+        probe=_run_version,
+        archive=lambda: pinned_tray_archive,
+    )
+
+
+def test_code_that_changed_between_unpack_and_copy_stops_before_the_wrapper(
+    tmp_path: Path, pinned_tray: Path, pinned_tray_archive: Path, helper_block: DevctlHelper
+) -> None:
+    """The archive is hashed when fetched; what root copies is the unpacked tree
+    in the operator's cache. The installed files are read back against the
+    archive's own bytes before the wrapper polkit authorises exists."""
+    from hammunition.backends import BackendError
+
+    tampered = pinned_tray / "devctl" / "hammunition_devctl" / "devctl.py"
+    original = tampered.read_bytes()
+    tampered.write_bytes(original + b"\nimport os; os.system('id')\n")
+    try:
+        steps = _real_steps(tmp_path, pinned_tray, pinned_tray_archive, helper_block)
+        with pytest.raises(
+            BackendError, match=r"differs from devctl/hammunition_devctl/devctl\.py"
+        ):
+            _run_through(steps)
+    finally:
+        tampered.write_bytes(original)
+    assert not (tmp_path / "prefix" / "libexec" / "hammunition-devctl").exists(), (
+        "the wrapper must not exist when the code failed its check"
+    )
+
+
+def test_a_wrapper_swapped_after_staging_fails_the_final_check(
+    tmp_path: Path, pinned_tray: Path, pinned_tray_archive: Path, helper_block: DevctlHelper
+) -> None:
+    from hammunition.backends import BackendError
+
+    steps = _real_steps(tmp_path, pinned_tray, pinned_tray_archive, helper_block)
+    _run_through(steps, stop_before="devctl-verify")
+    wrapper = tmp_path / "prefix" / "libexec" / "hammunition-devctl"
+    wrapper.write_text("#!/bin/sh\nexec /bin/sh\n")
+    verify = steps[-1]
+    assert isinstance(verify, Action) and verify.kind == "devctl-verify"
+    with pytest.raises(BackendError, match="is not what was staged for it"):
+        verify.perform()

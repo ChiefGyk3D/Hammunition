@@ -238,6 +238,7 @@ class BinaryBackend:
                         src=layout.src,
                         staging=layout.src.parent / f"{manifest.name}-devctl-staging",
                         prefix=self.prefix,
+                        archive=lambda: fetched["path"],
                     )
                 )
             return steps

@@ -670,7 +670,8 @@ class GitInstall(Strict):
 
 
 PLACEMENT_ROOTS: tuple[str, ...] = (
-    "/usr/local/",
+    "/usr/local/bin/",
+    "/usr/local/share/",
     "/usr/share/plasma/plasmoids/",
     "/usr/share/hammunition-tray-qt/",
     "/usr/share/icons/hicolor/",
@@ -679,10 +680,18 @@ PLACEMENT_ROOTS: tuple[str, ...] = (
 )
 """The only places a prebuilt tree's files may be spread to (hammunition-tray
 0.5.0, which publishes no .deb yet). Each is a directory a .deb of the same
-software would have owned, none is a place that runs anything as root, and
-``/usr/local/`` is the engine's own prefix (the planner maps it to the prefix
-it was given). A catalog is data: it names a destination from this list or it
-does not load."""
+software would have owned. **Not** ``/usr/local/libexec``, ``/usr/local/sbin``
+or ``/usr/local/lib``: the first holds the wrapper polkit authorises to run as
+root, the others are on root's path or hold the helper's code, and the helper
+has a block of its own (``devctl_helper``) for exactly that reason. And every
+destination must also be *named for this project* (a path component containing
+``hammunition`` or ``chiefgyk3d``), so a catalog entry cannot place an
+arbitrary autostart entry, a menu entry or a program on the path under a name
+of its choosing. ``/usr/local/`` follows the engine's prefix (the planner maps
+it). A catalog is data: it names a destination from this list or it does not
+load."""
+
+PROJECT_NAMES = ("hammunition", "chiefgyk3d")
 
 PLACEMENT_MODES = frozenset({"0644", "0755"})
 
@@ -699,8 +708,9 @@ class Placement(Strict):
     source: str = Field(description="A file inside the unpacked tree, relative to its root.")
     dest: str = Field(
         description=(
-            "Where it is installed: an absolute path under one of PLACEMENT_ROOTS. "
-            "Under /usr/local/ it follows the engine's prefix."
+            "Where it is installed: an absolute path under one of PLACEMENT_ROOTS, with a "
+            "path component named for this project. Under /usr/local/ it follows the "
+            "engine's prefix."
         )
     )
     mode: str = "0644"
@@ -729,6 +739,12 @@ class Placement(Strict):
             raise ManifestError(
                 f"placement dest {self.dest!r} is outside the places a prebuilt archive may be "
                 f"spread to ({', '.join(PLACEMENT_ROOTS)})"
+            )
+        if not any(name in part for part in dest.parts for name in PROJECT_NAMES):
+            raise ManifestError(
+                f"placement dest {self.dest!r} is not named for this project (a path component "
+                f"containing {' or '.join(PROJECT_NAMES)}): a catalog entry does not get to "
+                f"place a program, a menu entry or an autostart entry under any name it likes"
             )
         if self.mode not in PLACEMENT_MODES:
             raise ManifestError(
@@ -856,7 +872,7 @@ class BinaryInstall(Strict):
                     f"{', '.join(PLACEMENT_ROOTS)}"
                 )
             leaf = PurePosixPath(directory).name
-            if "hammunition" not in leaf and "chiefgyk3d" not in leaf:
+            if not any(name in leaf for name in PROJECT_NAMES):
                 raise ManifestError(
                     f"placement_dirs {directory!r} is not named for this project: a directory "
                     f"removed whole must be one nothing else shares (a hicolor `apps` directory "

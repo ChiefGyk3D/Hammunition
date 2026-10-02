@@ -3811,10 +3811,14 @@ def cmd_install(args: argparse.Namespace) -> int:
     # The tray's device helper puts a wrapper in front of root (D-056): the
     # interpreter and the engine package it runs are checked the way `hardware
     # apply` checks the same wrapper, and a refusal is a dry run's answer too.
+    # A unit that is already installed at its pin writes nothing, so nothing is
+    # gated for it either.
     helper_plans = [
         plan_helper(p.block.install.devctl_helper, attributed_files=helper_attributed)
         for p in plan.packages
-        if isinstance(p.block.install, BinaryInstall) and p.block.install.devctl_helper is not None
+        if p.name not in built
+        and isinstance(p.block.install, BinaryInstall)
+        and p.block.install.devctl_helper is not None
     ]
     for helper_plan in helper_plans:
         if helper_plan.must_refuse:

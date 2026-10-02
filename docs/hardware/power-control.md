@@ -416,8 +416,11 @@ engine:
   the interpreter before anything is written; it asks one `yes` that `--yes`
   cannot answer when that venv belongs to a single account, and refuses when
   any account can write it. A helper already answering `--version` (the
-  `hammunition-devctl` `.deb`, the tray's own `install.sh`, an earlier run) is
-  left alone and the plan says whose it is. Check it afterwards with
+  `hammunition-devctl` `.deb`, the tray's own `install.sh`) is left alone and the
+  plan says whose it is; one this engine installed earlier is refreshed to this
+  pin; a file a package owns is never written over (the plan refuses and names
+  the package, so a machine with the 0.4.0 `.deb` runs `sudo apt-get remove
+  hammunition-tray` once first). Check it afterwards with
   `/usr/local/libexec/hammunition-devctl --version`, which prints
   `hammunition-devctl contract 1`. `hammunition uninstall hammunition-tray`
   removes the helper only if this engine installed it and no other tray unit is

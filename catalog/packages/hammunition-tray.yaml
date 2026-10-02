@@ -111,9 +111,11 @@ install:
 # `--version`, and removed by `uninstall` on the log's say-so, and only when no
 # other tray unit still needs it. It is NOT a catalog `config_files` entry:
 # the wrapper bakes in an interpreter a catalog file cannot name, and a file a
-# package owns is never written over. A helper that already answers contract 1
-# (the `hammunition-devctl` .deb, the tray's installer, an earlier tray unit)
-# is left alone and the plan says whose it is. This unit and its Qt sibling
+# package owns is never written over (nor is any placed file: the plan
+# refuses, naming the package, where a .deb such as 0.4.0 still owns them). A helper
+# that already answers contract 1 (the `hammunition-devctl` .deb, the tray's
+# installer) is left alone and the plan says whose it is; one this engine
+# installed earlier is refreshed to this pin. This unit and its Qt sibling
 # carry the same block, so either installs the helper for both.
 
 update:

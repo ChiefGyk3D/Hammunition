@@ -12,6 +12,7 @@ on the transaction log, never on a directory listing.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Collection, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -63,6 +64,14 @@ def _manifest(name: str = "demo", **install: Any) -> PackageManifest:
 @pytest.mark.parametrize(
     "dest",
     [
+        "/usr/local/libexec/hammunition-devctl",
+        "/usr/local/lib/hammunition-devctl/hammunition-devctl",
+        "/usr/local/sbin/hammunition-x",
+        "/usr/local/bin/tool",
+        "/usr/local/share/tool/x",
+        "/etc/xdg/autostart/evil.desktop",
+        "/usr/share/applications/evil.desktop",
+        "/usr/share/icons/hicolor/scalable/apps/evil.svg",
         "/etc/passwd",
         "/etc/cron.d/x",
         "/usr/bin/x",
@@ -83,13 +92,13 @@ def test_a_destination_outside_the_allow_list_does_not_load(dest: str) -> None:
 @pytest.mark.parametrize("source", ["/etc/shadow", "../x", "a/../../x", ""])
 def test_a_source_that_leaves_the_archive_does_not_load(source: str) -> None:
     with pytest.raises(ValidationError):
-        Placement(source=source, dest="/usr/local/bin/x")
+        Placement(source=source, dest="/usr/local/bin/hammunition-x")
 
 
 @pytest.mark.parametrize("mode", ["4755", "0666", "0600", "0777", "755"])
 def test_nothing_placed_is_setuid_writable_or_private(mode: str) -> None:
     with pytest.raises(ValidationError):
-        Placement(source="x", dest="/usr/local/bin/x", mode=mode)
+        Placement(source="x", dest="/usr/local/bin/hammunition-x", mode=mode)
 
 
 def test_a_deb_has_no_archive_to_spread() -> None:
@@ -97,7 +106,7 @@ def test_a_deb_has_no_archive_to_spread() -> None:
         _manifest(
             format="deb",
             deb_package="demo",
-            placements=[{"source": "x", "dest": "/usr/local/bin/x"}],
+            placements=[{"source": "x", "dest": "/usr/local/bin/hammunition-x"}],
         )
 
 
@@ -105,8 +114,8 @@ def test_the_same_destination_twice_does_not_load() -> None:
     with pytest.raises(ValidationError, match="twice"):
         _manifest(
             placements=[
-                {"source": "a", "dest": "/usr/local/bin/x"},
-                {"source": "b", "dest": "/usr/local/bin/x"},
+                {"source": "a", "dest": "/usr/local/bin/hammunition-x"},
+                {"source": "b", "dest": "/usr/local/bin/hammunition-x"},
             ]
         )
 
@@ -134,8 +143,8 @@ def test_a_shared_directory_is_never_removed_whole(directory: str) -> None:
 def test_a_directory_removed_whole_must_hold_a_placement() -> None:
     with pytest.raises(ValidationError, match="holds none"):
         _manifest(
-            placements=[{"source": "a", "dest": "/usr/local/bin/x"}],
-            placement_dirs=["/usr/local/lib/hammunition-demo"],
+            placements=[{"source": "a", "dest": "/usr/local/bin/hammunition-x"}],
+            placement_dirs=["/usr/local/share/hammunition-demo"],
         )
 
 
@@ -164,8 +173,8 @@ def _backend(tmp_path: Path, **kw: Any) -> BinaryBackend:
 def test_a_placements_only_archive_is_installable_and_prints_each_file(tmp_path: Path) -> None:
     manifest = _manifest(
         placements=[
-            {"source": "bin/tool", "dest": "/usr/local/bin/tool", "mode": "0755"},
-            {"source": "share/x.desktop", "dest": "/usr/share/applications/x.desktop"},
+            {"source": "bin/tool", "dest": "/usr/local/bin/hammunition-tool", "mode": "0755"},
+            {"source": "share/x.desktop", "dest": "/usr/share/applications/hammunition-x.desktop"},
         ]
     )
     backend = _backend(tmp_path)
@@ -176,14 +185,21 @@ def test_a_placements_only_archive_is_installable_and_prints_each_file(tmp_path:
     src = backend.layout(manifest, install).src
     installs = [s.argv for s in steps if isinstance(s, Command) and s.argv[0] == "install"]
     assert installs == [
-        ("install", "-D", "-m", "0755", f"{src}/bin/tool", f"{tmp_path}/prefix/bin/tool"),
+        (
+            "install",
+            "-D",
+            "-m",
+            "0755",
+            f"{src}/bin/tool",
+            f"{tmp_path}/prefix/bin/hammunition-tool",
+        ),
         (
             "install",
             "-D",
             "-m",
             "0644",
             f"{src}/share/x.desktop",
-            "/usr/share/applications/x.desktop",
+            "/usr/share/applications/hammunition-x.desktop",
         ),
     ]
     placed = [s for s in steps if isinstance(s, Command) and s.argv[:2] == ("install", "-D")]
@@ -203,7 +219,9 @@ def test_the_planner_blocks_an_archive_that_installs_nothing_and_not_one_that_pl
 
     nothing = _manifest()
     assert [b.subject for b in _check_engine_capability(nothing, nothing.install[0])] == ["demo"]
-    places = _manifest(placements=[{"source": "a", "dest": "/usr/local/bin/a", "mode": "0755"}])
+    places = _manifest(
+        placements=[{"source": "a", "dest": "/usr/local/bin/hammunition-a", "mode": "0755"}]
+    )
     assert _check_engine_capability(places, places.install[0]) == []
     helper = _manifest(devctl_helper={"modules": ["__init__.py", "devctl.py"]})
     assert _check_engine_capability(helper, helper.install[0]) == []
@@ -222,16 +240,18 @@ def _plan(manifest: PackageManifest) -> InstallPlan:
 
 
 def test_a_placed_file_that_is_not_there_is_an_unconfirmed_effect(tmp_path: Path) -> None:
-    manifest = _manifest(placements=[{"source": "a", "dest": "/usr/local/bin/a", "mode": "0755"}])
+    manifest = _manifest(
+        placements=[{"source": "a", "dest": "/usr/local/bin/hammunition-a", "mode": "0755"}]
+    )
     plan = _plan(manifest)
     prefix = tmp_path / "prefix"
     missing = verify_effects(plan, None, prefix=prefix)
     assert [c.confirmed for c in missing.checks if c.kind == "file"] == [False]
     (prefix / "bin").mkdir(parents=True)
-    (prefix / "bin" / "a").write_text("x")
+    (prefix / "bin" / "hammunition-a").write_text("x")
     there = verify_effects(plan, None, prefix=prefix)
     assert [c.confirmed for c in there.checks if c.kind == "file"] == [True]
-    assert placed_files(manifest.install[0], prefix) == (prefix / "bin" / "a",)
+    assert placed_files(manifest.install[0], prefix) == (prefix / "bin" / "hammunition-a",)
     assert build_effects_present(plan.packages[0], prefix=prefix) is True
 
 
@@ -272,7 +292,11 @@ def _touch(path: Path) -> None:
 
 
 def _remove(
-    tmp_path: Path, names: list[str], catalog: dict[str, PackageManifest], attributed: set[str]
+    tmp_path: Path,
+    names: list[str],
+    catalog: dict[str, PackageManifest],
+    attributed: set[str],
+    owners: Callable[[Collection[str]], Mapping[str, str]] = lambda _paths: {},
 ) -> RemovalPlan:
     return plan_removal(
         names,
@@ -283,24 +307,27 @@ def _remove(
         states={},
         paths=_paths(tmp_path),
         attributed_files=frozenset(attributed),
+        owners=owners,
     )
 
 
 def test_only_what_the_log_attributes_is_removed(tmp_path: Path) -> None:
     manifest = _manifest(
         placements=[
-            {"source": "a", "dest": "/usr/local/bin/ours", "mode": "0755"},
-            {"source": "b", "dest": "/usr/local/bin/theirs", "mode": "0755"},
+            {"source": "a", "dest": "/usr/local/bin/hammunition-ours", "mode": "0755"},
+            {"source": "b", "dest": "/usr/local/bin/hammunition-theirs", "mode": "0755"},
         ]
     )
     prefix = tmp_path / "prefix"
-    _touch(prefix / "bin" / "ours")
-    _touch(prefix / "bin" / "theirs")
-    plan = _remove(tmp_path, ["demo"], {"demo": manifest}, {str(prefix / "bin" / "ours")})
+    _touch(prefix / "bin" / "hammunition-ours")
+    _touch(prefix / "bin" / "hammunition-theirs")
+    plan = _remove(
+        tmp_path, ["demo"], {"demo": manifest}, {str(prefix / "bin" / "hammunition-ours")}
+    )
     assert [(a.kind, a.path.name, a.basis) for a in plan.artifacts["demo"]] == [
-        ("binary", "ours", "log")
+        ("binary", "hammunition-ours", "log")
     ]
-    assert plan.left_unattributed["demo"] == [str(prefix / "bin" / "theirs")]
+    assert plan.left_unattributed["demo"] == [str(prefix / "bin" / "hammunition-theirs")]
 
 
 def test_a_directory_goes_whole_only_when_a_file_in_it_is_attributed(tmp_path: Path) -> None:
@@ -417,3 +444,127 @@ def test_the_removal_steps_are_the_commands_the_attribution_replay_reads(
     assert not [
         s for s in artifact_removal_steps(plan) if isinstance(s, Action) and s.kind == "remove-venv"
     ]
+
+
+# ---------------------------------------------------------------------------
+# Review findings (2026-10-02): a package's files are never written over or
+# removed, the helper's paths are unreachable from `placements`, a re-run
+# repairs a helper that answers nothing, and a tree removal un-attributes
+# every file inside it
+# ---------------------------------------------------------------------------
+
+
+def test_a_file_a_package_owns_is_never_written_over(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The 0.4.0 tray units were .debs: on a machine that installed one, the
+    applet's files belong to dpkg, and a root `install -D` over them would leave
+    two owners. Refused at plan time, naming the package and the remedy."""
+    from hammunition import devctl_helper
+
+    monkeypatch.setattr(
+        devctl_helper, "dpkg_owners", lambda paths: {p: "hammunition-tray" for p in paths}
+    )
+    manifest = _manifest(
+        placements=[{"source": "a", "dest": "/usr/local/bin/hammunition-a", "mode": "0755"}]
+    )
+    with pytest.raises(BackendError, match=r"hammunition-tray.*apt-get remove hammunition-tray"):
+        _backend(tmp_path).steps(manifest, manifest.install[0])
+
+
+def test_the_helpers_paths_cannot_be_placed_by_a_placement() -> None:
+    """Whatever the allow-list admits, none of the three paths the helper owns
+    (the wrapper polkit authorises, its code, its action) is reachable."""
+    from hammunition.devctl_helper import HELPER_PATH, LIBDIR, POLICY_PATH
+
+    for dest in (HELPER_PATH, f"{LIBDIR}/hammunition-devctl", POLICY_PATH):
+        with pytest.raises(ValidationError):
+            Placement(source="a", dest=dest, mode="0755")
+
+
+def test_a_destination_must_be_named_for_the_project() -> None:
+    Placement(source="a", dest="/usr/local/bin/hammunition-thing", mode="0755")
+    Placement(source="a", dest="/usr/share/plasma/plasmoids/com.chiefgyk3d.x/metadata.json")
+    with pytest.raises(ValidationError, match="named for this project"):
+        Placement(source="a", dest="/usr/local/bin/ls", mode="0755")
+
+
+def test_a_helper_that_answers_nothing_is_not_an_installed_unit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Its files being on disk is what a deleted engine venv leaves behind: the
+    wrapper's interpreter is gone and `--version` answers nothing. A re-run must
+    repair it, not call it done (already_built reads this)."""
+    from hammunition.hardware import polkit
+
+    manifest = _manifest(devctl_helper={"modules": ["__init__.py", "devctl.py"]})
+    plan = _plan(manifest)
+    monkeypatch.setattr(polkit, "installed_helper_version", lambda *a, **k: None)
+    assert build_effects_present(plan.packages[0], prefix=tmp_path) is False
+    monkeypatch.setattr(
+        polkit, "installed_helper_version", lambda *a, **k: "hammunition-devctl contract 1"
+    )
+    assert build_effects_present(plan.packages[0], prefix=tmp_path) is True
+
+
+def test_a_helper_a_package_took_over_since_is_not_removed(
+    tmp_path: Path, tray_units: dict[str, PackageManifest]
+) -> None:
+    """The log says this engine installed the helper; dpkg now owns the action.
+    The package's files are the package's to remove."""
+    prefix = tmp_path / "prefix"
+    _lay_out_helper(prefix)
+    plan = _remove(
+        tmp_path,
+        ["hammunition-tray"],
+        tray_units,
+        _helper_attributions(prefix),
+        owners=lambda paths: {
+            p: "hammunition-devctl" for p in paths if p.endswith("devctl.policy")
+        },
+    )
+    removed = {a.path for a in plan.artifacts.get("hammunition-tray", [])}
+    assert prefix / "lib/hammunition-devctl" not in removed
+    assert str(prefix / "libexec/hammunition-devctl") in plan.left_unattributed["hammunition-tray"]
+
+
+def test_a_placed_file_a_package_took_over_since_is_left(
+    tmp_path: Path, tray_units: dict[str, PackageManifest]
+) -> None:
+    prefix = tmp_path / "prefix"
+    dest = prefix / "bin" / "hammunition-tray-qt"
+    _touch(dest)
+    plan = _remove(
+        tmp_path,
+        ["hammunition-tray-qt"],
+        tray_units,
+        {str(dest)},
+        owners=lambda paths: {p: "hammunition-tray-qt" for p in paths},
+    )
+    assert all(a.path != dest for a in plan.artifacts.get("hammunition-tray-qt", []))
+    assert str(dest) in plan.left_unattributed["hammunition-tray-qt"]
+
+
+def test_a_tree_removal_unattributes_every_module_inside_it(
+    tmp_path: Path, tray_units: dict[str, PackageManifest]
+) -> None:
+    """The replay un-attributes a path only on `rm -f -- PATH`; a bare
+    `rm -rf DIR` would leave each module attributed, and a later owner of the
+    same paths would be taken for this engine's."""
+    from hammunition.execute import artifact_removal_steps
+
+    prefix = tmp_path / "prefix"
+    _lay_out_helper(prefix)
+    module = prefix / "lib/hammunition-devctl/hammunition_devctl/devctl.py"
+    _touch(module)
+    plan = _remove(
+        tmp_path,
+        ["hammunition-tray"],
+        tray_units,
+        _helper_attributions(prefix) | {str(module)},
+    )
+    argvs = [s.argv for s in artifact_removal_steps(plan) if isinstance(s, Command)]
+    assert ("rm", "-f", "--", str(module)) in argvs
+    assert argvs.index(("rm", "-f", "--", str(module))) < argvs.index(
+        ("rm", "-rf", "--", str(prefix / "lib/hammunition-devctl"))
+    )

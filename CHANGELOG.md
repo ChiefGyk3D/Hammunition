@@ -20,8 +20,9 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   interpreter, the polkit action), all printed in the plan, read back with
   `--version`, removed by `uninstall` on the log's say-so and only when no other
   tray unit still needs the helper. A helper another installer owns (a `.deb`,
-  the tray's `install.sh`, an earlier tray unit) is left alone and the plan names
-  the owner; an interpreter tree any account can write refuses, one only its
+  the tray's `install.sh`) is left alone and the plan names the owner, an earlier
+  run of this engine's is refreshed, and a file a package owns is never written
+  over or removed; an interpreter tree any account can write refuses, one only its
   owner can write asks a `yes` that `--yes` does not answer. New manifest
   fields `placements`, `placement_dirs` and `devctl_helper` on a `binary`
   archive, with an allow-list of destinations; `depends` carries what the

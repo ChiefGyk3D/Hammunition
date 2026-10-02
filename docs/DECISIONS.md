@@ -4580,17 +4580,51 @@ When the `.deb`s are published each unit can go back to them.
    reports the refusal too), a tree only its owner can write asks one typed
    `yes` that `--yes` does not answer. Nothing is checked when nothing is
    written.
-4. **Where files may go is an allow-list in the schema** (`/usr/local/`, the
-   Plasma applet directory, `/usr/share/hammunition-tray-qt/` because that
-   script puts exactly that directory on its import path, hicolor icons,
-   application and autostart entries): a destination outside it, a mode other
-   than 0644 or 0755 and a directory shared with other software do not load.
-5. **Uninstall rests on the log.** Each `install -D` is attributed by the
-   existing replay; a file the log does not attribute is reported and left. The
-   helper is removed only when the log attributes its entry script **and** no
-   other tray unit still installed (one of its placed files is on disk) needs
-   it; otherwise the plan says so. A helper another installer owns is never
-   touched.
+4. **Where files may go is an allow-list in the schema** (`/usr/local/bin/`
+   and `/usr/local/share/`, the Plasma applet directory,
+   `/usr/share/hammunition-tray-qt/` because that script puts exactly that
+   directory on its import path, hicolor icons, application and autostart
+   entries), and **every destination must be named for the project** (a path
+   component containing `hammunition` or `chiefgyk3d`). A destination outside
+   the list, one not named for the project, a mode other than 0644 or 0755, a
+   directory shared with other software, and anything at the helper's own three
+   paths (the wrapper polkit authorises, its code, its action: `/usr/local/lib`,
+   `/usr/local/libexec` and `/usr/local/sbin` are not on the list) do not load.
+   The review found that an open `/usr/local/` let a catalog entry write the
+   wrapper itself or a program on root's path. **The catalog has no tiers yet**
+   (D-009 is a design, not code), so `devctl_helper` cannot be core-only today;
+   when tiers exist it should be, and this is the follow-up.
+5. **Uninstall rests on the log, and asks dpkg again.** Each `install -D` is
+   attributed by the existing replay; a file the log does not attribute is
+   reported and left. The helper is removed only when the log attributes its
+   entry script, **and** no other tray unit still installed (one of its placed
+   files is on disk) needs it, **and** no package owns the polkit action now
+   (the log says what this engine once wrote, and a `.deb` may have taken the
+   path over since); otherwise the plan says so. A placed file a package owns is
+   left the same way. Every attributed module goes by its own `rm -f --`, so the
+   replay un-attributes each before the directory goes whole.
+5a. **A package's files are never written over.** `dpkg-query -S` is asked about
+   every destination while the steps are built, and a clash is refused by name
+   with the remedy (`apt-get remove hammunition-tray`): the 0.4.0 units were
+   `.deb`s, so a machine that installed one meets this exactly once. A package
+   that owns the policy but whose helper answers no contract 1 is refused at
+   plan time too, naming the package.
+5b. **The copy is checked against the archive.** The archive is hashed when
+   fetched; what root copies is the unpacked tree in the operator's cache. The
+   installed code is read back against the archive's own bytes before the
+   wrapper polkit authorises is installed (a mismatch leaves no wrapper), the
+   wrapper and the action are read back against what was staged, and the staging
+   directory is made fresh through its parent's descriptor and written by
+   descriptor, so a symlink cannot redirect a root run's write or `unlink`. What
+   this does not close is the interpreter: the wrapper runs the engine's venv
+   as root, an operator-owned tree, which is exactly the trade D-056 already
+   makes and asks a typed `yes` for; the copy check adds no new exposure beyond
+   it and is not a substitute for that consent.
+5c. **A re-run repairs a helper that answers nothing.** A unit with
+   `devctl_helper` is "already installed at its pin" only when the helper answers
+   `--version` (its files remaining after the engine's venv was deleted is the
+   common way to break one); and the gates are asked only for a unit that will
+   write.
 6. **`depends` replaces the `.deb`'s Depends line**, which apt no longer pulls
    in (`pkexec` where the `.deb` said `pkexec | policykit-1`, because
    `policykit-1` has no candidate on Debian 13).
@@ -4605,7 +4639,13 @@ that Plasma lists an applet placed under `/usr/share/plasma/plasmoids` with no
 package behind it; the helper's `time` verbs reaching the engine through the
 venv under `pkexec`; the polkit prompt itself; the Xfce, LXQt, LXDE, MATE and
 Cinnamon trays (as before); a target with no `pkexec` package (Debian 12), where
-the unit is deferred by name; and an uninstall on a real machine.
+the unit is deferred by name; an uninstall on a real machine; and the icon cache,
+the desktop database and Plasma's service cache, which the `.deb`'s triggers
+refreshed and this route does not (a new login or `kbuildsycoca6` is the
+untested way). Two tray units in one transaction each plan the helper, so the
+plan prints it twice and the second run refreshes what the first wrote; the
+install is not atomic (a failure between the module copies leaves a half-written
+code directory and no rollback, which Hammunition does not promise, D-004).
 
 ---
 
