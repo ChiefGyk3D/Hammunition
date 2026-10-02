@@ -433,6 +433,17 @@ def test_nwr_keeps_frequency_power_and_same_codes_and_drops_status() -> None:
     assert got.outside == 1 and got.skipped == {src.NO_POSITION: [4]}
 
 
+def test_nwr_ignores_brackets_after_the_ccl_data_array() -> None:
+    clean = src.parse_nwr(NWR, "u", BOXES, fetched=WHEN, sha256="")
+    trailing = src.parse_nwr(NWR + b"var x = [1, 2];", "u", BOXES, fetched=WHEN, sha256="")
+    assert trailing.points == clean.points
+
+
+def test_nwr_truncated_json_is_refused() -> None:
+    with pytest.raises(InfraInputError, match="cclData array"):
+        src.parse_nwr(b"var cclData = [{", "u", BOXES, fetched=WHEN, sha256="")
+
+
 def test_nwr_is_dated_by_the_fetch_and_licensed_exactly() -> None:
     got = src.parse_nwr(NWR, "https://x/ccl-data.js", BOXES, fetched=WHEN, sha256="cd" * 32)
     assert got.name == "NOAA Weather Radio (unverified, fetched 2026-10-01)"
