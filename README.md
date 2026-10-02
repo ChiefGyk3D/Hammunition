@@ -53,7 +53,7 @@ exactly where things stand:
 | …Debian Blend coverage | ✅ **152 of 152** — SCOPE.md's first 1.0 stage, complete |
 | …parity coverage | 🟡 **111 of the 125 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
 | Hardware catalog | 🟡 33 devices, 9 classes, 302 confirmed USB identifiers |
-| …of which **supported** / **run on hardware here** | **18** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
+| …of which **supported** / **run on hardware here** | **19** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
 | Profiles | ✅ **all 12 of the 1.0 set**, plus 7 post-1.0 — every package installable, asserted by test; a member a target's archive lacks is deferred by name, never the whole profile (D-039) |
 | Inventories of all six upstream sources | ✅ complete and measured |
 | Consent gates for RF-research tooling | ✅ working |

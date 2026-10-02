@@ -37,7 +37,10 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   CRLF-preserving patch removes it), SoapyHydraSDR also wrote into dpkg's
   module directory (a define), and nothing a build into `/usr/local` links
   was found without `ldconfig` (an embedded run path). Not owned, not run
-  against a board; the units stay out of the `sdr` profile (D-020).
+  against a board; the units stay out of the `sdr` profile (D-020). The
+  HydraSDR tree states two licences (per-directory LICENSE.md files, and a
+  debian/copyright reading "licensed exclusively for HydraSDR products"); the
+  unit's page says so and the catalog follows the LICENSE.md files (D-033).
 
 - **The tray units re-pinned to hammunition-tray v0.5.0, and they install its
   device helper** (**D-056** amended 2026-10-02, later). The release publishes

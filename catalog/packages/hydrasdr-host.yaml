@@ -17,9 +17,14 @@ categories: [sdr-hardware]
 #     licence field is empty for the repository): libhydrasdr is MIT for most
 #     files and BSD-3-Clause for hydrasdr.c and hydrasdr.h
 #     (libhydrasdr/LICENSE.md); hydrasdr-tools is GPL-2.0, from its HackRF
-#     heritage (hydrasdr-tools/LICENSE.md). Debian's debian/copyright for the
-#     package says "Custom-HydraSDR ... licensed exclusively for HydraSDR
-#     products", which describes the use and is not a licence the files carry.
+#     heritage (hydrasdr-tools/LICENSE.md). The same tree also ships a
+#     debian/copyright (upstream's own file, at v1.1.1 and at the head) whose
+#     stanza "License: Custom-HydraSDR" says the software "is licensed
+#     exclusively for HydraSDR products and related development ... All
+#     rights reserved", which contradicts both LICENSE.md files and the README.
+#     This catalog follows the per-directory LICENSE.md files, which say what
+#     each file is licensed under, builds from source at the operator's
+#     direction and redistributes nothing (D-033), and says so on the page.
 #   - Archives, from apt-cache policy in containers on 2026-10-02: Debian 13
 #     and Ubuntu 24.04 have nothing named hydrasdr; Parrot's core image has
 #     nothing; Kali rolling carries hydrasdr-tools 1.1.1+dfsg-1; Ubuntu 26.04
@@ -42,7 +47,14 @@ install:
       Kali rolling carries hydrasdr-tools 1.1.1+dfsg-1 and libhydrasdr1, the
       same revision as the build below. Installed and run in a kali-rolling
       container on 2026-10-02: hydrasdr_info prints the library version
-      (1.1.1) and reports no devices found, exit 0.
+      (1.1.1) and reports no devices found, exit 0. The package also ships
+      the vendor's udev rule (the same file the hardware entry cites), which
+      carries a second, looser rule for systems without a plugdev group
+      (GROUP users, MODE 0664) and whose own header says that second rule
+      overrides the plugdev one. So on this target the package's rule, not
+      the catalog's 0660 plugdev rule, may decide the node's group and mode;
+      which one wins depends on the order udev reads the two files, and that
+      was not measured.
 
   - when:
       distro: [ubuntu]
@@ -53,8 +65,10 @@ install:
     note: >-
       Ubuntu 26.04 carries hydrasdr-tools 1.0.3-1, older than the pinned
       1.1.1 below, with libhydrasdr0. Installed in an ubuntu:26.04 container
-      on 2026-10-02: hydrasdr_info runs and reports no board found. Debian
-      13 and Ubuntu 24.04 have no package and take the build.
+      on 2026-10-02: hydrasdr_info runs and reports no board found. This
+      package ships the same vendor udev rule with the same looser GROUP
+      users, MODE 0664 fallback as Kali's (see there for what that means).
+      Debian 13 and Ubuntu 24.04 have no package and take the build.
 
   - install:
       method: git
@@ -122,7 +136,9 @@ update:
     Tagged releases, several a year (v1.0.2 2025-07, v1.1.0 2026-02, v1.1.1
     2026-05-02, v1.1.3 2026-09-11). Debian sid and Kali package v1.1.1; move
     the pin when a distribution does, or when a release fixes something this
-    catalog has been told about. The tag and its commit move together.
+    catalog has been told about. The tag and its commit move together. A
+    moving tag called `nightly` sits at the head commit beside v1.1.3; a
+    probe that reads the tag list must not take it for a release.
 
 documentation:
   what_it_does: >-
@@ -158,9 +174,17 @@ documentation:
     `hydrasdr_spiflash`, `hydrasdr_reset` and `hydrasdr_calibrate` write the
     board's flash: run them knowing which board is attached. Kali's and
     Ubuntu 26.04's packages are named hydrasdr-tools and differ in version
-    (1.1.1 and 1.0.3) from the 1.1.1 build the other targets get. **Not
-    measured:** everything that needs a board.
+    (1.1.1 and 1.0.3) from the 1.1.1 build the other targets get, and both
+    ship the vendor's udev rule with a looser fallback for `users` (group
+    users, mode 0664; see the install notes). **Licence:** upstream's tree states two things, the
+    per-directory LICENSE.md files (MIT and BSD-3-Clause for the library,
+    GPL-2.0 for the tools) and a debian/copyright reading "Custom-HydraSDR,
+    licensed exclusively for HydraSDR products ... All rights reserved". This
+    catalog follows the LICENSE.md files and builds on your machine from
+    upstream's tag, redistributing nothing; read both before depending on it.
+    **Not measured:** everything that needs a board.
   upstream_url: https://github.com/hydrasdr/hydrasdr-host
   upstream_support: >-
-    Issues on the repository above and hydrasdr.com. Licences: libhydrasdr is
-    MIT with two BSD-3-Clause files, the tools are GPL-2.0.
+    Issues on the repository above and hydrasdr.com. Licences, per the
+    LICENSE.md files: libhydrasdr is MIT with two BSD-3-Clause files, the
+    tools are GPL-2.0; see the licence note under known problems.

@@ -12,8 +12,9 @@ categories: [sdr-hardware]
 # cannot be built without it. Measured 2026-10-02:
 #   - D-032: github.com/rigexpert/libfobos-sdr-agile, default branch `main`,
 #     head 2753965 committed 2026-07-17 ("rx_auto_bandwidth"), which is the
-#     tag v.3.3.0 (the dot after the v is upstream's spelling). Six tags,
-#     1.0 and v.3.0.1 (2025) to v.3.3.0. Active.
+#     tag v.3.3.0 (the dot after the v is upstream's spelling). Six tags:
+#     1.0 (2024-12-07), v.3.0.1 (2025-01-29), v.3.0.2 (2025-03-11), v.3.1.0
+#     (2025-08-25), v.3.2.0 (2026-06-15), v.3.3.0 (2026-07-17). Active.
 #   - Licence: LICENSE is the GNU Lesser General Public Licence 2.1.
 #   - Archives (Debian 13, Kali, Parrot, Ubuntu 24.04 and 26.04 by
 #     apt-cache policy; sources.debian.org; Launchpad): not packaged anywhere,
@@ -55,8 +56,8 @@ install:
             -        DESTINATION \"/etc/udev/rules.d\"\r\n\
             -        COMPONENT \"udev\")\r\n\
             -endif()\r\n\
-            +# Not installed here: the install rule below wrote an absolute /etc/udev path\r\n\
-            +# outside the prefix, and the hardware catalog owns the udev rule.\r\n\
+            +# (Hammunition) the udev rule install that stood here wrote an absolute\r\n\
+            +# /etc path outside the prefix; the hardware catalog owns the rule.\r\n\
             \x20########################################################################\r\n\
             \x20\r\n\
             \x20########################################################################\r\n"
@@ -89,8 +90,8 @@ update:
     repo: rigexpert/libfobos-sdr-agile
   strategy: rebuild
   cadence_hint: >-
-    Six tags (1.0, then v.3.0.1 to v.3.3.0, from March 2025), and the head
-    is the newest tag, 2026-07-17. The tag and its commit move together. The
+    Six tags (1.0 in December 2024, then v.3.0.1 to v.3.3.0, two of them in
+    2026), and the head is the newest tag, 2026-07-17. The tag and its commit move together. The
     tag names begin "v." with a dot and one is a bare "1.0", which a
     tag-sorting probe may order oddly; read the list by eye.
 

@@ -19,18 +19,25 @@ status: supported
 #     two RFOne pairs as "Legacy VID/PID" and "Official VID/PID". Two
 #     independent files in one tree agree. The rules file is identical at the
 #     head, v1.1.3 (16942cb). Kali's libhydrasdr1 and Ubuntu 26.04's
-#     libhydrasdr0 each ship that same file as their own rule, which is a
-#     third reader, though not in the Debian 13 sweep (which has no package
-#     for it), so scripts/check_rule_citations.py cannot check it.
+#     libhydrasdr0 each ship that same file as their own rule (read from
+#     containers), and Debian's Hamradio Team carries the source for sid.
+#     Plainly: that is the vendor's file repackaged, not a second reading of
+#     the board, and none of it is in the Debian 13 sweep (which has no such
+#     package), so scripts/check_rule_citations.py cannot check it; the
+#     citations are by URL and commit, and tests/test_sdr_adds.py checks that
+#     they name the commits the package manifests pin.
 #   - `status: supported` is D-027's shape and not a claim about hardware:
 #     the identifiers are right on the evidence above and rules built from
 #     them will match; nobody here has plugged an RFOne in. maintainer_verified
 #     is unset. The software unit was built on four targets and run without a
 #     board (hydrasdr-host's note); nothing past enumeration was measured.
-#   - D-028: no symlink. It is a libusb device (the tools open it through
-#     libusb) with no /dev node to name, and the vendor's own rule makes
-#     /dev/hydrasdr_rfone-<bus path>, which is a name for a USB port.
-#     Permissions are all this entry writes.
+#   - D-028: no symlink is emitted. It is a libusb device (the tools open it
+#     through libusb) with no /dev node to name, and the vendor's own rule
+#     makes /dev/hydrasdr_rfone-<bus path>, which is a name for a USB port.
+#     The binding below names a symlink only because the schema requires one;
+#     serial_suffix is unset, so rules_for() omits it and writes permissions
+#     only. docs/reference/device-naming.md counts the binding as a symlink
+#     anyway, as it does the airspy entry's.
 #   - 1d50:60a1 is NOT carried as an identifier. It is the OpenMoko Airspy id,
 #     the airspy entry already carries it with the same group, and nothing
 #     descriptor-side that this entry can read says which board has it

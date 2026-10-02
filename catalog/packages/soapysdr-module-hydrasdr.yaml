@@ -9,7 +9,10 @@ categories: [sdr-hardware]
 # ADD, "hardware without hardware" (see hydrasdr-host). Measured 2026-10-02:
 #   - D-032: github.com/hydrasdr/SoapyHydraSDR, default branch `main`, head
 #     77b6ae2 committed 2026-02-06 ("Refactor SoapySDR module directory
-#     handling"); tags v1.0.0 and v1.0.1 (2025-12-20). Active but quiet.
+#     handling"); tags v1.0.0 (2025-12-10) and v1.0.1 (2025-12-20), and five
+#     commits since v1.0.1: two CI workflow edits, a licence and links
+#     edit, "Changed soapy ABI from 0.7 to 0.8 (#8)" and the module-directory
+#     refactor. Active but quiet.
 #   - Licence: LICENSE.txt is the MIT licence, Copyright (c) 2015 Charles J.
 #     Cliffe (the SoapyAirspy file the module descends from).
 #   - Archives (containers, 2026-10-02): soapysdr-module-hydrasdr 1.0.1+dfsg-1
@@ -26,7 +29,9 @@ install:
     note: >-
       Installed in a kali-rolling container on 2026-10-02: `SoapySDRUtil
       --info` loads libSoapyHydraSDR.so (1.0.1) from the system module
-      directory and lists `hydrasdr` among the factories.
+      directory and lists `hydrasdr` among the factories. Installing this
+      brings the hydrasdr-tools package's vendor udev rule with it (see
+      hydrasdr-host).
 
   - when:
       distro: [ubuntu]
@@ -43,7 +48,9 @@ install:
       method: git
       repo: https://github.com/hydrasdr/SoapyHydraSDR
       # The revision Debian and Ubuntu package. A tag, so no pin_review.
-      # `main` is one commit past it.
+      # `main` is five commits past it, one of them an ABI 0.7 to 0.8 change
+      # that this tag predates; built here against SoapySDR 0.8 on four
+      # targets it loads and lists its factory all the same (see the note).
       ref: v1.0.1
       # D-069: the tag must still resolve to this commit.
       commit: 253ce5089faab6fbe66c220e853b1f39f974153a
@@ -91,9 +98,9 @@ update:
     repo: hydrasdr/SoapyHydraSDR
   strategy: rebuild
   cadence_hint: >-
-    Two tags in four months (v1.0.0, v1.0.1, 2025-12) and one commit since
-    (2026-02-06, module-directory handling that this block works around with
-    a define). Move the pin when Debian does.
+    Two tags ten days apart (v1.0.0 2025-12-10, v1.0.1 2025-12-20) and five
+    commits since, the last on 2026-02-06 (module-directory handling that this
+    block works around with a define). Move the pin when Debian does.
 
 documentation:
   what_it_does: >-

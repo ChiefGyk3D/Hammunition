@@ -40,7 +40,7 @@ Files its install rule leaves under the prefix, checked after the run and never 
 
 - probe: github tags (`rigexpert/libfobos-sdr-agile`)
 - strategy: rebuild
-- Six tags (1.0, then v.3.0.1 to v.3.3.0, from March 2025), and the head is the newest tag, 2026-07-17. The tag and its commit move together. The tag names begin "v." with a dot and one is a bare "1.0", which a tag-sorting probe may order oddly; read the list by eye.
+- Six tags (1.0 in December 2024, then v.3.0.1 to v.3.3.0, two of them in 2026), and the head is the newest tag, 2026-07-17. The tag and its commit move together. The tag names begin "v." with a dot and one is a bare "1.0", which a tag-sorting probe may order oddly; read the list by eye.
 
 ## Where to get help with the software itself
 

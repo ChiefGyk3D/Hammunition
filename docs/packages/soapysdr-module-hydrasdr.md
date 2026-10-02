@@ -25,7 +25,7 @@ The HydraSDR host library (`hydrasdr-host`, which this unit depends on), the ude
 ## How it installs
 
 - apt: `soapysdr-module-hydrasdr` — *on kali*
-  - Installed in a kali-rolling container on 2026-10-02: `SoapySDRUtil --info` loads libSoapyHydraSDR.so (1.0.1) from the system module directory and lists `hydrasdr` among the factories.
+  - Installed in a kali-rolling container on 2026-10-02: `SoapySDRUtil --info` loads libSoapyHydraSDR.so (1.0.1) from the system module directory and lists `hydrasdr` among the factories. Installing this brings the hydrasdr-tools package's vendor udev rule with it (see hydrasdr-host).
 - apt: `soapysdr-module-hydrasdr` — *on ubuntu; version 26.04*
   - Installed in an ubuntu:26.04 container on 2026-10-02: the module (1.0.1) loads and `hydrasdr` is a listed factory. It pairs with that archive's libhydrasdr0 1.0.3.
 - git (cmake) — https://github.com/hydrasdr/SoapyHydraSDR at `v1.0.1` (commit `253ce5089faab6fbe66c220e853b1f39f974153a`)
@@ -44,7 +44,7 @@ Files its install rule leaves under the prefix, checked after the run and never 
 
 - probe: github tags (`hydrasdr/SoapyHydraSDR`)
 - strategy: rebuild
-- Two tags in four months (v1.0.0, v1.0.1, 2025-12) and one commit since (2026-02-06, module-directory handling that this block works around with a define). Move the pin when Debian does.
+- Two tags ten days apart (v1.0.0 2025-12-10, v1.0.1 2025-12-20) and five commits since, the last on 2026-02-06 (module-directory handling that this block works around with a define). Move the pin when Debian does.
 
 ## Where to get help with the software itself
 

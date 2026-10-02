@@ -29,7 +29,10 @@ status: untested
 #   the vendor id alone identifies nothing and the pair is the identifier. No
 #   source read here says another product uses 16d0:132e, and none was looked
 #   for beyond that list, so the pair has not been flagged ambiguous.
-#   D-028: no symlink: a libusb device with nothing to name, serial unread.
+#   D-028: no symlink is emitted: a libusb device with nothing to name, serial
+#   unread. The binding below names one only because the schema requires it;
+#   serial_suffix is unset, so rules_for() writes permissions only (and
+#   docs/reference/device-naming.md counts the binding as a symlink anyway).
 
 identification_gap: >-
   Not owned, so no descriptor has been read. Unknown: the manufacturer and

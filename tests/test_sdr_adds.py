@@ -69,6 +69,30 @@ def test_every_identifier_is_cited_by_commit_from_upstream() -> None:
             assert COMMIT_URL.search(usb.evidence), f"{name} {usb}: no commit-pinned upstream URL"
 
 
+def test_the_cited_commits_are_the_commits_the_manifests_pin() -> None:
+    """A citation that names another commit than the one built reads a different file.
+
+    The RFOne's rules and registry are cited at hydrasdr-host's v1.1.1 commit;
+    the Fobos files at libfobos's pinned head and libfobos-sdr-agile's tag.
+    """
+    pinned = {
+        "hydrasdr/hydrasdr-host": _git_blocks("hydrasdr-host")[0].commit,
+        "rigexpert/libfobos": _git_blocks("libfobos")[0].ref,
+        "rigexpert/libfobos-sdr-agile": _git_blocks("libfobos-sdr-agile")[0].commit,
+    }
+    seen: set[str] = set()
+    for name in ("hydrasdr-rfone", "fobos-sdr"):
+        device = DEVICES[name]
+        ids = list(device.usb_ids) + [f.dfu_usb_id for f in device.firmware if f.dfu_usb_id]
+        for usb in ids:
+            for repo, commit in re.findall(
+                r"https://github\.com/([\w.-]+/[\w.-]+)/blob/([0-9a-f]{40})/", usb.evidence
+            ):
+                assert pinned[repo] == commit, f"{name} {usb}: cites {repo}@{commit[:7]}"
+                seen.add(repo)
+    assert seen == set(pinned), f"a pinned repository is cited nowhere: {set(pinned) - seen}"
+
+
 def test_the_pair_airspy_shares_is_recorded_and_not_turned_into_a_rule() -> None:
     """1d50:60a1 is an RFOne on legacy firmware and an Airspy R2/Mini.
 
