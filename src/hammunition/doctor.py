@@ -246,6 +246,7 @@ def run_checks(
     rules_applied: bool,
     attached_recognised: int,
     log_dir_writable: bool,
+    run_logs: tuple[int, int, str, str] | None = None,
     engine_on_path: str | None,
     engine_expected: str,
     engine_found: str | None,
@@ -590,6 +591,17 @@ def run_checks(
                 "warn",
                 "the transaction-log directory is not writable — history and uninstall will not record",
                 "check ownership of ~/.local/state/hammunition (do not run install as root)",
+            )
+        )
+
+    if run_logs is not None:
+        count, size, newest, result = run_logs
+        checks.append(
+            Check(
+                "run logs",
+                "info",
+                f"{count} run log(s), {size / 1024 / 1024:.1f} MB; the newest ({newest}) {result}",
+                "hammunition logs --last prints it" if count else None,
             )
         )
 

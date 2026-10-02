@@ -37,6 +37,9 @@ here. Where a fix is distribution-specific it says so.
 
 ## Running
 
+- **[Where is the log of what just happened?](running.md#run-logs)** —
+  every install, hardware or maps run leaves one; `hammunition logs --last`.
+
 - **[A GUI comes up blank or without decorations](running.md#wayland)** —
   Wayland; switch the session to X11. The classic is WSJT-X on a Pi.
 - **[Permission denied on a serial device](running.md#dialout)** — you were

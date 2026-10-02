@@ -32,6 +32,18 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   full, every item's own values and the totals; a group is kept only if it
   rebuilds every step exactly. `--full` prints every step as before; the JSON
   document, the transaction log and the real run are unchanged.
+- **Every run leaves a log** (**D-077**). `install`, `uninstall`, `update`,
+  `menus apply`, `hardware apply|unapply|park|wake`, every `maps ...`,
+  `reference serve`, `services ...` and `time mode` -- `--dry-run` included --
+  write `<state dir>/logs/<UTC>-<command>-<pid>.log`: the argv with station
+  flags redacted, everything printed on stdout and stderr, each command run with
+  its output as it arrives and its exit code, a `result` line; 0600, flushed
+  per line, owner-aware under sudo. Rotated at the start of each run to 30
+  files and 200 MB, never a run in progress. New `hammunition logs [--last |
+  --path | --json]`; `doctor` reports the logs; a run ends `Log: <path>`. The
+  transaction log now rotates past 1 MiB into `transactions-<NNNNNN>-<UTC>.jsonl`
+  archives that every reader walks in order (never deleted); `status` is tested
+  identical before and after. `docs/reference/run-logs.md`.
 - **A publisher outage at plan time retries, then defers by name instead of
   refusing the install** (#200, **D-039** amended 2026-10-02). `install
   navigation --dry-run` refused whole over a Geofabrik outline answering 502, one
