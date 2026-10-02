@@ -130,7 +130,8 @@ from hammunition.geofabrik import (
     region_ids,
 )
 from hammunition.geofabrik import resolve as resolve_region
-from hammunition.hardware import gps_resume
+from hammunition.hardware import devctl_export, gps_resume
+from hammunition.hardware import polkit as hardware_polkit
 from hammunition.hardware.apply import HardwarePlan
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.interface import envelope
@@ -4106,6 +4107,34 @@ def _stage_gps_resume(plan: HardwarePlan, staging_dir: Path) -> list[Command]:
     return _gps_resume_commands(plan, str(staging_dir))
 
 
+def _disclose_devctl_export(plan: HardwarePlan) -> None:
+    """The helper hand-over, and the two lists' disclosure (D-056, amended 2026-10-02)."""
+    if plan.polkit.handed_over is not None:
+        print(
+            f"The privileged helper at {plan.polkit.helper_path} is hammunition-tray's "
+            f"(it answers --version: {plan.polkit.handed_over}). This run does not write "
+            f"it, and writes the polkit action only where none exists."
+        )
+    if plan.devctl_export is not None:
+        for line in devctl_export.disclose(plan.devctl_export):
+            print(line)
+
+
+def _devctl_export_commands(plan: HardwarePlan, staging_root: str) -> list[Command]:
+    if plan.devctl_export is None:
+        return []
+    return devctl_export.install_commands(plan.devctl_export, staging_root)
+
+
+def _stage_devctl_export(plan: HardwarePlan, staging_dir: Path) -> list[Command]:
+    """Stage the two lists; return their commands as they will run, so the apply
+    loop can log each one (``devctl_export``)."""
+    if plan.devctl_export is None:
+        return []
+    devctl_export.stage(plan.devctl_export, staging_dir)
+    return _devctl_export_commands(plan, str(staging_dir))
+
+
 def cmd_hardware_apply(args: argparse.Namespace) -> int:
     """Write the catalog's udev rules and join the device-access groups."""
     from hammunition.gpstime.grants import disclose, grant_commands, stage_grants, verify_grants
@@ -4131,6 +4160,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             user_groups_now=groups_now,
             with_time=not getattr(args, "no_gps_time", False),
             with_gps_resume=not getattr(args, "no_gps_resume", False),
+            with_devctl_export=True,
         )
     except TimeError as exc:
         print(
@@ -4138,7 +4168,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return EXIT_UNPLANNABLE
-    except gps_resume.GpsResumeError as exc:
+    except (gps_resume.GpsResumeError, devctl_export.DevctlExportError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNPLANNABLE
     from hammunition import geoclue
@@ -4165,8 +4195,14 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         print(
             "Nothing to do: the rules file already matches, you are in every access "
             "group, the power-control helper and its polkit action are installed, and "
-            "GPS time's grants are in place. Hardware setup is complete."
+            "GPS time's grants and the helper's device and service lists are in place. "
+            "Hardware setup is complete."
         )
+        if plan.polkit.handed_over is not None:
+            print(
+                f"The helper is hammunition-tray's ({plan.polkit.handed_over}); "
+                f"this engine no longer writes it."
+            )
         if geo is not None and geo.installed:
             print("GeoClue already reads the GPS tether's socket (D-069).")
         return EXIT_OK
@@ -4254,6 +4290,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         )
         built += time_cmds
         built += _gps_resume_commands(plan, staging_root)
+        built += _devctl_export_commands(plan, staging_root)
         return built, helper_cmd, policy_cmd, time_cmds
 
     if not plan.rules_already_current:
@@ -4278,6 +4315,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     for line in _geoclue_disclosure(args, geo):
         print(line)
     _disclose_gps_resume(plan)
+    _disclose_devctl_export(plan)
 
     preview_commands, preview_helper, preview_policy, _preview_time = build_commands("<staging>")
     if geo is not None:
@@ -4368,6 +4406,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         if geo is not None:
             geoclue.stage_grants(geo, staging_dir)
         resume_steps = _stage_gps_resume(plan, staging_dir)
+        export_steps = _stage_devctl_export(plan, staging_dir)
 
         runner = SubprocessRunner()
         print("\nRunning:")
@@ -4400,6 +4439,15 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                 TransactionLog(owner=user).append(
                     {
                         "event": "gps_resume",
+                        "version": 1,
+                        "description": command.description,
+                        "argv": list(command.argv),
+                    }
+                )
+            if command in export_steps:
+                TransactionLog(owner=user).append(
+                    {
+                        "event": "devctl_export",
                         "version": 1,
                         "description": command.description,
                         "argv": list(command.argv),
@@ -4485,6 +4533,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             problems += geoclue.verify_grants(geo)
         if plan.gps_resume is not None:
             problems += gps_resume.verify(plan.gps_resume)
+        if plan.devctl_export is not None:
+            problems += devctl_export.verify(plan.devctl_export)
         if problems:
             for problem in problems:
                 print(f"  unverified: {problem}", file=sys.stderr)
@@ -4566,7 +4616,12 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     geo_present = not geo_removal.is_empty
     resume_removal = gps_resume.plan_gps_resume_removal()
     resume_present = not resume_removal.is_empty
+    export_removal = devctl_export.plan_removal()
+    export_present = not export_removal.is_empty
     owned = {HELPER_PATH, POLICY_PATH}
+    # D-056, amended 2026-10-02: where the installed helper answers --version it is
+    # hammunition-tray's, whatever an older log says the engine once wrote there.
+    handed_over = hardware_polkit.installed_helper_version(HELPER_PATH)
     recorded: list[str] = []
     skipped: list[str] = []
     for entry in TransactionLog(owner=user).read():
@@ -4588,8 +4643,17 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
                 if path not in recorded and path not in skipped:
                     skipped.append(path)
                 continue
+            if handed_over is not None:
+                continue
             if path not in recorded:
                 recorded.append(path)
+
+    if handed_over is not None:
+        print(
+            f"The privileged helper at {HELPER_PATH} is hammunition-tray's now (it answers "
+            f"--version: {handed_over}), so this command leaves it and its polkit action "
+            f"alone. Remove them with hammunition-tray's own uninstall."
+        )
 
     if (
         not recorded
@@ -4598,6 +4662,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         and not time_present
         and not resume_present
         and not geo_present
+        and not export_present
     ):
         print(
             "Nothing to remove: the transaction log records no hardware artefacts "
@@ -4616,6 +4681,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         and not time_present
         and not resume_present
         and not geo_present
+        and not export_present
     ):
         print("Nothing to do: no artefact this command owns is recorded.")
         return EXIT_OK
@@ -4630,6 +4696,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         and not time_present
         and not resume_present
         and not geo_present
+        and not export_present
     ):
         print("Nothing to do: every recorded artefact is already gone.")
         return EXIT_OK
@@ -4697,7 +4764,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     time_preview = removal_commands(removal, "<staging>")
     resume_commands = gps_resume.removal_commands(resume_removal)
     geo_commands = geoclue.removal_commands(geo_removal)
-    shown = [*commands, *time_preview, *resume_commands, *geo_commands]
+    export_commands = devctl_export.removal_commands(export_removal)
+    shown = [*commands, *time_preview, *resume_commands, *geo_commands, *export_commands]
     euid = os.geteuid()
     print(f"\nCommands ({len(shown)}):")
     for command in shown:
@@ -4742,6 +4810,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             to_run += removal_commands(removal, str(staging_dir))
         to_run += geo_commands
         to_run += resume_commands
+        to_run += export_commands
         runner = SubprocessRunner()
         print("\nRunning:")
         for command in to_run:
@@ -4761,6 +4830,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     if geo_present:
         problems += geoclue.verify_removal(geo_removal)
     problems += gps_resume.verify_removal(resume_removal)
+    problems += devctl_export.verify_removal(export_removal)
     if problems:
         for problem in problems:
             print(f"  unverified: {problem}", file=sys.stderr)
@@ -4779,6 +4849,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         after.append("GeoClue no longer reads the tether; `hardware apply` sets it up again.")
     if resume_present:
         after.append("`hardware apply` reinstalls the GPS resume step.")
+    if export_present:
+        after.append("`hardware apply` writes the helper's device and service lists again.")
     print("\nDone and verified. " + " ".join(after))
     return EXIT_OK
 
