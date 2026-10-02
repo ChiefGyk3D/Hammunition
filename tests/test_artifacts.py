@@ -101,6 +101,22 @@ class Geofabrik:
         raise GeofabrikError(f"{url} returned HTTP 404 (Not Found)")
 
 
+class Register:
+    """A fake ACMA ``HEAD``: the day's size, or no answer."""
+
+    def __init__(self, size: int | None = 67_600_000) -> None:
+        self.asked: list[str] = []
+        self.answer = size
+
+    def size(self, url: str) -> int:
+        from hammunition.acma import AcmaError
+
+        self.asked.append(url)
+        if self.answer is None:
+            raise AcmaError(f"{url} could not be reached: no route")
+        return self.answer
+
+
 class Bucket:
     def __init__(self) -> None:
         self.asked: list[str] = []
@@ -244,6 +260,60 @@ def test_open_repeater_is_listed_for_a_mirror_like_any_pinned_data(tmp_path: Pat
         "CC0 1.0",
     )
     assert entry.url == artifact.url and entry.deferred is None
+
+
+def test_the_acma_register_is_listed_unverified_with_the_days_size(tmp_path: Path) -> None:
+    """D-074, amended 2026-10-01: no digest exists, so none is listed; the
+    size is the publisher's HEAD today, and the name is the mirror path the
+    fetch asks for."""
+    from hammunition import acma
+
+    probe = Register()
+    (entry,) = list_artifacts(
+        ("acma-register",),
+        regions=(),
+        freshness="yearly",
+        catalog=CATALOG,
+        catalog_root=_root(tmp_path),
+        today=TODAY,
+        region_probe=Geofabrik(),
+        tile_probe=Bucket(),
+        register_probe=probe,
+    )
+    assert entry == ArtifactEntry(
+        unit="acma-register",
+        name="spectra_rrl.zip",
+        url=acma.URL,
+        check="unverified-zip",
+        digest=None,
+        checksum_url=None,
+        size=67_600_000,
+        licence=(
+            "ACMA Register of Radiocommunications Licences, Licence to use the Register of "
+            "Radiocommunications Licences, attribution required"
+        ),
+        deferred=None,
+    )
+    assert entry.check in CHECKS
+    assert probe.asked == [acma.URL]
+    assert MirrorPath(entry.unit, entry.name or "") == MirrorPath("acma-register", acma.FILE_NAME)
+
+
+def test_the_acma_register_is_deferred_when_its_size_cannot_be_read(tmp_path: Path) -> None:
+    for probe, why in ((Register(None), "could not be read"), (None, "not asked for")):
+        (entry,) = list_artifacts(
+            ("acma-register",),
+            regions=(),
+            freshness="yearly",
+            catalog=CATALOG,
+            catalog_root=_root(tmp_path / why.replace(" ", "-")),
+            today=TODAY,
+            region_probe=Geofabrik(),
+            tile_probe=Bucket(),
+            register_probe=probe,
+        )
+        assert entry.deferred is not None and why in entry.deferred
+        assert entry.name == "spectra_rrl.zip" and entry.size is None
 
 
 # -- map regions ------------------------------------------------------------
@@ -422,6 +492,7 @@ def _cli(
     root = _root(tmp_path)
     monkeypatch.setattr(cli, "UrllibProbe", Geofabrik)
     monkeypatch.setattr(cli, "S3Probe", Bucket)
+    monkeypatch.setattr(cli, "AcmaProbe", Register)
     monkeypatch.setattr(cli, "date", type("D", (), {"today": staticmethod(lambda: TODAY)}))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("USER", "op")
