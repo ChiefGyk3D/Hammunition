@@ -56,6 +56,7 @@ from hammunition.backends.derived import Ledger
 from hammunition.backends.kiwix import KiwixBooksBackend
 from hammunition.backends.source import tree_destination
 from hammunition.backends.topo import TopoQuadsBackend
+from hammunition.devctl_helper import HELPER_PATH, under_prefix
 from hammunition.distro import Target
 from hammunition.launchers import launcher_steps
 from hammunition.manifest.schema import (
@@ -676,6 +677,19 @@ def build_dir(
     return None
 
 
+def placed_files(block: InstallBlock, prefix: Path) -> tuple[Path, ...]:
+    """Every file a ``binary`` block's ``placements`` and ``devctl_helper`` install.
+
+    The helper's files are not listed: where another owner's helper stands (a
+    .deb, the tray's own installer) the unit leaves it, so its effect is that
+    the helper answers, which :func:`verify_effects` asks of the helper itself.
+    """
+    method = block.install
+    if not isinstance(method, BinaryInstall):
+        return ()
+    return tuple(under_prefix(p.dest, prefix) for p in method.placements)
+
+
 def build_effects_present(planned: PlannedPackage, *, prefix: Path) -> bool | None:
     """Whether every effect this build declares is on disk under ``prefix``.
 
@@ -698,6 +712,17 @@ def build_effects_present(planned: PlannedPackage, *, prefix: Path) -> bool | No
     for extra in _extra_files(planned.block):
         path = prefix / extra
         present.append(path.is_file() and not path.is_symlink())
+    present.extend(path.is_file() for path in placed_files(planned.block, prefix))
+    method = planned.block.install
+    if isinstance(method, BinaryInstall) and method.devctl_helper is not None:
+        # A helper that answers nothing is not installed, whoever owns it: its
+        # files being there is what a deleted venv leaves behind (the wrapper's
+        # interpreter), and a re-run must repair that rather than call it done.
+        from hammunition.hardware import polkit
+
+        present.append(
+            polkit.installed_helper_version(str(under_prefix(HELPER_PATH, prefix))) is not None
+        )
     if not present:
         return None
     return all(present)
@@ -1334,6 +1359,44 @@ def verify_effects(
                                 f"the install step exited 0 but {path} does not exist -- the "
                                 f"build's install rule put it elsewhere, or installed nothing"
                             )
+                        ),
+                    )
+                )
+
+    if prefix is not None:
+        for planned in plan.packages:
+            method = planned.block.install
+            if not isinstance(method, BinaryInstall):
+                continue
+            for path in placed_files(planned.block, prefix):
+                present = path.is_file()
+                checks.append(
+                    EffectCheck(
+                        kind="file",
+                        subject=f"{planned.name}:{path}",
+                        confirmed=present,
+                        detail=(
+                            f"placed file present at {path}"
+                            if present
+                            else f"the install step exited 0 but {path} is not a file"
+                        ),
+                    )
+                )
+            if method.devctl_helper is not None:
+                from hammunition.hardware import polkit
+
+                wrapper = under_prefix(HELPER_PATH, prefix)
+                answer = polkit.installed_helper_version(str(wrapper))
+                checks.append(
+                    EffectCheck(
+                        kind="helper",
+                        subject=f"{planned.name}:{wrapper}",
+                        confirmed=answer is not None,
+                        detail=(
+                            f"the device helper answers {answer!r}"
+                            if answer is not None
+                            else f"{wrapper} --version does not answer a contract line: the helper "
+                            f"the tray's contract requires is not working"
                         ),
                     )
                 )

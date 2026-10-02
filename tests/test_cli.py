@@ -941,15 +941,18 @@ def test_install_station_on_xfce_defers_the_plasma_tray_and_says_what_it_read(
     assert "Desktops read from session files" in out
     assert "hammunition-tray: will not be installed (profile station)" in out
     assert "no KDE Plasma session (it has: Xfce)" in out
-    # The applet's .deb URL is printed whenever it is planned (the fetch step);
-    # its Depends, plasma-workspace among them, never are, so asserting on
-    # that name could not fail. The control test below shows this one can.
-    assert TRAY_DEB not in out
+    # The applet's files are printed whenever it is planned (one install step
+    # each); its Depends, plasma-workspace among them, never are, so asserting on
+    # that name could not fail. The archive's URL is no evidence either: the Qt
+    # sibling pins the same one and is planned on Xfce. The control test below
+    # shows this assertion can fail.
+    assert TRAY_APPLET_DIR not in out
 
 
-# Read from the manifest, never typed: a re-pin moves the filename, and a
-# typed copy broke this test on the first one (0.1.0 -> 0.3.0).
-def _tray_deb() -> str:
+# Read from the manifest, never typed: a re-pin moves the paths, and a typed
+# copy broke this test on the first one. The applet's own directory is what
+# only the Plasma unit installs.
+def _tray_applet_dir() -> str:
     from hammunition.manifest.load import load_manifest
     from hammunition.manifest.schema import BinaryInstall
 
@@ -958,17 +961,18 @@ def _tray_deb() -> str:
     )
     install = manifest.install[0].install
     assert isinstance(install, BinaryInstall)
-    return install.artifact.url.rsplit("/", 1)[1]
+    (directory,) = install.placement_dirs
+    return directory
 
 
-TRAY_DEB = _tray_deb()
+TRAY_APPLET_DIR = _tray_applet_dir()
 
 
-def test_install_station_on_plasma_plans_the_tray_deb(
+def test_install_station_on_plasma_plans_the_tray_applet(
     monkeypatch: pytest.MonkeyPatch, capsys: Any
 ) -> None:
     """The control for the test above: with a Plasma session the same dry run
-    prints the applet's .deb, so its absence there is evidence."""
+    prints the applet's files, so their absence there is evidence."""
     cli = importlib.import_module("hammunition.cli.main")
     from hammunition.desktop import Desktop, SessionScan
 
@@ -979,8 +983,131 @@ def test_install_station_on_plasma_plans_the_tray_deb(
     rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "station"])
     out = capsys.readouterr().out
     assert rc == EXIT_OK
-    assert TRAY_DEB in out
+    assert TRAY_APPLET_DIR in out
     assert "hammunition-tray: will not be installed" not in out
+
+
+def _xfce(monkeypatch: pytest.MonkeyPatch) -> None:
+    from hammunition.desktop import Desktop, SessionScan
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _mock_apt(monkeypatch, populated=True)
+    monkeypatch.setattr(
+        cli, "scan_sessions", lambda: SessionScan(desktops=frozenset({Desktop.xfce}))
+    )
+
+
+def test_a_tray_unit_dry_run_prints_the_helper_files_and_the_interpreter(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """D-056 amended: every file root will run, and the interpreter the wrapper
+    runs as root, are in the plan before anything is written."""
+    from hammunition import devctl_helper
+
+    _xfce(monkeypatch)
+    monkeypatch.setattr(devctl_helper, "dpkg_owner", lambda _path: None)
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "hammunition-tray-qt"])
+    out = capsys.readouterr().out
+    assert rc == EXIT_OK
+    assert f"runs {sys.executable} as root" in out
+    assert "/usr/local/lib/hammunition-devctl/hammunition_devctl/devctl.py" in out
+    assert "/usr/local/libexec/hammunition-devctl" in out
+    assert "com.chiefgyk3d.hammunition.devctl.policy" in out
+    assert "Read the installed helper's contract back" in out
+
+
+def test_a_tray_unit_dry_run_leaves_a_helper_a_package_owns_and_names_the_package(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    from hammunition import devctl_helper
+    from hammunition.hardware import polkit
+
+    _xfce(monkeypatch)
+    monkeypatch.setattr(devctl_helper, "dpkg_owner", lambda _path: "hammunition-devctl")
+    monkeypatch.setattr(
+        polkit, "installed_helper_version", lambda *a, **k: "hammunition-devctl contract 1"
+    )
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "hammunition-tray-qt"])
+    out = capsys.readouterr().out
+    assert rc == EXIT_OK
+    assert "the hammunition-devctl package (apt)" in out
+    assert "installs nothing of it" in out
+    assert "hammunition_devctl/devctl.py" not in out
+
+
+def test_an_interpreter_any_account_can_write_refuses_even_a_dry_run(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    from hammunition import devctl_helper
+    from hammunition.hardware import polkit
+
+    _xfce(monkeypatch)
+    monkeypatch.setattr(devctl_helper, "dpkg_owner", lambda _path: None)
+    monkeypatch.setattr(
+        polkit,
+        "writable_including_symlink_target",
+        lambda path, **kw: polkit.WritabilityFinding(
+            str(path), polkit.WritabilityRisk.GROUP_OR_OTHER_WRITABLE
+        ),
+    )
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "hammunition-tray-qt"])
+    err = capsys.readouterr().err
+    assert rc == EXIT_UNPLANNABLE
+    assert "refusing to install the device helper" in err
+    assert "writable by any local account" in err
+
+
+def test_a_unit_already_installed_at_its_pin_is_not_gated_for_a_helper_it_will_not_write(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    from hammunition import devctl_helper
+    from hammunition.hardware import polkit
+
+    _xfce(monkeypatch)
+    cli = importlib.import_module("hammunition.cli.main")
+    monkeypatch.setattr(devctl_helper, "dpkg_owner", lambda _path: None)
+    monkeypatch.setattr(
+        polkit,
+        "writable_including_symlink_target",
+        lambda path, **kw: polkit.WritabilityFinding(
+            str(path), polkit.WritabilityRisk.GROUP_OR_OTHER_WRITABLE
+        ),
+    )
+    monkeypatch.setattr(cli, "already_built", lambda *a, **k: frozenset({"hammunition-tray-qt"}))
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "hammunition-tray-qt"])
+    assert rc == EXIT_OK, capsys.readouterr().err
+
+
+def test_yes_does_not_answer_the_owned_by_one_account_confirmation(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """D-021, D-056: a venv only its owner can write is confirmed at the
+    keyboard; `--yes` is not that answer, and a declined confirmation runs
+    nothing."""
+    from hammunition import devctl_helper
+    from hammunition.hardware import polkit
+
+    _xfce(monkeypatch)
+    cli = importlib.import_module("hammunition.cli.main")
+    monkeypatch.setattr(devctl_helper, "dpkg_owner", lambda _path: None)
+    monkeypatch.setattr(
+        polkit,
+        "writable_including_symlink_target",
+        lambda path, **kw: polkit.WritabilityFinding(
+            str(path), polkit.WritabilityRisk.OWNED_BY_NON_ROOT
+        ),
+    )
+    asked: list[list[str]] = []
+
+    def decline(paths: list[str]) -> bool:
+        asked.append(paths)
+        return False
+
+    monkeypatch.setattr(cli, "_confirm_unsafe_interpreter", decline)
+    rc = main(["--catalog", str(CATALOG), "install", "--yes", "hammunition-tray-qt"])
+    assert rc == cli.EXIT_CONSENT
+    assert asked and sys.executable in asked[0]
+    assert "Nothing was changed" in capsys.readouterr().err
 
 
 def test_install_hammunition_tray_by_name_with_no_sessions_is_refused(

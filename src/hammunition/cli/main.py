@@ -102,6 +102,7 @@ from hammunition.consent import (
 from hammunition.copernicus import CopernicusError, S3Probe
 from hammunition.country_boundaries import BoundarySource, CountryBoundaryError, boundary_source
 from hammunition.desktop import current_desktop, scan_sessions
+from hammunition.devctl_helper import plan_helper
 from hammunition.distro import DetectionError, Target
 from hammunition.doctor import RigStatus
 from hammunition.execute import (
@@ -3406,12 +3407,14 @@ def cmd_install(args: argparse.Namespace) -> int:
         owner=source.owner,
         fetcher=source.fetcher,
     )
+    helper_attributed = files_installed_by_hammunition(read_log)
     binary = BinaryBackend(
         fetcher=source.fetcher,
         runner=runner,
         build_root=builds,
         prefix=source.prefix,
         owner=source.owner,
+        attributed_files=helper_attributed,
     )
     venv = VenvBackend(
         venv_root=venv_root(user or None),
@@ -3805,6 +3808,28 @@ def cmd_install(args: argparse.Namespace) -> int:
         mirror_ignored=args.no_mirror,
         idle=phone.idle(plan) | tiles.idle(plan),
     )
+    # The tray's device helper puts a wrapper in front of root (D-056): the
+    # interpreter and the engine package it runs are checked the way `hardware
+    # apply` checks the same wrapper, and a refusal is a dry run's answer too.
+    # A unit that is already installed at its pin writes nothing, so nothing is
+    # gated for it either.
+    helper_plans = [
+        plan_helper(p.block.install.devctl_helper, attributed_files=helper_attributed)
+        for p in plan.packages
+        if p.name not in built
+        and isinstance(p.block.install, BinaryInstall)
+        and p.block.install.devctl_helper is not None
+    ]
+    for helper_plan in helper_plans:
+        if helper_plan.must_refuse:
+            print(
+                f"error: refusing to install the device helper: "
+                f"{describe_refusal(helper_plan.refusing_findings)}. That is the escalation "
+                f"this project refuses outright rather than merely confirms (D-056) -- fix "
+                f"it, then re-run.",
+                file=sys.stderr,
+            )
+            return EXIT_UNPLANNABLE
     if envelope.wanted(args):
         # Reached only with --dry-run: main() refuses a real install under
         # --json before this command runs (D-059).
@@ -3834,6 +3859,14 @@ def cmd_install(args: argparse.Namespace) -> int:
         return EXIT_OK
 
     log = TransactionLog(owner=log_owner)
+
+    # Asked at the keyboard once per transaction however many tray units there
+    # are, and never answered by --yes (D-021, D-056): root is about to run
+    # code reached through a tree one non-root account owns.
+    confirmable = sorted({path for h in helper_plans for path in h.confirmable_paths})
+    if confirmable and not _confirm_unsafe_interpreter(confirmable):
+        print("Aborted: not confirmed. Nothing was changed.", file=sys.stderr)
+        return EXIT_CONSENT
 
     # Consent gates come after the plan is printed and before anything runs.
     # --yes is passed so the call site documents that it does not help; the

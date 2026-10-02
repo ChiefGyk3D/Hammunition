@@ -138,6 +138,9 @@ Vendor .deb, archive, or prebuilt executable.
 | `method` | `Literal[binary]` | no (default `binary`) |  |
 | `artifact` | `RemoteArtifact` | **yes** |  |
 | `format` | `Literal[deb, tarball, zip, executable, appimage]` | **yes** |  |
+| `placements` | `list[Placement]` | no | Files of the unpacked archive installed at absolute paths, as a .deb's file list would, for an archive upstream publishes before it publishes a package (hammunition-tray 0.5.0). Root-owned, printed one by one in the plan, removed on uninstall on the log's attribution. |
+| `placement_dirs` | `list[str]` | no | Directories under PLACEMENT_ROOTS that hold nothing but this unit's placements; uninstall removes them whole, and only when the log attributes a placement inside them. |
+| `devctl_helper` | `DevctlHelper \| None` | no | The tray's privileged device helper, installed from this archive. |
 | `deb_package` | `str \| None` | no | The control-file Package name a `deb` artifact installs, read from the .deb itself (`dpkg-deb -f file.deb Package`), never assumed from the filename — wsjtx-improved's vendor deb installs as `wsjtx`, and GridTracker2's filename casing matches nothing. Required for format: deb; it is what `uninstall` hands to `apt-get remove` and what `status` probes. |
 | `strip_components` | `int` | no (default `0`) |  |
 | `install_tree` | `bool` | no (default `False`) | Install the whole built/extracted tree to <prefix>/share/hammunition/<name> instead of (or beside) named binaries. For software that reads settings, resources or data beside its executable -- MSHV, run-in-place trees (gaps #6/#8). Requires a launcher (or binaries) so the tree is reachable. |
@@ -575,6 +578,24 @@ wide because only the catalog knows what `source` resolves to (D-061).
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
 | `tool` | `ConverterTool \| None` | no | The pinned program the converter runs, for a converter in `CONVERTERS_WITH_TOOL` (`mapsforge-poi`: Maven Central's mapsforge-poi-writer, which no archive packages, D-067). Required for those converters and refused for every other. |
 
+### `DevctlHelper`
+
+The privileged device helper that ships inside hammunition-tray's archive.
+
+**A block that names an interpreter nobody wrote down.** The helper is root
+code behind one polkit action (D-056); the engine copies it from the unpacked
+archive to the paths the tray's contract fixes, bakes the engine's own venv
+interpreter into the wrapper (the helper's ``time`` verbs import the
+engine), and writes the tray's polkit action. None of those paths or that
+interpreter is catalog data, so the block carries only what varies by pin:
+where the code sits in the archive and which modules it has.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `source` | `str` | no (default `devctl`) | The directory in the archive holding the `hammunition-devctl` entry script and the `hammunition_devctl/` package. |
+| `modules` | `list[str]` | **yes** | Every module of the package, by file name. Explicit, so the plan lists exactly the files root will run, and a test compares it with the pinned archive. |
+| `min_contract` | `int` | no (default `1`) | The contract number (`hammunition-devctl --version`) an already-installed helper must answer for the engine to leave it alone. |
+
 ### `ExtraArtifact`
 
 A pinned file installed beside a build, with its size (D-069).
@@ -649,6 +670,21 @@ the engine implements, never a URL in the catalog.
 | `method` | `Literal[pipx]` | no (default `pipx`) |  |
 | `spec` | `str` | **yes** |  |
 | `system_site_packages` | `bool` | no (default `False`) |  |
+
+### `Placement`
+
+One file of an unpacked archive, installed at an absolute path.
+
+The same shape as a ``.deb``'s file list: a source inside the tree, a
+destination, a mode. Never a command, never a glob -- every file is named,
+so the plan prints each one and a file upstream adds later is not installed
+by surprise (a test compares the list with the pinned archive).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `source` | `str` | **yes** | A file inside the unpacked tree, relative to its root. |
+| `dest` | `str` | **yes** | Where it is installed: an absolute path under one of PLACEMENT_ROOTS, with a path component named for this project. Under /usr/local/ it follows the engine's prefix. |
+| `mode` | `str` | no (default `0644`) |  |
 
 ### `PrepareStep`
 

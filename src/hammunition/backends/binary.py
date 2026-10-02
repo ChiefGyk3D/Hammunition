@@ -51,6 +51,7 @@ from hammunition.manifest.schema import (
 )
 
 from .base import Action, BackendError, Command, CommandRunner
+from .placements import helper_steps, placement_steps
 from .source import (
     SourceLayout,
     extract,
@@ -93,6 +94,15 @@ class BinaryBackend:
 
     owner: str | None = None
     """The operator an installed tree is handed to (D-043); None keeps it root's."""
+
+    attributed_files: frozenset[str] = frozenset()
+    """The files the transaction log shows this engine installed, so a unit
+    that installs the tray's device helper can tell its own earlier copy from
+    another installer's (``devctl_helper``)."""
+
+    helper_interpreter: str | None = None
+    """The interpreter the helper's wrapper runs as root; None is the one
+    running the engine."""
 
     method = "binary"
 
@@ -164,10 +174,11 @@ class BinaryBackend:
 
         if block.format in _ARCHIVE_FORMATS:
             layout = self.layout(manifest, block)
-            if not binaries and not block.install_tree:
+            spreads = bool(block.placements or block.devctl_helper)
+            if not binaries and not block.install_tree and not spreads:
                 raise BackendError(
-                    f"{manifest.name} is a prebuilt archive and names no `binaries` "
-                    f"and no `install_tree`. Unpacking it would leave a directory in "
+                    f"{manifest.name} is a prebuilt archive and names no `binaries`, "
+                    f"no `install_tree`, no `placements` and no `devctl_helper`. Unpacking it would leave a directory in "
                     f"a cache and install nothing — a run that reports success having "
                     f"done nothing."
                 )
@@ -202,6 +213,32 @@ class BinaryBackend:
                         source_tree=layout.src,
                         prefix=self.prefix,
                         owner=self.owner,
+                    )
+                )
+            steps.extend(
+                placement_steps(
+                    name=manifest.name,
+                    placements=block.placements,
+                    src=layout.src,
+                    prefix=self.prefix,
+                )
+            )
+            if block.devctl_helper is not None:
+                from hammunition.devctl_helper import plan_helper
+
+                steps.extend(
+                    helper_steps(
+                        name=manifest.name,
+                        helper=block.devctl_helper,
+                        plan=plan_helper(
+                            block.devctl_helper,
+                            attributed_files=self.attributed_files,
+                            interpreter=self.helper_interpreter,
+                        ),
+                        src=layout.src,
+                        staging=layout.src.parent / f"{manifest.name}-devctl-staging",
+                        prefix=self.prefix,
+                        archive=lambda: fetched["path"],
                     )
                 )
             return steps

@@ -4,9 +4,10 @@
 
 **KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own**
 
-- **Version recorded:** 0.4.0
+- **Version recorded:** 0.5.0
 - **Categories:** `device-support`
 - **Upstream:** <https://github.com/ChiefGyk3D/hammunition-tray>
+- **Needs first:** `plasma-workspace`, `qml6-module-org-kde-plasma-plasma5support`, `qml6-module-org-kde-kirigami`, `qml6-module-org-kde-notifications`, `pkexec`
 - **Desktops:** KDE Plasma only — read from the session files at plan time; deferred from a profile on a machine with none of them, refused by name (see [desktops](../desktops.md)); elsewhere, [`hammunition-tray-qt`](hammunition-tray-qt.md)
 
 ## What it does
@@ -19,12 +20,12 @@ Parking a GPS or a modem you are not using saves battery on a field laptop, and 
 
 ## Before it will work
 
-KDE Plasma 6. `hammunition hardware apply` must have been run: it installs the root helper and the polkit action the switches call (the helper is moving to hammunition-tray, whose own release will install it), and writes the device and service lists it reads. Without them the applet says "Device control is not installed" instead of showing switches. A device only gets a switch when its catalog entry carries a power_control block and it is plugged in.
+KDE Plasma 6. This unit installs the device helper and the polkit action the switches call (from the same release archive, D-056); the device and service lists it reads are written by `hammunition hardware apply`, which also hands over to this helper rather than writing its own. Without the lists the applet shows no switches; without the helper it says "Device control is not installed". A device only gets a switch when its catalog entry carries a power_control block and it is plugged in. The helper runs as root through the engine's own Python, so the engine's virtualenv must not be writable by any account but its owner: the install asks one `yes` that `--yes` cannot answer when it belongs to one account, and refuses when any account can write it.
 
 ## How it installs
 
-- prebuilt deb from https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.4.0/hammunition-tray_0.4.0_all.deb
-  - Installs the applet system-wide under /usr/share/plasma/plasmoids and its icon under /usr/share/icons/hicolor. It runs nothing as root itself; it calls the helper, which `hammunition hardware apply` installs until a tray release carries it (the `hammunition-devctl` .deb, added to this unit at the re-pin; see the comment below) and which reads the lists that command writes.
+- prebuilt tarball from https://github.com/ChiefGyk3D/hammunition-tray/archive/refs/tags/v0.5.0.tar.gz
+  - Spreads the applet over /usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices and its icon into /usr/share/icons/hicolor (each file printed in the plan), and installs the device helper the switches call: the code under /usr/local/lib/hammunition-devctl, the wrapper at /usr/local/libexec/hammunition-devctl and the polkit action (the plan names the interpreter the wrapper runs as root, and says when another installer's helper is already there and is left alone). The applet runs nothing as root itself. Whether Plasma lists an applet placed this way without a .deb is unmeasured: a bench item, not yet run.
 
 ## Known problems
 

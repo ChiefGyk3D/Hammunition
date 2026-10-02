@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import shutil
 import socket
+import tarfile
 import tempfile
 from collections.abc import Iterator, Sequence
 from pathlib import Path
@@ -47,6 +48,7 @@ import pytest
 
 import hammunition.sudo_ticket as sudo_ticket
 from hammunition.backends.base import Command, CommandResult, SubprocessRunner
+from hammunition.paths import artifact_cache_dir
 
 _real_connect = socket.socket.connect
 _real_connect_ex = socket.socket.connect_ex
@@ -382,3 +384,55 @@ def resume_files(
     gpsd.parent.mkdir(parents=True)
     gpsd.write_text("")
     return root
+
+
+TRAY_SHA = "614148fb4241e88ca007885d01ef97d0752c8cd47b6e57337e2ee12ab3bfc438"
+"""The sha256 both tray units pin (hammunition-tray v0.5.0's source archive)."""
+
+
+@pytest.fixture(scope="module")
+def pinned_tray_archive() -> Path:
+    """The pinned archive in the fetch cache, re-hashed, or a skip that says why."""
+    cached = sorted(artifact_cache_dir().glob(f"{TRAY_SHA}-*"))
+    if not cached:
+        pytest.skip(
+            f"the pinned hammunition-tray archive is not in {artifact_cache_dir()}: fetch it "
+            f"with hammunition.fetch.Fetcher on a networked machine (an install of "
+            f"hammunition-tray-qt does), then these checks run"
+        )
+    import hashlib
+
+    assert hashlib.sha256(cached[0].read_bytes()).hexdigest() == TRAY_SHA, (
+        "the cached archive is not the pinned one"
+    )
+    return cached[0]
+
+
+@pytest.fixture(scope="module")
+def pinned_tray(pinned_tray_archive: Path, tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The v0.5.0 tree, unpacked from the fetch cache."""
+    root = tmp_path_factory.mktemp("tray")
+    with tarfile.open(pinned_tray_archive) as tar:
+        tar.extractall(root, filter="data")
+    (top,) = [p for p in root.iterdir() if p.is_dir()]
+    return top
+
+
+@pytest.fixture(autouse=True)
+def _no_host_dpkg_for_the_helper(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test asks the host's dpkg who owns a path the tray units would write:
+    this machine may have the tray's .deb installed, and an answer would make
+    every plan that includes a tray unit depend on it. Tests that want an owner
+    patch these two functions themselves."""
+    from hammunition import devctl_helper
+
+    monkeypatch.setattr(devctl_helper, "dpkg_owner", lambda _path: None)
+    monkeypatch.setattr(devctl_helper, "dpkg_owners", lambda _paths: {})
+    # Nor the permissions of the interpreter running the suite: the hosted
+    # runner's toolcache Python sits in a group-writable tree, the gate rightly
+    # refuses it (rc 2), and plan tests would pass on a dev venv and fail in CI.
+    # The gate itself is tested with injected stat functions
+    # (test_polkit_artifacts) and with explicit findings (test_cli, test_devctl_helper).
+    from hammunition.hardware import polkit
+
+    monkeypatch.setattr(polkit, "writable_including_symlink_target", lambda *a, **k: None)
