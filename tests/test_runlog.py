@@ -392,3 +392,99 @@ def test_doctor_reports_the_log_directory_and_the_newest_result(
     check = next(c for c in doc["checks"] if c["name"] == "run logs")
     assert "3 run log(s)" in check["detail"] and "hardware-apply" in check["detail"]
     assert "incomplete" in check["detail"]
+
+
+# -- review findings -------------------------------------------------------------
+
+
+def test_a_child_writing_undecodable_bytes_cannot_hang_the_run(tmp_path: Path) -> None:
+    """The reader thread must keep draining: a dead pump fills the 64 KiB pipe
+    and the child blocks forever."""
+    import threading
+
+    run = runlog._open(tmp_path / "20261002T000000Z-install-5.log", None)
+    runlog._active = run
+    box: list[object] = []
+
+    def go() -> None:
+        box.append(
+            SubprocessRunner(euid=0).run(
+                Command(
+                    argv=(
+                        sys.executable,
+                        "-c",
+                        "import sys; sys.stdout.buffer.write(b'\\xff' * 300000 + b'\\n')",
+                    ),
+                    description="binary output",
+                )
+            )
+        )
+
+    worker = threading.Thread(target=go, daemon=True)
+    worker.start()
+    worker.join(30)
+    runlog._active = None
+    run.close(0, 0.0)
+    assert not worker.is_alive(), "the run hung on undecodable output"
+    assert box[0].returncode == 0  # type: ignore[attr-defined]
+
+
+def test_station_values_are_scrubbed_from_everything_logged(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    _run_logs_in_tmp: Path,
+) -> None:
+    _machine(monkeypatch, tmp_path)
+    from hammunition.station import Station, save_station
+
+    save_station(Station(map_regions=("us/delaware",), mirror="http://nas.example.invalid:8080"))
+
+    def chatty(args: object) -> int:
+        print("regions: us/delaware at http://nas.example.invalid:8080/x")
+        print("error: callsign 'N0CALL' does not look like one", file=sys.stderr)
+        return 0
+
+    monkeypatch.setattr(cli, "cmd_install", chatty)
+    cli.main(["install", "--dry-run", "--callsign", "N0CALL", "fixture-apt"])
+    captured = capsys.readouterr()
+    assert "us/delaware" in captured.out and "N0CALL" in captured.err, "the terminal is untouched"
+    text = _only_log(_run_logs_in_tmp).read_text()
+    assert "us/delaware" not in text and "N0CALL" not in text and "nas.example" not in text
+    assert text.count("<redacted>") >= 3
+
+
+def test_crlf_and_split_carriage_returns_keep_their_text(tmp_path: Path) -> None:
+    path = tmp_path / "20261002T000000Z-install-6.log"
+    run = runlog._open(path, None)
+    run.feed("out", "crlf line\r\nnext\n")
+    run.feed("out", "split\r")
+    run.feed("out", "\nafter\n")
+    run.close(0, 0.0)
+    lines = [x[33:] for x in path.read_text().splitlines() if x[25:32].strip() == "out"]
+    assert lines == ["crlf line", "next", "split", "after"]
+
+
+def test_one_run_log_stops_at_the_cap(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(runlog, "MAX_RUN_BYTES", 500)
+    path = tmp_path / "20261002T000000Z-reference-serve-7.log"
+    run = runlog._open(path, None)
+    for n in range(200):
+        run.write("out", f"request {n}")
+    run.close(0, 0.0)
+    text = path.read_text()
+    assert len(text) < 1500 and text.count("log truncated") == 1
+    assert "result" in text.splitlines()[-1]
+
+
+def test_polled_and_readout_forms_leave_no_log(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    _run_logs_in_tmp: Path,
+) -> None:
+    _machine(monkeypatch, tmp_path)
+    cli.main(["--catalog", str(FIXTURE_CATALOG), "update", "--json"])
+    cli.main(["services"])
+    capsys.readouterr()
+    assert list(_run_logs_in_tmp.glob("*.log")) == []

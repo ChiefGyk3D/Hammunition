@@ -27,6 +27,7 @@ Three properties the types themselves carry:
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shlex
 import subprocess
@@ -221,6 +222,10 @@ def _run_logged(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            # A child that writes bytes the locale cannot decode must not kill
+            # the reader thread: the pipe would stop draining and the child
+            # block forever. subprocess.run would raise; this keeps going.
+            errors="replace",
             env=dict(env),
             cwd=command.cwd,
         )
@@ -230,16 +235,24 @@ def _run_logged(
     captured: dict[str, list[str]] = {"out": [], "err": []}
 
     def pump(stream: str, handle: IO[str]) -> None:
-        for line in handle:
-            captured[stream].append(line)
-            run_log.command_output(stream, line)
+        try:
+            for line in handle:
+                captured[stream].append(line)
+                run_log.command_output(stream, line)
+        except (OSError, ValueError):
+            pass  # a closed pipe; the child's exit is what wait() reports
+        finally:
+            for _ in handle:  # whatever happened, keep draining so the child cannot block
+                pass
 
     def feed(handle: IO[str], text: str) -> None:
         try:
             handle.write(text)
-            handle.close()
         except (BrokenPipeError, OSError):
             pass  # the child exited before reading its input
+        finally:
+            with contextlib.suppress(BrokenPipeError, OSError):
+                handle.close()
 
     assert proc.stdout is not None and proc.stderr is not None
     threads = [

@@ -185,7 +185,7 @@ def test_a_kill_after_the_archive_landed_does_not_double_the_events(log: Transac
     lines = log.path.read_text().splitlines(keepends=True)
     begins = [i for i, x in enumerate(lines) if '"transaction_begin"' in x]
     head = lines[: begins[-2]]
-    archive = log.path.with_name("transactions-20260901T000000000000Z.jsonl")
+    archive = log.path.with_name("transactions-000001-20260901T000000Z.jsonl")
     archive.write_text("".join(head))
     log.path.with_name(log.path.name + ".rotating").write_text(
         json.dumps({"archive": archive.name, "lines": len(head)})
@@ -214,7 +214,7 @@ def test_a_kill_before_the_archive_landed_loses_nothing(log: TransactionLog) -> 
     _fill(log, 8)
     before = list(log.read())
     log.path.with_name(log.path.name + ".rotating").write_text(
-        json.dumps({"archive": "transactions-20260901T000000000000Z.jsonl", "lines": 5})
+        json.dumps({"archive": "transactions-000001-20260901T000000Z.jsonl", "lines": 5})
     )
     assert list(log.read()) == before
 
@@ -255,3 +255,51 @@ def test_archives_are_private(log: TransactionLog) -> None:
     archive = log.rotate(threshold=0, keep=2)
     assert archive is not None
     assert archive.stat().st_mode & 0o777 == 0o600
+
+
+def test_archive_order_follows_a_sequence_not_the_clock(
+    log: TransactionLog, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A station whose clock steps back (D-058) must not see history reordered."""
+    import datetime as real
+
+    _fill(log, 6)
+    log.rotate(threshold=0, keep=4)
+    _fill(log, 6)
+
+    class Earlier(real.datetime):
+        @classmethod
+        def now(cls, tz: Any = None) -> Any:
+            return real.datetime(2020, 1, 1, tzinfo=tz)
+
+    monkeypatch.setattr(statelog, "datetime", Earlier)
+    expected = list(log.read())
+    log.rotate(threshold=0, keep=2)
+    names = [a.name for a in log.archives()]
+    assert names == sorted(names) and names[0].startswith("transactions-000001-")
+    assert names[1].startswith("transactions-000002-")
+    assert list(log.read()) == expected
+
+
+def test_reading_creates_nothing(log: TransactionLog) -> None:
+    """A dry run, `status` or a sudo read must not leave a lock file behind."""
+    log.path.parent.mkdir(parents=True)
+    assert list(log.read()) == []
+    log.path.write_text("")
+    assert list(log.read()) == []
+    assert sorted(p.name for p in log.path.parent.iterdir()) == ["transactions.jsonl"]
+
+
+def test_a_rotation_that_cannot_write_does_not_stop_the_transaction(
+    log: TransactionLog, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(statelog, "ROTATE_BYTES", 1)
+    monkeypatch.setattr(statelog, "KEEP_TRANSACTIONS", 2)
+    _fill(log, 6)
+
+    def full(self: TransactionLog, target: Path, payload: bytes) -> None:
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(TransactionLog, "_write_atomic", full)
+    log.append({"event": "transaction_begin", "version": 2})
+    assert list(log.read())[-1] == {"event": "transaction_begin", "version": 2}

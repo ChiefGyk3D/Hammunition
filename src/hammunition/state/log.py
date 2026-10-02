@@ -40,7 +40,7 @@ ROTATE_BYTES = 1024 * 1024
 #: A rotation leaves this many of the newest transactions in the live file.
 KEEP_TRANSACTIONS = 20
 
-_ARCHIVE = re.compile(r"^transactions-(\d{8}T\d{12}Z)\.jsonl$")
+_ARCHIVE = re.compile(r"^transactions-(\d{6})-(\d{8}T\d{6}Z)\.jsonl$")
 
 _SECRET_HINTS = ("password", "passwd", "secret", "token", "api_key", "apikey", "private_key")
 
@@ -91,7 +91,10 @@ class TransactionLog:
         line = json.dumps(entry, sort_keys=False, default=str)
         with self._locked(exclusive=entry["event"] == "transaction_begin"):
             if entry["event"] == "transaction_begin":
-                self._rotate_locked()
+                # Best effort: a full disk or a stale file must not stop the
+                # transaction from recording that it began.
+                with contextlib.suppress(OSError):
+                    self._rotate_locked()
             with self.path.open("a", encoding="utf-8") as handle:
                 handle.write(line + "\n")
                 handle.flush()
@@ -118,15 +121,26 @@ class TransactionLog:
         return self.path.with_name(self.path.name + ".rotating")
 
     @contextlib.contextmanager
-    def _locked(self, *, exclusive: bool) -> Iterator[None]:
+    def _locked(self, *, exclusive: bool, create: bool = True) -> Iterator[None]:
         """Appends share, a rotation excludes: a line cannot be written to the
         file a rotation is about to replace. Best-effort when the lock file
-        cannot be made -- the log must not fail a run over its own lock."""
+        cannot be opened -- the log must not fail a run over its own lock.
+
+        A reader passes ``create=False``: reading must not make a file, so a
+        read-only command writes nothing and, under sudo, root never leaves a
+        root-owned lock in an operator's state directory."""
+        flags = os.O_CLOEXEC | (os.O_RDWR | os.O_CREAT if create else os.O_RDONLY)
         try:
-            fd = os.open(self._lock_path, os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o600)
+            fd = os.open(self._lock_path, flags, 0o600)
         except OSError:
-            yield
-            return
+            if not create:
+                yield
+                return
+            try:
+                fd = os.open(self._lock_path, os.O_RDONLY | os.O_CLOEXEC)
+            except OSError:
+                yield
+                return
         try:
             fcntl.flock(fd, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
             yield
@@ -174,8 +188,14 @@ class TransactionLog:
             return None
         cut = begins[-keep] if keep > 0 else len(lines)
         head, tail = lines[:cut], lines[cut:]
-        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%f")
-        archive = self.path.with_name(f"transactions-{stamp}Z.jsonl")
+        # Ordered by a sequence number, not the clock: on a machine whose clock
+        # is wrong until a GPS or NTP fix (D-058) a stepped clock would put a
+        # newer archive's events before an older one's.
+        last = max(
+            (int(m.group(1)) for a in self.archives() if (m := _ARCHIVE.match(a.name))), default=0
+        )
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        archive = self.path.with_name(f"transactions-{last + 1:06d}-{stamp}.jsonl")
         self._write_atomic(
             self._intent_path, json.dumps({"archive": archive.name, "lines": len(head)}).encode()
         )
@@ -284,7 +304,7 @@ class TransactionLog:
         An archive that exists and cannot be read is a different matter and
         raises: skipping it would report units as not installed (D-077).
         """
-        with self._locked(exclusive=False):
+        with self._locked(exclusive=False, create=False):
             pending = self._pending()
             skip = pending[1] if pending is not None else 0
             chunks = [a.read_text(encoding="utf-8").splitlines() for a in self.archives()]

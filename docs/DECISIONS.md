@@ -9480,7 +9480,7 @@ size of the logs and how the newest ended.
 **Ruling 4: the transaction log rotates, and nothing is deleted.** When a
 `transaction_begin` is about to be appended and the live file is over 1 MiB,
 every whole transaction older than the newest 20 moves into
-`transactions-<UTC>.jsonl` beside it; `TransactionLog.read()` yields the
+`transactions-<NNNNNN>-<UTC>.jsonl` beside it, numbered by sequence and not by the clock (D-058: a station's clock can step back); `TransactionLog.read()` yields the
 archives in name order and then the live file, which is the same events in the
 same order, so every replay is unchanged by construction. A test runs `status`
 (text and `--json`) and the two `uninstall` replays before and after a rotation
@@ -9494,9 +9494,14 @@ The transaction log is the one record `uninstall` can use, so it is never
 pruned; the archives are small and the gain is a live file that stays small
 for the appender and for `tail`, not a smaller history.
 
-**Rejected.** A redaction pass over the whole log for station values (the plan
-prints what it prints; the argv is where a flag value would otherwise land,
-and `station set` is not logged). Per-run logs as JSON (the transaction log is
+**Scrubbing.** The saved station's values and any typed on the command line
+are replaced by `<redacted>` in every logged line, not only the argv (review:
+a data plan prints a region, a rejected callsign is echoed). Exact text, three
+characters or more; command output the engine cannot know about is logged as
+printed. A run log stops at 50 MB; `services` with no verb and non-dry-run
+`--json` runs are not logged.
+
+**Rejected.** A redaction that stops at the argv. Per-run logs as JSON (the transaction log is
 that; this is the one an operator reads). Rotating by age (a quiet station
 would lose its only record of the last install). Compressing archives (a
 reader needing history would have to decompress; they are small). A log

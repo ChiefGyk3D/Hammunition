@@ -20,7 +20,7 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   per line, owner-aware under sudo. Rotated at the start of each run to 30
   files and 200 MB, never a run in progress. New `hammunition logs [--last |
   --path | --json]`; `doctor` reports the logs; a run ends `Log: <path>`. The
-  transaction log now rotates past 1 MiB into `transactions-<UTC>.jsonl`
+  transaction log now rotates past 1 MiB into `transactions-<NNNNNN>-<UTC>.jsonl`
   archives that every reader walks in order (never deleted); `status` is tested
   identical before and after. `docs/reference/run-logs.md`.
 - **The engine's own GPS tether copy retired; the ACMA Bunker ruling recorded**

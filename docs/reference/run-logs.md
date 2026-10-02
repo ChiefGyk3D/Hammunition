@@ -37,7 +37,7 @@ to the moment it died.
 
 | Tag | What it is |
 |---|---|
-| `meta` | The run's own facts: engine version, command, argv, pid and euid. The value of `--callsign`, `--grid-square`, `--node-alias`, `--map-regions`, `--rig-device`, `--rig-owner` and `--mirror` is replaced by `<redacted>`. A crash adds `crashed:` and the traceback. |
+| `meta` | The run's own facts: engine version, command, argv, pid and euid. The value of `--callsign`, `--grid-square`, `--node-alias`, `--map-regions`, `--rig-device`, `--rig-owner` and `--mirror` is replaced by `<redacted>`, and so is every saved station value (callsign, grid, alias, regions, mirror and its host, rig device and owner) wherever it appears in the lines below, so a plan that prints a region does not carry it into the file. A crash adds `crashed:` and the traceback. |
 | `out`, `err` | Everything the engine printed on stdout and stderr, the plan included. The terminal still sees exactly the same bytes. A progress counter redrawn in place leaves its first and last lines, not a line per redraw. |
 | `cmd` | A command the engine started, as run. |
 | `cmd-out`, `cmd-err` | That command's stdout and stderr, line by line as they arrive, so `tail -f` follows an hour-long build. |
@@ -63,6 +63,17 @@ A real run, from a fixture (a failing command, a station flag in argv; the inter
 Only the commands the engine runs through its command runner are streamed as
 `cmd-out`; steps the engine performs itself (a download, an unpack) appear as
 the `out` lines it prints for them.
+
+Each file stops at 50 MB (`reference serve` can run for days): one `log
+truncated` line, then only the `result` line is added. `services` with no
+verb, `--json` runs that are not dry runs (a front end polling `update
+--json`) and the readouts leave no log, so they cannot push real logs out of
+the 30.
+
+Scrubbing is exact-text and case-insensitive, for values of three characters or
+more. It is not a guarantee about command output: a tool that prints something
+of yours in a form the engine does not know is logged as it printed it. Read a
+log before attaching it to an issue.
 
 ## Rotation
 

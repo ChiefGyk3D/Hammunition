@@ -91,6 +91,10 @@ _REDACTED_FLAGS = frozenset(
     }
 )
 
+#: One run's log stops growing here (a `reference serve` can run for days);
+#: the log says so once and the run goes on.
+MAX_RUN_BYTES = 50 * 1024 * 1024
+
 _EXIT_WORDS = {0: "ok", 1: "failed", 2: "refused", 3: "not confirmed"}
 
 _active: RunLog | None = None
@@ -145,6 +149,9 @@ class RunLog:
         self._lock = threading.Lock()
         self._partial: dict[str, str] = {}
         self._closed = False
+        self._scrub: list[str] = []
+        self._written = 0
+        self._truncated = False
         self.exit_code: int | None = None
         """The status the run is about to return; set by the caller."""
 
@@ -155,13 +162,38 @@ class RunLog:
         with self._lock:
             self._emit(tag, text)
 
+    def set_scrub(self, values: Sequence[str]) -> None:
+        """Station values to replace with ``<redacted>`` in every line logged.
+
+        The plan and its errors print the station (a region in a data plan, a
+        rejected callsign, the mirror), so redacting the argv alone would be
+        redacting the one place that does not matter. Values shorter than
+        three characters are ignored: they would eat ordinary words."""
+        unique = {v for v in values if len(v) >= 3}
+        with self._lock:
+            self._scrub = sorted(unique, key=len, reverse=True)
+
+    def _scrubbed(self, line: str) -> str:
+        for value in self._scrub:
+            line = re.sub(re.escape(value), "<redacted>", line, flags=re.IGNORECASE)
+        return line
+
     def _emit(self, tag: str, text: str) -> None:
         if self._closed:
             return
         stamp = _stamp()
         try:
             for line in text.split("\n"):
-                self._handle.write(f"{stamp} {tag:<7} {line}\n")
+                if tag != "result" and self._written > MAX_RUN_BYTES:
+                    if not self._truncated:
+                        self._handle.write(
+                            f"{stamp} meta    log truncated at {MAX_RUN_BYTES} bytes\n"
+                        )
+                        self._truncated = True
+                    break
+                out = f"{stamp} {tag:<7} {self._scrubbed(line)}\n"
+                self._handle.write(out)
+                self._written += len(out)
             self._handle.flush()
         except (OSError, ValueError):
             self._closed = True  # a full disk must not fail the run it describes
@@ -174,11 +206,13 @@ class RunLog:
         finish lines in the log and not a line per redraw.
         """
         with self._lock:
-            buffered = self._partial.get(tag, "") + chunk
+            buffered = (self._partial.get(tag, "") + chunk).replace("\r\n", "\n")
             *lines, rest = buffered.split("\n")
             for line in lines:
+                line = line[:-1] if line.endswith("\r") else line
                 self._emit(tag, _clean(line.rsplit("\r", 1)[-1]))
-            self._partial[tag] = rest.rsplit("\r", 1)[-1] if "\r" in rest else rest
+            tail = rest.rsplit("\r", 1)[-1]
+            self._partial[tag] = tail if tail else rest
 
     def flush_partial(self) -> None:
         with self._lock:

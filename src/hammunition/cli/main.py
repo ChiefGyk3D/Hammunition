@@ -7134,7 +7134,11 @@ def _loggable(args: argparse.Namespace) -> bool:
     words = name.split()
     if not words:
         return False
-    if words[0] in ("install", "uninstall", "update", "menus", "services", "maps"):
+    if envelope.wanted(args) and not getattr(args, "dry_run", False):
+        return False  # a front end polling `update --json` must not evict real logs
+    if words[0] == "services":
+        return getattr(args, "action", None) is not None  # the list is a readout
+    if words[0] in ("install", "uninstall", "update", "menus", "maps"):
         return True
     if words[0] == "hardware":
         return len(words) > 1 and words[1] in ("apply", "unapply", "park", "wake")
@@ -7143,6 +7147,42 @@ def _loggable(args: argparse.Namespace) -> bool:
     if words[0] == "time":
         return len(words) > 1 and words[1] == "mode"
     return False
+
+
+def _station_secrets(args: argparse.Namespace) -> list[str]:
+    """Every station value this run could print, to scrub from its log (D-077):
+    the saved station and what was typed on the command line."""
+    values: list[str] = []
+    try:
+        from hammunition.station import load_station
+
+        station = load_station(owner=operator(args) or None)
+        values += [
+            v
+            for v in (
+                station.callsign,
+                station.grid_square,
+                station.node_alias,
+                station.mirror,
+                station.rig_device,
+                station.rig_owner,
+                *station.map_regions,
+            )
+            if v
+        ]
+        if station.mirror:
+            from urllib.parse import urlparse
+
+            host = urlparse(station.mirror).hostname
+            if host:
+                values.append(host)
+    except Exception:  # a broken station file is the command's to report, not the log's
+        pass
+    for attr in ("callsign", "grid_square", "node_alias", "map_regions", "mirror", "rig_device"):
+        typed = getattr(args, attr, None)
+        if isinstance(typed, str) and typed:
+            values += [part.strip() for part in typed.split(",")] + [typed]
+    return values
 
 
 def _dispatch(args: argparse.Namespace) -> int:
@@ -7163,6 +7203,8 @@ def _dispatch(args: argparse.Namespace) -> int:
         owner=operator(args) or None,
         version=version,
     ) as run:
+        if run is not None:
+            run.set_scrub(_station_secrets(args))
         code = _dispatch_command(args)
         if run is not None:
             run.exit_code = code
