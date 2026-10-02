@@ -155,12 +155,13 @@ def test_a_handed_over_helper_is_disclosed_and_not_written(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     handed = dataclasses.replace(
-        _polkit_artifacts(tmp_path, helper_current=True), handed_over="hammunition-devctl 1.0.0"
+        _polkit_artifacts(tmp_path, helper_current=True),
+        handed_over="hammunition-devctl contract 1",
     )
     runner = _machine(tmp_path, monkeypatch, polkit_artifacts=handed, with_export=False)
     assert cli.main(["hardware", "apply", "--dry-run"]) == cli.EXIT_OK
     out = " ".join(capsys.readouterr().out.split())
-    assert "hammunition-tray" in out and "hammunition-devctl 1.0.0" in out
+    assert "hammunition-tray" in out and "hammunition-devctl contract 1" in out
     assert "Will install the privileged helper" not in out
     assert runner.ran == []
 
@@ -169,7 +170,8 @@ def test_a_handed_over_noop_apply_says_so(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     handed = dataclasses.replace(
-        _polkit_artifacts(tmp_path, helper_current=True), handed_over="hammunition-devctl 1.0.0"
+        _polkit_artifacts(tmp_path, helper_current=True),
+        handed_over="hammunition-devctl contract 1",
     )
     _machine(tmp_path, monkeypatch, polkit_artifacts=handed, with_export=False)
     assert cli.main(["hardware", "apply", "--yes"]) == cli.EXIT_OK
@@ -232,12 +234,15 @@ def test_unapply_never_removes_a_helper_that_is_now_the_trays(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The log says the engine once wrote the helper; the tray has replaced it since."""
+    """The log says the engine once wrote the helper; the tray has replaced it since.
+    The run says what it left and does not claim the log records nothing (review I4)."""
     helper = tmp_path / "hammunition-devctl"
     helper.write_text("the tray's wrapper\n")
     monkeypatch.setattr(cli, "HELPER_PATH", str(helper))
     monkeypatch.setattr(polkit, "HELPER_PATH", str(helper))
-    monkeypatch.setattr(polkit, "installed_helper_version", lambda *a, **k: "hammunition-devctl 1")
+    monkeypatch.setattr(
+        polkit, "installed_helper_version", lambda *a, **k: "hammunition-devctl contract 1"
+    )
     _machine(tmp_path, monkeypatch, with_export=False)
     _Log.entries = [
         {
@@ -250,3 +255,5 @@ def test_unapply_never_removes_a_helper_that_is_now_the_trays(
     assert helper.read_text() == "the tray's wrapper\n"
     out = " ".join(capsys.readouterr().out.split())
     assert "hammunition-tray" in out
+    assert f"The log records {helper} as written by an earlier apply; it is left in place" in out
+    assert "records no hardware artefacts" not in out

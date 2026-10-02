@@ -438,3 +438,15 @@ def test_the_engine_never_runs_systemctl(
     # prose may say the engine never runs it; an argv or a call may not name it
     assert '"systemctl"' not in source[start:end]
     assert "'systemctl'" not in source[start:end]
+
+
+def test_a_user_service_exit_127_is_not_called_a_dismissed_prompt(
+    helper: _Helper, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Review M5: 126/127 mean a dismissed pkexec prompt only through pkexec; a
+    user-scope call has no prompt, and 127 there is a missing interpreter."""
+    helper.doc["services"][0]["active"] = "inactive"
+    helper.act_rc = 127
+    rc, _out, err = _run(capsys, "services", "start", "gps-tether")
+    assert rc == cli.EXIT_FAILED
+    assert "dismissed" not in err and "boom" in err

@@ -132,14 +132,55 @@ def test_the_devices_file_has_what_state_needs_from_the_catalog_alone(
     assert modem["summary"] == "modem summary"
     assert modem["method"] == "usb_deauthorize"
     assert modem["quiet"] == ["networkmanager_autoconnect"]
-    assert modem["usb_ids"] == [
+    # contract 1: vendor and product only; product_string only for an AMBIGUOUS id
+    assert modem["usb_ids"] == [{"vendor": "413c", "product": "81d7"}]
+
+
+def test_every_identifier_is_a_quoted_string_whatever_it_looks_like(
+    devctl_export_files: Path,
+) -> None:
+    """The contract: ids are quoted YAML strings. `1546` and `0003` read as numbers
+    to a loose reader, and `1e10`-shaped ones as floats; double quotes settle it."""
+    ids = [
         {
-            "vendor": "413c",
-            "product": "81d7",
-            "product_string": "Fixture Modem",
-            "ambiguous": False,
-            "distinctive": True,
+            "vendor": "1546",
+            "product": "0003",
+            "description": "digits only",
+            "evidence": "Debian 13 /lib/udev/rules.d/60-gpsd.rules",
+            "confirmed": True,
+        },
+        {
+            "vendor": "0e12",
+            "product": "1e10",
+            "description": "float-shaped",
+            "evidence": "Debian 13 /lib/udev/rules.d/60-gpsd.rules",
+            "confirmed": True,
+        },
+    ]
+    devices = {"gps": _entry(DeviceManifest, "gps", power=True, ids=ids)}
+    text = de.devices_content({}, devices)
+    for line in ('vendor: "1546"', 'product: "0003"', 'vendor: "0e12"', 'product: "1e10"'):
+        assert line in text
+    loaded = yaml.safe_load(text)["devices"][0]["usb_ids"]
+    assert loaded == [
+        {"vendor": "1546", "product": "0003"},
+        {"vendor": "0e12", "product": "1e10"},
+    ]
+    assert all(isinstance(v, str) for row in loaded for v in row.values())
+
+
+def test_a_vendor_wide_entry_has_no_product_key(devctl_export_files: Path) -> None:
+    ids = [
+        {
+            "vendor": "1546",
+            "description": "every u-blox product",
+            "evidence": "Debian 13 /lib/udev/rules.d/60-gpsd.rules",
+            "confirmed": True,
         }
+    ]
+    devices = {"gps": _entry(DeviceManifest, "gps", power=True, ids=ids)}
+    assert yaml.safe_load(de.devices_content({}, devices))["devices"][0]["usb_ids"] == [
+        {"vendor": "1546"}
     ]
 
 
@@ -165,33 +206,33 @@ def test_an_unconfirmed_identifier_is_not_exported(devctl_export_files: Path) ->
     assert [i["vendor"] for i in doc["devices"][0]["usb_ids"]] == ["1546"]
 
 
-def test_a_product_string_two_entries_share_is_not_distinctive(devctl_export_files: Path) -> None:
-    """detect.match_catalog's rule, carried in the file so state needs no catalog."""
+def test_product_string_is_exported_only_for_an_ambiguous_identifier(
+    devctl_export_files: Path,
+) -> None:
+    """match_catalog compares a product string only when the identifier is ambiguous;
+    exporting it otherwise would make the helper stricter than the engine."""
 
-    def ids(desc: str) -> list[dict[str, Any]]:
-        return [
-            {
-                "vendor": "303a",
-                "product": "1001",
-                "description": desc,
-                "evidence": "lsusb capture from real hardware",
-                "confirmed": True,
-                "product_string": "USB JTAG/serial debug unit",
-                "ambiguity": {
-                    "basis": "shared_across_products",
-                    "evidence": "49 PlatformIO board files carry this identifier",
-                },
+    def ids(*, ambiguous: bool) -> list[dict[str, Any]]:
+        row: dict[str, Any] = {
+            "vendor": "303a",
+            "product": "1001",
+            "description": "an ESP32-S3 port",
+            "evidence": "lsusb capture from real hardware",
+            "confirmed": True,
+            "product_string": "USB JTAG/serial debug unit",
+        }
+        if ambiguous:
+            row["ambiguity"] = {
+                "basis": "shared_across_products",
+                "evidence": "49 PlatformIO board files carry this identifier",
             }
-        ]
+        return [row]
 
-    devices = {
-        "one": _entry(DeviceManifest, "one", power=True, ids=ids("one")),
-        "two": _entry(DeviceManifest, "two", power=False, ids=ids("two")),
-    }
-    doc = yaml.safe_load(de.devices_content({}, devices))
-    only = doc["devices"][0]["usb_ids"][0]
-    assert only["ambiguous"] is True
-    assert only["distinctive"] is False
+    for ambiguous in (True, False):
+        devices = {"one": _entry(DeviceManifest, "one", power=True, ids=ids(ambiguous=ambiguous))}
+        row = yaml.safe_load(de.devices_content({}, devices))["devices"][0]["usb_ids"][0]
+        assert ("product_string" in row) is ambiguous
+        assert "ambiguous" not in row and "distinctive" not in row
 
 
 def test_the_services_file_names_the_three_units(devctl_export_files: Path) -> None:
@@ -325,7 +366,9 @@ def test_a_file_hammunition_did_not_write_refuses_the_plan(
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("services: []\n# the operator's own\n")
     classes, devices = _catalog()
-    with pytest.raises(de.DevctlExportError, match="not written by Hammunition"):
+    with pytest.raises(
+        de.DevctlExportError, match="not written by Hammunition, or could not be read"
+    ):
         de.plan_devctl_export(classes, devices, time_unit="ntpsec.service")
     assert path.read_text() == "services: []\n# the operator's own\n"
 
@@ -381,6 +424,8 @@ def test_the_shipped_catalog_exports_the_gps_receiver(devctl_export_files: Path)
     assert gps["usb_ids"], "a receiver with no identifiers could never be matched"
     for d in doc["devices"]:
         assert set(d) == {"name", "summary", "method", "quiet", "usb_ids"}
+        for usb_id in d["usb_ids"]:
+            assert set(usb_id) <= {"vendor", "product", "product_string"}
 
 
 def test_no_station_value_can_reach_either_file(devctl_export_files: Path) -> None:

@@ -46,73 +46,26 @@ install:
       /usr/share/hammunition-tray-qt, an application menu entry, an autostart
       entry in /etc/xdg/autostart (not shown in Plasma) and two icons under
       /usr/share/icons/hicolor. It runs nothing as root itself; it calls the
-      helper whose wrapper and polkit action this unit also writes (see the
-      config_files block below), through /usr/bin/pkexec; the helper reads
-      the lists `hammunition hardware apply` writes.
+      helper, which `hammunition hardware apply` installs until a tray release
+      carries it (the `hammunition-devctl` .deb, added to this unit at the
+      re-pin; see the comment below), through /usr/bin/pkexec; the helper reads
+      the lists that command writes.
 
 # D-056, amended 2026-10-02: the privileged helper now lives in hammunition-tray,
-# and the two root files that make it reachable are written here, disclosed in
-# the plan like any other. The wrapper sits at the fixed path polkit names
-# (a polkit action annotates an absolute executable, which cannot be a
-# console script that moves between packagings) and runs the tray's own
-# /usr/bin/hammunition-devctl isolated (-I) from root's own directory; the
-# polkit action is byte for byte the one `hardware apply` writes
-# (tests/test_tray_unit_files.py holds them equal). The engine's own helper is
-# still written by `hardware apply` where nothing answers --version, and left
-# alone where something does.
-#
-# NOT YET INSTALLABLE AGAINST THE PIN BELOW. v0.4.0 ships no
-# /usr/bin/hammunition-devctl; this block waits for the hammunition-tray
-# release that does, and the re-pin that follows it (the wrapper reports a
-# missing script and exits 2 rather than failing blind, but writing it over a
-# working helper before then would leave park/wake without one). Open items,
-# not measured: whether that release's .deb also owns the policy file, which
-# would make the second entry below a dpkg-owned path to drop; and the exact
-# console-script path, which is the tray repository's contract to name.
-config_files:
-  - path: /usr/local/libexec/hammunition-devctl
-    template: |
-      #!/bin/sh
-      # Installed by the `hammunition-tray` catalog unit (D-056, amended 2026-10-02).
-      # Do not edit: the polkit action at
-      # /usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy
-      # authorises this exact path, and the unit rewrites this file.
-      # It runs hammunition-tray's helper, never the engine's. -I drops the
-      # working directory, PYTHONPATH and the user site from sys.path: the
-      # action pins a path, not an argument list, so `pkexec --keep-cwd` is not
-      # stopped by it and nothing of the caller's may be importable as root.
-      cd /
-      if [ -x /usr/bin/hammunition-devctl ]; then
-        exec /usr/bin/python3 -I /usr/bin/hammunition-devctl "$@"
-      fi
-      echo "hammunition-devctl: hammunition-tray's helper is not installed at /usr/bin/hammunition-devctl" >&2
-      exit 2
-    mode: "0755"
-    backup_existing: true
-  - path: /usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy
-    template: |
-      <?xml version="1.0" encoding="UTF-8"?>
-      <!DOCTYPE policyconfig PUBLIC
-       "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
-       "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
-      <policyconfig>
-        <vendor>Hammunition</vendor>
-        <vendor_url>https://github.com/ChiefGyk3D/Hammunition</vendor_url>
-        <action id="com.chiefgyk3d.hammunition.devctl">
-          <description>Park or wake a radio device, set the clock's time source, or keep your services running after you log out</description>
-          <message>Authentication is required to change a radio device's power state, the clock's time source, or whether your services keep running after you log out</message>
-          <icon_name>preferences-system-power</icon_name>
-          <defaults>
-            <allow_any>auth_admin</allow_any>
-            <allow_inactive>auth_admin</allow_inactive>
-            <allow_active>auth_self_keep</allow_active>
-          </defaults>
-          <annotate key="org.freedesktop.policykit.exec.path">/usr/local/libexec/hammunition-devctl</annotate>
-          <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
-        </action>
-      </policyconfig>
-    mode: "0644"
-    backup_existing: true
+# and its wrapper and polkit action are the tray repository's to install: from a
+# checkout with `install.sh`, or from the `hammunition-devctl` .deb the tray's
+# release is to carry, whose postinst writes the wrapper and which owns the
+# polkit file. THIS UNIT DECLARES NO `config_files` FOR EITHER, and must not:
+#   - the wrapper bakes in an interpreter (the engine's venv, so the helper's
+#     `time` verbs can import the engine), which a catalog file cannot name;
+#   - the polkit file is dpkg-owned in the deb route, and a catalog write over a
+#     package's file is the clash `hardware apply` avoids by its hand-over;
+#   - written against this v0.4.0 pin, which ships no helper, it would replace a
+#     working helper with one that exits 2 (review of this change, Critical).
+# At the re-pin to the tray release that ships the helper, the unit gains the
+# `hammunition-devctl` .deb as an install step (a binary deb, hash-pinned like
+# this one), disclosed in the plan like any other; tests/test_tray_unit_files.py
+# holds the absence until then.
 
 update:
   probe:
@@ -145,10 +98,10 @@ documentation:
     (Xfce's Status Tray plugin, LXQt's Status Notifier, lxpanel's system
     tray). A polkit authentication agent must be running for the password
     prompt; the tray says so, and names the package, when none is.
-    The helper the menu entries call is hammunition-tray's own: this unit
-    writes its wrapper and the polkit action (above, once a tray release
-    ships the helper), and `hammunition hardware apply` writes the device and
-    service lists it reads and the udev rules.
+    `hammunition hardware apply` must have been run: it installs the
+    root helper and polkit action the menu entries call (the helper is moving
+    to hammunition-tray, whose own release will install it), and writes the device and service lists it
+    reads.
   known_problems: >-
     **Not yet run on any of the desktops it lists**; the Xubuntu and Lubuntu
     VM checklist in docs/reference/vm-campaign-desktops.md is that check.

@@ -1491,8 +1491,8 @@ argument) and records whether Hammunition turned linger on, so only linger
 that is ours is ever turned off.
 
 **The helper is moving to hammunition-tray (D-056, amended 2026-10-02).**
-Where the helper already installed at that path answers `--version`, it is the
-tray's: `apply` then writes neither its wrapper nor an existing polkit action
+Where the helper already installed at that path answers `--version` with
+contract 1's line (`hammunition-devctl contract N`), it is the tray's: `apply` then writes neither its wrapper nor an existing polkit action
 (it still writes the action where none exists), says so in the plan, and
 leaves the interpreter check out, because the engine's interpreter is not what
 that helper runs. The engine's own copy is still written where nothing
@@ -1590,9 +1590,9 @@ instead of the engine's catalog is the pair of lists below.
 - **Exports the helper's two lists (D-056, amended 2026-10-02):**
   `/etc/hammunition/devctl-devices.yaml` (every catalogued class or device
   that carries `power_control`: its name, summary, method, quiet verbs and
-  each confirmed identifier, with whether it is ambiguous and whether its
-  product string is distinctive, which is all `state` needs to recognise it on
-  the bus without the catalog) and `/etc/hammunition/devctl-services.yaml`
+  each confirmed identifier as quoted `vendor`/`product` strings, plus
+  `product_string` for an ambiguous one, which is all `state` needs to recognise
+  it on the bus without the catalog; hammunition-tray's contract 1) and `/etc/hammunition/devctl-services.yaml`
   (`gpsd` is `gpsd.socket`, `time` is `ntpsec.service` or `chrony.service`
   by whichever daemon the machine has, `gps-resume` is
   `hammunition-gps-resume.service`). Both are root-owned `0644`, printed whole
@@ -1659,7 +1659,9 @@ taken back too (below); nothing else is touched.
 - **Leaves a helper that is now the tray's alone.** Where the installed helper
   answers `--version`, the log's older record of the engine's own copy is not
   acted on: the helper and its polkit action belong to hammunition-tray, and
-  its own uninstall removes them.
+  removing them is its own uninstall's job (not yet measured). A polkit action
+  this engine wrote because none existed stays until removed by hand, and the
+  run says which logged paths it left.
 
 Exit codes: `0` for a removal that verified absent, nothing recorded to
 remove, every recorded artefact already gone, a `--dry-run`, or declining the

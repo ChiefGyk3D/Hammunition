@@ -4441,9 +4441,11 @@ code and does not release anything.
 1. **The helper reads two data files, not the engine's catalog.** `hardware
    apply` writes `/etc/hammunition/devctl-devices.yaml` (every class or
    device with `power_control`: name, summary, method, quiet verbs, each
-   confirmed identifier with whether it is ambiguous and whether its product
-   string is distinctive, which is everything `state` needs to recognise a
-   device on the bus without the catalog) and
+   confirmed identifier as quoted `vendor`/`product` strings plus
+   `product_string` for an ambiguous one, which is everything `state` needs to
+   recognise a device on the bus without the catalog; hammunition-tray's
+   contract 1, whose own reader loaded the real catalog's file without a note)
+   and
    `/etc/hammunition/devctl-services.yaml` (`gpsd` is `gpsd.socket`, `time`
    is `ntpsec.service` or `chrony.service` by the daemon the machine has,
    `gps-resume` is `hammunition-gps-resume.service`). Root-owned `0644`, the
@@ -4466,8 +4468,8 @@ code and does not release anything.
    runs as the operator; the effect is read back from the helper (D-031). The
    four verbs change the machine and have no JSON form.
 3. **The hand-over.** Where the helper installed at
-   `/usr/local/libexec/hammunition-devctl` answers `--version`, it is the
-   tray's: `hardware apply` writes neither its wrapper nor an existing polkit
+   `/usr/local/libexec/hammunition-devctl` answers `--version` with contract 1's
+   one line (`hammunition-devctl contract N`, N at least 1), it is the tray's: `hardware apply` writes neither its wrapper nor an existing polkit
    action, skips the interpreter-writability gate (the engine's interpreter is
    not what that helper runs), and says so; `hardware unapply` leaves it and
    the action alone whatever an older log records. The probe is one argv,
@@ -4477,21 +4479,36 @@ code and does not release anything.
    judges it has run. The engine's own copies of `devctl`, `power`, `polkit`
    and `linger` stay until the next release; where nothing answers `--version`
    the engine's helper is still written, so nothing regresses today.
-4. **The tray units write the wrapper and the action.** `hammunition-tray` and
-   `hammunition-tray-qt` carry both root files as `config_files`, disclosed in
-   the plan: a wrapper at the fixed path polkit names that runs the tray's
-   `/usr/bin/hammunition-devctl` under `python3 -I` from `/`, and the polkit
-   action byte for byte as `hardware apply` writes it (a test holds them
-   equal). **Not installable against the v0.4.0 pin**, which ships no such
-   script: this waits for a tray release that does and the re-pin after it.
+4. **The tray units write neither the wrapper nor the action, and must not.** The
+   first draft of this change put both in `hammunition-tray` and
+   `hammunition-tray-qt` as `config_files`, and the review found it live against a
+   pin (v0.4.0) that ships no helper: it would have written a wrapper over the
+   working one, which exits 2, and the two writers would have traded the path.
+   The tray repository then settled the question by its own design: its wrapper
+   bakes in an interpreter (the engine's venv, so `time` verbs can import the
+   engine), which no catalog file can name; and its `hammunition-devctl` `.deb`
+   owns the polkit file, so a catalog write over it is the clash this decision's
+   hand-over exists to avoid. So the units declare no `config_files` for either
+   (`tests/test_tray_unit_files.py` holds the absence, and the manifests say
+   why), and at the re-pin to the tray release that ships the helper each gains the
+   `hammunition-devctl` `.deb` as a hash-pinned install step, disclosed in the plan.
+   The engine's own `policy_xml()` now carries the tray's policy text byte for
+   byte, so the two never read as drift.
+5. **The probe's own safety.** The `--version` probe also clears the child's
+   supplementary groups (`extra_groups=[]`), so "not as root" is true of the
+   gid list and not only of the uid and gid; it is a deliberately weak identity
+   test (any root-installed executable there that answers passes), which only
+   decides whether the engine stops writing its own copy and authenticates
+   nothing.
 
-**Not measured:** the tray's helper reading these files (it is not released);
-the keys it requires beyond the contract's names (`version` is the engine's
-addition); the console-script path and whether the tray's `.deb` will own the
-polkit file (which would make the unit's second entry a dpkg-owned path to
-drop); `hardware apply` and the `services` verbs on a real machine; the polkit
-message still names only parking, time and linger, and wants the tray's
-wording for services.
+**Not measured:** the tray's helper reading these files as installed (it is not
+released; its reader, run by hand against the exporter's output, took them
+without a note); `hardware apply` and the `services` verbs on a real machine;
+that the wrapper the tray's `.deb` writes answers `--version` here (the probe is
+tested against scripts that print contract 1's line, not against the tray's
+wrapper); and that its `time` verbs reach the engine under a `.deb`'s
+`/usr/bin/python3` wrapper, which cannot import a venv (the tray's `install.sh
+--interpreter` is the route that can).
 
 **See also:** `docs/hardware/power-control.md` for the operator-facing page
 — what parking changes, how to inspect it, and how to reverse it.

@@ -9,6 +9,7 @@ import enum
 import grp
 import os
 import pwd
+import re
 import shlex
 import signal
 import stat as stat_module
@@ -86,6 +87,12 @@ def wrapper_script(interpreter: str) -> str:
 def policy_xml() -> str:
     """One action, authorising one executable. The battery applet's shape.
 
+    **The text is hammunition-tray's, byte for byte** (``policy_xml`` in its
+    ``hammunition_devctl/polkit.py``, contract 1; the description and message
+    name the system services it can now control). This engine's own copy exists
+    only until the next release, for a machine where no helper answers
+    ``--version``, and must never read as drift against the tray's file.
+
     ``auth_self_keep`` on an active session: the operator authenticates once
     and stays authorised for a few minutes afterwards (polkit's own manual
     page: "a brief period (e.g. five minutes)", not the rest of the
@@ -102,8 +109,8 @@ def policy_xml() -> str:
   <vendor>Hammunition</vendor>
   <vendor_url>https://github.com/ChiefGyk3D/Hammunition</vendor_url>
   <action id="{ACTION_ID}">
-    <description>Park or wake a radio device, set the clock's time source, or keep your services running after you log out</description>
-    <message>Authentication is required to change a radio device's power state, the clock's time source, or whether your services keep running after you log out</message>
+    <description>Park or wake a radio device, set the clock's time source, control a system service Hammunition manages, or keep your services running after you log out</description>
+    <message>Authentication is required to change a radio device's power state, the clock's time source, a system service Hammunition manages, or whether your services keep running after you log out</message>
     <icon_name>preferences-system-power</icon_name>
     <defaults>
       <allow_any>auth_admin</allow_any>
@@ -385,6 +392,11 @@ def describe_refusal(findings: list[WritabilityFinding]) -> str:
     return "; ".join(clauses)
 
 
+_CONTRACT_LINE = re.compile(r"hammunition-devctl contract (?P<number>[0-9]+)")
+"""The one line contract 1 says ``--version`` prints (hammunition-tray's
+``docs/contract.md``): the word ``contract`` and an integer."""
+
+
 def _probe_identity(
     *,
     euid: int | None = None,
@@ -421,7 +433,15 @@ def installed_helper_version(path: str = HELPER_PATH, timeout: float = 10.0) -> 
     a hand-over; the tray's helper answers its contract version. One argument,
     no shell, a fixed environment, its own process group (a wrapper that hangs
     is killed with whatever it spawned), and never as root (:func:`_probe_identity`).
-    Anything but a zero exit with a non-empty first line is None.
+    Anything but a zero exit whose first line is contract 1's own
+    (``hammunition-devctl contract N``, N at least 1) is None.
+
+    **A weak identity test, on purpose.** Any executable at the helper's path
+    that exits 0 printing that line passes: the path is root-owned, and the
+    probe decides only whether the engine should *stop writing its own copy*,
+    never whether anything is trusted. Nobody should later read this as
+    authentication; the polkit action and the root-owned path are what bound
+    what runs as root.
     """
     identity = _probe_identity()
     try:
@@ -436,6 +456,10 @@ def installed_helper_version(path: str = HELPER_PATH, timeout: float = 10.0) -> 
             start_new_session=True,
             user=identity[0] if identity is not None else None,
             group=identity[1] if identity is not None else None,
+            # Without this the child keeps root's supplementary groups (gid 0
+            # among them) and "never as root" would be true of the uid only.
+            # setgroups needs root, so an unprivileged probe asks for nothing.
+            extra_groups=[] if identity is not None else None,
         )
     except (OSError, ValueError):
         return None
@@ -452,7 +476,8 @@ def installed_helper_version(path: str = HELPER_PATH, timeout: float = 10.0) -> 
         return None
     for line in out.splitlines():
         if line.strip():
-            return line.strip()
+            match = _CONTRACT_LINE.fullmatch(line.strip())
+            return line.strip() if match is not None and int(match["number"]) >= 1 else None
     return None
 
 

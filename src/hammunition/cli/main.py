@@ -4625,6 +4625,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     handed_over = hardware_polkit.installed_helper_version(HELPER_PATH)
     recorded: list[str] = []
     skipped: list[str] = []
+    left_to_tray: list[str] = []
     for entry in TransactionLog(owner=user).read():
         if entry.get("event") != "hardware_artifacts":
             continue
@@ -4645,6 +4646,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
                     skipped.append(path)
                 continue
             if handed_over is not None:
+                if path not in left_to_tray:
+                    left_to_tray.append(path)
                 continue
             if path not in recorded:
                 recorded.append(path)
@@ -4653,9 +4656,30 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         print(
             f"The privileged helper at {HELPER_PATH} is hammunition-tray's now (it answers "
             f"--version: {handed_over}), so this command leaves it and its polkit action "
-            f"alone. Remove them with hammunition-tray's own uninstall."
+            f"alone; removing them is the tray's own uninstall's job."
         )
+        for path in left_to_tray:
+            print(
+                f"The log records {path} as written by an earlier apply; it is left in "
+                f"place. (A polkit action this engine wrote because none existed stays "
+                f"until it is removed by hand.)"
+            )
 
+    if (
+        not recorded
+        and not skipped
+        and not kept_present
+        and not time_present
+        and not resume_present
+        and not geo_present
+        and not export_present
+        and left_to_tray
+    ):
+        print(
+            "Nothing to remove: the only artefacts the log records are the helper and its "
+            "polkit action, left to hammunition-tray (above)."
+        )
+        return EXIT_OK
     if (
         not recorded
         and not skipped
@@ -5272,7 +5296,9 @@ def cmd_services_act(args: argparse.Namespace) -> int:
     except BackendError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILED
-    if result.returncode in (126, 127):
+    if row.root and result.returncode in (126, 127):
+        # pkexec's own codes for a dismissed or denied prompt. A user-scope call has
+        # no prompt, and 127 there is a missing interpreter: not the same story.
         print("The authentication prompt was dismissed; nothing was changed.", file=sys.stderr)
         return EXIT_CONSENT
     if result.returncode == EXIT_UNPLANNABLE:

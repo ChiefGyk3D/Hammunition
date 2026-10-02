@@ -11,7 +11,9 @@ a unit that runs as a user service.
 **An allow-list is data, never an argument.** The helper takes a name, looks it
 up in these files, and refuses by name one they do not carry. Nothing an
 unprivileged caller supplies is ever a path, a unit or a command, and neither
-file ever carries a station value (a callsign, a grid square).
+file ever carries a station value (a callsign, a grid square). A root-run helper
+reads only a regular file owned by root and not writable by group or other, in a
+directory that is the same, never following a symlink.
 
 | File | Written by | Scope |
 |---|---|---|
@@ -26,33 +28,38 @@ Both system files are root-owned, mode `0644`, and open with the header line
 followed by what the file is for. **Do not edit them.** `hardware apply`
 rewrites them whole when the catalog or the machine's time daemon changes, and
 `hardware unapply` removes each only when it starts with that header. A file at
-either path without the header refuses the apply (exit `2`) and is never
-overwritten.
+either path without the header, or one this account cannot read, refuses the
+apply (exit `2`) and is never overwritten. The check is made when the plan is
+built and `install -D` replaces whatever is at the path when it runs, so a file
+created between the two would be replaced: `/etc/hammunition` is root's, so only
+root could do that.
 
 ## `devctl-devices.yaml`
 
 Every catalogued class or device whose manifest carries a `power_control`
-block, sorted by name. Today that is `gps-receiver` alone.
+block, sorted by name. Today that is `gps-receiver` alone. The shape is
+hammunition-tray's contract 1 (`docs/contract.md` in that repository); the tray's
+helper reader loaded a file this exporter wrote with no complaint (run once,
+by hand, against its branch).
 
 ```yaml
 version: 1
 devices:
-- name: gps-receiver
-  summary: USB GNSS receivers — position for APRS and grid squares, and time for FT8
-  method: usb_deauthorize
-  quiet: []
-  usb_ids:
-  - vendor: '1546'
-    product: 01a8
-    product_string: null
-    ambiguous: true
-    distinctive: false
-  # ... one entry per confirmed identifier
+  - name: "gps-receiver"
+    summary: "USB GNSS receivers — position for APRS and grid squares, and time for FT8"
+    method: "usb_deauthorize"
+    quiet: []
+    usb_ids:
+      - vendor: "1546"
+        product: "01a5"
+      - vendor: "1546"
+        product: "01a6"
+      # ... one entry per confirmed identifier
 ```
 
-`vendor` and `product` are strings in the file: four lowercase hex digits,
-quoted where YAML would otherwise read them as a number (`'1546'`, `'0003'`).
-The excerpt is a real one, cut after the first identifier.
+The excerpt is a real one, cut after the second identifier. Every string is
+double-quoted, always: an identifier like `0003` or `1e10` is a string and never a
+number, whatever the reader's YAML version.
 
 | Key | Meaning |
 |---|---|
@@ -62,20 +69,22 @@ The excerpt is a real one, cut after the first identifier.
 | `method` | `usb_deauthorize` (applies) or `pci_runtime` (schema-valid and refused, **D-056**) |
 | `quiet` | the consumers to hush before a park and restore on a wake, in order: `networkmanager_autoconnect` is the one verb that exists |
 | `usb_ids` | the confirmed identifiers only (an unconfirmed one names nothing, and the engine's own matcher skips it too) |
-| `usb_ids[].vendor`, `.product` | four hex digits; `product` is `null` when the entry matches a whole vendor |
-| `usb_ids[].product_string` | the descriptor's product string the catalog recorded, or `null` |
-| `usb_ids[].ambiguous` | the pair names a chip or a function, not a device (**D-028**) |
-| `usb_ids[].distinctive` | the product string is recorded by exactly one catalog entry for this identifier, so a match on it is a conclusion rather than a candidate |
+| `usb_ids[].vendor` | four lowercase hex digits |
+| `usb_ids[].product` | four lowercase hex digits; **absent** when the entry matches a whole vendor |
+| `usb_ids[].product_string` | present only for an identifier the catalog marks ambiguous (**D-028**) and has read a product string for |
 
 **What the helper does with it.** An identifier matches a bus device on vendor
-and product. Where `ambiguous` is true and both the file and the bus carry a
-product string, they must be equal; and where they are equal and `distinctive`
-is true, the match is no longer ambiguous. This is the engine's own rule
-(`hammunition.hardware.detect.match_catalog`), carried in the file so the
-helper needs nothing else. A device matched this way is parkable
-only through `usb_deauthorize`; the sysfs guard that limits a write to
-`authorized` and `power/control` under a USB or PCI node is the helper's and
-does not depend on the file.
+and, where there is one, product. Where `product_string` is present and the bus
+reports a string too, they must be equal; when the bus reports none, the
+identifier alone matches. This is the engine's own rule
+(`hammunition.hardware.detect.match_catalog`), which compares a product string
+only for an ambiguous identifier, carried in the file so the helper needs
+nothing else. Whether a match is *certain* (the engine's `ambiguous` flag on a
+match, and whether a string is distinctive across the catalog) changes nothing
+about whether a device may be parked (**D-056**), so neither is exported. A device
+matched this way is parkable only through `usb_deauthorize`; the sysfs guard
+that limits a write to `authorized` and `power/control` under a USB or PCI node
+is the helper's and does not depend on the file.
 
 ## `devctl-services.yaml`
 
@@ -132,7 +141,15 @@ files' contents.
 ## What is measured and what is not
 
 Tested against a temporary root: the shapes above, the byte-for-byte read-back,
-the refusal of a foreign file, the removal by header. **Not measured:** the
-tray's helper reading these files, which is not yet released; the exact keys it
-requires beyond those the design names (`version` is the engine's addition);
-and `hardware apply` on a real machine with the lists.
+the refusal of a foreign file, the removal by header. Run once by hand, not part
+of the suite (the tray is not a dependency here): the tray's own reader
+(`hammunition_devctl.devices.load_devices` and `services.load_services`, from its
+`devctl-helper` branch) loaded a devices file written by this exporter from the
+real catalog and a services file, with no note: eleven identifiers on
+`gps-receiver`, three services. **Not measured:** the tray's helper reading the
+files as installed under `/etc/hammunition` (it is not released), `hardware apply`
+on a real machine with the lists, and the check the helper makes on a root-read
+file (a regular file, root-owned, not group- or other-writable, in a directory
+that is the same) against what `install -D -m 0644` leaves: the mode is right by
+construction, `/etc/hammunition` being root's has not been looked at on a
+machine.

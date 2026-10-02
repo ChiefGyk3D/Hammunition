@@ -174,8 +174,8 @@ interpreter's own venv, so the hijack import fails instead of succeeding. The
   <vendor>Hammunition</vendor>
   <vendor_url>https://github.com/ChiefGyk3D/Hammunition</vendor_url>
   <action id="com.chiefgyk3d.hammunition.devctl">
-    <description>Park or wake a radio device, or set the clock's time source</description>
-    <message>Authentication is required to change a radio device's power state or the clock's time source</message>
+    <description>Park or wake a radio device, set the clock's time source, control a system service Hammunition manages, or keep your services running after you log out</description>
+    <message>Authentication is required to change a radio device's power state, the clock's time source, a system service Hammunition manages, or whether your services keep running after you log out</message>
     <icon_name>preferences-system-power</icon_name>
     <defaults>
       <allow_any>auth_admin</allow_any>
@@ -188,8 +188,10 @@ interpreter's own venv, so the hijack import fails instead of succeeding. The
 </policyconfig>
 ```
 
-The same action authorises `hammunition-devctl time mode` (D-058); the policy
-file therefore changes, and the next `hammunition hardware apply` reinstalls it.
+The same action authorises `hammunition-devctl time mode` (D-058), the `linger`
+verb and, since the helper moved to hammunition-tray, `services` changes to a
+system service; the wording above is hammunition-tray's, byte for byte, and the
+next `hammunition hardware apply` reinstalls it where no tray helper answers.
 
 Parking a GPS receiver also turns GPS time off, whatever the time mode: ntpd
 stops hearing the receiver and follows the network, or holds over, until it
@@ -424,7 +426,7 @@ engine:
   currently parked in sysfs right now — do that with `wake` or a reboot
   first if you want a clean state immediately. It also removes the GPS
   receiver's resume step ("After suspend" below), and the helper's two lists
-  (above). A helper that has become hammunition-tray's is left alone.
+  (above). A helper that has become hammunition-tray's is left alone, with its polkit action, and the run names the logged paths it left.
 
 ## Removing the authentication prompt for the active session (optional, never installed by us)
 

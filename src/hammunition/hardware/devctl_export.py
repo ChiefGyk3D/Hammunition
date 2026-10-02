@@ -11,8 +11,9 @@ files this engine writes, instead of importing the engine's catalog and its
 - ``/etc/hammunition/devctl-devices.yaml``: every catalogued class or device
   that carries ``power_control``, with what ``state`` needs to recognise it on
   the USB bus from the file alone (name, summary, method, quiet verbs, and each
-  confirmed identifier with whether it is ambiguous and whether its product
-  string is distinctive across the catalog).
+  confirmed identifier as quoted ``vendor``/``product`` strings, with
+  ``product_string`` for an ambiguous identifier the catalog has read one for).
+  The shapes are hammunition-tray's contract 1.
 - ``/etc/hammunition/devctl-services.yaml``: the system services the helper may
   start, stop, enable and disable by name: ``gpsd`` (its socket), ``time``
   (the daemon the station's GPS time uses) and ``gps-resume``.
@@ -22,7 +23,10 @@ do not carry is refused by name by the helper; the engine never passes a unit.
 
 Both are root-owned 0644, staged and installed by ``install -D`` (the route the
 helper takes, D-056), disclosed whole in the plan, read back afterwards
-(D-031), and removed by content: a file is removed only when it starts with the
+(D-031), and removed by content. The foreign-file check is made at plan time and
+``install -D`` replaces whatever is at the path when it runs; ``/etc/hammunition``
+is root's, so only root could race the two, and nothing here pretends otherwise.
+Removal is by content: a file is removed only when it starts with the
 header Hammunition writes, and a file at either path without that header
 refuses the plan. ``/etc/hammunition`` itself is never removed: ``time.yaml``
 lives there (D-058).
@@ -32,15 +36,14 @@ Nothing here takes a station value, and none can reach either file.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import yaml
 
 from hammunition.backends.base import Command
 from hammunition.hardware import gps_resume
-from hammunition.hardware.detect import _distinctive_product_strings
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 
 __all__ = [
@@ -101,46 +104,63 @@ def _preamble(what: str) -> str:
     )
 
 
+def _q(text: str) -> str:
+    """A YAML double-quoted scalar. JSON's string syntax is a subset of it, so an
+    identifier like ``0003`` or ``1e10`` is always a string and never a number,
+    whatever the reader's YAML version."""
+    return json.dumps(text, ensure_ascii=False)
+
+
 def devices_content(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) -> str:
-    """The devices file: every entry with ``power_control``, by name."""
+    """The devices file: every entry with ``power_control``, by name.
+
+    The shape is hammunition-tray's contract 1 (``docs/contract.md`` there): each
+    confirmed identifier is ``vendor`` and ``product`` (absent when the entry
+    matches a whole vendor), plus ``product_string`` only for an identifier the
+    catalog marks ambiguous and has read a product string for. That is exactly
+    what :func:`hammunition.hardware.detect.match_catalog` compares, so the
+    helper recognises what the engine does. ``Match.ambiguous`` and the
+    distinctiveness of a string are the engine's report on how sure a match is
+    and change nothing about whether a device may be parked (D-056), so neither
+    is exported.
+    """
     every: dict[str, DeviceClass | DeviceManifest] = {**classes, **devices}
-    distinctive = _distinctive_product_strings(every)
-    rows: list[dict[str, Any]] = []
+    lines = ["version: 1"]
+    rows: list[list[str]] = []
     for name in sorted(every):
         entry = every[name]
         if entry.power_control is None:
             continue
-        ids: list[dict[str, Any]] = []
-        for usb_id in entry.usb_ids:
-            if not usb_id.confirmed:
-                continue  # match_catalog skips these too; an unconfirmed id names nothing
-            key = (usb_id.vendor.lower(), usb_id.product or "", usb_id.product_string or "")
-            ids.append(
-                {
-                    "vendor": usb_id.vendor.lower(),
-                    "product": usb_id.product.lower() if usb_id.product else None,
-                    "product_string": usb_id.product_string,
-                    "ambiguous": usb_id.ambiguity is not None,
-                    "distinctive": bool(usb_id.product_string) and key in distinctive,
-                }
-            )
-        rows.append(
-            {
-                "name": entry.name,
-                "summary": entry.summary,
-                "method": str(entry.power_control.method),
-                "quiet": [str(verb) for verb in entry.power_control.quiet],
-                "usb_ids": ids,
-            }
-        )
-    body = yaml.safe_dump(
-        {"version": VERSION, "devices": rows},
-        sort_keys=False,
-        default_flow_style=False,
-        allow_unicode=True,
-        width=100,
-    )
-    return _preamble("The devices the helper may park and wake.") + body
+        row = [
+            f"  - name: {_q(entry.name)}",
+            f"    summary: {_q(entry.summary)}",
+            f"    method: {_q(str(entry.power_control.method))}",
+        ]
+        quiet = [str(verb) for verb in entry.power_control.quiet]
+        if quiet:
+            row.append("    quiet:")
+            row += [f"      - {_q(verb)}" for verb in quiet]
+        else:
+            row.append("    quiet: []")
+        ids = [u for u in entry.usb_ids if u.confirmed]  # an unconfirmed id names nothing
+        if not ids:
+            row.append("    usb_ids: []")
+        else:
+            row.append("    usb_ids:")
+            for usb_id in ids:
+                row.append(f"      - vendor: {_q(usb_id.vendor.lower())}")
+                if usb_id.product:
+                    row.append(f"        product: {_q(usb_id.product.lower())}")
+                if usb_id.ambiguity is not None and usb_id.product_string:
+                    row.append(f"        product_string: {_q(usb_id.product_string)}")
+        rows.append(row)
+    if rows:
+        lines.append("devices:")
+        for row in rows:
+            lines += row
+    else:
+        lines.append("devices: []")
+    return _preamble("The devices the helper may park and wake.") + "\n".join(lines) + "\n"
 
 
 def detect_time_unit() -> tuple[str, bool]:
@@ -234,9 +254,10 @@ class DevctlExport:
 def _refuse_foreign(path: str, text: str | None) -> None:
     if text is not None and not _ours(text):
         raise DevctlExportError(
-            f"{path} exists and was not written by Hammunition. `hardware apply` writes the "
-            f"helper's device and service lists there and never overwrites a file it did "
-            f"not write. Move it aside and re-run. Nothing was changed."
+            f"{path} exists and was not written by Hammunition, or could not be read by this "
+            f"account. `hardware apply` writes the helper's device and service lists there "
+            f"and never overwrites a file it did not write. Move it aside and re-run. "
+            f"Nothing was changed."
         )
 
 

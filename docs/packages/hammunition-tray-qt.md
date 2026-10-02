@@ -19,17 +19,12 @@ The Plasma applet's switch on a lighter desktop: parking a GPS or a modem you ar
 
 ## Before it will work
 
-Xfce, LXQt, LXDE, MATE or Cinnamon, with a panel that has a system tray (Xfce's Status Tray plugin, LXQt's Status Notifier, lxpanel's system tray). A polkit authentication agent must be running for the password prompt; the tray says so, and names the package, when none is. The helper the menu entries call is hammunition-tray's own: this unit writes its wrapper and the polkit action (above, once a tray release ships the helper), and `hammunition hardware apply` writes the device and service lists it reads and the udev rules.
+Xfce, LXQt, LXDE, MATE or Cinnamon, with a panel that has a system tray (Xfce's Status Tray plugin, LXQt's Status Notifier, lxpanel's system tray). A polkit authentication agent must be running for the password prompt; the tray says so, and names the package, when none is. `hammunition hardware apply` must have been run: it installs the root helper and polkit action the menu entries call (the helper is moving to hammunition-tray, whose own release will install it), and writes the device and service lists it reads.
 
 ## How it installs
 
 - prebuilt deb from https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.4.0/hammunition-tray-qt_0.4.0_all.deb
-  - Installs /usr/bin/hammunition-tray-qt, its Python package under /usr/share/hammunition-tray-qt, an application menu entry, an autostart entry in /etc/xdg/autostart (not shown in Plasma) and two icons under /usr/share/icons/hicolor. It runs nothing as root itself; it calls the helper whose wrapper and polkit action this unit also writes (see the config_files block below), through /usr/bin/pkexec; the helper reads the lists `hammunition hardware apply` writes.
-
-## Configuration it writes
-
-- `/usr/local/libexec/hammunition-devctl` (written, mode 0755, existing file backed up); filled from the station values , and not written while one is unset (D-035)
-- `/usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy` (written, mode 0644, existing file backed up); filled from the station values , and not written while one is unset (D-035)
+  - Installs /usr/bin/hammunition-tray-qt, its Python package under /usr/share/hammunition-tray-qt, an application menu entry, an autostart entry in /etc/xdg/autostart (not shown in Plasma) and two icons under /usr/share/icons/hicolor. It runs nothing as root itself; it calls the helper, which `hammunition hardware apply` installs until a tray release carries it (the `hammunition-devctl` .deb, added to this unit at the re-pin; see the comment below), through /usr/bin/pkexec; the helper reads the lists that command writes.
 
 ## Known problems
 

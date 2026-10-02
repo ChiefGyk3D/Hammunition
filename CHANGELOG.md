@@ -25,9 +25,9 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   helper's services and `services start|stop|enable|disable NAME` changes one,
   by asking the installed helper, through `pkexec` for a system service and
   never through `systemctl` from the engine. `hammunition-tray` and
-  `hammunition-tray-qt` carry the helper's wrapper and polkit action as
-  `config_files`; **not installable until a tray release ships the helper and
-  the pin moves**. Shapes: `docs/reference/devctl-lists.md`. Not measured: the
+  `hammunition-tray-qt` write neither (a test holds the absence; the tray's own
+  release installs them, and the re-pin adds its `.deb`), and the engine's own
+  polkit action now carries the tray's wording. Shapes: `docs/reference/devctl-lists.md`. Not measured: the
   tray's helper reading the lists, and `apply` and `services` on a machine.
 - **The rig is station data: one shared `rigctld` for every program**
   (**D-073**, status proposed, bench owed). A `rig` hardware class and a
