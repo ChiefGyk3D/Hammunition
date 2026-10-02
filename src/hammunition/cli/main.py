@@ -3065,42 +3065,46 @@ def resolve_map_regions(
     refused: list[str] = []
     bar = Progress()
     bar.start("map regions against Geofabrik", len(station.map_regions))
-    for index, region in enumerate(station.map_regions):
-        if index:
-            bar.tick()  # the previous region is finished
-        try:
-            resolved = resolve_region(
-                region, station.freshness, today=today, pins=pins, probe=probe
-            )
-        except (GeofabrikError, OSError) as exc:
-            slug = region.replace("/", "-")
-            pbf = installed / f"{slug}.osm.pbf"
-            if pbf.is_file():
-                kept.append(KeptRegion(region, slug, installed_snapshot(pbf), str(exc)))
-            else:
-                refused.append(f"  {region}: {exc}")
-            continue
-        pbf = installed / f"{resolved.slug}.osm.pbf"
-        if not region_current(pbf, resolved):
+    try:
+        for index, region in enumerate(station.map_regions):
+            if index:
+                bar.tick()  # the previous region is finished
             try:
-                status, _, _ = probe.head(resolved.url)
-                problem = (
-                    None if status == 200 else f"{resolved.url} answered HTTP {status}, not 200"
+                resolved = resolve_region(
+                    region, station.freshness, today=today, pins=pins, probe=probe
                 )
             except (GeofabrikError, OSError) as exc:
-                # The probe's message already names the URL; not repeated.
-                problem = str(exc)
-            if problem is not None:
-                # Spec §8: offline, an installed region stays installed. Only
-                # a region with nothing installed is refused.
+                slug = region.replace("/", "-")
+                pbf = installed / f"{slug}.osm.pbf"
                 if pbf.is_file():
-                    kept.append(KeptRegion(region, resolved.slug, installed_snapshot(pbf), problem))
+                    kept.append(KeptRegion(region, slug, installed_snapshot(pbf), str(exc)))
                 else:
-                    refused.append(f"  {region}: {problem}")
+                    refused.append(f"  {region}: {exc}")
                 continue
-        files.append(resolved)
-    bar.tick()
-    bar.done()
+            pbf = installed / f"{resolved.slug}.osm.pbf"
+            if not region_current(pbf, resolved):
+                try:
+                    status, _, _ = probe.head(resolved.url)
+                    problem = (
+                        None if status == 200 else f"{resolved.url} answered HTTP {status}, not 200"
+                    )
+                except (GeofabrikError, OSError) as exc:
+                    # The probe's message already names the URL; not repeated.
+                    problem = str(exc)
+                if problem is not None:
+                    # Spec §8: offline, an installed region stays installed. Only
+                    # a region with nothing installed is refused.
+                    if pbf.is_file():
+                        kept.append(
+                            KeptRegion(region, resolved.slug, installed_snapshot(pbf), problem)
+                        )
+                    else:
+                        refused.append(f"  {region}: {problem}")
+                    continue
+            files.append(resolved)
+        bar.tick()
+    finally:
+        bar.done()
     if refused:
         raise GeofabrikError(
             f"{len(refused)} map region(s) could not be resolved and are not installed "

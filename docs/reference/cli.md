@@ -63,7 +63,8 @@ nothing.
 
 **Progress for slow plans.** A plan asks publishers questions before it prints
 anything: one `HEAD` per terrain tile, US Topo or FSTopo sheet, Kiwix book and
-CoMaps map the plan would fetch, and a Geofabrik answer per map region. When
+CoMaps map the plan would fetch, and a Geofabrik answer per map region (those
+are asked one at a time). When
 stderr is a terminal the engine says so, on stderr only:
 
 ```text

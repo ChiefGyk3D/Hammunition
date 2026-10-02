@@ -133,7 +133,10 @@ class Progress:
     @staticmethod
     def _write(stream: IO[str], text: str) -> None:
         try:
-            stream.write(text)
+            try:
+                stream.write(text)
+            except UnicodeEncodeError:
+                stream.write(text.replace("…", "..."))  # an ASCII stderr
             stream.flush()
         except (OSError, ValueError):
             pass  # a closed stderr must not fail a plan

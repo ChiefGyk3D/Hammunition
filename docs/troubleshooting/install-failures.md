@@ -18,10 +18,10 @@ answer (size, checksum) is part of what the plan tells you. On a terminal it
 says so on stderr (`checking 412 terrain tiles … (needs the network)…`) with a
 count. If you see nothing at all, stderr is not a terminal; run it with
 `HAMMUNITION_PROGRESS=1` in front, or in a terminal rather than through a pipe
-or a log. A tile already installed is not asked about. An offline machine
-refuses by name once each request times out (30 s), so a long wait with the
-network down is that timeout, four requests at a time; fix the connection and
-run again.
+or a log. A tile already installed is not asked about. With the network down
+every request waits out its own 30 s timeout, four at a time, so a few hundred
+tiles can take the better part of an hour to refuse; interrupt with Ctrl-C,
+fix the connection and run again.
 
 ## <a name="dead-url"></a>A source build fails to fetch — HTTP 404
 

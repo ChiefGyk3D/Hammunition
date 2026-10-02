@@ -191,24 +191,22 @@ def resolve_bare_earth(
     held = set(current)
     todo = [name for name in wanted if name not in held]
     fetch: list[TileFile] = []
-    rows: list[tuple[str, TileRow]] = []
-    for name in todo:
+    absent = (
+        "recorded for a region but no longer in the carried 3DEP list; "
+        "scripts/gen_3dep_tiles.py --fetch regenerates it"
+    )
+
+    def check(name: str) -> TileRow:
         row = tiles.get(name)
         if row is None:
-            refused.append(
-                f"  {name}: recorded for a region but no longer in the carried 3DEP list; "
-                f"scripts/gen_3dep_tiles.py --fetch regenerates it"
-            )
-            continue
-        rows.append((name, row))
-    outcomes = run_checks(
-        rows,
-        lambda item: check_tile(item[1], tile_probe),
-        label="3DEP terrain tiles against the USGS bucket",
-    )
-    for (name, row), outcome in zip(rows, outcomes, strict=True):
+            raise CopernicusError(absent)
+        check_tile(row, tile_probe)
+        return row
+
+    outcomes = run_checks(todo, check, label="3DEP terrain tiles against the USGS bucket")
+    for name, outcome in zip(todo, outcomes, strict=True):
         try:
-            outcome.get()
+            row = outcome.get()
         except (CopernicusError, OSError) as exc:
             refused.append(f"  {name}: {exc}")
             continue

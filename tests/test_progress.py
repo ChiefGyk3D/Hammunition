@@ -254,3 +254,16 @@ def test_json_output_is_byte_identical_with_progress_forced(
     assert rc == rc2 == 0
     assert quiet == loud
     assert quiet.startswith("{")
+
+
+def test_an_ascii_stderr_gets_the_line_without_the_ellipsis(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import io as _io
+
+    monkeypatch.setenv("HAMMUNITION_PROGRESS", "1")
+    raw = _io.BytesIO()
+    out = _io.TextIOWrapper(raw, encoding="ascii", errors="strict")
+    Progress(out).start("tiles", 2)
+    out.flush()
+    assert raw.getvalue() == b"checking 2 tiles (needs the network)...\n"
