@@ -569,7 +569,7 @@ def rebuild_command(report: UpdateReport) -> str | None:
         names.append("osm-navit")
     # D-061: QMapShack's maps and routing are derived from the same regions;
     # D-063: so are BRouter's routing files; D-067: so are the phone files;
-    # D-071: so are the vector-tile maps.
+    # D-071: so are the vector-tile maps; D-076: so is the route graph.
     reported = {row.unit for row in report.rows}
     if "osm-regions" in names:
         derived = (
@@ -579,6 +579,7 @@ def rebuild_command(report: UpdateReport) -> str | None:
             "mapsforge-map",
             "mapsforge-poi",
             "osm-pmtiles",
+            "graphhopper-graph",
         )
         names.extend(u for u in derived if u in reported and u not in names)
     # D-063: a new BRouter or new map-creator filters rebuild the routing files.
@@ -588,6 +589,14 @@ def rebuild_command(report: UpdateReport) -> str | None:
         and "brouter-segments" not in names
     ):
         names.append("brouter-segments")
+    # D-076: a new GraphHopper rebuilds the route graph, whose record names
+    # the jar that built it.
+    if (
+        "graphhopper" in names
+        and "graphhopper-graph" in reported
+        and "graphhopper-graph" not in names
+    ):
+        names.append("graphhopper-graph")
     # D-068: the US Topo mosaic is warped from the sheets, and (amended
     # 2026-10-01) the FSTopo map converted from the Forest Service's.
     if (

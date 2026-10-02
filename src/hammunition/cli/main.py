@@ -173,6 +173,7 @@ from hammunition.paths import (
 from hammunition.phone_plan import build_phone_run
 from hammunition.plan import NO_MAP_REGIONS, Blocker, InstallPlan, PlanError, resolve
 from hammunition.progress import Progress
+from hammunition.routing_plan import build_graph_run, graphhopper_jar
 from hammunition.state import (
     RemovalError,
     RemovalPaths,
@@ -2926,12 +2927,15 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
 
     Books through kiwix-serve (a child, on 127.0.0.1 only), the ICS forms
     and the dictionaries on a page from the standard library. Runs as the
-    operator, never as root; Ctrl-C stops both. No ``--json`` form: it is a
-    server, not a document (D-059).
+    operator, never as root; Ctrl-C stops both. With the map and the route
+    graph installed, GraphHopper too, on 127.0.0.1, asked through the page
+    (D-076). No ``--json`` form: it is a server, not a document (D-059).
     """
     import subprocess
 
     from hammunition import gps_tether, reference
+    from hammunition.backends.source import tree_destination
+    from hammunition.graphhopper import GRAPH_UNIT, PROGRAM_UNIT, RouterSpec, plan_router
     from hammunition.map_page import find_map
     from hammunition.paths import owner_aware_dir
 
@@ -2970,11 +2974,29 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return EXIT_FAILED
-    library = (
-        owner_aware_dir(xdg_var="XDG_CACHE_HOME", home_relative=(".cache",))
-        / "reference"
-        / "library.xml"
+    cache = owner_aware_dir(xdg_var="XDG_CACHE_HOME", home_relative=(".cache",)) / "reference"
+    library = cache / "library.xml"
+    router, routes_note = plan_router(
+        data=data_root(DEFAULT_PREFIX) / GRAPH_UNIT,
+        tree=tree_destination(DEFAULT_PREFIX, PROGRAM_UNIT),
+        home=cache / "graphhopper",
+        map_ready=map_shelf.ready and bool(map_shelf.regions),
+        java=shutil.which("java"),
     )
+
+    def start_router(spec: RouterSpec) -> subprocess.Popen[bytes]:
+        fd = os.open(
+            spec.log, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600
+        )
+        with os.fdopen(fd, "wb") as log_file:
+            return subprocess.Popen(
+                spec.argv,
+                stdin=subprocess.DEVNULL,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                cwd=spec.config.parent,
+                preexec_fn=reference.die_with_parent,
+            )
 
     def manage(path: Path, zims: Sequence[Path]) -> None:
         result = subprocess.run(
@@ -3005,6 +3027,9 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
             log=log,
             map_shelf=map_shelf,
             position_port=position_port,
+            router=router,
+            start_router=start_router,
+            routes_note=routes_note,
         )
     except OSError as exc:
         print(
@@ -3248,8 +3273,18 @@ def leftover_maps_note(plan: InstallPlan, prefix: Path) -> str | None:
     units = sorted(d.subject for d in plan.deferrals if d.why == NO_MAP_REGIONS)
     # Piece 1's regions and Navit maps, piece 2's Garmin maps, Routino
     # database and terrain tiles (D-061), the phone files (D-067), and the
-    # vector-tile maps (D-071).
-    patterns = ("*.osm.pbf", "*.bin", "*.img", "*.mem", f"*{TIF}", "*.map", "*.poi", "*.pmtiles")
+    # vector-tile maps (D-071), and the route graph's record (D-076).
+    patterns = (
+        "*.osm.pbf",
+        "*.bin",
+        "*.img",
+        "*.mem",
+        f"*{TIF}",
+        "*.map",
+        "*.poi",
+        "*.pmtiles",
+        "graph.source",
+    )
     found = [
         data_root(prefix) / unit
         for unit in units
@@ -3640,6 +3675,17 @@ def cmd_install(args: argparse.Namespace) -> int:
         keep=kept,
         regions=ledger,
     )
+    # D-076: GraphHopper's route graph for the browser map, from the same regions.
+    graph = build_graph_run(
+        prefix=source.prefix,
+        builds=builds,
+        owner=user or None,
+        runner=runner,
+        files=region_files,
+        keep=kept,
+        regions=ledger,
+        jar=graphhopper_jar(plan),
+    )
     derived = DerivedBackend(
         prefix=source.prefix,
         files=region_files,
@@ -3650,7 +3696,12 @@ def cmd_install(args: argparse.Namespace) -> int:
         runner=runner,
         boundaries=border,
         countries=countries,
-        converters={**terrain.converters, **phone.converters, **tiles.converters},
+        converters={
+            **terrain.converters,
+            **phone.converters,
+            **tiles.converters,
+            **graph.converters,
+        },
     )
     # Only regions not already installed at their snapshot are downloaded,
     # counted and listed as downloads (the dry run is the run); a region
@@ -3681,12 +3732,14 @@ def cmd_install(args: argparse.Namespace) -> int:
     terrain_disk = terrain.needs(plan, cache=source.fetcher.cache_dir, prefix=source.prefix)
     phone_disk = phone.needs(plan, cache=source.fetcher.cache_dir, prefix=source.prefix)
     tiles_disk = tiles.needs(plan, prefix=source.prefix)
+    graph_disk = graph.needs(plan, prefix=source.prefix)
     if (
         pending
         or conversions
         or any(terrain_disk.values())
         or any(phone_disk.values())
         or any(tiles_disk.values())
+        or any(graph_disk.values())
     ):
         # Refused at plan time, before anything is confirmed, with both numbers:
         # piece 1's and piece 2's needs together, per filesystem (D-061).
@@ -3701,6 +3754,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             terrain_disk,
             phone=phone_disk,
             tiles=tiles_disk,
+            graph=graph_disk,
         )
         if short is not None:
             print(f"error: {short}", file=sys.stderr)
@@ -3817,7 +3871,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         sudo_keepalive=args.sudo_keepalive,
         mirror=station.mirror,
         mirror_ignored=args.no_mirror,
-        idle=phone.idle(plan) | tiles.idle(plan),
+        idle=phone.idle(plan) | tiles.idle(plan) | graph.idle(plan),
     )
     # The tray's device helper puts a wrapper in front of root (D-056): the
     # interpreter and the engine package it runs are checked the way `hardware

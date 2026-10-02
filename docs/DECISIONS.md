@@ -9198,3 +9198,210 @@ own extracts; FCC ASR's bytes across a weekly rollover.
 `tests/test_map_style.py`, `tests/test_map_overlays.py`; the
 offline-navigation guide's section 18, `docs/guides/lan-mirror.md` and
 `docs/reference/cli.md`.
+---
+
+## D-076 — GraphHopper routes on the browser map: a pinned jar, one graph built here from the station's regions, started by `reference serve` on loopback and reached only through its Host-checked `/map/route`; installed by name, never in a profile
+
+**Date:** 2026-10-01. **Status:** proposed (the coordinator's brief of
+2026-10-01, building the routing spike's recommendation 3 now that D-071's
+page exists to consume it; the design was taken without questions and the
+rulings below are this record's; the maintainer decides them at review).
+**Numbering:** D-073 (the rig, merged while this was built) and D-075 (on
+another branch) were taken, so this is D-076. **Spec:** `docs/superpowers/specs/2026-10-02-graphhopper-design.md`.
+**Depends on:** D-024 (our own pin where no distribution packages it),
+D-037 (a requirement disclosed, nothing fetched to meet it), D-039 (a typed
+name the station cannot satisfy refuses), D-049 (a pinned artifact, sized
+and licensed), D-057 (regions are station data; derived data by a converter
+enum run as the operator), D-063 (BRouter: a pinned Java tool and a
+converter building its data from the regions, one build over all of them),
+D-066 (`reference serve`, 127.0.0.1 only), D-071 (the map page, its Host
+rule, the tether's `/position`). **Amends:** D-057's converter enum, with
+`graphhopper-import`; D-063's rejected list, whose "GraphHopper ... is the
+candidate once a local tile server gives it a map" is now this; the binary
+backend's `executable` format, which may install as a tree.
+
+**Why.** D-071 gave the station a map in any browser; it could show where
+things are and not how to get there. The routing spike of 2026-09-29
+measured GraphHopper as the best-verified of five engines (Maven Central's
+sha256, sha512 and PGP signature), Apache-2.0, Java 17+, with a `hike`
+profile that routes on `sac_scale`: Delaware imported in 58.5 s at a peak
+of 1.18 GB under `-Xmx2g` into a 78 MB graph, served at 316 MB. It had no
+offline consumer then: QMapShack knows only Routino and BRouter, GNOME
+Maps' GraphHopper URL is hardcoded online, and GraphHopper's own page loads
+only online base maps. The browser map is that consumer.
+
+### Two units
+
+| Unit | What | Where |
+|---|---|---|
+| `graphhopper` | binary: Maven Central's `graphhopper-web-11.1.jar`, 47,331,301 bytes, sha256 `8462f758…4ea33` (equal to Central's `.sha256` and to GitHub's digest for the release asset; Central's `.sha512` equal too; downloaded once on 2026-10-01), `signature_url` its `.asc` by key ID `11FA9E0B0E2FBADB` (issuer fingerprint `43BFB8BF924D7792531DC63F11FA9E0B0E2FBADB`), recorded and not verified; `format: executable`, `install_tree: true`, marker the jar; `depends: [default-jre-headless]` (`Build-Jdk 17.0.20.1`, class files major 61) | `/usr/local/share/hammunition/graphhopper/` |
+| `graphhopper-graph` | derived, converter `graphhopper-import`: `source: osm-regions`, `program: graphhopper`; depends on `osmium-tool` from the archive | `data/graphhopper-graph/` |
+
+Licence Apache-2.0 for the program, ODbL for the graph. No launcher and no
+service.
+
+**Ruling: one jar installed as a tree.** `executable` put its file in
+`bin/` with mode 0755, and a jar is not a program the shell runs; D-067's
+converter `tool` is fetched for a converter only, and `reference serve`
+runs this jar too. So an `executable` block with `install_tree: true` and no
+`binaries` now stages its file under the marker, mode 0644, and installs it
+through `tree_install_commands`, so uninstall, the effect check and
+`already_built` need nothing new. The schema requires that marker to be a
+plain file name; the backend refuses `binaries` beside it.
+
+**Ruling: one graph over every region, merged first.** D-063's reasoning:
+a route must cross from one region into the next, and `import` reads one
+file, so two regions or more are merged with `osmium merge`. The steps, as
+the operator in `graphhopper.work` under one lock, each checked by its
+output: the jar and the regions checked and the directory emptied; the
+merge; `config.yml` written by the operator's `sh` and checked against the
+digest of the engine's text, then `java -Xmx4000m -jar <jar> import
+config.yml`, whose graph must hold `properties` with every file digested;
+the files published under temporary names, renamed in, files no longer
+built removed, and the record `graph.source` written: all or none. The
+record names each region and snapshot, the jar (from the plan, so a
+GraphHopper bumped in the same run rebuilds the graph), the profiles and
+each file, last `converter: graphhopper-import 1`.
+
+**The profiles are the engine's.** car under contraction hierarchies;
+bike, foot and hike under landmarks; GraphHopper's bundled custom models;
+the encoded values, `import.osm.ignored_highways: ""` (now mandatory) and
+`prepare.min_network_size: 200` from the spike's configuration. GraphHopper
+refuses to load a graph whose profiles changed, so the import's and the
+server's configurations come from one function
+(`src/hammunition/graphhopper.py`), never from the catalog. Elevation is
+off: GraphHopper's providers download SRTM or CGIAR online and none reads
+the Copernicus GeoTIFFs; recorded as a gap, and the routes are flat.
+
+**Ruling: installed by name, never in a profile.** The graph is 3.7 times
+the downloads (78 MB from 22.1 MB is 3.5; rounded up in case the spike's
+MB were MiB), the largest factor of any map unit (Navit 0.9, Garmin 0.85,
+Routino 0.67, vector tiles 0.91, BRouter 0.2); the import took 1.2 GB of
+memory on Delaware and is unmeasured on anything larger; `navigation`
+already carries Routino, BRouter and CoMaps' own router; and its one
+consumer is the browser page. The plan counts the graph in the staging
+directory (with the merged input for two regions or more) and again under
+the prefix, says each figure is from one region, and states the memory.
+Typed with no regions set, `graphhopper-graph` is refused with the remedy,
+as D-039 rules for a typed name; `graphhopper` alone installs.
+
+### Serving
+
+**Ruling: `reference serve`, not a separate `maps router` command.** The
+page is served there; one process is one Ctrl-C and one Host rule, and the
+route request stays on the page's own origin. A separate command would
+leave the page calling another origin, which is the problem below.
+
+With the map holding a region, a graph installed and current for the
+installed jar, and `java` on the PATH, `reference serve` takes a free port
+on 127.0.0.1 from the system, writes `config.yml` (0600, never through a
+link left in its place) in `~/.cache/hammunition/reference/graphhopper/`
+with one application connector on that port and `admin_connectors: []`,
+refills `graph/` there with one link per installed graph file, and starts
+`java -Xmx4000m -jar <jar> server config.yml` as a child with its output in
+`graphhopper.log` and `PR_SET_PDEATHSIG`, since GraphHopper has no `-a PID`
+as kiwix-serve does. The page asks `GET /map/route` of the reference
+server, which applies the Host rule, rebuilds GraphHopper's query from
+exactly two points (finite, on the globe) and a profile the graph has, adds
+`points_encoded=false`, English instructions and, for every profile but
+car, `ch.disable=true`, and relays the answer. 400 for a refused request,
+503 while GraphHopper starts or after it exited (naming the exit and the
+log), 502 otherwise.
+
+**Ruling: served through links, because GraphHopper locks.** Measured: a
+read-only graph refuses to start ("To avoid reading partial data we need
+to obtain the read lock but it failed"), because 11.1 creates `gh.lock` in
+the graph directory whenever writes are allowed, and `allow_writes` is not
+a configuration key (`GraphHopper.setAllowWrites` only, read with `javap`).
+A directory of links in the operator's cache, the files themselves root's
+and read-only, started, routed and left no lock after SIGTERM. Anything in
+that directory the engine did not make (not a link, not the lock) refuses
+the router and is left alone.
+
+**Ruling: a router that fails never stops the page.** Its exit is reported
+once in the terminal and the Route control says so; the books and the map
+keep serving. kiwix-serve's exit still stops the page (D-066).
+
+**Residual exposure, recorded.** GraphHopper 11.1 sends
+`Access-Control-Allow-Origin: *` on every answer (`CORSFilter`, hardcoded,
+measured) and checks no Host header. While `reference serve` runs, a page
+from elsewhere in the operator's browser that found GraphHopper's port
+could ask it for routes over the operator's regions, which says where they
+are. The port is the system's choice each run and never linked; the page
+never calls it. GraphHopper's own `/maps/` is reachable on that port and
+loads online base maps; it is never linked, and the guide says so. The
+alternatives were a network namespace per serve (more machinery than the
+exposure) or patching GraphHopper (a fork, CLAUDE.md's rejected list).
+
+### The page
+
+With a router, the bar gains *Route for* (the record's profiles), *Route*
+and *Clear*. *Route* then a click routes from the tether's position when one
+has arrived; otherwise two clicks. The line is drawn from GraphHopper's
+GeoJSON `LineString` (measured with `points_encoded=false`), both ends
+pinned, framed clear of the bar, with the length, time and instructions.
+A changed profile routes the same points again. `#route=LAT,LON;LAT,LON;PROFILE`
+routes on load. Without a router none of this is in the page.
+
+### What is measured, and what is not
+
+On the development host on 2026-10-01, against the pinned jar and the
+archive's OpenJDK 25 and osmium, in scratch: a synthetic 20 by 20 grid of
+roads near Montpelier, VT with one `sac_scale=mountain_hiking` path, and a
+second region sharing its corner node. GraphHopper alone: import 2.8 s at
+198 MB; the read-only refusal above; the links; `admin_connectors: []`
+accepted; one listener, 127.0.0.1; `/health`; CORS `*`; `/route` with
+`points_encoded=false` giving a `LineString`; non-car profiles refused
+without `ch.disable`; `foot` going round the path (4.5 km) and `hike` taking
+it (4.1 km). Through the engine: `GraphConverter` over both regions (merge,
+import, 16 files and the record installed, 4.6 s, 207 MB, the next plan
+current); `plan_router` over the read-only result; GraphHopper started as
+the CLI starts it, answering the first `/map/route` through the reference
+server after 5.2 s on one 127.0.0.1 listener, car, bike, foot and hike
+routes, and a car route crossing into the second region; 244 MB resident;
+no lock left after SIGTERM. The page with a route from `#route=` was drawn
+by headless Chromium against a loopback stand-in for GraphHopper, every
+request on 127.0.0.1, with a kit assembled from the tile spike's extracted
+files, because the pinned tilemaker tarball is no longer on disk; the
+committed render test for it is skipped without `HAMMUNITION_MAP_KIT_DIR`,
+as D-071's is. The jar was then deleted.
+
+**Final review, 2026-10-01.** A GraphHopper that failed to start (its
+`Popen` or its log raising) escaped `run()` and was reported as the page's
+port, stopping the books and the map; it is now caught, `/map/route` and
+the landing page say routes are off and why, and the page keeps serving
+(tested). `graphhopper-graph`'s prerequisites said "deferred" where a typed
+name is refused; corrected.
+
+**Owed by the bench:** a real region through `hammunition install
+graphhopper-graph` (time, memory, scratch); the Route control in a desktop
+browser with a real receiver's position; Java on the targets other than
+Parrot. **Deferred:** a plan-time check of Java's version against the
+floor (the targets' default JREs are 21 or newer by their archives, not
+measured here; BRouter has the same gap); elevation for GraphHopper from
+the Copernicus tiles.
+
+**Rejected.** A `maps router` command (above). The page calling GraphHopper
+directly (its CORS). Serving the graph read-write in the prefix, or copying
+it to the cache each start (links cost nothing). A `tool` on the derived
+block (the server needs the jar too). Putting the units in `navigation`
+(above). GraphHopper's bundled web page (online base maps).
+Elevation from GraphHopper's online providers.
+
+**Consequences.** `GRAPHHOPPER_INPUTS`, the `graphhopper-import` converter
+and the shared-field refusal in `src/hammunition/manifest/schema.py`; the
+single-file tree in `src/hammunition/backends/binary.py`;
+`src/hammunition/graphhopper.py`; `src/hammunition/backends/graphhopper.py`;
+`src/hammunition/routing_plan.py`; `combined_shortfall`'s graph note in
+`src/hammunition/backends/terrain.py`; the install wiring and
+`cmd_reference_serve` in `src/hammunition/cli/main.py`; the route handler,
+`RouterState` and `die_with_parent` in `src/hammunition/reference.py`; the
+route control in `src/hammunition/map_page.py`; `update.rebuild_command`;
+`catalog/packages/graphhopper.yaml` and
+`catalog/packages/graphhopper-graph.yaml`. The operator's page is
+`docs/guides/offline-navigation.md`, section 16, *Routes on the browser
+map*; the CLI's is `docs/reference/cli.md`. Tests:
+`tests/test_graphhopper_schema.py`, `tests/test_graphhopper.py`,
+`tests/test_graphhopper_converter.py`, `tests/test_graphhopper_catalog.py`,
+`tests/test_graphhopper_cli.py`, `tests/test_reference_router.py`, and the
+route render in `tests/test_map_render.py`.

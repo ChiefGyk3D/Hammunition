@@ -912,6 +912,15 @@ class BinaryInstall(Strict):
     @model_validator(mode="after")
     def _tree_marker(self) -> BinaryInstall:
         _check_tree_marker(self.install_tree, self.tree_marker, self.method)
+        if self.format == "executable" and self.install_tree:
+            # D-076: one file installed as a tree (GraphHopper's jar) is staged
+            # under its marker's name, so the marker is that file's plain name.
+            marker = self.tree_marker or ""
+            if PurePosixPath(marker).name != marker or marker in (".", ".."):
+                raise ManifestError(
+                    f"a single executable installed as a tree is installed under its "
+                    f"tree_marker, so the marker must be a plain file name, not {marker!r}"
+                )
         return self
 
     @model_validator(mode="after")
@@ -1416,6 +1425,7 @@ CONVERTER_SOURCE_METHOD: dict[str, str] = {
     "mapsforge-poi": "osm-regions",
     "ustopo-mosaic": "topo-quads",
     "tilemaker-pmtiles": "osm-regions",
+    "graphhopper-import": "osm-regions",
     "splat-sdf": "dem-tiles",
 }
 
@@ -1433,6 +1443,10 @@ BROUTER_INPUTS: dict[str, tuple[str, bool]] = {
 #: kit holding tilemaker's OpenMapTiles profile and the Natural Earth layers.
 TILEMAKER_INPUTS: dict[str, tuple[str, bool]] = {"kit": ("data", True)}
 
+#: D-076: the unit a ``graphhopper-import`` block reads besides its regions:
+#: the ``binary`` unit whose installed tree holds GraphHopper's jar.
+GRAPHHOPPER_INPUTS: dict[str, tuple[str, bool]] = {"program": ("binary", True)}
+
 #: D-068 (amended 2026-10-01): ``gdal-dem`` may name the ``dem-tiles`` unit it
 #: draws from instead of `source` when the station's ``dem_source`` selects
 #: that unit's provider; ``ustopo-mosaic`` may name the Forest Service's
@@ -1447,6 +1461,7 @@ MOSAIC_INPUTS: dict[str, tuple[str, bool]] = {"fstopo": ("topo-quads", False)}
 CONVERTER_INPUTS: dict[str, dict[str, tuple[str, bool]]] = {
     "brouter-mapcreator": BROUTER_INPUTS,
     "tilemaker-pmtiles": TILEMAKER_INPUTS,
+    "graphhopper-import": GRAPHHOPPER_INPUTS,
     "gdal-dem": GDAL_DEM_INPUTS,
     "ustopo-mosaic": MOSAIC_INPUTS,
     "splat-sdf": GDAL_DEM_INPUTS,
@@ -1535,15 +1550,16 @@ class DerivedDataInstall(Strict):
         "mapsforge-poi",
         "ustopo-mosaic",
         "tilemaker-pmtiles",
+        "graphhopper-import",
         "splat-sdf",
     ] = Field(
         description=(
             "The transformation to run. Each needs a `source` of one particular "
             "install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): "
             "`navit-maptool`, `mkgmap`, `routino-planetsplitter`, `brouter-mapcreator`, "
-            "`mapsforge-map`, `mapsforge-poi` and `tilemaker-pmtiles` need an `osm-regions` "
-            "source; `gdal-dem` and `splat-sdf` (D-061, amended 2026-10-02) need a "
-            "`dem-tiles` source; `ustopo-mosaic` needs a `topo-quads` source (D-068)."
+            "`mapsforge-map`, `mapsforge-poi`, `tilemaker-pmtiles` and `graphhopper-import` "
+            "need an `osm-regions` source; `gdal-dem` and `splat-sdf` (D-061, amended 2026-10-02) "
+            "need a `dem-tiles` source; `ustopo-mosaic` needs a `topo-quads` source (D-068)."
         )
     )
     source: str = Field(
@@ -1565,9 +1581,10 @@ class DerivedDataInstall(Strict):
     program: str | None = Field(
         default=None,
         description=(
-            "`brouter-mapcreator` only, and required there (D-063): the `binary` "
-            "unit whose installed tree holds BRouter's jar, which carries the map "
-            "creator. Must also be in `depends`."
+            "`brouter-mapcreator` and `graphhopper-import` only, and required on "
+            "both: the `binary` unit whose installed tree holds the jar the "
+            "converter runs, BRouter's with its map creator (D-063) or GraphHopper's "
+            "(D-076). Must also be in `depends`."
         ),
     )
     profiles: str | None = Field(

@@ -119,9 +119,13 @@ documentation:
     and GPSPrune and JOSM use online tiles. BRouter's published routing
     files (brouter.de) are left out because they are regenerated weekly with
     no checksum; BRouter itself is carried, over files built here (D-063).
-    GraphHopper, OSRM, Valhalla and OpenRouteService were measured and are
-    not carried: none has an offline desktop consumer, and Valhalla has no
-    archive package or clean binary. Navit's GTK interface (`navit-gui-gtk`) is
+    GraphHopper is carried for routes on the browser map, but installed by
+    name only (`hammunition install graphhopper-graph`, D-076): its graph is
+    about 3.7 times the downloads and took 1.2 GB of memory to build on
+    Delaware, and this profile already carries three offline routers. OSRM,
+    Valhalla and OpenRouteService were measured and are not carried: none
+    has an offline desktop consumer, and Valhalla has no archive package or
+    clean binary. Navit's GTK interface (`navit-gui-gtk`) is
     left out in favour of the internal one, which suits a touch screen and a
     small panel. Grid-square readouts belong to the station and dashboard
     tools. Organic Maps is left out: it is the same program family as
