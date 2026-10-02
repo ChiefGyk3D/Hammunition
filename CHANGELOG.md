@@ -11,6 +11,27 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **User services generalised; the GPS tether installed from its own project
+  as one** (**D-073** amended 2026-10-02, **D-071** note). A `user_services`
+  entry with no station condition, no station value and no device is *plain*:
+  always planned, needing neither the station nor the hardware catalog. The
+  unit file's header names the catalog unit that wrote it, several units can
+  share a plan, and `restart` / `restart_sec` are fixed-set manifest fields;
+  the rig's unit renders byte for byte as before; `restart_prevent_exit_status`
+  keeps systemd from retrying a refusal. A new `gps-tether` unit (in
+  `navigation`) installs the project's v0.1.0 source tree, pinned by tag,
+  commit and tarball sha256, as `hammunition-gps-tether` (now its own
+  repository), and runs it as `hammunition-gps-tether.service` on 127.0.0.1
+  ports 10110 and 10111, enabled at install and started at next login (a
+  reinstall `try-restart`s a running one). A venv requirement
+  with the all-zero placeholder digest is refused by name at plan time. `hammunition maps gps-tether` runs
+  the installed tether when there is one (and says so) and its own copy, with a
+  deprecation note, otherwise. The service and a foreground run cannot share
+  port 10110. Installing any `user_services` unit also writes its row to
+  `~/.config/hammunition/devctl-services.yaml` (0600), the list the tray's
+  helper reads for its Services group; uninstall removes it. Not yet run on a
+  machine.
+
 - **WWAN modem, Bluetooth and camera as controllable devices** (**D-056**,
   amended 2026-10-02). Three hardware classes, `wwan-modem`,
   `bluetooth-controller` and `camera`, each `power_control:

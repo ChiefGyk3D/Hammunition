@@ -1639,10 +1639,10 @@ rest of the plan.
 | `unit` | string | the catalog unit carrying it |
 | `name` | string | the systemd user unit, without .service |
 | `path` | string | the unit file written, under the operator's ~/.config/systemd/user/ |
-| `exec` | string | the rigctld command line, with the device serial elided |
+| `exec` | string | the service's command line, with the device serial elided |
 | `fills` | list of string | the station values that fed it, by name; never the values |
 | `listen` | string | the loopback address:port it binds, e.g. 127.0.0.1:4532 |
-| `starts_now` | boolean | whether the plan restarts it now (the radio's port is present) |
+| `starts_now` | boolean | whether the plan restarts it now (a rig service whose radio's port is present) |
 
 #### `DesktopsReadView`
 

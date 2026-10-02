@@ -11,9 +11,9 @@ categories: [navigation-maps, gps-gnss]
 # which D-038 resolves on a machine already installing from backports and
 # the plan names. It Depends on libroutino0 (Routino in-process) and
 # Recommends routino and gdal-bin, carried here as their own units.
-# `gpsd-clients` is for the gps-tether launcher: the tether is the engine's
-# own (D-061, amended 2026-09-29), and `xgps` is what it names when gpsd
-# has no fix to pass on.
+# `gpsd-clients` is for the gps-tether launcher: the tether (D-061, amended
+# 2026-09-29; its own project since 2026-10-02, the `gps-tether` unit), and
+# `xgps` is what it names when gpsd has no fix to pass on.
 #
 # `apt-cache policy qmapshack` on Parrot 7 (echo), 2026-09-28: candidate
 # 1.17.1-1+b6 (echo/main, pin 600); 1.21.1+ds-1~bpo13+1 in echo-backports
@@ -81,7 +81,15 @@ documentation:
     the route yourself. It stops at startup with "The specified translations
     XML file did not exist" if /usr/share/routino/translations.xml is
     missing, which apt normally prevents; `hammunition doctor` names it.
-    It has no gpsd client; `gps-tether` stands in for one. It reads gpsd's
+    It has no gpsd client; `gps-tether` stands in for one. The tether is now
+    its own project, `hammunition-gps-tether`, installed by the `gps-tether`
+    unit and run as a user service; the `gps-tether` launcher still runs
+    `hammunition maps gps-tether`, which runs that installed program (found on
+    the PATH or in ~/.local/bin, which a menu entry's PATH lacks) and falls back
+    to the engine's own copy, with a note, where it is not installed. **The
+    service and this launcher cannot share port 10110**: with the service
+    enabled the launcher's tether says it cannot listen and stops, and the
+    service's feed is already the one QMapShack wants. It reads gpsd's
     JSON, as xgps and Navit do, writes RMC and GGA itself, bound to
     127.0.0.1 in its own code, and says when gpsd has no fix. On the field
     laptop on 2026-09-29 it gave QMapShack's GPS source a position from a

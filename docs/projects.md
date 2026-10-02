@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**309 programs and packages** from the catalog, laid out the way the
+**310 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -110,6 +110,7 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 | [dem-copernicus](packages/dem-copernicus.md) | Copernicus GLO-30 elevation tiles for your map regions, verified | [registry.opendata.aws/copernicus-dem](https://registry.opendata.aws/copernicus-dem/) |
 | [dem-qmapshack](packages/dem-qmapshack.md) | Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles | [gdal.org](https://gdal.org/) |
 | [gdal-bin](packages/gdal-bin.md) | GDAL's command-line tools for rasters and elevation data | [gdal.org](https://gdal.org/) |
+| [gps-tether](packages/gps-tether.md) | Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service | [github.com/ChiefGyk3D/hammunition-gps-tether](https://github.com/ChiefGyk3D/hammunition-gps-tether) |
 | [mapsforge-map](packages/mapsforge-map.md) | Mapsforge vector maps of your OpenStreetMap regions, for phone map apps | [github.com/mapsforge/mapsforge](https://github.com/mapsforge/mapsforge) |
 | [mapsforge-poi](packages/mapsforge-poi.md) | Mapsforge points-of-interest files of your regions, for searching on a phone | [github.com/mapsforge/mapsforge](https://github.com/mapsforge/mapsforge) |
 | [mkgmap](packages/mkgmap.md) | Builds Garmin-format maps from OpenStreetMap data | [mkgmap.org.uk](https://www.mkgmap.org.uk/) |

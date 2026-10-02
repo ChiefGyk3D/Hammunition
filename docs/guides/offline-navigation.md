@@ -597,6 +597,45 @@ touching QMapShack. Any number of programs can connect at once, and each
 gets every sentence, so a test from a terminal (`nc 127.0.0.1 10110`) works
 while QMapShack is open.
 
+### Run it as a service
+
+The tether is its own project now, [hammunition-gps-tether](https://github.com/ChiefGyk3D/hammunition-gps-tether),
+and `hammunition install gps-tether` installs it: the project's v0.1.0 source
+(pure Python, nothing to build), checked against a pinned sha256 and unpacked
+to `/usr/local/share/hammunition/gps-tether`, and a systemd **user** service, `hammunition-gps-tether.service`, written to
+`~/.config/systemd/user/` and enabled. The plan lists the file, the command it
+runs and the two ports it binds (127.0.0.1 port 10110 for NMEA and port 10111
+for the browser map), and `hammunition uninstall gps-tether` stops and removes
+it, but only a unit file that still starts with Hammunition's header.
+
+The install also lists the service for the tray's Services group, one row in
+`~/.config/hammunition/devctl-services.yaml` (mode 0600), which uninstall takes
+back out.
+
+The install enables the service and does not start it: it starts at your next
+login. (Installing again, at a newer release, restarts it if it is running and
+leaves it stopped if it is not.) To start it now:
+
+```
+systemctl --user start hammunition-gps-tether.service
+```
+
+**One tether at a time.** The service and a foreground run cannot share port
+10110. The second to start says it cannot listen and stops. With the service
+enabled you do not need the *GPS position for QMapShack* menu entry; if you
+want a foreground run (for another `--gpsd`, say), stop the service first with
+`systemctl --user stop hammunition-gps-tether.service`.
+
+`hammunition maps gps-tether` still works. With the tree installed it runs
+that tree's tether, in its place, and says where from; without it, it runs the
+engine's own copy and says that verb will go away in a later release. The
+*GPS position for QMapShack* entry runs that verb, so it runs the installed
+tether too.
+
+Not yet measured: the service started from this unit on a real machine, and
+its start at login after a reboot. The pin is the project's tag v0.1.0 (commit 58d4bb7); it publishes no release
+files yet, so the pin is that tag's own tarball.
+
 How it works, so you know what you are running:
 
 - It asks gpsd for its position the way `xgps` and Navit do, as JSON, and

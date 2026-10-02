@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 93 | 2 | 214 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 93 | 2 | 214 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 90 | 3 | 216 |
-| kali-rolling *(unswept)* | 0 | 0 | 86 | 1 | 222 |
-| parrot *(unswept)* | 0 | 0 | 91 | 2 | 216 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 90 | 3 | 216 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 88 | 7 | 214 |
+| debian-13 *(unswept)* | 0 | 0 | 94 | 2 | 214 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 94 | 2 | 214 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 91 | 3 | 216 |
+| kali-rolling *(unswept)* | 0 | 0 | 87 | 1 | 222 |
+| parrot *(unswept)* | 0 | 0 | 92 | 2 | 216 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 91 | 3 | 216 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 89 | 7 | 214 |
 
-**309 manifests** against **7 targets**.
+**310 manifests** against **7 targets**.
 
 ---
 
@@ -150,6 +150,7 @@ build HAS been run in a container say so in their own install notes.
 | `goldendict-ng` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gpa` | source | apt ? | apt ? | source | source | apt ? | source |
 | `gpredict` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `gps-tether` | binary | binary | binary | binary | binary | binary | binary |
 | `gpsbabel` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gpsd` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gpsd-clients` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

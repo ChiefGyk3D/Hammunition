@@ -1538,6 +1538,74 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
     return EXIT_FAILED
 
 
+#: The program the GPS tether became: its own project, installed by the
+#: `gps-tether` catalog unit (D-071 note, 2026-10-02).
+TETHER_PROGRAM = "hammunition-gps-tether"
+
+#: Where that unit installs the project's source tree (a `binary` tarball with
+#: `install_tree`, at `<prefix>/share/hammunition/<unit>`); a variable so a test
+#: can point it at a scratch tree.
+TETHER_TREE = Path("/usr/local/share/hammunition/gps-tether")
+
+
+def installed_tether() -> tuple[list[str], str] | None:
+    """The installed GPS tether as ``(argv, where)``, or None.
+
+    The catalog unit's tree first: run in place with the archive's python3, as
+    the user service does. Failing that a ``hammunition-gps-tether`` on the PATH
+    or in the operator's ``~/.local/bin`` (a menu entry Plasma starts has no
+    ``~/.local/bin`` on its PATH, issue #145), which is how a ``pip install
+    --user`` of the project would leave it.
+    """
+    if (TETHER_TREE / "src" / "hammunition_gps_tether" / "__main__.py").is_file():
+        argv = [
+            "/usr/bin/env",
+            f"PYTHONPATH={TETHER_TREE / 'src'}",
+            "/usr/bin/python3",
+            "-P",  # no working directory on sys.path (Python 3.11+, which the tether needs)
+            "-m",
+            "hammunition_gps_tether",
+        ]
+        return argv, str(TETHER_TREE)
+    found = shutil.which(TETHER_PROGRAM) or shutil.which(
+        TETHER_PROGRAM, path=str(user_bin_dir(None))
+    )
+    return None if found is None else ([found], found)
+
+
+def _tether_call_through(installed: tuple[list[str], str], args: argparse.Namespace) -> int:
+    """Run the installed tether in this process's place, with the options given."""
+    if os.geteuid() == 0:
+        print(
+            "error: the GPS tether reads gpsd as any user can; run it as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    prefix, where = installed
+    argv = list(prefix)
+    for flag, value in (
+        ("--gpsd", args.gpsd),
+        ("--port", args.port),
+        ("--position-port", args.position_port),
+        ("--nmea-socket", args.nmea_socket),
+    ):
+        if value is not None:
+            argv += [flag, value]
+    if args.no_nmea_socket:
+        argv.append("--no-nmea-socket")
+    print(
+        f"hammunition: running the installed tether from {where} (hammunition-gps-tether). "
+        f"Run it directly; this verb will go away in a later release.",
+        file=sys.stderr,
+        flush=True,
+    )
+    try:
+        os.execv(argv[0], argv)  # replaces this process; returns only by raising
+    except OSError as exc:
+        print(f"error: cannot run {argv[0]}: {exc.strerror or exc}.", file=sys.stderr)
+        return EXIT_FAILED
+
+
 def cmd_maps_splat(args: argparse.Namespace) -> int:
     """Point SPLAT! at Hammunition's terrain through ``~/.splat_path``, and
     print Signal-Server's ``-sdf`` argument.  D-061, amended 2026-10-02.
@@ -1601,6 +1669,16 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
     """
     from hammunition import geoclue, gps_tether
 
+    installed = installed_tether()
+    if installed is not None:
+        return _tether_call_through(installed, args)
+    print(
+        "note: running the engine's own copy of the GPS tether. The tether is its own "
+        "project now: `hammunition install gps-tether` installs hammunition-gps-tether, "
+        "and this verb will go away in a later release.",
+        file=sys.stderr,
+        flush=True,
+    )
     try:
         port = gps_tether.PORT if args.port is None else gps_tether.serve_port(args.port)
         gpsd = gps_tether.GPSD if args.gpsd is None else gps_tether.gpsd_address(args.gpsd)
@@ -3715,11 +3793,19 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
             for svc in unit_manifest.user_services
         )
     )
+    user_service_units = list(
+        dict.fromkeys(
+            unit
+            for unit in uninstall_units
+            if (unit_manifest := packages.get(unit)) is not None and unit_manifest.user_services
+        )
+    )
     if user_service_names:
         uninstall_user = operator(args)
         commands.extend(
             user_service_removal_steps(
                 user_service_names,
+                units=user_service_units,
                 home=user_config_base(uninstall_user or None),
                 machine=(
                     uninstall_user if euid == 0 and uninstall_user not in ("", "root") else None

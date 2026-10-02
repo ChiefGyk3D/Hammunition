@@ -61,6 +61,7 @@ from hammunition.kernel import (
 )
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.schema import (
+    UNPINNED_SHA256,
     AptInstall,
     AptRepo,
     BinaryInstall,
@@ -79,6 +80,7 @@ from hammunition.manifest.schema import (
     SourceInstall,
     Status,
     TopoQuadsInstall,
+    VenvInstall,
     effective_binaries,
 )
 from hammunition.state.log import TransactionLog
@@ -576,6 +578,27 @@ def _check_engine_capability(
                 ),
             )
         )
+
+    if isinstance(block.install, VenvInstall):
+        zero = [
+            line.split()[0]
+            for line in block.install.requirements
+            if f"--hash=sha256:{UNPINNED_SHA256}" in line
+        ]
+        if zero:
+            found.append(
+                Blocker(
+                    subject=manifest.name,
+                    reason=(
+                        f"is unpinned: {zero[0]} carries the all-zero placeholder digest, "
+                        f"which no file can match"
+                    ),
+                    remedy=(
+                        "the artifact has not been published and pinned yet; replace the "
+                        "digest with what `sha256sum` prints for the release file"
+                    ),
+                )
+            )
 
     if isinstance(block.install, SourceInstall | GitInstall) and method in IMPLEMENTED_METHODS:
         # D-016: everything the run cannot do is found before anything is done.
@@ -1342,26 +1365,13 @@ def resolve(
         deferrals.extend(unwritable)
 
         if manifest.user_services:
-            # The rig resolution needs the hardware catalog. Without it the
-            # services cannot be rendered, so they defer by name rather than
-            # resolve to nothing (D-035) — the same shape as a missing station
-            # value, with a reason the operator can act on.
-            if devices is None:
-                deferrals.append(
-                    Deferral(
-                        subject=manifest.name,
-                        what=f"will not run {manifest.user_services[0].name}",
-                        why="the hardware catalog was not available to resolve the rig",
-                        remedy="run this through `hammunition install`, which loads it",
-                    )
-                )
-            else:
-                svc_planned, svc_deferrals, svc_notes = plan_user_services(
-                    manifest, station, devices
-                )
-                user_services.extend(svc_planned)
-                deferrals.extend(svc_deferrals)
-                notes_early.extend(svc_notes)
+            # Plain services need nothing; the rig's need the hardware
+            # catalog and defer by name without it (D-035) -- decided in
+            # plan_user_services, which knows which is which.
+            svc_planned, svc_deferrals, svc_notes = plan_user_services(manifest, station, devices)
+            user_services.extend(svc_planned)
+            deferrals.extend(svc_deferrals)
+            notes_early.extend(svc_notes)
 
         # apt and source reach here; _check_engine_capability rejects the rest.
         # A source build needs its `build_depends` from apt before it can start,

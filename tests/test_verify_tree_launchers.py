@@ -313,6 +313,7 @@ def test_every_catalog_tree_names_its_marker() -> None:
     assert tree_units == {
         "artemis",
         "brouter",
+        "gps-tether",
         "js8spotter",
         "morse-runner",
         "mshv",
