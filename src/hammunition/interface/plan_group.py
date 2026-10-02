@@ -48,6 +48,7 @@ _SIZE = re.compile(
     r"(?<![\w.])(\d[\d,]*(?:\.\d+)?) (kB|KB|MB|GB|TB|KiB|MiB|GiB|TiB)\b",
 )
 _SIZE_CORE = re.compile(r"^(\d[\d,]*(?:\.\d+)?)[\x00 ](kB|KB|MB|GB|TB|KiB|MiB|GiB|TiB)$")
+_FLAG = re.compile(r"^-{1,2}[A-Za-z]")
 _NUMBER = re.compile(r"^[-+]?\d[\d.,]*$")
 _UNITS = {
     "kB": 1e3,
@@ -100,13 +101,32 @@ def _kind(step: Renderable) -> tuple[object, ...] | None:
 
 
 def _compatible(a: Sequence[str], b: Sequence[str]) -> bool:
-    """Whether two token lists are one template with different arguments."""
+    """Whether two token lists are one template with different arguments.
+
+    Whitespace never varies, a flag (``--x``) or a URL scheme never varies (those
+    change what a step does, not which item it is done to), and the words, not the
+    spaces between them, must mostly agree.
+    """
     if len(a) != len(b) or a[0] != b[0]:
         # The description's first word is the verb: "Fetch", "Remove" and
         # "Install" are three actions, never one action on three items.
         return False
-    same = sum(1 for x, y in zip(a, b, strict=True) if x == y)
-    return same >= 3 and same * 2 >= len(a)
+    words = same = 0
+    for x, y in zip(a, b, strict=True):
+        if x.isspace() or y.isspace():
+            if x != y:
+                return False
+            continue
+        words += 1
+        if x == y:
+            same += 1
+        elif (
+            _FLAG.match(x)
+            or _FLAG.match(y)
+            or ("://" in x and "://" in y and x.split("://")[0][-8:] != y.split("://")[0][-8:])
+        ):
+            return False
+    return same >= 2 and same * 2 >= words
 
 
 def _cut_prefix(prefix: str) -> str:
@@ -265,6 +285,8 @@ def _build(steps: Sequence[Renderable], period: int, repeats: int) -> Group | No
         templates=tuple(tuple(t) for t in templates),
         steps=tuple(steps[: period * repeats]),
     )
+    if not columns:
+        return None  # identical steps: nothing varies, nothing to list
     # Proof, not trust: only a group that rebuilds every step exactly is kept.
     original = [(s.description, s.display) for s in group.steps]
     if group.expand() != original:
@@ -335,7 +357,7 @@ def _human(size: float) -> str:
 
 def _render_group(group: Group) -> list[str]:
     repeats = len(group.items)
-    noun = group.columns[0] if group.columns else "item"
+    noun = "item"
     lines = [
         f"  Repeated {repeats} times, once for each {noun} listed below "
         f"({group.period} step{'s' if group.period != 1 else ''} each, in this order); "

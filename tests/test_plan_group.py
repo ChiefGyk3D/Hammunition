@@ -377,3 +377,25 @@ def test_install_accepts_full_for_a_dry_run_and_a_real_listing(
     rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "--full", "git"])
     assert rc == EXIT_OK
     assert "Dry run: nothing above was executed." in capsys.readouterr().out
+
+
+def test_a_step_that_differs_in_a_flag_or_scheme_or_words_is_not_one_template() -> None:
+    def fetch(i: int, text: str) -> StepView:
+        return StepView(
+            f"Fetch tile {i} {text}", f"[fetch] {text}/t{i}.tif", (), "fetch", False, ()
+        )
+
+    plain = [fetch(i, "https://x.invalid/d") for i in range(5)]
+    assert _groups(plain)
+    for odd in ("--verify", "http://evil.invalid/d"):
+        mixed = [*plain[:2], fetch(2, odd), *plain[3:]]
+        assert all(len(g.items) < 5 for g in _groups(mixed)), odd
+    unrelated = [
+        StepView(f"Fetch {w}", f"[fetch] {w2}", (), "fetch", False, ())
+        for w, w2 in (("a b", "c d"), ("e f", "g h"), ("i j", "k l"), ("m n", "o p"))
+    ]
+    assert not _groups(unrelated)
+
+
+def test_identical_steps_are_not_grouped() -> None:
+    assert not _groups([StepView("Fetch x", "[fetch] y", (), "fetch", False, ())] * 6)
