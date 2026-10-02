@@ -1607,8 +1607,7 @@ def _tether_call_through(installed: tuple[list[str], str], args: argparse.Namesp
     if args.no_nmea_socket:
         argv.append("--no-nmea-socket")
     print(
-        f"hammunition: running the installed tether from {where} (hammunition-gps-tether). "
-        f"Run it directly; this verb will go away in a later release.",
+        f"hammunition: running the installed tether from {where} (hammunition-gps-tether).",
         file=sys.stderr,
         flush=True,
     )
