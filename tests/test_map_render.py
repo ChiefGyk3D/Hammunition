@@ -9,7 +9,8 @@ is a synthetic one (``pmtiles_fixture``); the kit is built from the pinned
 archives themselves, each checked against the manifest's sha256 first.
 Chromium runs headless with every host but 127.0.0.1 made unresolvable, and
 its net log is read back: every URL it requested must be on 127.0.0.1. The
-credit the OpenMapTiles licence requires must be drawn on the map.
+credit the OpenMapTiles licence requires must be drawn on the map, and an
+infrastructure overlay (D-075) must be fetched with its licence in the credit.
 
 The suite downloads nothing, so it needs the pinned files already on disk, and CI
 has neither them nor Chromium: this check is local. It last passed on the
@@ -31,11 +32,13 @@ import shutil
 import subprocess
 import threading
 import time
+from datetime import date
 from pathlib import Path
 from urllib.parse import urlsplit
 
 import pytest
 
+from hammunition import infra
 from hammunition.backends.source import extract
 from hammunition.manifest.load import load_catalog
 from hammunition.manifest.schema import DataInstall
@@ -138,7 +141,20 @@ def test_the_map_renders_with_no_request_off_loopback_and_draws_the_credit(
     _build_kit(source, data / KIT_UNIT)
     (data / TILES_UNIT).mkdir(parents=True)
     write_pmtiles(data / TILES_UNIT / "testville.pmtiles")
-    shelf = find_map(data)
+    # D-075: one infrastructure layer as an overlay, synthetic.
+    overlays = tmp_path / "overlays" / "infra"
+    infra.write_layer(
+        overlays,
+        infra.InfraLayer(
+            "osm-medical",
+            "Medical (OpenStreetMap, ODbL, 2026-09-30)",
+            infra.OSM_LICENCE,
+            infra.OSM_SOURCE,
+            date(2026, 9, 30),
+            (infra.Point("Testville General", "hospital", 0.0005, 0.0005),),
+        ),
+    )
+    shelf = find_map(data, overlays=overlays)
     assert shelf.ready, shelf.missing
     server = make_server(0, "<html></html>", [], map_shelf=shelf, position_port=1)
     delay = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Delay)
@@ -185,7 +201,7 @@ def test_the_map_renders_with_no_request_off_loopback_and_draws_the_credit(
     dom = result.stdout
     assert 'data-state="idle"' in dom, (dom[-2000:], result.stderr[-2000:])
     assert 'data-errors="0"' in dom, dom[-2000:]
-    attribution = dom.split("maplibregl-ctrl-attrib-inner", 1)[1][:600]
+    attribution = dom.split("maplibregl-ctrl-attrib-inner", 1)[1][:1500]
     assert "© OpenMapTiles" in attribution and "© OpenStreetMap contributors" in attribution
     page, browser = _page_requests(net_log)
     assert page, "the net log recorded the page's requests"
@@ -196,3 +212,6 @@ def test_the_map_renders_with_no_request_off_loopback_and_draws_the_credit(
     )
     assert any(u.endswith("/map/tiles/testville.pmtiles") for u in page)
     assert any("/fonts/" in u and u.endswith(".pbf") for u in page), "a label asked for glyphs"
+    assert any(u.endswith("/map/overlays/infra-osm-medical.geojson") for u in page)
+    assert "infrastructure style after Open Infrastructure Map" in attribution
+    assert infra.OSM_LICENCE in attribution

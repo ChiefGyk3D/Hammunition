@@ -44,10 +44,13 @@ class Recorder:
             text = kept.pop("text", False)
             kept.pop("check", None)
             kept.pop("capture_output", None)
+            fed = kept.pop("input", None)
+            if fed is not None:
+                kept["stdin"] = subprocess.PIPE
             with real_popen(
                 argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=text, **kept
             ) as proc:
-                out, err = proc.communicate()
+                out, err = proc.communicate(fed)
             return subprocess.CompletedProcess(argv, proc.returncode, out, err)
 
         def popen(argv: list[str], **kwargs: Any) -> Any:
@@ -85,6 +88,27 @@ def test_not_root_runs_in_place_with_env_c(tmp_path: Path, monkeypatch: pytest.M
     argv, kwargs = fake.calls[-1]
     assert argv[:4] == ["env", "-C", str(tmp_path / "staging"), "JAVA_OPTS=-Xmx4000m"]
     assert "user" not in kwargs and "cwd" not in kwargs
+
+
+def test_a_files_text_goes_on_stdin_whatever_its_size(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-075's final review: an argument is capped at 128 KiB, so the
+    converter's profile is written from stdin; as the operator under root
+    too, through the same drop."""
+    big = "x" * 300_000
+    staging = Staging(tmp_path / "staging", euid=NOT_ROOT)
+    assert staging.prepare() is None
+    made = staging.run(["sh", "-c", 'cat > "$1"', "sh", "big"], cwd=tmp_path / "staging", stdin=big)
+    assert made.returncode == 0 and (tmp_path / "staging" / "big").read_text() == big
+    _as_root(monkeypatch, tmp_path)
+    fake = Recorder(monkeypatch)
+    directory = tmp_path / "home" / "operator" / "staging"
+    root = Staging(directory, owner="operator", euid=0)
+    assert root.prepare() is None
+    made = root.run(["sh", "-c", 'cat > "$1"', "sh", "big"], cwd=directory, stdin=big)
+    assert made.returncode == 0 and (directory / "big").read_text() == big
+    assert fake.dropped() and fake.calls[-1][1]["input"] == big
 
 
 def test_under_root_every_operation_is_dropped_to_the_operator(

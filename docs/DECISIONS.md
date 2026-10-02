@@ -8832,3 +8832,240 @@ and `approximate`; `unverified-zip` in the `artifacts` contract;
 `tests/test_acma_backend.py`, `tests/test_acma_cli.py`, with
 `tests/acma_support.py`; the guide's section 13, `docs/guides/lan-mirror.md`,
 `docs/reference/cli.md`.
+
+## D-075 — Infrastructure and EMCOMM layers: eight OpenStreetMap layers from the extracts already here, FAA NASR, EIA-860M and WRI as pinned data, FCC ASR and NOAA Weather Radio on request, an `infra` tile layer and GeoJSON overlays on the browser map
+
+**Date:** 2026-10-01. **Status:** proposed (the spike's recommendation,
+built with the maintainer's delegate's two rulings below; implemented on
+branch `infra-layers`; the maintainer decides it at review).
+**Spec:** `docs/superpowers/specs/2026-10-01-infra-layers-design.md`.
+**Numbering:** assigned with the task, after D-073 and D-074.
+**Depends on:** D-074 (one layer per source, the shape every piece here
+copies), D-064 (the overlays and their registration), D-049 (a data
+unit), D-066 (a generated pin), D-070 (the mirror and `artifacts`), D-071
+(the browser map and its converter), D-057 (a region says where the
+operator is), D-033 and D-021 (an unverified source, carried on what we
+do with it), D-031 (the input's date), D-059 (documents).
+**Amends:** D-071: the tile converter's profile gains an `infra` layer
+(`tilemaker-pmtiles 2`), and the map page draws it and the overlays.
+D-064: the operator's Navit copy carries the infrastructure layers too, and
+`maps qmapshack` keeps both overlay directories in `poiPaths`.
+
+### What was measured
+
+The spike of 2026-10-01 (scratchpad, not committed) measured every source
+it could find on Delaware and Vermont (Geofabrik extracts of 2026-09-30,
+both MD5-checked), the counts per OpenStreetMap tag set, every federal
+file's size, licence and byte stability, and Open Infrastructure Map's
+pipeline. Measured again on this branch:
+
+- **The eight OpenStreetMap layers through the engine's own filter and real
+  osmium** (2.4 s and 3.5 s): Delaware medical 187, responders 158, supply
+  573, shelter candidates 671, transport 72, power 225, telecom 314, water
+  163; Vermont 199, 367, 885, 1,801, 123, 874, 174, 105. Every count is
+  the spike's but Delaware's responders: two objects carry both a fire
+  station's and an ambulance station's tag and are one point here, two
+  rows in the spike's sum.
+- **The federal files the spike kept, read by the engine's parsers with
+  each extract's header box** (no network): FAA NASR 115 and 190 sites (in
+  the boxes; 38 and 90 in the states, the spike's), EIA-860M 138 and 164
+  operating plants, WRI 0 and 2 plants outside the US, FCC ASR 668 and 489
+  structures in the boxes (266 and 189 registered in the states, exactly
+  the spike's count of constructed or granted, not dismantled, with a
+  structure coordinate), NOAA Weather Radio 12 and 21 transmitters. The
+  EIA workbook's 56 MB sheet streamed in 4.1 s; the process peaked at
+  138 MB with the FCC archive in memory.
+- **The pins, generated once from each publisher and their bytes fetched
+  and matched twice more:** NASR cycle 2026-10-01, 8,030,968 bytes, sha256
+  `aba48ea8…`; EIA-860M August 2026, 13,955,142 bytes, `b4b70abb…`; WRI
+  v1.3.0, 4,178,889 bytes, `59f3e573…`, MD5 `8b4e4715…` equal to S3's
+  ETag. All three digests are the spike's.
+- **HEADs, 2026-10-01:** nfdc.faa.gov answered a HEAD of the pinned NASR
+  file with 503 twice while serving it by GET. data.fcc.gov answered a HEAD
+  of `r_tower.zip` from User-Agent `hammunition` with 403, from curl and
+  from `hammunition (+https://github.com/ChiefGyk3D/Hammunition)` with 200
+  (37,810,019 bytes, Last-Modified 2026-09-27); one request each, so the
+  User-Agent is the observed difference, not a proven cause. weather.gov
+  served `ccl-data.js` with 200, no length, Last-Modified that day,
+  `max-age=180`.
+- **The tile layer:** Debian's tilemaker 3.0.0 (the spike's extracted
+  package) ran the generated profile on the Delaware extract: exit 0 in
+  27 s at `--threads 2`, 20,602,464 bytes against the spike's 20,113,393
+  without it (+2.4 %), `infra` the 17th layer with `class`, `subclass`,
+  `voltage_kv` (a number), `operator`, `name`, `plant:source` and
+  `generator:source`.
+- **The browser map**, drawn by headless Chromium against 127.0.0.1 with
+  the spike's local copy of the kit (not the pinned archives), those tiles
+  and three real overlays (Delaware's medical and power layers and its
+  NASR sites): idle at zoom 12, 119 infra tile features and 45 overlay
+  points rendered, no map error, no request off loopback, every licence
+  line in the credit.
+- QMapShack 1.17.1's built-in waypoint symbols, from
+  `helpers/CWptIconManager.cpp` (the source D-064 measured): 97 distinct
+  names; the spike's `Radio Beacon` is not one, and would draw as
+  `Default`. Navit 0.5.6's stock layout draws and labels `poi_custom0` to
+  `poi_customf` with the item's own `icon_src`; every icon used is a file
+  the `navit` package ships.
+
+### The rule
+
+1. **One layer per source**, four files under its own name in
+   `~/.local/share/hammunition/overlays/infra/` (directory 0700, files
+   0600, each renamed into place): `infra-<id>.gpx`, `.poi`, `.navit.txt`
+   and `.geojson`. Thirteen layer ids: `osm-medical`, `osm-responders`,
+   `osm-supply`, `osm-shelter-candidates`, `osm-transport`, `osm-power`,
+   `osm-telecom`, `osm-water`, `faa-airports`, `eia-plants`, `wri-plants`,
+   `fcc-towers`, `nwr`. Each has a QMapShack built-in symbol and its own
+   Navit `poi_custom1` to `poi_customd` type with a stock icon. One command
+   writes its own layers and leaves the others; refused as root.
+2. **OpenStreetMap, the tag sets exactly as the spike measured them**,
+   filtered by `maps infra import --from-osm [--layers …]` with one
+   `osmium tags-filter` per installed extract, as the operator; nothing is
+   downloaded. A node is placed where it is, a way at the mean of its
+   distinct nodes, a relation at the mean of its member nodes and member
+   ways' nodes. An object in two kinds of one layer is one point; a point
+   two overlapping extracts both hold is kept once and counted. Licence
+   line `© OpenStreetMap contributors, ODbL 1.0`. **Not points:**
+   `amenity=shelter`, sirens, defibrillators, assembly points, emergency
+   phones and water points, `emergency=shelter`, social facilities, power
+   towers, poles and generators, hydrants, bridges and lines.
+3. **Three D-049 data units, in no profile** (the maintainer decides),
+   mirror-aware and listed by `artifacts` like any pinned data:
+   `faa-nasr-airports` (the NASR APT CSV zip at its dated 28-day URL;
+   `scripts/gen_nasr_pin.py` computes the AIRAC cycle from 2026-01-22 and
+   writes URL, sha256, size, the cycle as `version` and the licence line
+   `FAA NASR <cycle>, public domain`, which is what the plan prints;
+   `--check` fetches the file by GET and goes red on a newer cycle),
+   `eia-860m` (the month's workbook; `scripts/gen_eia860m_pin.py` pins the
+   newest month with EIA's acknowledgment, exactly `Source: U.S. Energy
+   Information Administration (<Mon YYYY>), public domain`; `--check` names
+   a newer month and the move to `archive/xls/`; `--follow-move` keeps the
+   pinned month at its archive address after matching its digest) and
+   `wri-power-plants` (WRI v1.3.0, CC BY 4.0; `scripts/gen_wri_pin.py`
+   checks the bytes' MD5 against S3's ETag, the publisher's checksum, and
+   records it beside our sha256; `--check` HEADs the ETag). The weekly pin
+   review runs all three. `--from-nasr`, `--from-eia` and `--from-wri` read
+   the installed file only and keep what lies in the installed extracts'
+   header boxes. **WRI is used outside the US only**: its US rows are
+   EIA's of 2019, every one is dropped, and the import says EIA-860M
+   covers the US.
+4. **FCC ASR and NOAA Weather Radio are fetched on request**
+   (`maps infra fetch-fcc-asr`, `fetch-nwr`), through D-064's bounded,
+   HTTPS-only fetch with a descriptive User-Agent, parsed in memory, kept
+   to the boxes, marked unverified with the observed sha256, no `--json`
+   form. **FCC: only `RA.dat` and `CO.dat` are opened**; `EN.dat`, the
+   owners' contact names, e-mail addresses and telephone numbers, never
+   is, and of `RA` the signature and street-address fields are never kept.
+   A structure is kept when constructed or granted, not dismantled, with a
+   structure coordinate. Layer `FCC towers (unverified, <file date>)`,
+   licence line `FCC Antenna Structure Registration, US Government work,
+   public domain`. **NWR: frequency, power, WFO and every county's SAME
+   code are kept; `status` is never read.** A transmitter within 1.0° of a
+   box is kept (0.5° missed one of Vermont's twelve covering transmitters;
+   1.0° missed none). Licence line `NOAA/NWS, public domain, not an
+   official NWS product`.
+5. **Registration as D-074's.** QMapShack's `[Canvas] poiPaths` holds the
+   directory while any layer has a `.poi`; the operator's Navit copy
+   carries every repeater and infrastructure layer; `maps qmapshack` and
+   `navit-offline` keep both kinds. `maps infra remove [--layer ID]` is
+   idempotent. A layer an import finds empty has its old files deleted and
+   listed; an import finding nothing changes nothing and exits 1.
+6. **The browser map.** The converter writes, as the operator, a wrapper
+   Lua that `dofile`s the kit's unchanged `process-openmaptiles.lua` and
+   adds an `infra` layer at zoom 10 to 14, and the kit's config with that
+   layer; `CONVERTER` is `tilemaker-pmtiles 2`, so every region is rebuilt
+   once. Style layers written here draw it over OSM Bright, power coloured
+   by Open Infrastructure Map's `voltage_scale` (commit 5f20a29a) under its
+   BSD-3-Clause notice, copied verbatim to
+   `src/hammunition/map_style/LICENSE.openinframap`, served at
+   `/map/infra-style-licence.txt` and named in the credit. Each infra
+   layer's GeoJSON is found in the operator's directory when `reference
+   serve` starts, served by exact name at `/map/overlays/<file>`, listed at
+   `/map/overlays.json`, drawn as a toggled circle layer with its licence
+   (escaped) in the attribution. A new pin or fetch never rebuilds tiles.
+7. **Documents** `infra` and `infra-removed`, D-074's shape: route,
+   licence lines, inputs (the extracts' directory with no digest), counts,
+   skips, each layer's name, count and files, registration. No place's
+   name or position, no region, no box, no extract digest.
+
+### Rulings
+
+- **From the maintainer's delegate (2026-10-01):** shelter-candidate
+  layers carry "candidate, not a designated shelter" in the layer name and
+  every waypoint description; FCC ASR is an on-request unverified fetch
+  with an observed sha256, like the ETCC, not a data unit whose pin dies
+  weekly.
+- **Made on the way:** one QMapShack symbol per layer (the brief's), the
+  kind in each name and description; NWR's symbol is `Information`, not
+  the spike's `Radio Beacon`; the regions are the installed extracts'
+  header boxes, never printed, so a layer reaches across a state line;
+  `voltage_kv` (the first value, in kV) replaces the raw voltage so the
+  ramp's step has a number; towers and poles stay out of the tile layer,
+  as in the spike's measured Lua; no label layers on the tiles (glyph
+  stacks unmeasured); NASR's check fetches by GET because the FAA refused
+  HEAD; WRI has a weekly HEAD check though the brief named only NASR and
+  EIA; the generators' licence lines are written quoted (EIA's is not plain
+  YAML); months are named from our own table, never the locale; overlays
+  appear after a server restart, as region maps do.
+- **From the final review:** the converter first handed the profile's text
+  to the operator's shell as one argument, which Linux caps at 128 KiB: a
+  kit config past that failed the region with "Argument list too long"
+  (reproduced by a test before the fix). The text now goes to the
+  operator's `cat` on standard input; `Staging.run` takes `stdin`, and
+  every other call is unchanged.
+
+### Not carried, and why
+
+**HIFLD Open**: DHS retired it; its page describes only HIFLD Secure ("a
+GII account, a profile, and an approved Data Use Agreement"); what remains
+are REST copies on other organisations and a cell-tower layer under the
+Esri Master License Agreement. **OpenGridWorks**: `robots.txt` and its
+plant page answered 429 behind a Vercel security checkpoint, no terms
+could be read and no bulk file or API was found; its stated sources (EIA,
+OpenStreetMap) are carried directly. **FEMA NSS open shelters**: live only,
+five open nationwide on the day measured; useless offline outside an
+event. **911 PSAP boundaries**: not public nationally. **USGS National
+Structures**: 82 MB for Delaware's 998 points, which OpenStreetMap matches
+or beats. **OpenFEMA**: county areas, not points, with no licence in its
+metadata and a terms page that returned 403. Named routes, not built:
+Canada's ISED TAFL file, the UK's OS OpenData, Europe's INSPIRE services,
+Global Energy Monitor's trackers.
+
+### What has run
+
+The test suite: every tag set and placement on a synthetic extract (and
+through real osmium where it is installed), each federal parser on
+synthetic files in the publishers' layouts, the FCC contacts canary
+(falsified: the street field put back turns it red), the NWR status never
+written, the generators against faked fetches with their offline checks
+falsified, both fetches against a loopback server, both documents
+validated with nothing private in them, the converter's profile written as
+the operator, the overlays served and listed. On the development host: the
+pins generated and matched, the parsers and the OSM filter on the spike's
+real files, tilemaker on Delaware, and the page in headless Chromium, as
+above. No GUI was started and nothing was installed.
+
+**Owed to the bench:** QMapShack drawing each layer's POI collection and
+GPX with these symbols (in a VM, never on the desktop); Navit drawing the
+`poi_custom1` to `poi_customd` layers with their icons; the browser map
+with the pinned kit and a rebuilt region; `install` of the three units
+from the publishers and from a Bunker; a real `fetch-fcc-asr` (the
+User-Agent finding above) and `fetch-nwr`; `--from-osm` over the laptop's
+own extracts; FCC ASR's bytes across a weekly rollover.
+
+**Consequences.** `src/hammunition/infra.py`, `src/hammunition/infra_sources.py`,
+`src/hammunition/interface/infra.py`, `src/hammunition/map_style/`; the
+`maps infra` verbs and shared overlay registration in
+`src/hammunition/cli/main.py`; the generic POI writer in
+`src/hammunition/repeaters.py`; the converter in
+`src/hammunition/backends/pmtiles.py`; the overlays in
+`src/hammunition/map_page.py` and `src/hammunition/reference.py`;
+`catalog/packages/faa-nasr-airports.yaml`, `catalog/packages/eia-860m.yaml`,
+`catalog/packages/wri-power-plants.yaml`; `scripts/data_pin.py`,
+`scripts/gen_nasr_pin.py`, `scripts/gen_eia860m_pin.py`,
+`scripts/gen_wri_pin.py` and their weekly CI steps; tests
+`tests/test_infra.py`, `tests/test_infra_cli.py`,
+`tests/test_infra_sources.py`, `tests/test_gen_infra_pins.py`,
+`tests/test_map_style.py`, `tests/test_map_overlays.py`; the
+offline-navigation guide's section 18, `docs/guides/lan-mirror.md` and
+`docs/reference/cli.md`.

@@ -1,0 +1,71 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: wri-power-plants
+version: "1.3.0"
+summary: WRI's Global Power Plant Database, for the infrastructure layers outside the US
+categories: [navigation-maps, emcomm]
+
+# D-075, a D-049 data unit. World Resources Institute's Global Power Plant
+# Database v1.3.0: 34,936 plants worldwide in one CSV, frozen since
+# 2021-06-02. Its README: "License: Creative Commons Attribution 4.0
+# International -- CC BY 4.0". Measured 2026-10-01: 4,178,889 bytes,
+# byte-identical over two fetches, and S3's ETag is the MD5 of the bytes,
+# the publisher's own checksum, which scripts/gen_wri_pin.py checks before
+# it writes our sha256 and size (and the MD5, on the line it owns below).
+# publisher MD5 (the S3 ETag): 8b4e4715a73856f72e741e12f51ef79a
+#
+# Used outside the US only: its 9,833 US plants are EIA's data of 2019,
+# and `eia-860m` is this month's. Not in a profile: the maintainer decides.
+# `hammunition maps infra import --from-wri` reads it into its own layer.
+install:
+  - install:
+      method: data
+      artifacts:
+        - url: https://wri-dataportal-prod.s3.amazonaws.com/manual/global_power_plant_database_v_1_3.zip
+          sha256: 59f3e57312a85eec3c281608e5f3c8f993d8fdad5dde179430dca42f2ac6ce99
+          size: 4178889
+          format: file
+          install_as: global_power_plant_database.zip
+      licence: CC-BY-4.0
+      licence_url: https://datasets.wri.org/dataset/globalpowerplantdatabase
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Frozen since 2021: WRI no longer updates it. The weekly pin review runs
+    `scripts/gen_wri_pin.py --check`, a HEAD that goes red if the file's
+    ETag or size ever change; regenerating checks the new bytes' MD5
+    against the ETag before it writes anything.
+
+documentation:
+  what_it_does: >-
+    Installs one file, WRI's Global Power Plant Database v1.3.0 as a zipped
+    CSV (about 4.2 MB), under /usr/local/share/hammunition/data/wri-power-plants/.
+    Nothing reads it on its own: `hammunition maps infra import --from-wri`
+    turns the plants in your map regions, outside the US, into a layer for
+    QMapShack, Navit, phones and the browser map, each with its capacity,
+    fuel, owner and commissioning year, credited "WRI Global Power Plant
+    Database v1.3.0 (2021), CC BY 4.0".
+  why_you_want_it: >-
+    It is the only worldwide plant list found under an open licence that
+    can be pinned: Canada's, Europe's and the UK's regulators publish
+    theirs in many shapes and licences, and none as one file. For a station
+    whose regions reach past the US border, it is the plant layer.
+  prerequisites: >-
+    Map regions installed (`hammunition install osm-regions`): the import
+    keeps what lies in their boxes. QMapShack, Navit or the browser map to
+    see the layer.
+  known_problems: >-
+    Frozen in 2021: plants built since are missing and some retired ones
+    remain. US plants are left out of the layer, by design (`eia-860m`
+    covers the US). CC BY 4.0 asks for the credit the layer carries; keep
+    it if you share the layer.
+  upstream_url: https://datasets.wri.org/dataset/globalpowerplantdatabase
+  upstream_support: >-
+    World Resources Institute's dataset page
+    (https://datasets.wri.org/dataset/globalpowerplantdatabase); the
+    database is no longer maintained, so corrections go to the national
+    sources it was built from. Hammunition only converts the file.

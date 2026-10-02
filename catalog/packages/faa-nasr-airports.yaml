@@ -1,0 +1,77 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: faa-nasr-airports
+version: "2026-10-01"
+summary: The FAA's airport, heliport and seaplane base list (NASR), for the infrastructure layers
+categories: [navigation-maps, emcomm]
+
+# D-075, a D-049 data unit. The FAA's National Airspace System Resources
+# (NASR) subscription, the APT CSV: every public and private landing site in
+# the US with decimal coordinates, published every 28 days on the AIRAC
+# cycle at a URL dated by the cycle's effective day. Measured 2026-10-01:
+# 8,030,968 bytes, 19,427 sites, byte-identical over two fetches; Delaware
+# 38 sites (27 airports, 11 heliports), Vermont 90. A US Government work,
+# public domain.
+#
+# The `version`, `url`, `sha256`, `size` and `licence` lines below are
+# written by scripts/gen_nasr_pin.py (regenerate with no arguments, about
+# every 28 days; `--check` goes red when a newer cycle takes effect, and the
+# weekly pin review runs it). The licence line is what the plan prints.
+#
+# Not in a profile: the maintainer decides. `hammunition maps infra import
+# --from-nasr` reads it into its own layer, kept to the station's regions.
+install:
+  - install:
+      method: data
+      artifacts:
+        - url: https://nfdc.faa.gov/webContent/28DaySub/extra/01_Oct_2026_APT_CSV.zip
+          sha256: aba48ea877f249d9b8cd63988b14b3432a6a09ad1fbe9561a5e6443c99c03dd0
+          size: 8030968
+          format: file
+          install_as: APT_CSV.zip
+      licence: "FAA NASR 2026-10-01, public domain"
+      licence_url: https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    A new NASR cycle every 28 days. The weekly pin review runs
+    `scripts/gen_nasr_pin.py --check`, which goes red when a newer cycle has
+    taken effect or the pinned URL stops answering; regenerating is running
+    the script with no arguments (an 8 MB download), which writes the new
+    cycle's URL, digest, size, version and licence line into this manifest.
+    The pinned cycle keeps installing as long as the FAA serves it, or from
+    a LAN mirror that holds it.
+
+documentation:
+  what_it_does: >-
+    Installs one file, the FAA's NASR airport list as CSV in a zip (about
+    8 MB), under /usr/local/share/hammunition/data/faa-nasr-airports/.
+    Nothing reads it on its own: `hammunition maps infra import --from-nasr`
+    turns the sites in your map regions into a layer for QMapShack, Navit,
+    phones and the browser map, named "Airports and heliports (FAA NASR
+    <cycle>)", each site with its type, status, public or private use,
+    elevation and identifiers.
+  why_you_want_it: >-
+    Airfields, hospital heliports and seaplane bases are where people and
+    supplies arrive in a disaster, and where a medevac lands. OpenStreetMap
+    carries many of them (the `transport` layer); the FAA's list is the
+    authoritative one for the US, with every private strip and helipad and
+    its status.
+  prerequisites: >-
+    Map regions installed (`hammunition install osm-regions`): the import
+    keeps what lies in their boxes. QMapShack, Navit or the browser map to
+    see the layer.
+  known_problems: >-
+    US only. A region's box is a rectangle, so it holds sites across a
+    state line. The list is the cycle's: a site closed since is still
+    listed until the pin is regenerated, and a closed one says so in its
+    description. Positions are the FAA's reference points, not runways.
+  upstream_url: https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/
+  upstream_support: >-
+    The FAA's Aeronautical Information Services
+    (https://www.faa.gov/air_traffic/flight_info/aeronav/), where a wrong
+    entry is reported; Hammunition only converts the file.

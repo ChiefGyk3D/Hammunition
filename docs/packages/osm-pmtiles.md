@@ -11,7 +11,7 @@
 
 ## What it does
 
-Builds one PMTiles file of vector tiles per region `osm-regions` downloaded, with the archive's tilemaker and tilemaker's own OpenMapTiles profile, as the operator in a staging directory. The files land under /usr/local/share/hammunition/data/osm-pmtiles/, and `hammunition reference serve` shows them as a map in a browser at http://127.0.0.1:8480/map/, drawn with the OSM Bright style, with your position from `hammunition maps gps-tether`.
+Builds one PMTiles file of vector tiles per region `osm-regions` downloaded, with the archive's tilemaker and tilemaker's own OpenMapTiles profile, as the operator in a staging directory. The files land under /usr/local/share/hammunition/data/osm-pmtiles/, and `hammunition reference serve` shows them as a map in a browser at http://127.0.0.1:8480/map/, drawn with the OSM Bright style, with your position from `hammunition maps gps-tether`. Since D-075 the profile adds one `infra` layer at street zoom (power lines and plants, masts, pipelines, water works, hydrants: about 2.5 % more on Delaware), drawn with power coloured by voltage after Open Infrastructure Map; a region built before it is rebuilt once at the next install.
 
 ## Why you would want it
 
