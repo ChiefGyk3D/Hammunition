@@ -1174,6 +1174,60 @@ def cmd_maps_regions(args: argparse.Namespace) -> int:
 
 
 @envelope.json_capable()
+def cmd_logs(args: argparse.Namespace) -> int:
+    """List the run logs, print the newest, or say where it is.  D-077."""
+    from hammunition import runlog
+    from hammunition.interface.logs import LogsDocument, RunEntry, render_logs
+
+    directory = runlog.logs_dir(operator(args) or None)
+    runs = runlog.list_runs(directory)
+    if args.last or args.path:
+        if envelope.wanted(args) and not args.path:
+            print(
+                "error: --last prints a log as text; use the plain `logs --json` list",
+                file=sys.stderr,
+            )
+            return EXIT_UNPLANNABLE
+        if not runs:
+            print(f"No run logs yet in {directory}.", file=sys.stderr)
+            return EXIT_FAILED
+        newest = runs[0].path
+        if args.path:
+            print(newest)
+            return EXIT_OK
+        try:
+            sys.stdout.write(newest.read_text(encoding="utf-8", errors="replace"))
+        except OSError as exc:
+            print(f"error: cannot read {newest}: {exc}", file=sys.stderr)
+            return EXIT_FAILED
+        return EXIT_OK
+    doc = LogsDocument(
+        directory=str(directory),
+        total_bytes=runlog.total_size(directory),
+        max_files=runlog.MAX_FILES,
+        max_bytes=runlog.MAX_BYTES,
+        runs=tuple(
+            RunEntry(
+                path=str(r.path),
+                started=r.started,
+                command=r.command,
+                pid=r.pid,
+                size=r.size,
+                result=r.result,
+                exit_code=r.exit_code,
+            )
+            for r in runs
+        ),
+    )
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_logs(doc):
+        print(line)
+    return EXIT_OK
+
+
+@envelope.json_capable()
 def cmd_artifacts(args: argparse.Namespace) -> int:
     """Every remote data artifact the engine would fetch for the selection
     on the command line, with no station and no install.  D-070.
@@ -6174,6 +6228,20 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     log_dir = state_dir(user or None)
     log_dir_writable = writable_or_creatable(log_dir)
 
+    from hammunition import runlog
+
+    runs_dir = runlog.logs_dir(user or None)
+    recorded_runs = runlog.list_runs(runs_dir)
+    run_logs_summary: tuple[int, int, str, str] | None = None
+    if recorded_runs:
+        newest = recorded_runs[0]
+        run_logs_summary = (
+            len(recorded_runs),
+            runlog.total_size(runs_dir),
+            f"{newest.command}, {newest.started[:19].replace('T', ' ')} UTC",
+            newest.result,
+        )
+
     # This checkout's entry point: src/hammunition/cli/main.py -> the checkout
     # root is three parents above the package. Resolved, so a ~/.local/bin
     # link to it compares equal (D-059).
@@ -6246,6 +6314,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         rules_applied=rules_applied,
         attached_recognised=attached_recognised,
         log_dir_writable=log_dir_writable,
+        run_logs=run_logs_summary,
         engine_on_path=engine_on_path,
         engine_expected=engine_expected,
         engine_found=found_engine,
@@ -6517,6 +6586,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="do not serve GeoClue's socket, even where `hardware apply` has set it up",
     )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
+
+    p_logs = sub.add_parser(
+        "logs",
+        help="the log of each run that changed something, newest first (D-077)",
+    )
+    p_logs.add_argument("--last", action="store_true", help="print the newest log in full")
+    p_logs.add_argument("--path", action="store_true", help="print the newest log's path")
+    p_logs.add_argument(
+        "--user", default=None, help="whose logs to read (default: $SUDO_USER, else $USER)"
+    )
+    p_logs.set_defaults(func=cmd_logs)
 
     p_artifacts = sub.add_parser(
         "artifacts",
@@ -7042,7 +7122,56 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+#: The arguments of the run in progress, for its log's header (D-077).
+_RUN_ARGV: list[str] = []
+
+
+def _loggable(args: argparse.Namespace) -> bool:
+    """Whether this command leaves a run log (D-077): the ones that change
+    state or run long. Readouts (`status`, `list`, `doctor`, `show`) do not,
+    and `station set` is not logged because its argv *is* the station values."""
+    name = envelope.command_name(args)
+    words = name.split()
+    if not words:
+        return False
+    if words[0] in ("install", "uninstall", "update", "menus", "services", "maps"):
+        return True
+    if words[0] == "hardware":
+        return len(words) > 1 and words[1] in ("apply", "unapply", "park", "wake")
+    if words[0] == "reference":
+        return len(words) > 1 and words[1] == "serve"
+    if words[0] == "time":
+        return len(words) > 1 and words[1] == "mode"
+    return False
+
+
 def _dispatch(args: argparse.Namespace) -> int:
+    """Run the chosen command inside its run log, when it gets one."""
+    if not _loggable(args):
+        return _dispatch_command(args)
+    from importlib import metadata
+
+    from hammunition import runlog
+
+    try:
+        version = metadata.version("hammunition")
+    except metadata.PackageNotFoundError:  # pragma: no cover - installed editable
+        version = "unknown"
+    with runlog.session(
+        command=envelope.command_name(args),
+        argv=["hammunition", *_RUN_ARGV],
+        owner=operator(args) or None,
+        version=version,
+    ) as run:
+        code = _dispatch_command(args)
+        if run is not None:
+            run.exit_code = code
+    if run is not None and not envelope.wanted(args):
+        print(f"Log: {run.path}", file=sys.stderr)
+    return code
+
+
+def _dispatch_command(args: argparse.Namespace) -> int:
     """Run the chosen command, turning operator-input errors into exit codes."""
     try:
         result: int = args.func(args)
@@ -7144,6 +7273,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if reconfigure is not None:
         reconfigure(line_buffering=True)
     arguments = list(sys.argv[1:] if argv is None else argv)
+    _RUN_ARGV[:] = arguments
     if _json_requested(arguments):
         return _main_json(arguments)
     parser = build_parser()

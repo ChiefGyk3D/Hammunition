@@ -30,10 +30,13 @@ from __future__ import annotations
 import os
 import shlex
 import subprocess
+import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import IO, Protocol, runtime_checkable
+
+from hammunition import runlog
 
 __all__ = [
     "Action",
@@ -199,6 +202,69 @@ class CommandRunner(Protocol):
     def run(self, command: Command) -> CommandResult: ...
 
 
+def _run_logged(
+    argv: Sequence[str], env: Mapping[str, str], command: Command, run_log: runlog.RunLog
+) -> subprocess.CompletedProcess[str]:
+    """``subprocess.run(capture_output=True, text=True)``, with each line of the
+    child's output written to the run log as it arrives (D-077), so a command
+    that runs for an hour is readable with ``tail -f`` while it runs.
+
+    Same contract as the plain call: stdin is inherited unless the command
+    supplies input, the output is returned whole, and a child still running
+    when this is interrupted is killed.
+    """
+    began = run_log.command_start(argv)
+    try:
+        proc = subprocess.Popen(
+            argv,
+            stdin=subprocess.PIPE if command.stdin is not None else None,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=dict(env),
+            cwd=command.cwd,
+        )
+    except OSError as exc:
+        run_log.write("cmd-end", f"not run: {exc}")
+        raise
+    captured: dict[str, list[str]] = {"out": [], "err": []}
+
+    def pump(stream: str, handle: IO[str]) -> None:
+        for line in handle:
+            captured[stream].append(line)
+            run_log.command_output(stream, line)
+
+    def feed(handle: IO[str], text: str) -> None:
+        try:
+            handle.write(text)
+            handle.close()
+        except (BrokenPipeError, OSError):
+            pass  # the child exited before reading its input
+
+    assert proc.stdout is not None and proc.stderr is not None
+    threads = [
+        threading.Thread(target=pump, args=("out", proc.stdout), daemon=True),
+        threading.Thread(target=pump, args=("err", proc.stderr), daemon=True),
+    ]
+    if command.stdin is not None:
+        assert proc.stdin is not None
+        threads.append(threading.Thread(target=feed, args=(proc.stdin, command.stdin), daemon=True))
+    for thread in threads:
+        thread.start()
+    try:
+        proc.wait()
+        for thread in threads:
+            thread.join()
+    except BaseException:
+        proc.kill()
+        proc.wait()
+        raise
+    run_log.command_end(argv, proc.returncode, began)
+    return subprocess.CompletedProcess(
+        list(argv), proc.returncode, "".join(captured["out"]), "".join(captured["err"])
+    )
+
+
 class SubprocessRunner:
     """The real one. ``shell=False`` always; there is no option to change it."""
 
@@ -210,15 +276,19 @@ class SubprocessRunner:
         argv = command.argv_for(euid=self.euid, sudo=self.sudo)
         env = {**os.environ, **command.env}
         try:
-            completed = subprocess.run(
-                argv,
-                capture_output=True,
-                text=True,
-                check=False,
-                env=env,
-                cwd=command.cwd,
-                input=command.stdin,
-            )
+            run_log = runlog.current()
+            if run_log is not None:
+                completed = _run_logged(argv, env, command, run_log)
+            else:
+                completed = subprocess.run(
+                    argv,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    env=env,
+                    cwd=command.cwd,
+                    input=command.stdin,
+                )
         except FileNotFoundError as exc:
             raise BackendError(
                 f"{argv[0]!r} is not on PATH, so {command.description.lower()} cannot "

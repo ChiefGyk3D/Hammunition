@@ -264,3 +264,24 @@ is yours to choose, and the step restarts gpsd only when gpsd reports no
 device. Which of the steps a real suspend actually needs is not
 yet measured: the bench steps are on issue #177. The step's files and how
 to remove them are under [After suspend](../hardware/power-control.md#after-suspend).
+
+## <a name="run-logs"></a>Where is the log of what just happened?
+
+Every run that changes something, `--dry-run` included, writes a plain-text
+log (**D-077**). The last line the run printed was `Log: <path>`; if the
+terminal is gone, ask for it:
+
+```
+hammunition logs            # the list: when, which command, how it ended
+hammunition logs --last     # print the newest in full
+tail -f "$(hammunition logs --path)"    # follow a run that is still going
+```
+
+The log holds everything the run printed, each command it ran with that
+command's output, exit code and duration, and a last `result` line. A run
+that was killed has no `result` line and the list says `incomplete`; a run
+still going says `running`. They live in `~/.local/state/hammunition/logs/`,
+mode 0600, and the newest 30 (200 MB at most) are kept. For a run under
+`sudo`, that is the invoking user's directory, not root's. The machine's
+record of what was done, which `uninstall` uses, is the separate
+`transactions.jsonl`. Details: [Run logs](../reference/run-logs.md).

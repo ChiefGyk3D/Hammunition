@@ -9418,3 +9418,101 @@ map*; the CLI's is `docs/reference/cli.md`. Tests:
 `tests/test_graphhopper_converter.py`, `tests/test_graphhopper_catalog.py`,
 `tests/test_graphhopper_cli.py`, `tests/test_reference_router.py`, and the
 route render in `tests/test_map_render.py`.
+
+---
+
+## D-077 — Every run leaves a log: one plain-text file per run under `<state dir>/logs/`, rotated by count and size; the transaction log rotates into archives its readers walk in order
+
+**Date:** 2026-10-02. **Status:** proposed (the maintainer's request that
+every run "make a log and even if necessary log rotation", after a
+`navigation` dry run printed nothing for twenty-five minutes, #197, fixed by
+the progress lines of #199; the maintainer decides the rulings below at
+review). **Depends on:** D-004 (the transaction log is what `uninstall`
+stands on), D-031 (the artefact, not the exit status), D-043 (owner-aware
+directories: a run under sudo logs for the operator), D-059 (`--json` is one
+document on stdout, nothing else), D-062 (a long run's structure).
+
+**Problem.** The transaction log records *what was done to the machine*, as
+JSON, with no command output, and writes nothing for a dry run. An install can
+run for hours with everything it says only in a terminal that closes, scrolls
+or is a pipe the operator forgot to tee. Nothing on disk answers "what did that
+run just do, and why did it stop?". Separately, `transactions.jsonl` is
+append-only and every reader (`status`, `update`, `uninstall`, the deferral
+list, the helper-artifact replay) walks the whole file through
+`TransactionLog.read()`; on the maintainer's station it holds about 2,800
+events after a month and has no bound.
+
+**Ruling 1: a per-run log file.** Every command that changes state or runs
+long writes `<state dir>/logs/<UTC timestamp>-<command>-<pid>.log`
+(`20261002T181500Z-install-12345.log`): `install`, `uninstall`, `update`,
+`menus apply`, `hardware apply|unapply|park|wake`, every `maps ...`,
+`reference serve`, `services ...`, `time mode`; `--dry-run` runs too. The
+readouts (`status`, `list`, `show`, `doctor`, `hardware list|state`,
+`artifacts`, `logs`, `station show`) do not. `station set` does not either:
+its argv *is* the station values. The file holds the engine version, the argv
+with the value of every station flag (`--callsign`, `--grid-square`,
+`--node-alias`, `--map-regions`, `--rig-device`, `--rig-owner`, `--mirror`)
+replaced by `<redacted>`, everything the run printed on stdout and stderr
+(teed: the terminal sees the same bytes), each command the engine ran with its
+output as it arrives and its exit code and duration, and a last `result` line.
+Mode 0600, directory 0700, flushed per line so a killed run leaves a usable
+log, owner-aware under sudo. A log that cannot be written is said once on
+stderr and the run goes on: the log must not fail the run it describes. The
+last line of a run on a terminal is `Log: <path>`, on stderr; a `--json` run
+prints no such line (its stderr is diagnostics for the document) and its
+document is unchanged.
+
+**Ruling 2: rotation.** At the start of each logged run, the oldest logs are
+removed until the new one fits under 30 files and 200 MB. A run in progress is
+never removed: every run holds an exclusive `flock` on its own file for its
+life, which the kernel drops however the process dies, so there is no pid file
+to go stale. Files whose names are not ours are not counted or touched. Both
+limits are constants in `src/hammunition/runlog.py`, not station config:
+station values are the things only the operator can supply (D-035) and a
+retention policy is not one.
+
+**Ruling 3: `hammunition logs`.** Lists the logs (date, command, size, result:
+`ok`, `failed`, `refused`, `not confirmed`, `running`, or `incomplete` for a
+killed run), `--last` prints the newest, `--path` prints its path for
+`tail -f`, `--json` prints a `logs` document. `doctor` reports the number and
+size of the logs and how the newest ended.
+
+**Ruling 4: the transaction log rotates, and nothing is deleted.** When a
+`transaction_begin` is about to be appended and the live file is over 1 MiB,
+every whole transaction older than the newest 20 moves into
+`transactions-<UTC>.jsonl` beside it; `TransactionLog.read()` yields the
+archives in name order and then the live file, which is the same events in the
+same order, so every replay is unchanged by construction. A test runs `status`
+(text and `--json`) and the two `uninstall` replays before and after a rotation
+on a fixture log and compares. Appends take a shared `flock` and a rotation an
+exclusive one, so a line is never written to the file a rotation replaces; a
+rotation killed between writing the archive and shrinking the file is
+recovered by a `.rotating` intent file whose claim is checked against the
+file's own first lines, never trusted. An archive that exists and cannot be
+read raises: skipping history would report installed units as not installed.
+The transaction log is the one record `uninstall` can use, so it is never
+pruned; the archives are small and the gain is a live file that stays small
+for the appender and for `tail`, not a smaller history.
+
+**Rejected.** A redaction pass over the whole log for station values (the plan
+prints what it prints; the argv is where a flag value would otherwise land,
+and `station set` is not logged). Per-run logs as JSON (the transaction log is
+that; this is the one an operator reads). Rotating by age (a quiet station
+would lose its only record of the last install). Compressing archives (a
+reader needing history would have to decompress; they are small). A log
+directory setting in station config (a path the operator already controls
+with `XDG_STATE_HOME`).
+
+**Not measured.** A run under real sudo handing the file to the operator was
+exercised with the same `paths.py` helpers as the transaction log and an
+injected `geteuid`, not on a machine; the bench owes one `sudo hammunition
+hardware apply --dry-run` and a look at the log's owner.
+
+**Consequences.** `src/hammunition/runlog.py`; the `SubprocessRunner`'s
+streaming path in `src/hammunition/backends/base.py` (only while a run log is
+active); `TransactionLog.rotate`, `.archives` and the locked append in
+`src/hammunition/state/log.py`; `cmd_logs` and the dispatch wrapper in
+`src/hammunition/cli/main.py`; `src/hammunition/interface/logs.py`;
+`docs/reference/run-logs.md`. Tests: `tests/test_runlog.py`,
+`tests/test_transaction_log_rotation.py`; `tests/conftest.py` sends every
+test's run logs to a temporary directory.

@@ -1530,7 +1530,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Twenty-two checks across four severities:
+one command that fixes it. Twenty-three checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -1540,6 +1540,10 @@ one command that fixes it. Twenty-two checks across four severities:
 - **info** — a true fact that is not a problem (no ham hardware attached
   right now; udev rules not yet applied on a machine with no radios).
 - **ok** — checked and healthy.
+
+The **run logs** check (an *info*, shown once a run has left a log) says how
+many logs there are, their size, and how the newest ended; `hammunition logs
+--last` prints it (**D-077**).
 
 The **desktops** check is always information (**D-060**): the desktops
 the session files in `/usr/share/xsessions` and `/usr/share/wayland-sessions`
@@ -1996,6 +2000,19 @@ re-rendered, so a front end reads one shape from the engine or from the
 helper. A helper that predates the `services` verb, or is not installed, is
 refused by name: update or install hammunition-tray. Not yet measured on the
 bench: the verbs against the tray's helper, which is not released.
+
+### `hammunition logs [--last] [--path] [--user NAME] [--json]`
+
+The log each run that changed something left behind (**D-077**), newest first:
+when it started, which command, how large the file is and how the run ended
+(`ok`, `failed`, `refused`, `not confirmed`, `running` while a live process
+still holds the file, `incomplete` for a run that was killed before it could
+write its last line). Reads only. `--last` prints the newest in full;
+`--path` prints its path, for `tail -f` while the run is going. With `--json`
+(the list only) prints a `logs` document
+([json-interface.md](json-interface.md)). With no logs yet, the list says so
+and `--last` exits `1`. The files, their format and their rotation are
+`docs/reference/run-logs.md`.
 
 ### `hammunition station show` / `hammunition station set`
 
@@ -2458,6 +2475,13 @@ about. A `depends` the archive lacks is never a reason to add one.
 | 3 | A consent gate was declined, or could not be presented |
 
 ## What is recorded
+
+Two records, for two readers. Every run that changes something also writes a
+plain-text **run log** (`hammunition logs`, `docs/reference/run-logs.md`,
+**D-077**): what it printed, each command it ran with the command's output and
+exit code, how it ended. It ends with a `Log: <path>` line on stderr (not under
+`--json`). The **transaction log** below is the machine's record, which
+`uninstall` stands on.
 
 Every run appends to the transaction log — format in
 `docs/reference/transaction-log.md`. Each command is logged **before** it runs

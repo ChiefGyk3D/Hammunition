@@ -223,6 +223,7 @@ nav:
           - Command line: reference/cli.md
           - JSON interface: reference/json-interface.md
           - Manifest schema: reference/schema.md
+          - Run logs: reference/run-logs.md
           - Transaction log: reference/transaction-log.md
           - The helper's lists: reference/devctl-lists.md
           - Desktops: desktops.md
