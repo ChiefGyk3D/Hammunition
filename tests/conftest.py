@@ -457,3 +457,13 @@ def _run_logs_in_tmp(
 def real_logs_dir(monkeypatch: pytest.MonkeyPatch) -> Any:
     """The genuine :func:`hammunition.runlog.logs_dir`, un-patched."""
     return _real_logs_dir
+
+
+@pytest.fixture(autouse=True)
+def _no_retry_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The plan-time retry policy (#200) never really waits in a test, and each
+    test starts with no host given up on."""
+    from hammunition import retry
+
+    monkeypatch.setattr(retry.POLICY, "sleep", lambda _seconds: None)
+    retry.POLICY.reset()
