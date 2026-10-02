@@ -337,7 +337,7 @@ def test_dry_run_a_flaky_sheet_that_recovers_installs_it_and_says_so_on_stderr(
     assert "Fetch US Topo quad ZZ_Alpha_20240101" in captured.out
     assert "Will NOT happen" not in captured.out
     retries = [ln for ln in captured.err.splitlines() if "retrying" in ln]
-    assert len(retries) == 2 and "prd-tnm.s3.amazonaws.com" in retries[0]
+    assert len(retries) == 2 and retries[0].partition(":")[0] == "prd-tnm.s3.amazonaws.com"
     assert "attempt 2 of 3" in retries[0] and "attempt 3 of 3" in retries[1]
     assert len(probe.asked) == 3
 
