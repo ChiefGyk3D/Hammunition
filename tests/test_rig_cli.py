@@ -90,6 +90,95 @@ def test_set_a_ptt_only_rig(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     assert st.rig_ptt_line == "rts"  # type: ignore[attr-defined]
 
 
+def test_switching_from_cat_to_ptt_only_clears_saved_baud(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _run(
+        monkeypatch,
+        tmp_path,
+        "--rig",
+        "yaesu-ft-991a",
+        "--rig-device",
+        _BY_ID,
+        "--rig-baud",
+        "38400",
+    )
+    rc = _run(
+        monkeypatch,
+        tmp_path,
+        "--rig",
+        "btech-uv-50pro",
+        "--rig-ptt-line",
+        "rts",
+    )
+    assert rc == 0
+    st = _station(tmp_path)
+    assert st.rig == "btech-uv-50pro"  # type: ignore[attr-defined]
+    assert st.rig_baud is None  # type: ignore[attr-defined]
+    assert st.rig_ptt_line == "rts"  # type: ignore[attr-defined]
+    assert st.rig_device == _BY_ID  # type: ignore[attr-defined]
+
+
+def test_switching_from_ptt_only_to_cat_clears_saved_ptt_line(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _run(
+        monkeypatch,
+        tmp_path,
+        "--rig",
+        "btech-uv-50pro",
+        "--rig-device",
+        _BY_ID,
+        "--rig-ptt-line",
+        "rts",
+    )
+    rc = _run(
+        monkeypatch,
+        tmp_path,
+        "--rig",
+        "yaesu-ft-991a",
+        "--rig-baud",
+        "9600",
+    )
+    assert rc == 0
+    st = _station(tmp_path)
+    assert st.rig == "yaesu-ft-991a"  # type: ignore[attr-defined]
+    assert st.rig_baud == 9600  # type: ignore[attr-defined]
+    assert st.rig_ptt_line is None  # type: ignore[attr-defined]
+    assert st.rig_device == _BY_ID  # type: ignore[attr-defined]
+
+
+def test_setting_baud_on_same_rig_keeps_other_saved_values(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _run(
+        monkeypatch,
+        tmp_path,
+        "--rig",
+        "yaesu-ft-991a",
+        "--rig-device",
+        _BY_ID,
+        "--rig-baud",
+        "38400",
+        "--rig-owner",
+        "flrig",
+    )
+    rc = _run(
+        monkeypatch,
+        tmp_path,
+        "--rig",
+        "yaesu-ft-991a",
+        "--rig-baud",
+        "19200",
+    )
+    assert rc == 0
+    st = _station(tmp_path)
+    assert st.rig == "yaesu-ft-991a"  # type: ignore[attr-defined]
+    assert st.rig_baud == 19200  # type: ignore[attr-defined]
+    assert st.rig_device == _BY_ID  # type: ignore[attr-defined]
+    assert st.rig_owner == "flrig"  # type: ignore[attr-defined]
+
+
 def test_ptt_only_requires_a_line(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     rc = _run(monkeypatch, tmp_path, "--rig", "btech-uv-50pro", "--rig-device", _BY_ID)
     assert rc != 0
