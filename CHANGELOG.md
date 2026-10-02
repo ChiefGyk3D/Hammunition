@@ -42,6 +42,24 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   documented gap (`pci_runtime` stays refused; the radio switch is the
   route). No park has been run on any of them, so none is
   maintainer-verified. Catalog is now 31 devices, 9 classes.
+- **The device helper moves to hammunition-tray: the engine exports its lists
+  and gains `hammunition services`** (**D-056**, amended 2026-10-02). `hardware
+  apply` now writes `/etc/hammunition/devctl-devices.yaml` (every catalogued
+  device with a `power_control` block, with what `state` needs to match it on
+  the bus) and `/etc/hammunition/devctl-services.yaml` (`gpsd`, `time` by
+  whichever of ntpsec or chrony the machine has, `gps-resume`): root-owned,
+  disclosed whole in the plan, logged as `devctl_export`, read back, and
+  removed by `unapply` only when they carry Hammunition's header. Where the
+  installed helper answers `--version` it is the tray's, and `apply` writes
+  neither its wrapper nor an existing polkit action while `unapply` leaves
+  both. `hammunition services [--json]` (document kind `services`) lists the
+  helper's services and `services start|stop|enable|disable NAME` changes one,
+  by asking the installed helper, through `pkexec` for a system service and
+  never through `systemctl` from the engine. `hammunition-tray` and
+  `hammunition-tray-qt` write neither (a test holds the absence; the tray's own
+  release installs them, and the re-pin adds its `.deb`), and the engine's own
+  polkit action now carries the tray's wording. Shapes: `docs/reference/devctl-lists.md`. Not measured: the
+  tray's helper reading the lists, and `apply` and `services` on a machine.
 - **Australia's repeaters from the regulator** (D-074, amended
   2026-10-01). `acma-register` installs the ACMA's Register of
   Radiocommunications Licences, one 67.5 MB zip rebuilt daily, through a

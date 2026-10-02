@@ -4454,6 +4454,88 @@ maintainer's bring-up notes, not re-read on 2026-10-01 because the card is out
 of the machine. No `udev` block is carried for any of them (D-028, D-029): an
 identifier naming a chip or a module never names a `/dev` node, and
 ModemManager, BlueZ and the kernel already name what they own.
+### Amendment (2026-10-02): the helper moves to hammunition-tray; the engine exports two lists and a hand-over
+
+**Decided, by the maintainer:** hammunition-tray is the device project, and
+everything device-shaped lives there; components are split into their own
+repositories, and the engine is the installer. The privileged helper
+(`hammunition-devctl`, with its `power`, `polkit` and `linger` modules) is
+therefore moving out of this repository into hammunition-tray, which gains
+verbs this decision never had: `services` (start, stop, enable and disable by
+name) and `radio`. **This change is the engine's half.** It does not move any
+code and does not release anything.
+
+1. **The helper reads two data files, not the engine's catalog.** `hardware
+   apply` writes `/etc/hammunition/devctl-devices.yaml` (every class or
+   device with `power_control`: name, summary, method, quiet verbs, each
+   confirmed identifier as quoted `vendor`/`product` strings plus
+   `product_string` for an ambiguous one, which is everything `state` needs to
+   recognise a device on the bus without the catalog; hammunition-tray's
+   contract 1, whose own reader loaded the real catalog's file without a note)
+   and
+   `/etc/hammunition/devctl-services.yaml` (`gpsd` is `gpsd.socket`, `time`
+   is `ntpsec.service` or `chrony.service` by the daemon the machine has,
+   `gps-resume` is `hammunition-gps-resume.service`). Root-owned `0644`, the
+   header-owned shape of the GPS resume step (issue #177): disclosed whole in
+   the plan, logged as `devctl_export`, read back (D-031), removed by
+   `unapply` only when they start with the header, a foreign file refusing the
+   run. An allow-list is data the helper reads and never an argument, so a
+   name the files do not carry is refused by name and nothing from the caller
+   is ever a unit or a path. Shapes: `docs/reference/devctl-lists.md`. The
+   `time` row follows the machine: ntpsec first (the daemon D-058 disciplines),
+   chrony where only it exists (D-072), and ntpsec named anyway where neither
+   is found, said so in the plan, because a missing row would hide the switch
+   rather than report it not installed.
+2. **`hammunition services`** (document kind `services`, D-059) lists the
+   helper's services and what each is doing; `services start|stop|enable|disable
+   NAME` changes one. The engine asks the *installed helper*
+   (`hammunition-devctl services state`, unprivileged) and never systemd; it
+   passes a name, never a unit; a system service goes through `pkexec` and
+   the one polkit action exactly as `hardware park` does, a user service
+   runs as the operator; the effect is read back from the helper (D-031). The
+   four verbs change the machine and have no JSON form.
+3. **The hand-over.** Where the helper installed at
+   `/usr/local/libexec/hammunition-devctl` answers `--version` with contract 1's
+   one line (`hammunition-devctl contract N`, N at least 1), it is the tray's: `hardware apply` writes neither its wrapper nor an existing polkit
+   action, skips the interpreter-writability gate (the engine's interpreter is
+   not what that helper runs), and says so; `hardware unapply` leaves it and
+   the action alone whatever an older log records. The probe is one argv,
+   no shell, a fixed environment and its own process group, and never as root
+   (as the invoking operator under sudo, as `nobody` otherwise), because
+   planning must not run a user-owned tree as root before the gate that
+   judges it has run. The engine's own copies of `devctl`, `power`, `polkit`
+   and `linger` stay until the next release; where nothing answers `--version`
+   the engine's helper is still written, so nothing regresses today.
+4. **The tray units write neither the wrapper nor the action, and must not.** The
+   first draft of this change put both in `hammunition-tray` and
+   `hammunition-tray-qt` as `config_files`, and the review found it live against a
+   pin (v0.4.0) that ships no helper: it would have written a wrapper over the
+   working one, which exits 2, and the two writers would have traded the path.
+   The tray repository then settled the question by its own design: its wrapper
+   bakes in an interpreter (the engine's venv, so `time` verbs can import the
+   engine), which no catalog file can name; and its `hammunition-devctl` `.deb`
+   owns the polkit file, so a catalog write over it is the clash this decision's
+   hand-over exists to avoid. So the units declare no `config_files` for either
+   (`tests/test_tray_unit_files.py` holds the absence, and the manifests say
+   why), and at the re-pin to the tray release that ships the helper each gains the
+   `hammunition-devctl` `.deb` as a hash-pinned install step, disclosed in the plan.
+   The engine's own `policy_xml()` now carries the tray's policy text byte for
+   byte, so the two never read as drift.
+5. **The probe's own safety.** The `--version` probe also clears the child's
+   supplementary groups (`extra_groups=[]`), so "not as root" is true of the
+   gid list and not only of the uid and gid; it is a deliberately weak identity
+   test (any root-installed executable there that answers passes), which only
+   decides whether the engine stops writing its own copy and authenticates
+   nothing.
+
+**Not measured:** the tray's helper reading these files as installed (it is not
+released; its reader, run by hand against the exporter's output, took them
+without a note); `hardware apply` and the `services` verbs on a real machine;
+that the wrapper the tray's `.deb` writes answers `--version` here (the probe is
+tested against scripts that print contract 1's line, not against the tray's
+wrapper); and that its `time` verbs reach the engine under a `.deb`'s
+`/usr/bin/python3` wrapper, which cannot import a venv (the tray's `install.sh
+--interpreter` is the route that can).
 
 **See also:** `docs/hardware/power-control.md` for the operator-facing page
 — what parking changes, how to inspect it, and how to reverse it.

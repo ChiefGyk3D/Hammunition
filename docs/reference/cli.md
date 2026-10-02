@@ -1559,6 +1559,15 @@ carry the `linger on|off` verb behind `station set --unattended` (**D-073
 argument) and records whether Hammunition turned linger on, so only linger
 that is ours is ever turned off.
 
+**The helper is moving to hammunition-tray (D-056, amended 2026-10-02).**
+Where the helper already installed at that path answers `--version` with
+contract 1's line (`hammunition-devctl contract N`), it is the tray's: `apply` then writes neither its wrapper nor an existing polkit action
+(it still writes the action where none exists), says so in the plan, and
+leaves the interpreter check out, because the engine's interpreter is not what
+that helper runs. The engine's own copy is still written where nothing
+answers; it is removed in a later release. What the tray's helper reads
+instead of the engine's catalog is the pair of lists below.
+
 - **All the rules, not only attached devices' —** a udev rule is declarative
   and harmless for a device that is not present, so applying the whole set
   means a supported device works the moment you plug it in, not only if it
@@ -1647,6 +1656,19 @@ that is ours is ever turned off.
   back afterwards. A file at either path without Hammunition's header refuses
   the plan (exit `2`). `--no-gps-resume` leaves the step out; `--no-gps-time`
   does not. See `docs/hardware/power-control.md`, "After suspend".
+- **Exports the helper's two lists (D-056, amended 2026-10-02):**
+  `/etc/hammunition/devctl-devices.yaml` (every catalogued class or device
+  that carries `power_control`: its name, summary, method, quiet verbs and
+  each confirmed identifier as quoted `vendor`/`product` strings, plus
+  `product_string` for an ambiguous one, which is all `state` needs to recognise
+  it on the bus without the catalog; hammunition-tray's contract 1) and `/etc/hammunition/devctl-services.yaml`
+  (`gpsd` is `gpsd.socket`, `time` is `ntpsec.service` or `chrony.service`
+  by whichever daemon the machine has, `gps-resume` is
+  `hammunition-gps-resume.service`). Both are root-owned `0644`, printed whole
+  in the plan, logged (`devctl_export`) and read back afterwards, and a file at
+  either path without Hammunition's header refuses the run (exit `2`). Shapes:
+  `docs/reference/devctl-lists.md`. A user-scope service's row is written by
+  the install of the unit that runs it, not here.
 
 ### `hammunition hardware unapply [--dry-run] [--yes] [--user NAME]`
 
@@ -1699,6 +1721,16 @@ taken back too (below); nothing else is touched.
   `/usr/local/libexec/hammunition-gps-resume` are removed, each only when it
   starts with the header Hammunition writes, and systemd is reloaded. The
   files and the four `.wants` links are re-checked for absence afterwards.
+- **Takes the helper's two lists back (D-056, amended 2026-10-02)**, by
+  content: each of `/etc/hammunition/devctl-devices.yaml` and
+  `/etc/hammunition/devctl-services.yaml` only when it starts with the header
+  Hammunition writes. `/etc/hammunition` stays: `time.yaml` lives there.
+- **Leaves a helper that is now the tray's alone.** Where the installed helper
+  answers `--version`, the log's older record of the engine's own copy is not
+  acted on: the helper and its polkit action belong to hammunition-tray, and
+  removing them is its own uninstall's job (not yet measured). A polkit action
+  this engine wrote because none existed stays until removed by hand, and the
+  run says which logged paths it left.
 
 Exit codes: `0` for a removal that verified absent, nothing recorded to
 remove, every recorded artefact already gone, a `--dry-run`, or declining the
@@ -1793,6 +1825,39 @@ exit 2 when ntpsec is not installed, when the helper is not, or when `ntp.conf`
 no longer has the line an edit anchors to. If ntpsec will not restart on the new
 files, the helper puts the old ones back and starts ntpsec on them. Exit 3 when
 the authentication prompt is dismissed.
+
+### `hammunition services [start|stop|enable|disable NAME] [--dry-run] [--json]`
+
+The services the privileged helper may control, and what each is doing, from
+the helper's own `services state` document (**D-056**, amended 2026-10-02): the
+GPS daemon's socket (`gpsd`), the clock (`time`, ntpsec or chrony), the GPS
+resume step (`gps-resume`) and any user service a catalog unit installed
+(`gps-tether`, `rig`). A service whose unit is not installed is listed as
+`not installed`, never left out. Reads only and asks for no password: it runs
+the installed helper unprivileged, one argv. **The engine never runs
+`systemctl` itself**, and never passes a unit: it passes a name from that list,
+and the helper looks the unit up in `/etc/hammunition/devctl-services.yaml`
+(system scope) or `~/.config/hammunition/devctl-services.yaml` (user scope).
+
+`start NAME`, `stop NAME`, `enable NAME` and `disable NAME` change one. A
+system service goes through `pkexec` and the one polkit action, as `hardware
+park` does; a user service runs as you and never asks for a password. The
+command prints the call before it runs (`--dry-run` prints and stops), is a
+no-op when the service is already where you asked, refuses a name the helper
+does not list and a unit that is not installed (exit `2`, before any prompt),
+and reads the result back from the helper afterwards (**D-031**): a start that
+ends `failed`, a stop that leaves it running, or an enable that does not read
+`enabled` is reported unverified (exit `1`). A start that ends `inactive`
+is only a note, because a one-shot unit runs and exits. Exit `3`: the
+authentication prompt was dismissed.
+
+With `--json` (on the list only: the four verbs change the machine and have no
+JSON form, **D-059**), prints a `services` document
+([json-interface.md](json-interface.md)): the helper's document, checked and
+re-rendered, so a front end reads one shape from the engine or from the
+helper. A helper that predates the `services` verb, or is not installed, is
+refused by name: update or install hammunition-tray. Not yet measured on the
+bench: the verbs against the tray's helper, which is not released.
 
 ### `hammunition station show` / `hammunition station set`
 

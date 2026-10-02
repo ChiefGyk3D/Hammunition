@@ -197,8 +197,8 @@ interpreter's own venv, so the hijack import fails instead of succeeding. The
   <vendor>Hammunition</vendor>
   <vendor_url>https://github.com/ChiefGyk3D/Hammunition</vendor_url>
   <action id="com.chiefgyk3d.hammunition.devctl">
-    <description>Park or wake a radio device, or set the clock's time source</description>
-    <message>Authentication is required to change a radio device's power state or the clock's time source</message>
+    <description>Park or wake a radio device, set the clock's time source, control a system service Hammunition manages, or keep your services running after you log out</description>
+    <message>Authentication is required to change a radio device's power state, the clock's time source, a system service Hammunition manages, or whether your services keep running after you log out</message>
     <icon_name>preferences-system-power</icon_name>
     <defaults>
       <allow_any>auth_admin</allow_any>
@@ -211,8 +211,10 @@ interpreter's own venv, so the hijack import fails instead of succeeding. The
 </policyconfig>
 ```
 
-The same action authorises `hammunition-devctl time mode` (D-058); the policy
-file therefore changes, and the next `hammunition hardware apply` reinstalls it.
+The same action authorises `hammunition-devctl time mode` (D-058), the `linger`
+verb and, since the helper moved to hammunition-tray, `services` changes to a
+system service; the wording above is hammunition-tray's, byte for byte, and the
+next `hammunition hardware apply` reinstalls it where no tray helper answers.
 
 Parking a GPS receiver also turns GPS time off, whatever the time mode: ntpd
 stops hearing the receiver and follows the network, or holds over, until it
@@ -382,6 +384,28 @@ that is not exactly a `# kept: NAME` comment followed by the fixed rule shape
 and the file, rather than discard whatever put that line there. Move the
 foreign line to a file of its own and try again.
 
+## The helper is moving to hammunition-tray (D-056, amended 2026-10-02)
+
+The helper's code is leaving this engine for
+[`hammunition-tray`](https://github.com/ChiefGyk3D/hammunition-tray), which
+owns everything device-shaped. Two things follow, both already in this
+engine:
+
+- **Two more root files.** The helper no longer imports the engine's catalog:
+  `hardware apply` writes `/etc/hammunition/devctl-devices.yaml` (the devices
+  with a `power_control` block) and `/etc/hammunition/devctl-services.yaml`
+  (`gpsd`, `time`, `gps-resume`), root-owned `0644`, disclosed whole in the
+  plan, read back afterwards and removed by `unapply` by header. Their shapes,
+  and why they exist, are in [the helper's lists](../reference/devctl-lists.md).
+  Inspect them with `cat`, and what the helper makes of them with
+  `hammunition services` and `hammunition hardware state`.
+- **A hand-over.** Where the helper installed at
+  `/usr/local/libexec/hammunition-devctl` answers `--version`, it is the
+  tray's, and `hardware apply` writes neither its wrapper nor an existing
+  polkit action, and `hardware unapply` leaves both. Where nothing answers
+  (today, since the tray's helper is not yet released), the engine's own copy,
+  described above, is still written. It is removed in a later release.
+
 ## How to inspect it afterwards
 
 - **`cat /sys/bus/usb/devices/<address>/authorized`** — the ground truth for
@@ -424,7 +448,8 @@ foreign line to a file of its own and try again.
   hardware apply` reinstalls the helper. It does not wake a device that is
   currently parked in sysfs right now — do that with `wake` or a reboot
   first if you want a clean state immediately. It also removes the GPS
-  receiver's resume step ("After suspend" below).
+  receiver's resume step ("After suspend" below), and the helper's two lists
+  (above). A helper that has become hammunition-tray's is left alone, with its polkit action, and the run names the logged paths it left.
 
 ## Removing the authentication prompt for the active session (optional, never installed by us)
 
