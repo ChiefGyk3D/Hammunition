@@ -92,7 +92,16 @@ def power_control_lines(control: PowerControl) -> list[str]:
     way.
     """
     lines = ["## Power control", ""]
-    lines.append(f"This device can be parked and woken. Method: `{control.method}`.")
+    if control.method == "pci_runtime":
+        # D-056: schema-valid, refused at plan time. The page says so rather
+        # than promising a park nothing can perform.
+        lines.append(
+            "This entry declares `pci_runtime`, which the helper **refuses**: "
+            "it cannot be parked or woken today. The note below says why and "
+            "what to use instead."
+        )
+    else:
+        lines.append(f"This device can be parked and woken. Method: `{control.method}`.")
     if control.quiet:
         hushed = ", ".join(f"`{q}`" for q in control.quiet)
         lines.append(f"Quieted before parking and restored on wake: {hushed}.")

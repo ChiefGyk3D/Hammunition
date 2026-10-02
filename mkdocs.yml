@@ -200,6 +200,14 @@ nav:
           - Orbic RC400L (Rayhunter): hardware/orbic-rc400l.md
           - Badgelife boards: hardware/badgelife-class.md
       - Programmers: hardware/programmer-class.md
+      - Laptop radios and camera (parkable):
+          - Cellular modems: hardware/wwan-modem-class.md
+          - Dell DW5821e: hardware/dell-dw5821e.md
+          - Dell DW5930e: hardware/dell-dw5930e.md
+          - Bluetooth controllers: hardware/bluetooth-controller-class.md
+          - Intel AX210 Bluetooth: hardware/intel-ax210-bluetooth.md
+          - Cameras: hardware/camera-class.md
+          - Sunplus Integrated_Webcam_FHD: hardware/sunplus-integrated-webcam-fhd.md
       - LibreVNA (vector network analyser): hardware/librevna.md
   - Troubleshooting:
       - troubleshooting/index.md

@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: sunplus-integrated-webcam-fhd
+summary: Sunplus Integrated_Webcam_FHD — the field laptop's built-in FHD webcam, a UVC camera on USB
+vendor: Sunplus Innovation Technology
+device_class: camera
+status: untested
+
+# Named from what udevadm reports (ID_USB_MODEL Integrated_Webcam_FHD, vendor
+# SunplusIT Inc), not from the laptop's marketing name. Measured read-only on
+# the field laptop on 2026-10-01. Parking it has not been run, so there is no
+# maintainer_verified.
+usb_ids:
+  - vendor: "1bcf"
+    product: "2a03"
+    description: Sunplus Innovation Integrated_Webcam_FHD
+    evidence: >-
+      `lsusb -d 1bcf:2a03` on the field laptop reads "Sunplus Innovation
+      Technology Inc. Integrated_Webcam_FHD"; `udevadm info` on
+      /sys/bus/usb/devices/3-6 reports ID_USB_MODEL Integrated_Webcam_FHD,
+      ID_USB_MODEL_ID 2a03, revision 1122, TYPE 239/2/1, and four interfaces of
+      class 0e (video control and streaming, two pairs) bound to uvcvideo.
+      sysfs: authorized 1, power/control auto (runtime-suspended when idle),
+      removable "fixed".
+    confirmed: true
+    reports_serial: true  # the descriptor carries one; presence checked, value not recorded
+    product_string: Integrated_Webcam_FHD
+
+documentation:
+  what_it_is: >-
+    The laptop's built-in webcam, a Sunplus Innovation module wired to the
+    machine's internal USB bus and driven by uvcvideo as /dev/videoN.
+  what_you_can_do_with_it: >-
+    Park it so no program can open the camera, and wake it for a video call.
+    See the `camera` class for what a park does and does not promise.
+  setup_steps: >-
+    Nothing to install. `hammunition hardware park camera` and
+    `hammunition hardware wake camera`. Parking has not been run on this camera.
+  known_problems: >-
+    Parking is the kernel's view, not a hardware privacy switch. A program
+    holding the camera open loses it on park as it would on an unplug.

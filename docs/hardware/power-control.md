@@ -71,8 +71,11 @@ Two things the catalog can schema-validate but that are **refused at runtime**
 until hardware proves them:
 
 - **`pci_runtime`** — the power-control method for an MHI/PCIe card such as a
-  WWAN modem, as opposed to `usb_deauthorize`'s USB path. No manifest in the
-  catalog uses it yet; when a card that needs it is bench-verified, it ships.
+  WWAN modem, as opposed to `usb_deauthorize`'s USB path. One manifest uses
+  it, [`dell-dw5930e`](dell-dw5930e.md), so the gap, its reason and its route
+  (the radio switch) are written down; the hardware report reads the USB bus
+  only, so that entry is never offered for parking. When a card that needs it
+  is bench-verified, it ships.
 - **`networkmanager_autoconnect`** — a "quiet verb" meant to stop
   NetworkManager racing to reconnect a WWAN modem's interface the instant it
   reappears on wake. It ships refused because the honest implementation binds
@@ -101,13 +104,33 @@ identifier is not a thing this project wants anyone to discover by accident.
 The manifest author has to state, per device, that parking is safe and what an
 operator should expect while it is parked.
 
-Today that is one class: [`gps-receiver`](gps-receiver-class.md). Its
-`power_control.note` is the model for how an unmeasured expectation is
-written into a manifest — it says plainly that gpsd's own hot-unplug handling
-means nothing further needs quieting, and that **nobody has run a park/wake
-cycle against a receiver on the field laptop yet**, so what the operator
-should expect is stated as an expectation, not a measurement, until
-`docs/reference/bench-verification-5430.md` records one.
+Four classes are parkable, all by `usb_deauthorize`:
+[`gps-receiver`](gps-receiver-class.md) (the one measured on the bench),
+and, added with the 2026-10-02 amendment to D-056 and **not yet run on any
+device**, [`wwan-modem`](wwan-modem-class.md),
+[`bluetooth-controller`](bluetooth-controller-class.md) and
+[`camera`](camera-class.md). The field laptop's own entries for them are
+[`dell-dw5821e`](dell-dw5821e.md),
+[`intel-ax210-bluetooth`](intel-ax210-bluetooth.md) and
+[`sunplus-integrated-webcam-fhd`](sunplus-integrated-webcam-fhd.md), their
+identifiers read-only from `lsusb` and `udevadm` and none of them marked
+maintainer-verified. The DW5930e, a PCIe/MHI card, is carried as the
+documented gap: [`dell-dw5930e`](dell-dw5930e.md).
+
+**What a park of any of the three new classes is, and is not.** A parked USB
+device is *unconfigured, not unpowered at the port*: the kernel drops its
+interfaces and the port may suspend, and the supply is not cut. For the
+radios there is a lighter switch that detaches nothing and needs no root in the
+active session: `nmcli radio wwan off` and `bluetoothctl power off`, which
+the helper's planned `radio off wwan` and `radio off bluetooth` verbs and the
+tray's Radios toggles are to wrap (not yet released). A camera has no such switch, and a park of it is
+the kernel's view and not a hardware privacy guarantee.
+
+The `gps-receiver` `power_control.note` is the model for how an unmeasured
+expectation is written into a manifest — it says plainly that gpsd's own
+hot-unplug handling means nothing further needs quieting. Every claim about
+what the new classes look like while parked is an expectation, not a
+measurement, until `docs/reference/bench-verification-5430.md` records a run.
 
 A device is only ever offered for parking while it is actually attached.
 `hammunition hardware state`, the CLI verbs, and the generated menu entries
