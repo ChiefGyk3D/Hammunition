@@ -45,6 +45,7 @@ from ..comaps import (
 from ..fetch import Fetcher, MirrorPath, fetch_disclosure, record_fetch
 from ..manifest.schema import MwmRegionsInstall, PackageManifest
 from ..progress import run_checks
+from ..retry import OnOutage, PublisherUnavailable, hint_for
 from .base import Action, Command, CommandRunner
 from .data import human_size
 from .regions import data_root, device_at, free_bytes_at
@@ -120,6 +121,10 @@ class ComapsMapsBackend:
     files: Sequence[MapFile]
     runner: CommandRunner | None = None
     """Escalates the copy into a root-owned prefix when the engine is not root."""
+    keep_unlisted: bool = False
+    """Remove nothing this run: a book or map was deferred because its publisher
+    is not answering (#200), and the installed file it would have replaced
+    must not be removed with nothing arriving in its place."""
     method = "mwm-regions"
 
     def data_dir(self, manifest: PackageManifest) -> Path:
@@ -179,7 +184,7 @@ class ComapsMapsBackend:
                 )
             )
         wanted = {map_dest(out, f) for f in self.files}
-        if out.is_dir():
+        if out.is_dir() and not self.keep_unlisted:
             for path in sorted(out.glob(f"*/*{MWM}")):
                 if path in wanted or not path.is_file() or path.is_symlink():
                     continue
@@ -252,6 +257,7 @@ def resolve_station_maps(
     *,
     installed: Path,
     head: Callable[[str], tuple[int, int]],
+    on_outage: OnOutage | None = None,
 ) -> tuple[list[MapFile], list[str]]:
     """The station's regions as pinned maps, checked before the plan prints;
     and a note naming each region the table cannot place.
@@ -262,6 +268,10 @@ def resolve_station_maps(
     dropped refuses the plan here, naming the regeneration, rather than
     failing a fetch after apt has run; so does a map that cannot be reached.
     Every such map is named together.
+
+    A publisher that did not answer after the retries (#200) goes to
+    *on_outage* and that map is left out of the returned files, so the rest
+    install; without it, it is refused with the others.
     """
     pins = load_pins(catalog_root)
     files, unmapped = resolve_regions(regions, pins)
@@ -272,11 +282,19 @@ def resolve_station_maps(
             "this run; CoMaps itself shows only its world overview"
         )
     problems: list[str] = []
+    unavailable: set[str] = set()
     todo = [f for f in files if not map_current(map_dest(installed, f), f)]
     outcomes = run_checks(todo, lambda f: head(f.url), label="CoMaps maps against the CoMaps CDN")
     for f, outcome in zip(todo, outcomes, strict=True):
         try:
             status, size = outcome.get()
+        except PublisherUnavailable as exc:
+            if on_outage is None:
+                problems.append(f"  {f.id}: {exc}")
+            else:
+                on_outage(f.id, exc)
+                unavailable.add(f.id)
+            continue
         except ComapsError as exc:
             problems.append(f"  {f.id}: {exc}")
             continue
@@ -295,6 +313,6 @@ def resolve_station_maps(
     if problems:
         raise ComapsError(
             f"{len(problems)} CoMaps map(s) cannot be fetched and are not installed "
-            f"already:\n" + "\n".join(problems)
+            f"already:\n" + "\n".join(problems) + hint_for(problems)
         )
-    return files, notes
+    return [f for f in files if f.id not in unavailable], notes
