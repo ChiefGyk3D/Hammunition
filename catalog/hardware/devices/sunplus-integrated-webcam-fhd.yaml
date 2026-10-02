@@ -25,6 +25,7 @@ usb_ids:
       sysfs: authorized 1, power/control auto (runtime-suspended when idle),
       removable "fixed".
     confirmed: true
+    reports_serial: true  # the descriptor carries one; presence checked, value not recorded
     product_string: Integrated_Webcam_FHD
 
 documentation:

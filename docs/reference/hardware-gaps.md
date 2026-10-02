@@ -84,7 +84,7 @@ The host-side identifier is confirmed, and it identifies an RP2040 rather than a
 
 ### `dell-dw5930e`
 
-Dell DW5930e — Snapdragon X55 5G modem on PCIe/MHI, a documented gap for parking with the radio switch as the way to quiet it
+Dell DW5930e — 5G modem on PCIe/MHI, a documented gap for parking with the radio switch as the way to quiet it
 
 No USB identifier exists to carry: the card is PCIe/MHI. The catalog's identifier model is USB-only, so the PCI identifier (105b:e0b1, recorded by the maintainer's bring-up notes when the card was fitted on 2026-09-21) is prose here, not a field, and was not re-read on 2026-10-01 because the card is not in the machine at the moment; the DW5821e is. Closing this needs the card back in the machine and `lspci -nn` plus a decision on a PCI identifier model, which is the maintainer's.
 

@@ -37,6 +37,7 @@ from hammunition.hardware.power import (
 )
 from hammunition.manifest.hardware import (
     DeviceClass,
+    DeviceManifest,
     HardwareDocumentation,
     PowerControl,
 )
@@ -621,6 +622,41 @@ def test_the_dw5930e_is_a_documented_gap_that_parking_refuses() -> None:
     )
     with pytest.raises(PowerError, match="pci_runtime"):
         plan_park(parked)
+
+
+def test_the_dw5930e_page_does_not_say_it_can_be_parked() -> None:
+    """The generated page for a `pci_runtime` entry must state the refusal, not
+    "This device can be parked and woken" (found in review)."""
+    page = (REPO_ROOT / "docs" / "hardware" / "dell-dw5930e.md").read_text()
+    assert "can be parked and woken" not in page
+    assert "refused" in page
+
+
+def test_one_parkable_per_attached_device_named_for_its_class() -> None:
+    """The class carries `power_control`, the device entry beside it carries
+    the same identifier and none, so an attached device is offered for parking
+    exactly once, under the class's name (`hardware park wwan-modem`). Moving
+    the block onto a device, or losing it from the class, turns this red."""
+    from hammunition.hardware.detect import AttachedDevice, match_catalog
+    from hammunition.manifest.load import load_hardware
+
+    classes, devices = load_hardware(REPO_ROOT / "catalog" / "hardware")
+    entries: dict[str, DeviceClass | DeviceManifest] = {**classes, **devices}
+    for vendor, product, product_string, want in (
+        ("413c", "81d7", "DW5821e Snapdragon X20 LTE", "wwan-modem"),
+        ("8087", "0032", None, "bluetooth-controller"),
+        ("1bcf", "2a03", "Integrated_Webcam_FHD", "camera"),
+    ):
+        attached = AttachedDevice(
+            vendor,
+            product,
+            product_string=product_string,
+            sysfs_path=f"/sys/bus/usb/devices/9-9-{vendor}",
+        )
+        matches, _ = match_catalog([attached], entries)
+        assert len(matches) == 2, f"{want}: the class and its device entry should both match"
+        found = [m.name for m in matches if entries[m.name].power_control is not None]
+        assert found == [want], found
 
 
 def test_no_new_entry_carries_a_serial_a_hostname_or_a_symlink() -> None:

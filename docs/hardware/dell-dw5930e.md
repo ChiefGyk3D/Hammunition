@@ -2,7 +2,7 @@
 
 # dell-dw5930e
 
-> Dell DW5930e — Snapdragon X55 5G modem on PCIe/MHI, a documented gap for parking with the radio switch as the way to quiet it
+> Dell DW5930e — 5G modem on PCIe/MHI, a documented gap for parking with the radio switch as the way to quiet it
 
 **Vendor:** Dell
 
@@ -12,7 +12,7 @@ Status: **untested** — catalogued from documented sources, not yet proven here
 
 ## What it is
 
-A Dell-branded Foxconn 5G modem built on the Qualcomm Snapdragon X55 (Foxconn T99W175), a PCIe card that talks to the host over MHI and is driven by mhi_pci_generic. It is the 5G card the field laptop is meant to carry; the 4G DW5821e is in its slot at the moment.
+A Dell 5G modem, a PCIe card that talks to the host over MHI and is driven by mhi_pci_generic. The maintainer's bring-up notes (not part of this repository, and not re-read on 2026-10-01: the card is out of the machine) identify it as a Snapdragon X55 module, Foxconn T99W175. It is the 5G card the field laptop is meant to carry; the 4G DW5821e is in its slot at the moment.
 
 ## What you can do with it
 
@@ -28,7 +28,7 @@ Cannot be parked: see the gap above. The antenna leads and the runtime-PM behavi
 
 ## Power control
 
-This device can be parked and woken. Method: `pci_runtime`.
+This entry declares `pci_runtime`, which the helper **refuses**: it cannot be parked or woken today. The note below says why and what to use instead.
 
 Not implemented, by design: `pci_runtime` is refused at plan time (D-056) and this card is not a USB node, so nothing here can be parked. The route is the radio switch, `nmcli radio wwan off` (the helper's `radio off wwan` verb and the tray's Radios toggle are to wrap it, planned and not yet released), which silences the radio without detaching the card and needs no root. A runtime-suspended PCIe function is not parked in a sense `state` could read back, and a card that crash-loops on D3cold (this one did, until its own udev rule) is the wrong thing to suspend by hand. Unmeasured: nothing about parking this card has been run.
 

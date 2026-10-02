@@ -21,6 +21,7 @@ usb_ids:
       on /sys/bus/usb/devices/3-6 (ID_USB_MODEL Integrated_Webcam_FHD,
       ID_USB_MODEL_ID 2a03, four interfaces of class 0e bound to uvcvideo).
     confirmed: true
+    reports_serial: true  # the descriptor carries one; presence checked, value not recorded
     product_string: Integrated_Webcam_FHD
 
 packages: []

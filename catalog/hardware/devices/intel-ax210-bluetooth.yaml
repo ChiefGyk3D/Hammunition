@@ -23,6 +23,7 @@ usb_ids:
       no manufacturer or product string. sysfs: authorized 1, power/control
       auto (runtime-suspended when idle), removable "fixed", wakeup disabled.
     confirmed: true
+    reports_serial: false  # no serial attribute on the node (checked)
 
 documentation:
   what_it_is: >-

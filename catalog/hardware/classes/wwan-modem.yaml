@@ -23,11 +23,15 @@ usb_ids:
       Read from the field laptop on 2026-10-01 with `lsusb -d 413c:81d7`
       ("Dell Computer Corp. DW5821e Snapdragon X20 LTE") and `udevadm info`
       on /sys/bus/usb/devices/4-4 (ID_USB_MODEL "DW5821e Snapdragon X20 LTE",
-      ID_USB_MODEL_ID 81d7, six interfaces, bound to cdc_mbim and option).
-      The kernel's modules.alias binds the pair to qmi_wwan and option. The
-      identifier is the card's, read live; nothing was written to the device.
+      ID_USB_MODEL_ID 81d7, seven interfaces: two bound to cdc_mbim, four to
+      option, one with no driver). The kernel's modules.alias on that machine
+      lists the pair under qmi_wwan (interfaces 00 and 01) and option; what is
+      actually bound is cdc_mbim and option. The identifier is the card's, read
+      live; nothing was written to the device.
     confirmed: true
-    node_kind: network
+    node_kind: serial
+    ports: 4
+    reports_serial: true
     product_string: DW5821e Snapdragon X20 LTE
     ambiguity:
       basis: shared_across_products
@@ -60,7 +64,7 @@ power_control:
     entry. This does not cut the card's supply. The cheaper way to silence the
     radio is NetworkManager's switch, `nmcli radio wwan off`, which the
     helper's `radio off wwan` verb and the tray's Radios toggle are to wrap
-    (planned, not yet released), which needs no
+    (planned, not yet released). It needs no
     root in the active session and leaves the device attached. Park for
     power and silence together; use the radio switch to go quiet quickly. The
     `networkmanager_autoconnect` quiet verb is deliberately not named: it
@@ -74,8 +78,8 @@ documentation:
     A cellular modem as a family: a 4G or 5G WWAN module, fitted in a laptop's
     M.2 slot or sold as a USB dongle, that gives the station a data link and,
     on some, a GNSS receiver. On the field laptop it is a Dell DW5821e that
-    presents on USB as six interfaces: an MBIM pair and four serial ports,
-    one of which is a diagnostic channel.
+    presents on USB as seven interfaces: an MBIM control and data pair, four
+    serial ports, and a vendor-specific interface with no driver bound.
   what_you_can_do_with_it: >-
     Park it when the station is not on the network, to stop the card drawing
     power and holding a radio up in the field, and wake it for the next

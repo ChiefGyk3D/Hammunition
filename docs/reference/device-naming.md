@@ -17,9 +17,9 @@ device, and the third column is the one that changed the plan.
 
 | | Devices |
 |---|---|
-| Get a `/dev/serial/by-id/` path for every confirmed identifier | **7** |
+| Get a `/dev/serial/by-id/` path for every confirmed identifier | **8** |
 | Get one for some identifiers and not others | **3** |
-| Get none at all — nothing they present is a serial interface | **14** |
+| Get none at all — nothing they present is a serial interface | **13** |
 | Not yet recorded either way | **7** |
 | **Where by-id is insufficient for at least one reason** | **27 of 31** |
 | Carry a udev symlink from this catalog | **5** |
@@ -38,9 +38,9 @@ A device can hit more than one, so these do not sum to the row above.
 
 | Reason | Devices | What it means |
 |---|---|---|
-| `no-serial-subsystem` | 15 | No `/dev/serial/` entry exists. The device is claimed by libusb, or by a storage/HID class driver, and systemd's serial rule never sees it. |
+| `no-serial-subsystem` | 14 | No `/dev/serial/` entry exists. The device is claimed by libusb, or by a storage/HID class driver, and systemd's serial rule never sees it. |
 | `no-unit-serial` | 1 | It is a serial device, but supplies no per-unit serial. by-id composes its path from manufacturer, product and serial, so two of these collide *there* exactly as they would under a naive symlink. |
-| `unlabelled-ports` | 3 | One interface presents several ports. by-id hands out a stable path for each and labels none of them; a stable path to a port you cannot identify is not an answer. |
+| `unlabelled-ports` | 4 | One interface presents several ports. by-id hands out a stable path for each and labels none of them; a stable path to a port you cannot identify is not an answer. |
 | `unrecorded` | 9 | Nobody has recorded what kind of interface this is, so the question cannot be answered yet. Counted as uncovered rather than assumed away. |
 
 ## Per device
@@ -57,7 +57,7 @@ and we should not be inventing work.
 | `c5-wardriver` | yes | access, packages, firmware mode | — |
 | `catsniffer-v3` | yes | access, packages, documented gap | — |
 | `clip-boy` | yes | access, packages, firmware mode | — |
-| `dell-dw5821e` | no | — | `no-serial-subsystem` |
+| `dell-dw5821e` | yes | — | `unlabelled-ports` |
 | `dell-dw5930e` | unknown | documented gap | `unrecorded` |
 | `flipper-zero` | partly | access, packages, firmware mode, documented gap | `no-serial-subsystem` |
 | `free-wili-2` | partly | access, interface map, packages, documented gap | `no-serial-subsystem`, `unlabelled-ports` |
@@ -99,7 +99,7 @@ that drives them.
 | `nfc-reader` | no | us — `/dev/nfc` | 0 |
 | `programmer` | no | nothing device-specific | 0 |
 | `rig` | yes | the distribution — `/dev/serial/by-id/, from systemd's own 60-serial.rules` | 2 |
-| `wwan-modem` | no | nothing device-specific | 1 |
+| `wwan-modem` | yes | nothing device-specific | 1 |
 
 ## What this changes
 

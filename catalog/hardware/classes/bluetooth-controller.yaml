@@ -22,6 +22,7 @@ usb_ids:
       btusb). The descriptor carries no manufacturer or product string, so
       none is recorded.
     confirmed: true
+    reports_serial: false  # no serial attribute on the node (checked)
 
 packages: []
 
@@ -36,7 +37,7 @@ power_control:
     to suspend. This does not cut the controller's supply. The lighter switch
     is BlueZ's own, `bluetoothctl power off`, which
     the helper's `radio off bluetooth` verb and the tray's Radios toggle are
-    to wrap (planned, not yet released), which needs no root
+    to wrap (planned, not yet released). It needs no root
     and keeps the adapter attached. Park a Bluetooth controller only when
     nothing you are using is Bluetooth: a Bluetooth mouse or keyboard goes
     with it. Parking has not been run on a controller here (unmeasured).

@@ -24,12 +24,12 @@ Nothing to install: ModemManager and NetworkManager drive it. A SIM and an APN a
 
 ## Known problems
 
-Measured read-only on 2026-10-01 only. This card is carried as a USB device and parked the way a GPS receiver is; what NetworkManager and ModemManager do when it vanishes and returns is unmeasured. The repository's own design notes (2026-09-27) record this card as FCC-locked, so it may not register on every network; that is the card's, not the catalog's.
+Measured read-only on 2026-10-01 only. This card is carried as a USB device and parked the way a GPS receiver is; what NetworkManager and ModemManager do when it vanishes and returns is unmeasured. The design notes in docs/superpowers/specs/2026-09-27-device-kept-off-design.md call this card FCC-locked, so it may not register on every network; that is the card's, not the catalog's, and it was not re-measured here.
 
 ## How it identifies itself
 
 | USB id | What | Confirmed | Node |
 |---|---|---|---|
-| `413c:81d7` | Dell DW5821e Snapdragon X20 LTE | yes | network |
+| `413c:81d7` | Dell DW5821e Snapdragon X20 LTE | yes | serial |
 
 **⚠ `413c:81d7` is not unique to this device** (shared_across_products; also used by: modemmanager and usb-modeswitch-data rules, both naming the DW5821e). On the generated list in docs/reference/usb-ambiguity.md: the sweep sees the pair in modemmanager's rules and in usb-modeswitch-data and reads two names, "Dell DW5821e" and "if 05: diag/qcdm port"; the second labels interface 05 of the same card, so nothing here is evidence of another product. The device that carries it is the one read.

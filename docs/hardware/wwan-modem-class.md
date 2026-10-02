@@ -4,7 +4,7 @@
 
 > Cellular modems (4G/5G WWAN cards) — parked from the CLI, a menu entry or the tray when the station is not using the network
 
-A cellular modem as a family: a 4G or 5G WWAN module, fitted in a laptop's M.2 slot or sold as a USB dongle, that gives the station a data link and, on some, a GNSS receiver. On the field laptop it is a Dell DW5821e that presents on USB as six interfaces: an MBIM pair and four serial ports, one of which is a diagnostic channel.
+A cellular modem as a family: a 4G or 5G WWAN module, fitted in a laptop's M.2 slot or sold as a USB dongle, that gives the station a data link and, on some, a GNSS receiver. On the field laptop it is a Dell DW5821e that presents on USB as seven interfaces: an MBIM control and data pair, four serial ports, and a vendor-specific interface with no driver bound.
 
 ## Devices in this class
 
@@ -18,6 +18,6 @@ Nothing to install: ModemManager and NetworkManager ship with the desktop and th
 
 This device can be parked and woken. Method: `usb_deauthorize`.
 
-A parked USB modem is unconfigured, not unpowered at the port: the kernel drops its interfaces and ModemManager and NetworkManager see an ordinary unplug, but the port is only allowed to suspend and the card keeps its USB entry. This does not cut the card's supply. The cheaper way to silence the radio is NetworkManager's switch, `nmcli radio wwan off`, which the helper's `radio off wwan` verb and the tray's Radios toggle are to wrap (planned, not yet released), which needs no root in the active session and leaves the device attached. Park for power and silence together; use the radio switch to go quiet quickly. The `networkmanager_autoconnect` quiet verb is deliberately not named: it ships refused (D-056) and a class that named it could never be parked. Parking has not been run on a modem here (unmeasured): that is bench work, and what NetworkManager does when the device returns on wake is the open question.
+A parked USB modem is unconfigured, not unpowered at the port: the kernel drops its interfaces and ModemManager and NetworkManager see an ordinary unplug, but the port is only allowed to suspend and the card keeps its USB entry. This does not cut the card's supply. The cheaper way to silence the radio is NetworkManager's switch, `nmcli radio wwan off`, which the helper's `radio off wwan` verb and the tray's Radios toggle are to wrap (planned, not yet released). It needs no root in the active session and leaves the device attached. Park for power and silence together; use the radio switch to go quiet quickly. The `networkmanager_autoconnect` quiet verb is deliberately not named: it ships refused (D-056) and a class that named it could never be parked. Parking has not been run on a modem here (unmeasured): that is bench work, and what NetworkManager does when the device returns on wake is the open question.
 
 See [device power control](power-control.md) for what parking does to a machine, how to inspect it and how to reverse it.

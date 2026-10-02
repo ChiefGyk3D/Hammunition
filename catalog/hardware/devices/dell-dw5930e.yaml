@@ -3,7 +3,7 @@
 
 kind: device
 name: dell-dw5930e
-summary: Dell DW5930e — Snapdragon X55 5G modem on PCIe/MHI, a documented gap for parking with the radio switch as the way to quiet it
+summary: Dell DW5930e — 5G modem on PCIe/MHI, a documented gap for parking with the radio switch as the way to quiet it
 vendor: Dell
 status: untested
 gap_closure: maintainer_hardware
@@ -55,10 +55,12 @@ power_control:
 
 documentation:
   what_it_is: >-
-    A Dell-branded Foxconn 5G modem built on the Qualcomm Snapdragon X55
-    (Foxconn T99W175), a PCIe card that talks to the host over MHI and is
-    driven by mhi_pci_generic. It is the 5G card the field laptop is meant to
-    carry; the 4G DW5821e is in its slot at the moment.
+    A Dell 5G modem, a PCIe card that talks to the host over MHI and is
+    driven by mhi_pci_generic. The maintainer's bring-up notes (not part of
+    this repository, and not re-read on 2026-10-01: the card is out of the
+    machine) identify it as a Snapdragon X55 module, Foxconn T99W175. It is
+    the 5G card the field laptop is meant to carry; the 4G DW5821e is in its
+    slot at the moment.
   what_you_can_do_with_it: >-
     Carry the station's data link and, through its diagnostic channel, host
     cellular tooling (issue #69). To quiet it, use the radio switch; parking

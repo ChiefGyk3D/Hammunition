@@ -13,7 +13,7 @@ One page per catalogued device: what it is, how it identifies itself on USB, wha
 | [catsniffer-v3](catsniffer-v3.md) | supported | ✅ | Electronic Cats CatSniffer v3 — multiprotocol sub-GHz, BLE and 802.15.4 |
 | [clip-boy](clip-boy.md) | supported | ✅ | Open-source DEF CON badge — ESP32-S3 with an LVGL touch UI |
 | [dell-dw5821e](dell-dw5821e.md) | untested | — | Dell DW5821e — Snapdragon X20 LTE modem on USB, the field laptop's current WWAN card |
-| [dell-dw5930e](dell-dw5930e.md) | untested | — | Dell DW5930e — Snapdragon X55 5G modem on PCIe/MHI, a documented gap for parking with the radio switch as the way to quiet it |
+| [dell-dw5930e](dell-dw5930e.md) | untested | — | Dell DW5930e — 5G modem on PCIe/MHI, a documented gap for parking with the radio switch as the way to quiet it |
 | [flipper-zero](flipper-zero.md) | supported | — | Flipper Zero — multi-protocol handheld for sub-GHz, NFC, RFID, infrared and iButton |
 | [free-wili-2](free-wili-2.md) | supported | ✅ | Free-WiLi 2 — multi-function hardware-hacking tool presenting six USB devices |
 | [funcube-dongle](funcube-dongle.md) | supported | — | FUNcube Dongle Pro and Pro+ — AMSAT-UK's receive-only satellite SDR |
