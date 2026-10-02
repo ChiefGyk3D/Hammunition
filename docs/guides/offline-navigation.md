@@ -640,8 +640,8 @@ want a foreground run (for another `--gpsd`, say), stop the service first with
 `systemctl --user stop hammunition-gps-tether.service`.
 
 `hammunition maps gps-tether` still works. With the tree installed it runs
-that tree's tether, in its place, and says where from; without it, it runs the
-engine's own copy and says that verb will go away in a later release. The
+that tree's tether, in its place, and says where from; without it, it refuses
+and names `hammunition install gps-tether`: the engine carries no copy. The
 *GPS position for QMapShack* entry runs that verb, so it runs the installed
 tether too.
 
@@ -940,8 +940,9 @@ a receiver streaming fixes: the tether on a spare port read gpsd through
 clients at once. In one run both received the same 32 sentences, byte
 for byte and in the same order, every checksum valid; when one left, the
 other kept receiving; Ctrl-C ended it with exit 0. The tests
-(`tests/test_gps_tether.py`, `tests/test_maps_tools.py`) cover both
-options and their refusals, the whole command against a fake gpsd reached
+were this repository's until the tether became its own project on 2026-10-02
+and are now that project's; here `tests/test_tether_callthrough.py` covers the
+call-through. They covered both options and their refusals, the whole command against a fake gpsd reached
 through `--gpsd`, an IPv6 gpsd, two clients receiving identical bytes,
 one leaving while the other keeps its gpsd watch, a stalled client
 dropped while the other keeps receiving, and stopping with every socket
