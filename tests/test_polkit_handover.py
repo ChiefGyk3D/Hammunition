@@ -20,6 +20,7 @@ import pytest
 
 from hammunition.hardware import polkit
 
+
 def _script(path: Path, body: str) -> Path:
     path.write_text("#!/bin/sh\n" + body)
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
@@ -48,7 +49,9 @@ def test_an_empty_answer_is_not_a_version(tmp_path: Path, real_probe: None, body
     assert polkit.installed_helper_version(str(_script(tmp_path / "devctl", body))) is None
 
 
-def test_a_missing_or_unrunnable_helper_is_not_a_hand_over(tmp_path: Path, real_probe: None) -> None:
+def test_a_missing_or_unrunnable_helper_is_not_a_hand_over(
+    tmp_path: Path, real_probe: None
+) -> None:
     assert polkit.installed_helper_version(str(tmp_path / "nope")) is None
     plain = tmp_path / "plain"
     plain.write_text("not executable")
@@ -77,7 +80,7 @@ def test_run_as_root_the_probe_drops_to_the_invoking_operator() -> None:
 
 
 def _artifacts(**kwargs: object) -> polkit.PolkitArtifacts:
-    return polkit.plan_polkit("/usr/bin/python3", **kwargs)  # type: ignore[arg-type]
+    return polkit.plan_polkit("/usr/bin/python3", **kwargs)
 
 
 def test_a_handed_over_helper_is_current_and_carries_no_interpreter_findings(
@@ -86,7 +89,9 @@ def test_a_handed_over_helper_is_current_and_carries_no_interpreter_findings(
     policy = tmp_path / "devctl.policy"
     policy.write_text("the tray's own policy, a different file\n")
     monkeypatch.setattr(polkit, "POLICY_PATH", str(policy))
-    monkeypatch.setattr(polkit, "installed_helper_version", lambda *a, **k: "hammunition-devctl 1.0")
+    monkeypatch.setattr(
+        polkit, "installed_helper_version", lambda *a, **k: "hammunition-devctl 1.0"
+    )
     art = _artifacts()
     assert art.handed_over == "hammunition-devctl 1.0"
     assert art.helper_current and art.policy_current and art.is_noop

@@ -39,7 +39,7 @@ def _entry(
     power: bool,
     ids: list[dict[str, Any]] | None = None,
     quiet: list[str] | None = None,
-) -> DeviceClass | DeviceManifest:
+) -> Any:
     body: dict[str, Any] = {
         "name": name,
         "summary": f"{name} summary",
@@ -90,7 +90,7 @@ def _catalog() -> tuple[dict[str, DeviceClass], dict[str, DeviceManifest]]:
         ),
         "rig": _entry(DeviceManifest, "rig", power=False),
     }
-    return classes, devices  # type: ignore[return-value]
+    return classes, devices
 
 
 def _install(commands: list[Command]) -> None:
@@ -224,7 +224,9 @@ def test_the_time_unit_follows_the_daemon_the_machine_has(
     chronyd.write_text("")
     assert de.detect_time_unit()[0] == "chrony.service"
     monkeypatch.setattr(time_state, "ntpsec_installed", lambda: True)
-    assert de.detect_time_unit()[0] == "ntpsec.service"  # ntpsec wins where both exist: D-058's path
+    assert (
+        de.detect_time_unit()[0] == "ntpsec.service"
+    )  # ntpsec wins where both exist: D-058's path
 
 
 def test_both_files_open_with_our_header_and_say_how_to_change_them(
@@ -370,7 +372,9 @@ def test_verify_removal_names_what_survived(devctl_export_files: Path, tmp_path:
 
 def test_the_shipped_catalog_exports_the_gps_receiver(devctl_export_files: Path) -> None:
     """The real catalog, not a fixture: the one class carrying power_control today."""
-    classes, devices = load_hardware(Path(__file__).resolve().parent.parent / "catalog" / "hardware")
+    classes, devices = load_hardware(
+        Path(__file__).resolve().parent.parent / "catalog" / "hardware"
+    )
     doc = yaml.safe_load(de.devices_content(classes, devices))
     gps = next(d for d in doc["devices"] if d["name"] == "gps-receiver")
     assert gps["method"] == "usb_deauthorize"
@@ -381,7 +385,9 @@ def test_the_shipped_catalog_exports_the_gps_receiver(devctl_export_files: Path)
 
 def test_no_station_value_can_reach_either_file(devctl_export_files: Path) -> None:
     """The helper never reads the station (D-056); neither does its data."""
-    classes, devices = load_hardware(Path(__file__).resolve().parent.parent / "catalog" / "hardware")
+    classes, devices = load_hardware(
+        Path(__file__).resolve().parent.parent / "catalog" / "hardware"
+    )
     text = de.devices_content(classes, devices) + de.services_content("ntpsec.service")
     for forbidden in ("callsign", "grid_square", "N0CALL", "FN31pr"):
         assert forbidden not in text

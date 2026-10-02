@@ -29,8 +29,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from hammunition.gpstime.grants import TimeGrants, plan_time_grants
-from hammunition.hardware.devctl_export import DevctlExport, plan_devctl_export
 from hammunition.hardware.detect import AttachedDevice, Match, match_catalog, read_usb_bus
+from hammunition.hardware.devctl_export import DevctlExport, plan_devctl_export
 from hammunition.hardware.gps_resume import GpsResume, plan_gps_resume
 from hammunition.hardware.polkit import PolkitArtifacts, plan_polkit
 from hammunition.hardware.udev import RULES_PATH, Omission, rules_file

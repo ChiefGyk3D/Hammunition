@@ -214,6 +214,7 @@ nav:
           - JSON interface: reference/json-interface.md
           - Manifest schema: reference/schema.md
           - Transaction log: reference/transaction-log.md
+          - The helper's lists: reference/devctl-lists.md
           - Desktops: desktops.md
       - Coverage:
           - Capability matrix: reference/capability-matrix.md

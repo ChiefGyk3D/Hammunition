@@ -43,7 +43,73 @@ install:
     note: >-
       Installs the applet system-wide under /usr/share/plasma/plasmoids and its
       icon under /usr/share/icons/hicolor. It runs nothing as root itself; it
-      calls the helper `hammunition hardware apply` installs.
+      calls the helper whose wrapper and polkit action this unit also writes
+      (see the config_files block below), and which reads the lists
+      `hammunition hardware apply` writes.
+
+# D-056, amended 2026-10-02: the privileged helper now lives in hammunition-tray,
+# and the two root files that make it reachable are written here, disclosed in
+# the plan like any other. The wrapper sits at the fixed path polkit names
+# (a polkit action annotates an absolute executable, which cannot be a
+# console script that moves between packagings) and runs the tray's own
+# /usr/bin/hammunition-devctl isolated (-I) from root's own directory; the
+# polkit action is byte for byte the one `hardware apply` writes
+# (tests/test_tray_unit_files.py holds them equal). The engine's own helper is
+# still written by `hardware apply` where nothing answers --version, and left
+# alone where something does.
+#
+# NOT YET INSTALLABLE AGAINST THE PIN BELOW. v0.4.0 ships no
+# /usr/bin/hammunition-devctl; this block waits for the hammunition-tray
+# release that does, and the re-pin that follows it (the wrapper reports a
+# missing script and exits 2 rather than failing blind, but writing it over a
+# working helper before then would leave park/wake without one). Open items,
+# not measured: whether that release's .deb also owns the policy file, which
+# would make the second entry below a dpkg-owned path to drop; and the exact
+# console-script path, which is the tray repository's contract to name.
+config_files:
+  - path: /usr/local/libexec/hammunition-devctl
+    template: |
+      #!/bin/sh
+      # Installed by the `hammunition-tray` catalog unit (D-056, amended 2026-10-02).
+      # Do not edit: the polkit action at
+      # /usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy
+      # authorises this exact path, and the unit rewrites this file.
+      # It runs hammunition-tray's helper, never the engine's. -I drops the
+      # working directory, PYTHONPATH and the user site from sys.path: the
+      # action pins a path, not an argument list, so `pkexec --keep-cwd` is not
+      # stopped by it and nothing of the caller's may be importable as root.
+      cd /
+      if [ -x /usr/bin/hammunition-devctl ]; then
+        exec /usr/bin/python3 -I /usr/bin/hammunition-devctl "$@"
+      fi
+      echo "hammunition-devctl: hammunition-tray's helper is not installed at /usr/bin/hammunition-devctl" >&2
+      exit 2
+    mode: "0755"
+    backup_existing: true
+  - path: /usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy
+    template: |
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE policyconfig PUBLIC
+       "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+       "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
+      <policyconfig>
+        <vendor>Hammunition</vendor>
+        <vendor_url>https://github.com/ChiefGyk3D/Hammunition</vendor_url>
+        <action id="com.chiefgyk3d.hammunition.devctl">
+          <description>Park or wake a radio device, set the clock's time source, or keep your services running after you log out</description>
+          <message>Authentication is required to change a radio device's power state, the clock's time source, or whether your services keep running after you log out</message>
+          <icon_name>preferences-system-power</icon_name>
+          <defaults>
+            <allow_any>auth_admin</allow_any>
+            <allow_inactive>auth_admin</allow_inactive>
+            <allow_active>auth_self_keep</allow_active>
+          </defaults>
+          <annotate key="org.freedesktop.policykit.exec.path">/usr/local/libexec/hammunition-devctl</annotate>
+          <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+        </action>
+      </policyconfig>
+    mode: "0644"
+    backup_existing: true
 
 update:
   probe:
@@ -71,9 +137,11 @@ documentation:
     park` and `wake` (D-056), so it does exactly what those do and nothing
     else.
   prerequisites: >-
-    KDE Plasma 6. `hammunition hardware apply` must have been run: it
-    installs the root helper and the polkit action the switches call. Without
-    them the applet says "Device control is not installed" instead of showing
+    KDE Plasma 6. The helper the switches call is hammunition-tray's own:
+    this unit writes its wrapper and the polkit action (above, once a tray
+    release ships the helper), and `hammunition hardware apply` writes the
+    device and service lists it reads and the udev rules. Without them the
+    applet says "Device control is not installed" instead of showing
     switches. A device only gets a switch when its catalog entry carries a
     power_control block and it is plugged in.
   known_problems: >-

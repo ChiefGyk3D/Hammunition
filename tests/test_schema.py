@@ -392,6 +392,11 @@ STATIONLESS_CONFIG = {
     # D-072: a GPS reference-clock line for chrony and a gpsd.service drop-in
     # giving gpsd `-n`. Nothing in either names the operator or the station.
     "chrony",
+    # D-056 (amended 2026-10-02): the helper's wrapper and the polkit action. One
+    # fixed path and one action id; nothing in either names the operator or
+    # the station (tests/test_tray_unit_files.py holds that too).
+    "hammunition-tray",
+    "hammunition-tray-qt",
 }
 
 

@@ -359,6 +359,28 @@ that is not exactly a `# kept: NAME` comment followed by the fixed rule shape
 and the file, rather than discard whatever put that line there. Move the
 foreign line to a file of its own and try again.
 
+## The helper is moving to hammunition-tray (D-056, amended 2026-10-02)
+
+The helper's code is leaving this engine for
+[`hammunition-tray`](https://github.com/ChiefGyk3D/hammunition-tray), which
+owns everything device-shaped. Two things follow, both already in this
+engine:
+
+- **Two more root files.** The helper no longer imports the engine's catalog:
+  `hardware apply` writes `/etc/hammunition/devctl-devices.yaml` (the devices
+  with a `power_control` block) and `/etc/hammunition/devctl-services.yaml`
+  (`gpsd`, `time`, `gps-resume`), root-owned `0644`, disclosed whole in the
+  plan, read back afterwards and removed by `unapply` by header. Their shapes,
+  and why they exist, are in [the helper's lists](../reference/devctl-lists.md).
+  Inspect them with `cat`, and what the helper makes of them with
+  `hammunition services` and `hammunition hardware state`.
+- **A hand-over.** Where the helper installed at
+  `/usr/local/libexec/hammunition-devctl` answers `--version`, it is the
+  tray's, and `hardware apply` writes neither its wrapper nor an existing
+  polkit action, and `hardware unapply` leaves both. Where nothing answers
+  (today, since the tray's helper is not yet released), the engine's own copy,
+  described above, is still written. It is removed in a later release.
+
 ## How to inspect it afterwards
 
 - **`cat /sys/bus/usb/devices/<address>/authorized`** — the ground truth for
@@ -401,7 +423,8 @@ foreign line to a file of its own and try again.
   hardware apply` reinstalls the helper. It does not wake a device that is
   currently parked in sysfs right now — do that with `wake` or a reboot
   first if you want a clean state immediately. It also removes the GPS
-  receiver's resume step ("After suspend" below).
+  receiver's resume step ("After suspend" below), and the helper's two lists
+  (above). A helper that has become hammunition-tray's is left alone.
 
 ## Removing the authentication prompt for the active session (optional, never installed by us)
 

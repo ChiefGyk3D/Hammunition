@@ -4427,6 +4427,72 @@ of Hammunition's catalog can be pointed straight at a small, single-purpose
 tray applet without being handed a 249-package ham-radio catalog to get one
 power switch.
 
+### Amendment (2026-10-02): the helper moves to hammunition-tray; the engine exports two lists and a hand-over
+
+**Decided, by the maintainer:** hammunition-tray is the device project, and
+everything device-shaped lives there; components are split into their own
+repositories, and the engine is the installer. The privileged helper
+(`hammunition-devctl`, with its `power`, `polkit` and `linger` modules) is
+therefore moving out of this repository into hammunition-tray, which gains
+verbs this decision never had: `services` (start, stop, enable and disable by
+name) and `radio`. **This change is the engine's half.** It does not move any
+code and does not release anything.
+
+1. **The helper reads two data files, not the engine's catalog.** `hardware
+   apply` writes `/etc/hammunition/devctl-devices.yaml` (every class or
+   device with `power_control`: name, summary, method, quiet verbs, each
+   confirmed identifier with whether it is ambiguous and whether its product
+   string is distinctive, which is everything `state` needs to recognise a
+   device on the bus without the catalog) and
+   `/etc/hammunition/devctl-services.yaml` (`gpsd` is `gpsd.socket`, `time`
+   is `ntpsec.service` or `chrony.service` by the daemon the machine has,
+   `gps-resume` is `hammunition-gps-resume.service`). Root-owned `0644`, the
+   header-owned shape of the GPS resume step (issue #177): disclosed whole in
+   the plan, logged as `devctl_export`, read back (D-031), removed by
+   `unapply` only when they start with the header, a foreign file refusing the
+   run. An allow-list is data the helper reads and never an argument, so a
+   name the files do not carry is refused by name and nothing from the caller
+   is ever a unit or a path. Shapes: `docs/reference/devctl-lists.md`. The
+   `time` row follows the machine: ntpsec first (the daemon D-058 disciplines),
+   chrony where only it exists (D-072), and ntpsec named anyway where neither
+   is found, said so in the plan, because a missing row would hide the switch
+   rather than report it not installed.
+2. **`hammunition services`** (document kind `services`, D-059) lists the
+   helper's services and what each is doing; `services start|stop|enable|disable
+   NAME` changes one. The engine asks the *installed helper*
+   (`hammunition-devctl services state`, unprivileged) and never systemd; it
+   passes a name, never a unit; a system service goes through `pkexec` and
+   the one polkit action exactly as `hardware park` does, a user service
+   runs as the operator; the effect is read back from the helper (D-031). The
+   four verbs change the machine and have no JSON form.
+3. **The hand-over.** Where the helper installed at
+   `/usr/local/libexec/hammunition-devctl` answers `--version`, it is the
+   tray's: `hardware apply` writes neither its wrapper nor an existing polkit
+   action, skips the interpreter-writability gate (the engine's interpreter is
+   not what that helper runs), and says so; `hardware unapply` leaves it and
+   the action alone whatever an older log records. The probe is one argv,
+   no shell, a fixed environment and its own process group, and never as root
+   (as the invoking operator under sudo, as `nobody` otherwise), because
+   planning must not run a user-owned tree as root before the gate that
+   judges it has run. The engine's own copies of `devctl`, `power`, `polkit`
+   and `linger` stay until the next release; where nothing answers `--version`
+   the engine's helper is still written, so nothing regresses today.
+4. **The tray units write the wrapper and the action.** `hammunition-tray` and
+   `hammunition-tray-qt` carry both root files as `config_files`, disclosed in
+   the plan: a wrapper at the fixed path polkit names that runs the tray's
+   `/usr/bin/hammunition-devctl` under `python3 -I` from `/`, and the polkit
+   action byte for byte as `hardware apply` writes it (a test holds them
+   equal). **Not installable against the v0.4.0 pin**, which ships no such
+   script: this waits for a tray release that does and the re-pin after it.
+
+**Not measured:** the tray's helper reading these files (it is not released);
+the keys it requires beyond the contract's names (`version` is the engine's
+addition); the console-script path and whether the tray's `.deb` will own the
+polkit file (which would make the unit's second entry a dpkg-owned path to
+drop); `hardware apply` and the `services` verbs on a real machine; the polkit
+message still names only parking, time and linger, and wants the tray's
+wording for services.
+
 **See also:** `docs/hardware/power-control.md` for the operator-facing page
 — what parking changes, how to inspect it, and how to reverse it.
 

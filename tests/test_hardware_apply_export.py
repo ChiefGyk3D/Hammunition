@@ -240,7 +240,11 @@ def test_unapply_never_removes_a_helper_that_is_now_the_trays(
     monkeypatch.setattr(polkit, "installed_helper_version", lambda *a, **k: "hammunition-devctl 1")
     _machine(tmp_path, monkeypatch, with_export=False)
     _Log.entries = [
-        {"event": "hardware_artifacts", "version": 1, "files": [{"path": str(helper), "mode": "0755"}]}
+        {
+            "event": "hardware_artifacts",
+            "version": 1,
+            "files": [{"path": str(helper), "mode": "0755"}],
+        }
     ]
     assert cli.main(["hardware", "unapply", "--yes"]) == cli.EXIT_OK
     assert helper.read_text() == "the tray's wrapper\n"

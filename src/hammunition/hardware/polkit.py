@@ -424,9 +424,6 @@ def installed_helper_version(path: str = HELPER_PATH, timeout: float = 10.0) -> 
     Anything but a zero exit with a non-empty first line is None.
     """
     identity = _probe_identity()
-    extra: dict[str, int] = {}
-    if identity is not None:
-        extra = {"user": identity[0], "group": identity[1]}
     try:
         proc = subprocess.Popen(
             [path, "--version"],
@@ -437,7 +434,8 @@ def installed_helper_version(path: str = HELPER_PATH, timeout: float = 10.0) -> 
             cwd="/",
             env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"},
             start_new_session=True,
-            **extra,
+            user=identity[0] if identity is not None else None,
+            group=identity[1] if identity is not None else None,
         )
     except (OSError, ValueError):
         return None

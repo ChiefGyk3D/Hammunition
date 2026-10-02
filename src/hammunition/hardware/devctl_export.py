@@ -101,9 +101,7 @@ def _preamble(what: str) -> str:
     )
 
 
-def devices_content(
-    classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]
-) -> str:
+def devices_content(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) -> str:
     """The devices file: every entry with ``power_control``, by name."""
     every: dict[str, DeviceClass | DeviceManifest] = {**classes, **devices}
     distinctive = _distinctive_product_strings(every)
@@ -265,9 +263,7 @@ def plan_devctl_export(
     _refuse_foreign(DEVICES_PATH, current_devices)
     _refuse_foreign(SERVICES_PATH, current_services)
     names = tuple(
-        sorted(
-            e.name for e in {**classes, **devices}.values() if e.power_control is not None
-        )
+        sorted(e.name for e in {**classes, **devices}.values() if e.power_control is not None)
     )
     return DevctlExport(
         devices=devices_text,
@@ -326,7 +322,14 @@ def install_commands(step: DevctlExport, staging_root: str) -> list[Command]:
     if not step.devices_current:
         out.append(
             Command(
-                argv=("install", "-D", "-m", "0644", f"{staging_root}/{_STAGED_DEVICES}", DEVICES_PATH),
+                argv=(
+                    "install",
+                    "-D",
+                    "-m",
+                    "0644",
+                    f"{staging_root}/{_STAGED_DEVICES}",
+                    DEVICES_PATH,
+                ),
                 description=f"Install the helper's device list to {DEVICES_PATH}",
                 requires_root=True,
             )
