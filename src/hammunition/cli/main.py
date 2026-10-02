@@ -313,6 +313,7 @@ def render_plan(
     built: frozenset[str] = frozenset(),
     maps: MapDisclosure | None = None,
     terrain: TerrainDisclosure | None = None,
+    full: bool = False,
 ) -> list[str]:
     """The complete account of what will happen. Printed for every run.
 
@@ -345,7 +346,7 @@ def render_plan(
         maps=maps,
         terrain=terrain,
     )
-    return render_plan_view(view, target=target_view(plan.target))
+    return render_plan_view(view, target=target_view(plan.target), full=full)
 
 
 # ---------------------------------------------------------------------------
@@ -2890,11 +2891,19 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
     import subprocess
 
     from hammunition import reference
+    from hammunition.aircraft_page import find_aircraft
     from hammunition.backends.source import tree_destination
     from hammunition.graphhopper import GRAPH_UNIT, PROGRAM_UNIT, RouterSpec, plan_router
     from hammunition.map_page import find_map
     from hammunition.paths import owner_aware_dir
 
+    if args.readsb_json is not None and not Path(args.readsb_json).is_absolute():
+        print(
+            f"error: --readsb-json {args.readsb_json}: give an absolute directory "
+            f"(readsb's usual one is /run/readsb).",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
     try:
         port = reference.PORT if args.port is None else reference.serve_port(args.port)
         position_port = (
@@ -2921,6 +2930,17 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
 
     # D-071; the operator's infrastructure layers as overlays, D-075.
     map_shelf = find_map(data_root(DEFAULT_PREFIX), overlays=infra.overlay_dir())
+    # tar1090 (D-071, amended 2026-10-02): its page from the installed tree,
+    # reading readsb's JSON, with the offline map behind it when there is one.
+    aircraft = None
+    try:
+        aircraft = find_aircraft(
+            data_root(DEFAULT_PREFIX),
+            map_shelf,
+            json_dir=Path(args.readsb_json) if args.readsb_json else None,
+        )
+    except ValueError as exc:
+        print(f"warning: the aircraft page is not served: {exc}", file=sys.stderr)
     if shelf.books:
         missing = [t for t in ("kiwix-serve", "kiwix-manage") if shutil.which(t) is None]
         if missing:
@@ -2986,6 +3006,7 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
             router=router,
             start_router=start_router,
             routes_note=routes_note,
+            aircraft=aircraft,
         )
     except OSError as exc:
         print(
@@ -3902,7 +3923,9 @@ def cmd_install(args: argparse.Namespace) -> int:
         return EXIT_OK
     for note in (*suggestion_notes, *region_notes):
         print(f"note: {note}")
-    for line in render_plan_view(view, target=target_view(plan.target)):
+    for line in render_plan_view(
+        view, target=target_view(plan.target), full=getattr(args, "full", False)
+    ):
         print(line)
 
     print(
@@ -6850,6 +6873,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="where the map page asks the GPS tether for your position: 127.0.0.1 port N "
         "(default 10111, the tether's own default, D-071)",
     )
+    p_ref_serve.add_argument(
+        "--readsb-json",
+        metavar="DIR",
+        default=None,
+        help="the directory readsb writes aircraft.json to, which the aircraft page (tar1090) "
+        "reads, read-only (default /run/readsb)",
+    )
     p_ref_serve.set_defaults(func=cmd_reference_serve)
 
     p_show = sub.add_parser("show", help="describe a profile, disclosure included")
@@ -6887,6 +6917,15 @@ def build_parser() -> argparse.ArgumentParser:
             "its ticket valid until the run ends, so a long unprivileged step cannot leave "
             "a later root step waiting at a prompt (the default; D-062). "
             "--no-sudo-keepalive turns it off"
+        ),
+    )
+    p_install.add_argument(
+        "--full",
+        action="store_true",
+        help=(
+            "print every step of the plan expanded; without it a run of steps that "
+            "repeat one template for many items (a sheet, a tile, a book) is shown "
+            "as the template, one example, every item and the totals (D-016)"
         ),
     )
     p_install.add_argument(

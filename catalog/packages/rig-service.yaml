@@ -135,7 +135,10 @@ documentation:
     each try to start a rigctld on 4532 and the second fails to bind — the
     station is one operator's. Changing a rig value reaches the service only
     through a reinstall of this unit, which `station set` prints when it
-    changes one.
+    changes one. Not yet run against a real radio: the service at login, the
+    UV-50PRO's keying line and start-up keying, `--unattended` across a
+    logout, and the loopback filter with real clients are the bench's
+    (D-073); docs/guides/rig-control.md says what was measured.
   upstream_url: https://hamlib.github.io/
   upstream_support: >-
     The Hamlib project's mailing list for rigctld and backend questions.

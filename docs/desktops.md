@@ -12,7 +12,7 @@ and this page says what is known about each of them on each desktop:
 
 - **the menu** that `hammunition menus apply` builds (*Hammunition* →
   eight groups → one submenu per category, D-050);
-- **the tray**, the switch that parks and wakes a GPS or a modem (D-056);
+- **the tray**, the switches that park and wake a GPS or a modem and start and stop services (D-056; [the Controls panel](guides/tray-controls.md));
 - **what `station` costs**, which matters on a low-powered machine.
 
 **The order is Parrot OS with KDE Plasma first.** That is the field laptop,
@@ -60,8 +60,9 @@ the catalog knows: cosmic.desktop)` instead of claiming there are none.
 ### A unit for one desktop
 
 A few catalog units only make sense on one desktop, and their manifest says
-which (the `desktops` field). Today there is one: `hammunition-tray`, the
-Plasma applet. Its package depends on `plasma-workspace`, which is the
+which (the `desktops` field). Today there are two: `hammunition-tray`, the
+Plasma applet, and `hammunition-tray-qt`, for Xfce, LXQt, LXDE, MATE and
+Cinnamon. The applet's package depends on `plasma-workspace`, which is the
 whole Plasma shell, so installing it on an Xfce machine would drag Plasma
 in behind it.
 
@@ -121,7 +122,7 @@ and the next `hammunition install station` defers the applet.
 | | |
 |---|---|
 | **Menu** | Measured on the field laptop, 2026-09-12. `menus apply` writes the tree to `applications-merged/` (KDE ignores the menu prefix) and runs `kbuildsycoca6` so it shows immediately (D-050). |
-| **Tray** | `hammunition-tray`, a Plasma applet. On the field laptop it was installed from its repository's own `install.sh` into `~/.local` and drew a switch for the GPS receiver (`docs/reference/bench-verification-5430.md`). The `.deb` that `station` installs was installed and removed in the tray release workflow's Parrot container. `station` plans it on a machine that has a Plasma session. |
+| **Tray** | `hammunition-tray`, a Plasma applet. On the field laptop it was installed from its repository's own `install.sh` into `~/.local` and drew a switch for the GPS receiver (`docs/reference/bench-verification-5430.md`). Since v0.5.0 `station` installs the applet and the helper from the release's source archive (its `.deb` assets were not published); that install as root, and whether Plasma lists an applet placed without a `.deb`, are unmeasured. The Controls panel (services, radios) has not been run on this panel either. `station` plans it on a machine that has a Plasma session. |
 | **Lightweight notes** | Plasma is the heaviest desktop on this page, and the one everything is tested on first. |
 
 ### Xfce (Xubuntu, Kali, Parrot's alternative)
@@ -129,7 +130,7 @@ and the next `hammunition install station` defers the applet.
 | | |
 |---|---|
 | **Menu** | The menu-spec path, into `xfce-applications-merged/`. Measured on the Kali VM for the earlier one-level tree (2026-09-02). The grouped tree is the same mechanism and **has not been re-run there**. |
-| **Tray** | `hammunition-tray-qt` (v0.3.0), installed by `station` in place of the deferred Plasma applet. Released and installed in a Parrot container by its release workflow; **not yet run on this panel**. |
+| **Tray** | `hammunition-tray-qt` (v0.5.0), installed by `station` in place of the deferred Plasma applet. An earlier release was installed in a Parrot container by its release workflow; v0.5.0 through the engine, and the panel itself, are **not yet run**. |
 | **Lightweight notes** | On a fresh machine `station` no longer pulls in Plasma here (D-060). A machine that ran `station` at v0.10.0 or earlier already has it; see above. Idle memory before and after `station` is **unmeasured**, and is on the Xubuntu 26.04 checklist. |
 
 ### LXQt (Lubuntu)
@@ -140,7 +141,7 @@ LXQt.
 | | |
 |---|---|
 | **Menu** | **Unmeasured.** Debian 13's `lxqt-menu-data` ships `/etc/xdg/menus/lxqt-applications.menu` with `<DefaultMergeDirs/>`, so the file `menus apply` writes to `lxqt-applications-merged/` is one the spec says it reads. Whether LXQt's panel menu shows it is what the Lubuntu 26.04 run will find out. |
-| **Tray** | `hammunition-tray-qt` (v0.3.0), installed by `station` in place of the deferred Plasma applet. **Not yet run on this panel.** |
+| **Tray** | `hammunition-tray-qt` (v0.5.0), installed by `station` in place of the deferred Plasma applet. **Not yet run on this panel.** |
 | **Lightweight notes** | Qt is already installed, so a Qt tray adds little. Idle memory is **unmeasured**, and is on the Lubuntu 26.04 checklist. |
 
 ### LXDE
@@ -151,7 +152,7 @@ flavour ships it.
 | | |
 |---|---|
 | **Menu** | **Unmeasured.** `lxmenu-data` ships `/etc/xdg/menus/lxde-applications.menu` with `<DefaultMergeDirs/>`. |
-| **Tray** | `hammunition-tray-qt` (v0.3.0). lxpanel's tray is the older XEmbed kind, which Qt falls back to. **Not yet run.** |
+| **Tray** | `hammunition-tray-qt` (v0.5.0). lxpanel's tray is the older XEmbed kind, which Qt falls back to. **Not yet run.** |
 | **Lightweight notes** | The lightest desktop on this page. **Unmeasured** here. |
 
 ### GNOME (Debian 13, Ubuntu)
@@ -167,7 +168,7 @@ flavour ships it.
 | | |
 |---|---|
 | **Menu** | **Unmeasured.** `mate-menus` ships `/etc/xdg/menus/mate-applications.menu` with `<DefaultMergeDirs/>`, and Parrot's `/etc/xdg/menus` carries a `mate-` root. |
-| **Tray** | `hammunition-tray-qt` (v0.3.0) lists MATE. **Not yet run.** |
+| **Tray** | `hammunition-tray-qt` (v0.5.0) lists MATE. **Not yet run.** |
 | **Lightweight notes** | **Unmeasured.** |
 
 ### Cinnamon (Linux Mint)
@@ -175,7 +176,7 @@ flavour ships it.
 | | |
 |---|---|
 | **Menu** | **Unmeasured.** `cinnamon-common` ships `/etc/xdg/menus/cinnamon-applications.menu` with `<DefaultMergeDirs/>`. |
-| **Tray** | `hammunition-tray-qt` (v0.3.0) lists Cinnamon. **Not yet run.** |
+| **Tray** | `hammunition-tray-qt` (v0.5.0) lists Cinnamon. **Not yet run.** |
 | **Lightweight notes** | **Unmeasured.** |
 
 ### COSMIC (Pop!_OS)
