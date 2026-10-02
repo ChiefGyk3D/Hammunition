@@ -120,19 +120,24 @@ update:
   strategy: reinstall
   cadence_hint: >-
     Released together with hammunition-tray: one tag, both .debs and one
-    SHA256SUMS. A release is a new digest for each; re-pin both units.
+    SHA256SUMS. A release is a new digest for each; re-pin both units. The
+    v0.5.0 release's .deb assets were not published when this was pinned, so
+    the pin is the tag's own source archive.
 
 documentation:
   what_it_does: >-
     A system-tray icon with a menu entry for each catalogued device
-    Hammunition can park -- a GPS receiver today, a WWAN modem when one is
-    catalogued. Choosing a device's entry detaches it so the kernel drops it
+    Hammunition can park that is plugged in -- a GPS receiver, a cellular
+    modem, a Bluetooth controller or a camera. Choosing a device's entry detaches it so the kernel drops it
     and its port can suspend, or brings it back. A device kept off across
     reboots reads "kept off", and one that is unplugged while kept offers
     Forget. The icon is the same penguin with a handheld radio as the Plasma
     applet's, and it goes grey while anything is parked. A Time section
     (D-058, needs Hammunition 0.18.0 or later) shows what the clock follows
-    and lets you choose one of the four GPS-time modes.
+    and lets you choose one of the four GPS-time modes. The same menu has the
+    Controls panel's Services group (the GPS daemon, the clock, the GPS
+    tether, the rig service) and Radios group (mobile broadband, Wi-Fi,
+    Bluetooth).
   why_you_want_it: >-
     The Plasma applet's switch on a lighter desktop: parking a GPS or a modem
     you are not using saves battery on a field laptop, in one click and one

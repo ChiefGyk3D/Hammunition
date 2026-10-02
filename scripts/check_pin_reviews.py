@@ -45,7 +45,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from hammunition.manifest.load import load_catalog  # noqa: E402
-from hammunition.manifest.schema import GitInstall  # noqa: E402
+from hammunition.manifest.schema import GitInstall, PackageManifest  # noqa: E402
 
 
 def verify_ref(repo: str, ref: str, commit: str | None = None) -> str | None:
@@ -71,7 +71,11 @@ def verify_ref(repo: str, ref: str, commit: str | None = None) -> str | None:
                 return done.stderr.strip().splitlines()[-1] if done.stderr.strip() else "failed"
         if commit is not None:
             head = subprocess.run(
-                ("git", "-C", work, "rev-parse", "FETCH_HEAD"),
+                # Peeled: an annotated tag fetches as its own object, and the
+                # install compares the *commit* (checkout FETCH_HEAD, then
+                # rev-parse HEAD). Comparing the tag object's id reported three
+                # correct pins as missing and would have passed a wrong one.
+                ("git", "-C", work, "rev-parse", "FETCH_HEAD^{commit}"),
                 capture_output=True,
                 text=True,
                 check=False,
@@ -81,6 +85,35 @@ def verify_ref(repo: str, ref: str, commit: str | None = None) -> str | None:
     return None
 
 
+def verify_only(catalog: dict[str, PackageManifest], names: list[str]) -> int:
+    """Verify the git refs of the named manifests, and nothing else.
+
+    A manifest with no git block has nothing to verify. A name that is not in
+    the catalog is an error, so a typo or a wrong path cannot pass; the caller
+    passes only added, modified or renamed files, never deleted ones.
+    """
+    status = 0
+    checked = 0
+    for name in names:
+        manifest = catalog.get(name)
+        if manifest is None:
+            print(f"  ERROR    {name:20} not in the catalog (a typo or a wrong path)")
+            status = 1
+            continue
+        for block in manifest.install:
+            if not isinstance(block.install, GitInstall):
+                continue
+            checked += 1
+            problem = verify_ref(block.install.repo, block.install.ref, block.install.commit)
+            if problem is None:
+                print(f"  ok       {name:20} {block.install.ref[:12]}")
+            else:
+                print(f"  MISSING  {name:20} {block.install.ref[:12]}  {problem}")
+                status = 1
+    print(f"{checked} git ref(s) checked in {len(names)} changed manifest(s)")
+    return status
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -88,7 +121,20 @@ def main() -> int:
         action="store_true",
         help="also fetch each ref from its upstream to prove it resolves (needs network)",
     )
+    parser.add_argument(
+        "--only",
+        nargs="+",
+        metavar="MANIFEST",
+        help=(
+            "with --verify-refs: check only these manifests (a name or a "
+            "catalog/packages/<name>.yaml path) and skip the calendar review. "
+            "The pull-request job passes the manifests the diff changed; the "
+            "weekly job runs everything."
+        ),
+    )
     args = parser.parse_args()
+    if args.only and not args.verify_refs:
+        parser.error("--only needs --verify-refs")
 
     today = date.today()
     catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
@@ -99,6 +145,9 @@ def main() -> int:
         for block in manifest.install
         if isinstance(block.install, GitInstall) and block.install.pin_review
     ]
+
+    if args.only:
+        return verify_only(catalog, [Path(n).stem for n in args.only])
 
     if not pins:
         print("no commit pins in the catalog")

@@ -35,6 +35,9 @@ surprised by this tool — that is the entire design.
 - A **Debian-family OS**: Parrot OS (primary), Debian 13, Ubuntu, Kali, or
   Raspberry Pi OS. The engine reads `/etc/os-release` and refuses anything
   that is not Debian-family rather than pretending to support it.
+  [What works on which desktop](../desktops.md) says what is measured on
+  KDE Plasma, Xfce, LXQt and the rest; the tray switches in particular
+  depend on it.
 - A normal user account with `sudo`. The engine drops to your user wherever it
   can and asks for `sudo` only for apt and system changes.
 - An internet connection. Source builds and pinned artifacts are fetched and

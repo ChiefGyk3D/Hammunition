@@ -11,6 +11,19 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Fix: the weekly ref check reported three correct pins as missing; changed
+  pins are now verified per pull request** (**D-024**, **D-031**; affects the
+  report on v0.19.0, not its installs). `check_pin_reviews.py --verify-refs`
+  compared the tag object's id (what `FETCH_HEAD` is after fetching an
+  *annotated* tag) with the pinned commit, so `librevna` v1.6.5, `nrsc5` v3.2.0
+  and `pihpsdr` v3.0 failed it although each pin is exactly the commit the tag
+  peels to. The install checks out `FETCH_HEAD` and compares `rev-parse HEAD`,
+  the commit, so it was never affected; the check now peels with `^{commit}`
+  and a test with an annotated tag proves it (red before, green after). It also
+  now rejects a pin that is the tag object's id. New `--only` flag (needs `--verify-refs`, skips the calendar review) and a
+  pull-request job, `changed git pins resolve upstream`, run the check for the
+  manifests a diff changed. No manifest changed.
+
 - **The plan groups repeated same-shape steps; `--dry-run --full` expands them**
   (**D-016** amendment, 2026-10-02). A unit that repeats one step per sheet,
   tile or book (`ustopo-qmapshack`, contours, SPLAT, terrain tiles, FSTopo,
@@ -78,6 +91,35 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   HydraSDR tree states two licences (per-directory LICENSE.md files, and a
   debian/copyright reading "licensed exclusively for HydraSDR products"); the
   unit's page says so and the catalog follows the LICENSE.md files (D-033).
+
+- **tar1090, the ADS-B aircraft map, as a page in `reference serve`**
+  (**D-071** amended 2026-10-02; D.10b's route). A new `tar1090` unit
+  (`listening`, depends on `readsb`, so deferred by name where readsb is) is a
+  `data` unit: GitHub's archive of upstream's commit `e784ee5` (no tags, no
+  distribution packages it: own-choice pin, D-024), sha256 pinned, `html/` and
+  the GPL-2.0-or-later licence kept. Its root `wget | bash` installer and
+  lighttpd on port 80 are not used. `hammunition reference serve` serves the
+  page at `/aircraft/` on 127.0.0.1, with `data/` read from readsb's directory
+  (`/run/readsb`, or `--readsb-json DIR`), read-only. The page cannot call
+  out: tar1090's settings for photographs, routes and overlays are switched
+  off, its online layers are replaced by the station's PMTiles map (a blank
+  background, with the reason on the page, when `osm-pmtiles` is absent), and
+  every response carries a Content-Security-Policy that names no host. The
+  page is given a reduced `receiver.json` so it reads plain `aircraft.json`
+  (readsb 3.14.1630 also writes `aircraft.binCraft.zst`, which tar1090 would
+  otherwise ask for). The aircraft database is not carried (upstream's one commit cannot be pinned).
+  Tested in headless Chromium: the aircraft appear, no request leaves
+  loopback, the same page as upstream ships it does ask other hosts, and the
+  policy alone refuses them. Not measured: a live receiver, Firefox, a real
+  region at street zoom.
+- **Docs sweep after the 2026-10-02 batch** (documentation only, no code). A
+  guide for the tray's Controls panel and `hammunition services`
+  (`docs/guides/tray-controls.md`); contradictions between pages resolved in
+  favour of the code, the bench record and `docs/DECISIONS.md` (park and wake
+  on hardware, the helper's lists, the rig's default owner, the tether as a
+  service, desktop tray versions); the README status table gains the rows
+  v0.19.0 left out; the nav and entry pages reach every guide; and
+  `docs/contributing/docs-sweep.md` is the checklist, now a release step.
 
 ## v0.19.0 — 2026-10-02 — the rig as station data, repeater sources, infrastructure layers, GraphHopper, terrain for coverage plots, the tether as its own project, device and service control for the tray
 

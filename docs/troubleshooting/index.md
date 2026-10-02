@@ -17,6 +17,12 @@ here. Where a fix is distribution-specific it says so.
 
 ## Installing
 
+- **[The dry run seems to hang, or an install sits silent](install-failures.md#slow-plan)** —
+  the plan is checking publishers over the network; on a terminal it says
+  what it is waiting on, and `HAMMUNITION_PROGRESS=1` makes it say so when
+  stderr is not one.
+- **[An install stops at a sudo password prompt for hours](../guides/offline-navigation.md#the-install-waits-at-a-sudo-password-prompt)** —
+  the ticket expired during a long conversion; the engine now keeps it alive.
 - **[A source build fails to fetch — HTTP 404](install-failures.md#dead-url)** —
   a pinned upstream URL moved. Report it; run the URL sweep.
 - **[apt refuses with "held broken packages" on Parrot](install-failures.md#parrot-backports)** —
@@ -51,6 +57,13 @@ here. Where a fix is distribution-specific it says so.
   the receiver is not re-enumerated on resume and gpsd keeps a quiet tty.
   `hammunition hardware apply` installs the resume step; park and wake by hand
   if it is still dead.
+- **[A tray switch does nothing, or a group says "update hammunition-tray"](../guides/tray-controls.md#when-it-does-not-work)** —
+  no polkit agent in the session, or an older helper than the panel.
+- **[No position in QMapShack or the browser map](../guides/offline-navigation.md#11-your-position-in-qmapshack-the-gps-tether)** —
+  the GPS tether is not running (it starts at your next login after install),
+  or gpsd has no fix.
+- **[The browser map has no Route control](../guides/offline-navigation.md#the-map-has-no-route-control-or-says-the-router-stopped)** —
+  GraphHopper's graph is not installed, or the router stopped.
 - **[A program cannot reach the radio, or the radio behaves erratically](../guides/rig-control.md#when-it-does-not-work)** —
   two programs have the serial port open. One owns it; the rest ask it.
 - **[Everyone is heard, nobody hears you](../guides/audio-routing.md#transmit-the-alc-trap)** —

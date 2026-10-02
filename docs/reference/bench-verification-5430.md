@@ -19,6 +19,10 @@ RAM, 512 GB NVMe with a LUKS root, Iris Xe graphics, Intel AX210 Wi-Fi 6E
 with Bluetooth, two batteries. **No WWAN module and no GNSS receiver are
 fitted yet**; both are planned once antennas and cabling for the chassis are
 sourced. Nothing catalogued was attached during this session.
+*(Later note, 2026-10-02: a USB GNSS receiver was fitted on 2026-09-21,
+session 10 below, and a Dell DW5821e 4G modem is fitted now, per D-056's
+amendment of that date; the 5G DW5930e is out of the machine. This paragraph
+is session 1 as it stood.)*
 **OS:** Parrot Security 7.3 "echo" (`ID=parrot`, `VERSION_ID=7.3`), kernel
 `7.0.13+parrot7-amd64`, Python 3.13.5, a KDE session, `parrot-backports`
 already in use by the machine (cmake and pipewire come from it)

@@ -40,22 +40,29 @@ packages:
 documentation:
   what_it_installs: >-
     Hamlib's command-line tools, a rig control panel that other programs can
-    share, the one radio programmer that covers hundreds of models, GPS for
-    position and time with the converter that gets tracks off a handheld,
-    two clocks, pipx, and Hammunition Hill -- the family's own local-first
-    dashboard, installed from its release .deb and served to your browser
-    on 127.0.0.1:8073.
+    share, and `rig-service`, which runs one shared `rigctld` for the radio
+    you name with `station set --rig` (deferred by name until you do), the one
+    radio programmer that covers hundreds of models, GPS for position and
+    time with the converter that gets tracks off a handheld, two clocks,
+    pipx, Hammunition Hill -- the family's own local-first dashboard,
+    installed from its release .deb and served to your browser on
+    127.0.0.1:8073 -- and the tray switches for the desktop you run (KDE's
+    applet, or the Qt tray for Xfce, LXQt, LXDE, MATE and Cinnamon), which
+    park and wake devices and start and stop services.
   why_together: >-
     This is what every other profile quietly assumes is already there. A
     digital-modes setup needs something to key the radio; a logger needs to
     know the frequency; anything timed needs the clock to be right. Installing
     it once and by name is better than each profile pulling in half of it.
 
-    Two pieces earn their place beyond the obvious. **flrig runs an XML-RPC
-    server**, which is what lets fldigi, WSJT-X and a logger share one CAT port
-    instead of the second program to start finding it busy — that is the normal
-    digital-modes setup, and without something in the middle it does not work.
-    **`rigctl` is the diagnostic** that separates a radio problem from a program
+    Two pieces earn their place beyond the obvious. **One program owns the CAT
+    port and the rest ask it**, which is what lets fldigi, WSJT-X and a logger
+    share a radio instead of the second program to start finding the port busy
+    — that is the normal digital-modes setup, and without something in the
+    middle it does not work. By default that program is `rigctld`, run for you
+    by `rig-service` as a user service on 127.0.0.1:4532 (D-073); flrig, which
+    gives a front panel and an XML-RPC server, is the other route, chosen with
+    `station set --rig-owner flrig`. **`rigctl` is the diagnostic** that separates a radio problem from a program
     problem: when fldigi will not key the transmitter, one command answers
     whether hamlib can.
   deliberately_excludes: >-
@@ -75,9 +82,14 @@ documentation:
     the thing most often set wrong; a mismatched backend gives partial control,
     where frequency works and mode does not, which reads as a broken cable.
     Icom radios additionally need the CI-V address matched to the radio's own
-    menu. **Decide that flrig owns the serial port** and point everything else
-    at flrig; two programs opening it directly is the classic failure and its
-    symptom is erratic behaviour rather than an error. `pipx ensurepath` needs
+    menu. **Decide who owns the serial port**: say which radio you have with
+    `hammunition station set --rig ... --rig-device ... --rig-baud ...`, run
+    `hammunition install rig-service`, and point every program at
+    `127.0.0.1:4532` (the guide, docs/guides/rig-control.md, has the table), or
+    choose flrig and point everything at it. Two programs opening the port
+    directly is the classic failure and its symptom is erratic behaviour
+    rather than an error. The tray switches need `hammunition hardware apply`
+    run once, to write the lists they read (docs/guides/tray-controls.md). `pipx ensurepath` needs
     a new shell before it takes effect. **Hammunition Hill is running from
     the moment its package lands**: the .deb enables and starts
     `hammunition-hill.service` as its own `hamhill` user, bound to loopback.

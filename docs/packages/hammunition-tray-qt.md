@@ -12,7 +12,7 @@
 
 ## What it does
 
-A system-tray icon with a menu entry for each catalogued device Hammunition can park -- a GPS receiver today, a WWAN modem when one is catalogued. Choosing a device's entry detaches it so the kernel drops it and its port can suspend, or brings it back. A device kept off across reboots reads "kept off", and one that is unplugged while kept offers Forget. The icon is the same penguin with a handheld radio as the Plasma applet's, and it goes grey while anything is parked. A Time section (D-058, needs Hammunition 0.18.0 or later) shows what the clock follows and lets you choose one of the four GPS-time modes.
+A system-tray icon with a menu entry for each catalogued device Hammunition can park that is plugged in -- a GPS receiver, a cellular modem, a Bluetooth controller or a camera. Choosing a device's entry detaches it so the kernel drops it and its port can suspend, or brings it back. A device kept off across reboots reads "kept off", and one that is unplugged while kept offers Forget. The icon is the same penguin with a handheld radio as the Plasma applet's, and it goes grey while anything is parked. A Time section (D-058, needs Hammunition 0.18.0 or later) shows what the clock follows and lets you choose one of the four GPS-time modes. The same menu has the Controls panel's Services group (the GPS daemon, the clock, the GPS tether, the rig service) and Radios group (mobile broadband, Wi-Fi, Bluetooth).
 
 ## Why you would want it
 
@@ -35,7 +35,7 @@ Xfce, LXQt, LXDE, MATE or Cinnamon, with a panel that has a system tray (Xfce's 
 
 - probe: github release (`ChiefGyk3D/hammunition-tray`)
 - strategy: reinstall
-- Released together with hammunition-tray: one tag, both .debs and one SHA256SUMS. A release is a new digest for each; re-pin both units.
+- Released together with hammunition-tray: one tag, both .debs and one SHA256SUMS. A release is a new digest for each; re-pin both units. The v0.5.0 release's .deb assets were not published when this was pinned, so the pin is the tag's own source archive.
 
 ## Where to get help with the software itself
 
