@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Planning and rendering the rig user service.  D-073 §6.
+"""Planning and rendering user services.  D-073 §6, amended 2026-10-02.
 
 Pure: given a manifest's ``user_services`` block, the station, and the hardware
 catalog, it decides what to render, defer or skip, and produces the unit-file
-text. The engine (``execute.py``) writes it as the operator and enables it; the
+text. A *plain* service (no station condition, no station value, no device)
+needs neither the station nor the catalog and is always planned; the rig's
+services are the ones that need both. The engine (``execute.py``) writes it as the operator and enables it; the
 plan view (``interface/plan.py``) discloses it. Nothing here touches the
 filesystem or systemd.
 
@@ -33,17 +35,42 @@ if TYPE_CHECKING:
 
 __all__ = [
     "HEADER",
+    "HEADER_PREFIX",
     "PlanUserServiceError",
     "PlannedUserService",
     "device_unit_name",
+    "header_for",
+    "is_ours",
     "plan_user_services",
     "render_unit_file",
 ]
 
-#: The first line of every unit file the engine writes. Uninstall removes a
-#: file only when it still starts with this (D-073 §6d): a file the operator
-#: rewrote is left in place and named.
-HEADER = "# Written by Hammunition (catalog unit `rig-service`, D-073)."
+#: The first words of every unit file the engine writes; the catalog unit that
+#: wrote it follows. Uninstall removes a file only when it still starts with a
+#: header of this shape (D-073 §6d): a file the operator rewrote is left in
+#: place and named.
+HEADER_PREFIX = "# Written by Hammunition (catalog unit `"
+
+
+def header_for(unit: str) -> str:
+    """The first line of a unit file written for catalog unit *unit*."""
+    return f"{HEADER_PREFIX}{unit}`, D-073)."
+
+
+#: The rig's header, kept as the name D-073's code and tests have always used.
+HEADER = header_for("rig-service")
+
+
+def is_ours(text: str) -> bool:
+    """True when *text* is a unit file this engine wrote: its first line is a
+    header naming a catalog unit, whichever one."""
+    first = text.split("\n", 1)[0]
+    return (
+        first.startswith(HEADER_PREFIX)
+        and first.endswith("`, D-073).")
+        and ("`" not in first[len(HEADER_PREFIX) : -len("`, D-073).")])
+    )
+
 
 #: Characters systemd leaves unescaped in a path-derived unit name. ``/`` is
 #: handled separately (it becomes ``-``); everything else outside this set,
@@ -70,6 +97,12 @@ class PlannedUserService:
     filled_from: tuple[str, ...]
     """The station values that fed it, named for the plan's disclosure."""
     listens: tuple[tuple[str, int], ...]
+    unit: str = "rig-service"
+    """The catalog unit carrying it (the default is the rig's, where this began)."""
+    plain: bool = False
+    """True for a plain service (:attr:`UserService.is_plain`): an install also
+    ``try-restart``s it, so an upgrade reaches one that is running and a stopped
+    one stays stopped until login."""
 
 
 def device_unit_name(path: str) -> str:
@@ -90,14 +123,34 @@ def device_unit_name(path: str) -> str:
 
 
 def render_unit_file(
-    name: str, description: str, exec_argv: Sequence[str], device_unit: str | None
+    name: str,
+    description: str,
+    exec_argv: Sequence[str],
+    device_unit: str | None,
+    *,
+    unit: str = "rig-service",
+    restart: str = "on-failure",
+    restart_sec: int = 5,
+    restart_prevent_exit_status: Sequence[int] = (),
+    station_fed: bool = True,
 ) -> str:
-    """The systemd user unit, rendered from fixed fields.  D-073 §5."""
+    """The systemd user unit, rendered from fixed fields.  D-073 §5.
+
+    ``unit`` names the catalog unit in the header; ``station_fed`` says the
+    file follows station values (the rig's does), which changes one comment.
+    ``restart`` and ``restart_sec`` come from the manifest's fixed set, never
+    free text.
+    """
     exec_line = " ".join(exec_argv)
+    changed = (
+        f"# Changed by `hammunition station set` then `hammunition install {unit}`;"
+        if station_fed
+        else f"# Changed by `hammunition install {unit}`;"
+    )
     lines = [
-        HEADER,
-        "# Changed by `hammunition station set` then `hammunition install rig-service`;",
-        "# removed by `hammunition uninstall rig-service`. Do not edit: a reinstall",
+        header_for(unit),
+        changed,
+        f"# removed by `hammunition uninstall {unit}`. Do not edit: a reinstall",
         "# replaces this file whole.",
         "[Unit]",
         f"Description={description}",
@@ -112,8 +165,13 @@ def render_unit_file(
         "",
         "[Service]",
         f"ExecStart={exec_line}",
-        "Restart=on-failure",
-        "RestartSec=5",
+        f"Restart={restart}",
+        f"RestartSec={restart_sec}",
+        *(
+            [f"RestartPreventExitStatus={' '.join(str(c) for c in restart_prevent_exit_status)}"]
+            if restart_prevent_exit_status
+            else []
+        ),
         "NoNewPrivileges=yes",
         "",
         "[Install]",
@@ -161,7 +219,7 @@ def _needed(kind: str) -> tuple[str, ...]:
 def plan_user_services(
     manifest: PackageManifest,
     station: Station,
-    devices: Mapping[str, DeviceManifest | DeviceClass],
+    devices: Mapping[str, DeviceManifest | DeviceClass] | None,
     *,
     model_lister: Callable[[], Mapping[int, tuple[int, int]]] | None = None,
     interpreter: str | None = None,
@@ -172,6 +230,11 @@ def plan_user_services(
     deferrals for a missing value or a rig no longer catalogued, and operator
     notes for a skipped service (flrig, VOX) or an unmeasured radio.
 
+    A *plain* service (:attr:`UserService.is_plain`) is always planned: it
+    needs neither the station nor the hardware catalog, so *devices* may be
+    ``None`` for a manifest made only of them. The rest are the rig's and are
+    planned as before, each group on its own.
+
     ``interpreter`` fills ``{python}`` in an exec (the loopback filter runs
     under the engine's own interpreter); it defaults to :data:`sys.executable`.
     """
@@ -179,12 +242,97 @@ def plan_user_services(
 
     from hammunition.plan import Deferral
 
-    python = interpreter or sys.executable
-
     if not manifest.user_services:
         return [], [], []
 
-    first = manifest.user_services[0].name
+    python = interpreter or sys.executable
+    planned: list[PlannedUserService] = []
+    deferred: list[Deferral] = []
+    for svc in manifest.user_services:
+        if svc.is_plain:
+            try:
+                exec_argv = tuple(_substitute(word, {}, python) for word in svc.exec)
+            except PlanUserServiceError as exc:
+                # A home the unit file cannot carry (a space, a `%`): named, not a traceback.
+                deferred.append(
+                    Deferral(
+                        subject=manifest.name,
+                        what=f"will not run {svc.name}",
+                        why=str(exc),
+                        remedy="the program's directory must be a path with no whitespace or "
+                        "shell character in it",
+                    )
+                )
+                continue
+            planned.append(_planned(manifest, svc, exec_argv, None, ()))
+    rig_entries = [svc for svc in manifest.user_services if not svc.is_plain]
+    if not rig_entries:
+        return planned, deferred, []
+    rig_planned, deferrals, notes = _plan_rig(
+        manifest, rig_entries, station, devices, model_lister, python
+    )
+    return planned + rig_planned, deferred + deferrals, notes
+
+
+def _planned(
+    manifest: PackageManifest,
+    svc: UserService,
+    exec_argv: tuple[str, ...],
+    device_path: str | None,
+    filled: tuple[str, ...],
+) -> PlannedUserService:
+    device_unit = device_unit_name(device_path) if device_path else None
+    body = render_unit_file(
+        svc.name,
+        svc.description,
+        exec_argv,
+        device_unit,
+        unit=manifest.name,
+        restart=svc.restart,
+        restart_sec=svc.restart_sec,
+        restart_prevent_exit_status=svc.restart_prevent_exit_status,
+        station_fed=not svc.is_plain,
+    )
+    return PlannedUserService(
+        name=svc.name,
+        description=svc.description,
+        exec_argv=exec_argv,
+        unit_body=body,
+        device_path=device_path,
+        filled_from=filled,
+        listens=tuple((lst.address, lst.port) for lst in svc.listens),
+        unit=manifest.name,
+        plain=svc.is_plain,
+    )
+
+
+def _plan_rig(
+    manifest: PackageManifest,
+    entries: Sequence[UserService],
+    station: Station,
+    devices: Mapping[str, DeviceManifest | DeviceClass] | None,
+    model_lister: Callable[[], Mapping[int, tuple[int, int]]] | None,
+    python: str,
+) -> tuple[list[PlannedUserService], list[Deferral], list[str]]:
+    """The station-driven entries: resolve the rig, defer or skip, render."""
+    from hammunition.plan import Deferral
+
+    first = entries[0].name
+    if devices is None:
+        # Without the hardware catalog the rig cannot be resolved, so the
+        # services defer by name (D-035) rather than resolve to nothing.
+        return (
+            [],
+            [
+                Deferral(
+                    subject=manifest.name,
+                    what=f"will not run {first}",
+                    why="the hardware catalog was not available to resolve the rig",
+                    remedy="run this through `hammunition install`, which loads it",
+                )
+            ],
+            [],
+        )
     if station.rig is None:
         return (
             [],
@@ -240,8 +388,9 @@ def plan_user_services(
     # Which entries this station selects — all of the matching kind, not yet
     # rendered. The rigctld service and its loopback filter are rendered
     # together, so the missing-value and skip decisions are made once over the
-    # group, not once per entry (a single deferral line, spec §6b).
-    selected = [svc for svc in manifest.user_services if _matches(svc.when_station, facts)]
+    # group, not once per entry (a single deferral line, spec §6b). An empty
+    # `when_station` selects for every rig.
+    selected = [svc for svc in entries if _matches(svc.when_station, facts)]
 
     # An entry is skipped only by a non-empty unless_station that matches: an
     # empty one means "nothing excludes this", never "always skip" (review
@@ -276,19 +425,7 @@ def plan_user_services(
         exec_argv = tuple(_substitute(word, values, python) for word in svc.exec)
         filled = _station_sources(svc, res)
         device_path = station.rig_device if svc.binds_to_device else None
-        device_unit = device_unit_name(device_path) if device_path else None
-        body = render_unit_file(svc.name, svc.description, exec_argv, device_unit)
-        planned.append(
-            PlannedUserService(
-                name=svc.name,
-                description=svc.description,
-                exec_argv=exec_argv,
-                unit_body=body,
-                device_path=device_path,
-                filled_from=filled,
-                listens=tuple((lst.address, lst.port) for lst in svc.listens),
-            )
-        )
+        planned.append(_planned(manifest, svc, exec_argv, device_path, filled))
     if res.uncatalogued:
         notes.append(
             f"  {manifest.name}: radio {station.rig} has no manifest; its USB shape, "

@@ -25,6 +25,7 @@ stage: post-1.0
 packages:
   - gpsd
   - gpsd-clients
+  - gps-tether
   - navit
   - osm-regions
   - country-boundaries
@@ -76,9 +77,9 @@ documentation:
     filters in `brouter-mapcreator-profiles`); vector-tile maps of the same
     regions (`osm-pmtiles`, built with the archive's tilemaker and the fixed
     files in `vector-map-kit`), which `hammunition reference serve` draws in
-    a browser at http://127.0.0.1:8480/map/ (D-071); and `gps-tether`, which
-    serves gpsd's position to QMapShack as NMEA, and to that browser map, on
-    this machine only. And CoMaps (`comaps`), a phone-style map with
+    a browser at http://127.0.0.1:8480/map/ (D-071); and `gps-tether`,
+    which serves gpsd's position to QMapShack as NMEA, and to that browser map,
+    on this machine only, as a systemd user service from your next login. And CoMaps (`comaps`), a phone-style map with
     offline address search and car, bike and foot routing, built from
     source, over CoMaps' own map files for the same regions (`comaps-maps`),
     opened by the `comaps-offline` launcher; it reads its position from
@@ -140,8 +141,10 @@ documentation:
     the `qmapshack-offline` launcher, which writes the map, elevation and
     Routino directories into QMapShack's configuration; its Routino router
     is then expected to offer the `hammunition` database, used with the
-    `foot` profile; for your position, run `gps-tether`, which makes NMEA
-    from gpsd's position and serves it on 127.0.0.1 port 10110, the host and
+    `foot` profile; for your position, `gps-tether` runs as a user service
+    from your next login (start it now with `systemctl --user start
+    hammunition-gps-tether.service`), making NMEA from gpsd's position and
+    serving it on 127.0.0.1 port 10110, the host and
     port QMapShack's GPS Tether dialog is expected to take. For BRouter,
     choose it in QMapShack's Routing dock (Routino stays the default); the
     launcher has already pointed it at Hammunition's BRouter on 127.0.0.1,

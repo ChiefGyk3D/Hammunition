@@ -57,6 +57,7 @@ their text follows.
 - `hammunition maps repeaters import`
 - `hammunition maps repeaters remove`
 - `hammunition reference books`
+- `hammunition services`
 - `hammunition show`
 - `hammunition station show`
 - `hammunition status`
@@ -83,6 +84,7 @@ their text follows.
 | `regions` | [`RegionsDocument`](#regions) |
 | `repeaters` | [`RepeatersDocument`](#repeaters) |
 | `repeaters-removed` | [`RepeatersRemovedDocument`](#repeaters-removed) |
+| `services` | [`ServicesDocument`](#services) |
 | `station` | [`StationDocument`](#station) |
 | `status` | [`StatusDocument`](#status) |
 | `unit` | [`UnitDocument`](#unit) |
@@ -2009,10 +2011,10 @@ rest of the plan.
 | `unit` | string | the catalog unit carrying it |
 | `name` | string | the systemd user unit, without .service |
 | `path` | string | the unit file written, under the operator's ~/.config/systemd/user/ |
-| `exec` | string | the rigctld command line, with the device serial elided |
+| `exec` | string | the service's command line, with the device serial elided |
 | `fills` | list of string | the station values that fed it, by name; never the values |
 | `listen` | string | the loopback address:port it binds, e.g. 127.0.0.1:4532 |
-| `starts_now` | boolean | whether the plan restarts it now (the radio's port is present) |
+| `starts_now` | boolean | whether the plan restarts it now (a rig service whose radio's port is present) |
 
 #### `DesktopsReadView`
 
@@ -4902,6 +4904,151 @@ error: every list is then empty.
     "all_sources"
   ],
   "title": "RepeatersRemovedDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### services
+
+The services the privileged helper may start, stop, enable and disable,
+with what each is doing now.
+
+Read fresh on every call, unprivileged, by asking the installed helper
+(`hammunition-devctl services state`); the engine adds nothing to it.
+
+| field | type | meaning |
+|---|---|---|
+| `version` | integer | the helper contract's `services` document version; 1 |
+| `services` | list of [`ServiceView`](#serviceview) | every service in the helper's lists, an uninstalled one included (`enabled: not-found`) |
+| `linger` | [`LingerView`](#lingerview) or null | whether user services outlive the login session; null when the helper did not say |
+
+#### `ServiceView`
+
+One service the helper may start, stop, enable and disable by name.
+
+| field | type | meaning |
+|---|---|---|
+| `name` | string | the name `hammunition services start\|stop\|enable\|disable` takes |
+| `unit` | string | the systemd unit the name stands for, e.g. `gpsd.socket` |
+| `scope` | string | `user` (the operator's own systemd) or `system` |
+| `description` | string | one line, as the helper's service list words it |
+| `active` | string | `active`, `inactive`, `failed`, `activating` or `unknown`: what is running now |
+| `enabled` | string | `enabled`, `disabled`, `static`, `not-found` or `unknown`: whether it starts at boot (system) or login (user). `not-found` means the unit is not installed |
+| `root` | boolean | true when changing it asks for a password (system scope); false when the helper acts for the operator alone |
+
+#### `LingerView`
+
+Whether the operator's user services keep running after logout.
+
+| field | type | meaning |
+|---|---|---|
+| `state` | string | `on` or `off` |
+| `ours` | boolean | true when Hammunition turned it on, so it is Hammunition's to turn off |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "LingerView": {
+      "additionalProperties": false,
+      "description": "Whether the operator's user services keep running after logout.",
+      "properties": {
+        "state": {
+          "title": "State",
+          "type": "string"
+        },
+        "ours": {
+          "title": "Ours",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "state",
+        "ours"
+      ],
+      "title": "LingerView",
+      "type": "object"
+    },
+    "ServiceView": {
+      "additionalProperties": false,
+      "description": "One service the helper may start, stop, enable and disable by name.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "active": {
+          "title": "Active",
+          "type": "string"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "string"
+        },
+        "root": {
+          "title": "Root",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "unit",
+        "scope",
+        "description",
+        "active",
+        "enabled",
+        "root"
+      ],
+      "title": "ServiceView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The services the privileged helper may start, stop, enable and disable,\nwith what each is doing now.\n\nRead fresh on every call, unprivileged, by asking the installed helper\n(`hammunition-devctl services state`); the engine adds nothing to it.",
+  "properties": {
+    "version": {
+      "title": "Version",
+      "type": "integer"
+    },
+    "services": {
+      "items": {
+        "$ref": "#/$defs/ServiceView"
+      },
+      "title": "Services",
+      "type": "array"
+    },
+    "linger": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LingerView"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "version",
+    "services",
+    "linger"
+  ],
+  "title": "ServicesDocument",
   "type": "object"
 }
 ```

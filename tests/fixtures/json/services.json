@@ -1,0 +1,48 @@
+{
+  "schema": "hammunition/1",
+  "kind": "services",
+  "engine": "<engine>",
+  "version": 1,
+  "services": [
+    {
+      "name": "gps-tether",
+      "unit": "hammunition-gps-tether.service",
+      "scope": "user",
+      "description": "GPS position for QMapShack and the browser map on 127.0.0.1",
+      "active": "active",
+      "enabled": "enabled",
+      "root": false
+    },
+    {
+      "name": "gpsd",
+      "unit": "gpsd.socket",
+      "scope": "system",
+      "description": "the GPS daemon (socket-activated)",
+      "active": "active",
+      "enabled": "enabled",
+      "root": true
+    },
+    {
+      "name": "time",
+      "unit": "ntpsec.service",
+      "scope": "system",
+      "description": "the clock",
+      "active": "inactive",
+      "enabled": "disabled",
+      "root": true
+    },
+    {
+      "name": "gps-resume",
+      "unit": "hammunition-gps-resume.service",
+      "scope": "system",
+      "description": "re-adds the receiver to gpsd after sleep",
+      "active": "inactive",
+      "enabled": "not-found",
+      "root": true
+    }
+  ],
+  "linger": {
+    "state": "off",
+    "ours": false
+  }
+}

@@ -263,6 +263,23 @@ still installed whatever command 2 installed.
 
 ---
 
+## Hardware events
+
+Written by `hammunition hardware apply` (**D-056**, **D-058**, **D-069**,
+issue #177), one entry per privileged command that succeeded, as soon as it
+succeeded. `hardware unapply` reads `hardware_artifacts` only; the others are
+a record, and every removal is by file content rather than by this log.
+
+| `event` | Written | Carries |
+|---|---|---|
+| `hardware_artifacts` | After the helper's wrapper or the polkit action is installed | `files[]`: `path` and `mode`. `unapply` removes only the two exact paths it owns, and none where the installed helper is hammunition-tray's. |
+| `time_grants` | Per GPS-time step | `description`, `argv`. |
+| `geoclue_files` | Per GeoClue step | `description`, `argv`. |
+| `gps_resume` | Per GPS resume step | `description`, `argv`. |
+| `devctl_export` | Per list written (**D-056**, amended 2026-10-02) | `description`, `argv`: the `install -D` of `/etc/hammunition/devctl-devices.yaml` or `/etc/hammunition/devctl-services.yaml`. Never the lists' contents (`docs/reference/devctl-lists.md`). |
+
+---
+
 ## Planned events
 
 Not yet implemented. Listed so the format is designed once rather than grown.
