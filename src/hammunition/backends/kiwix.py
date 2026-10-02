@@ -46,6 +46,7 @@ from ..fetch import Fetcher, MirrorPath, fetch_disclosure, record_fetch
 from ..kiwix import BookFile, KiwixError, load_book_list, load_pin_file, resolve_books
 from ..manifest.schema import KiwixBooksInstall, PackageManifest, RemoteArtifact
 from ..progress import run_checks
+from ..retry import OnOutage, PublisherUnavailable, hint_for
 from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
 from .regions import data_root, device_at, free_bytes_at
@@ -119,6 +120,10 @@ class KiwixBooksBackend:
     files: Sequence[BookFile]
     runner: CommandRunner | None = None
     """Escalates the copy into a root-owned prefix when the engine is not root."""
+    keep_unlisted: bool = False
+    """Remove nothing this run: a book or map was deferred because its publisher
+    is not answering (#200), and the installed file it would have replaced
+    must not be removed with nothing arriving in its place."""
     method = "kiwix-books"
 
     def data_dir(self, manifest: PackageManifest) -> Path:
@@ -178,7 +183,7 @@ class KiwixBooksBackend:
                 )
             )
         wanted = {f.pin.file for f in self.files}
-        if out.is_dir():
+        if out.is_dir() and not self.keep_unlisted:
             for path in sorted(out.glob(f"*{ZIM}")):
                 if path.name in wanted or not path.is_file():
                     continue
@@ -249,6 +254,7 @@ def resolve_station_books(
     *,
     installed: Path,
     head: Callable[[str], int],
+    on_outage: OnOutage | None = None,
 ) -> list[BookFile]:
     """The chosen books as pinned files, checked before the plan prints.
 
@@ -257,9 +263,14 @@ def resolve_station_books(
     dated files per book) refuses the plan here, naming the regeneration,
     rather than failing a fetch after apt has run; so does a book that
     cannot be reached, offline. Every such book is named together.
+
+    A publisher that did not answer after the retries (#200) goes to
+    *on_outage* and that book is left out of the returned list, so the rest
+    of the books install; without it, it is refused with the others.
     """
     books = resolve_books(selection, load_book_list(catalog_root), load_pin_file(catalog_root))
     problems: list[str] = []
+    unavailable: set[str] = set()
     todo = [b for b in books if not book_current(installed / b.pin.file, b)]
     outcomes = run_checks(
         todo, lambda book: head(book.pin.url), label="Kiwix books against download.kiwix.org"
@@ -267,6 +278,13 @@ def resolve_station_books(
     for book, outcome in zip(todo, outcomes, strict=True):
         try:
             status = outcome.get()
+        except PublisherUnavailable as exc:
+            if on_outage is None:
+                problems.append(f"  {book.pin.id}: {exc}")
+            else:
+                on_outage(book.pin.id, exc)
+                unavailable.add(book.pin.id)
+            continue
         except KiwixError as exc:
             problems.append(f"  {book.pin.id}: {exc}")
             continue
@@ -282,6 +300,6 @@ def resolve_station_books(
     if problems:
         raise KiwixError(
             f"{len(problems)} reference book(s) cannot be fetched and are not installed "
-            f"already:\n" + "\n".join(problems)
+            f"already:\n" + "\n".join(problems) + hint_for(problems)
         )
-    return books
+    return [b for b in books if b.pin.id not in unavailable]

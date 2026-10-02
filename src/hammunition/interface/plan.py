@@ -638,7 +638,8 @@ class DeferralLine(Strict):
 
     kind: str = described(
         "`config` (a file not written) or `package` (a member not installed: the target lacks it, "
-        "or, D-060, the machine has no session for the desktop it is for)"
+        "or, D-060, the machine has no session for the desktop it is for; or, #200, a publisher "
+        "did not answer for some of its items after the retries)"
     )
     subject: str = described("what is deferred")
     what: str = described("what will not happen")
