@@ -145,6 +145,12 @@ copy to the ACMA; the plan says "unverified" either way. The file also
 holds licensees' names and addresses, which the ACMA's licence does not let
 you pass on for a private person: a Bunker serving it to your own machines
 is a copy you keep, not one you share.
+A Bunker may hold the register zip although it contains `client.csv`,
+which clause 8 of the register's licence bars passing on: it exists for
+operators to download their own data and set up their station, the mirror is
+LAN-only by documented rule, and the engine never opens `client.csv`
+(maintainer's ruling of 2026-10-02, **D-074**). If you do not want it on your
+NAS, set Bunker's `hold_unverified = false` (a switch being added to Bunker).
 
 The infrastructure layers' three data units (**D-075**) mirror like any
 pinned data: `faa-nasr-airports/APT_CSV.zip`, `eia-860m/eia860m.xlsx` and

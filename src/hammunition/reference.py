@@ -57,6 +57,7 @@ from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote, unquote
 
+from . import tether_contract
 from .graphhopper import HOST as ROUTER_HOST
 from .graphhopper import RouteRefused, RouterSpec, route_query
 from .kiwix import Book
@@ -76,7 +77,7 @@ HOST = "127.0.0.1"
 PORT = 8480
 WIKI = "/wiki"
 #: Where the GPS tether serves ``/position`` (D-071), the page's default.
-POSITION_PORT = 10111
+POSITION_PORT = tether_contract.POSITION_PORT
 FORMS = "/forms/"
 LIBRARY_UNIT = "kiwix-library"
 FORMS_UNIT = "ics-forms"
@@ -123,6 +124,28 @@ def serve_port(text: str) -> int:
         raise ValueError(
             f"--port {text}: give a port from 1024 to 65534 (below 1024 only root may "
             f"listen, and kiwix-serve takes the port after this one)"
+        )
+    return number
+
+
+def position_port(text: str, *, flag: str = "--position-port") -> int:
+    """``--position-port``: where the page asks the tether, 1024 to 65535.
+
+    The tether, not this server, listens there, and it never runs as root.
+    """
+    stripped = text.strip()
+    digits = stripped.removeprefix("-")
+    number = int(digits) if digits.isascii() and digits.isdigit() else None
+    if number is None:
+        raise ValueError(f"{flag} {text}: not a number; give a port from 1024 to 65535")
+    if stripped.startswith("-") or number < 1024:
+        raise ValueError(
+            f"{flag} {text}: below 1024, where only root may listen, and the tether "
+            f"never runs as root; give a port from 1024 to 65535"
+        )
+    if number > 65535:
+        raise ValueError(
+            f"{flag} {text}: above 65535, the highest TCP port; give a port from 1024 to 65535"
         )
     return number
 

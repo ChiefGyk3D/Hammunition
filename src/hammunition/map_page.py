@@ -22,7 +22,8 @@ names a sprite on openmaptiles.github.io and a font and tile server on
 reads it. The attribution control is not collapsed and reads
 :data:`CREDIT`, which the OpenMapTiles schema's CC-BY licence requires
 visibly on the map. "You are here" comes from the GPS tether's
-``/position`` event stream on 127.0.0.1 (:mod:`hammunition.gps_tether`).
+``/position`` event stream on 127.0.0.1 (the hammunition-gps-tether project; :mod:`hammunition.tether_contract`
+holds the port).
 
 With a router (D-076) the bar gains a profile selector, *Route* and *Clear*:
 the route is asked of this server at ``/map/route``, which asks GraphHopper,
