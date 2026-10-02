@@ -5,7 +5,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Changelog
 
-One entry per release, written from the merged pull requests, each line
+One entry per release, assembled from the fragments each merged pull request
+adds under `changelog.d/` (never edited here in a pull request), each line
 naming the PR and the decision it rests on. Decisions are authoritative in
 `docs/DECISIONS.md`; this file is the map from a version to them.
 

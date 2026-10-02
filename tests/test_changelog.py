@@ -100,9 +100,7 @@ def test_assemble_is_deterministic(tmp_path: Path) -> None:
     for n in ("a", "b"):
         sub = tmp_path / n
         sub.mkdir()
-        # Different creation order, same fragments.
-        frags = dict(reversed(list(FRAGS.items()))) if n == "b" else FRAGS
-        root = _tree(sub, frags)
+        root = _tree(sub, FRAGS)
         args = ["--root", str(root), "assemble", "--version", "v0.2.0", "--date", "2026-02-03"]
         assert cl.main(args) == 0
         outs.append((root / "CHANGELOG.md").read_text())
@@ -203,56 +201,111 @@ def test_the_real_changelog_has_release_headings_in_the_established_shape() -> N
 
 # ---------------------------------------------------------------------------
 # A pull request that changes the engine, the catalog or a guide carries a
-# fragment. Mirrors the commit-claims job: it runs on a pull request, where
-# there is a base to diff against, and skips everywhere else.
+# fragment. The rule lives in scripts/changelog.py so it can be exercised
+# against a real scratch repository here; the live check below runs only on a
+# pull request, where there is a base to diff against.
 # ---------------------------------------------------------------------------
-
-NEEDS_FRAGMENT = ("src/", "catalog/", "docs/guides/")
-
-
-def needs_fragment(changed: list[str]) -> bool:
-    return any(p.startswith(NEEDS_FRAGMENT) for p in changed)
-
-
-def has_fragment(added: list[str]) -> bool:
-    return any(
-        p.startswith("changelog.d/") and p.endswith(".md") and p != "changelog.d/README.md"
-        for p in added
-    )
 
 
 def test_the_fragment_rule_itself() -> None:
-    assert needs_fragment(["src/hammunition/x.py"])
-    assert needs_fragment(["catalog/packages/a.yaml"])
-    assert needs_fragment(["docs/guides/gps.md"])
-    assert not needs_fragment(["docs/DECISIONS.md", "tests/test_x.py", "CLAUDE.md"])
-    assert has_fragment(["changelog.d/12.added.md"])
-    assert not has_fragment(["changelog.d/README.md", "CHANGELOG.md"])
+    need = cl.pr_problem
+    assert need(["src/hammunition/x.py"], [], [])
+    assert need(["catalog/packages/a.yaml"], ["changelog.d/README.md"], [])
+    assert need(["docs/guides/gps.md"], ["CHANGELOG.md"], [])
+    assert need(["src/x.py"], ["changelog.d/notes.txt"], [])
+    assert not need(["docs/DECISIONS.md", "tests/test_x.py", "CLAUDE.md"], [], [])
+    assert not need(["src/x.py"], ["changelog.d/12.added.md"], [])
+    # A release commit deletes the fragments it assembles.
+    assert not need(["catalog/a.yaml", "CHANGELOG.md"], [], ["changelog.d/12.added.md"])
 
 
-def _git(*args: str) -> str:
-    return subprocess.run(
-        ["git", *args], cwd=REPO_ROOT, check=True, capture_output=True, text=True
-    ).stdout
+def _git(cwd: Path, *args: str) -> None:
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@example.invalid",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@example.invalid",
+    }
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, env=env)
+
+
+def _pr_repo(tmp_path: Path, files: dict[str, str]) -> Path:
+    _git(tmp_path, "init", "-q", "-b", "main")
+    (tmp_path / "README.md").write_text("x\n")
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-q", "-m", "base")
+    _git(tmp_path, "checkout", "-q", "-b", "feature")
+    for name, body in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body)
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-q", "-m", "change")
+    return tmp_path
+
+
+def test_check_range_goes_red_without_a_fragment_and_green_with_one(tmp_path: Path) -> None:
+    (tmp_path / "a").mkdir()
+    without = _pr_repo(tmp_path / "a", {"src/x.py": "1\n"})
+    problem = cl.check_range(without, "main")
+    assert problem and "changelog.d/<pr>.<kind>.md" in problem
+
+    (tmp_path / "b").mkdir()
+    with_one = _pr_repo(tmp_path / "b", {"src/x.py": "1\n", "changelog.d/5.added.md": "- **X.**\n"})
+    assert cl.check_range(with_one, "main") is None
+
+    (tmp_path / "c").mkdir()
+    docs_only = _pr_repo(tmp_path / "c", {"docs/DECISIONS.md": "d\n"})
+    assert cl.check_range(docs_only, "main") is None
+
+
+def test_fragments_sort_by_kind_then_numerically_whatever_the_names(tmp_path: Path) -> None:
+    names = [
+        "10.added.md",
+        "9.added.md",
+        "a10.added.md",
+        "a2.added.md",
+        "02.added.md",
+        "1.fixed.md",
+    ]
+    root = _tree(tmp_path, {n: f"- **{n}**\n" for n in names})
+    got = [name for _, name, _ in cl.load_fragments(root / "changelog.d")]
+    assert got == [
+        "02.added.md",
+        "9.added.md",
+        "10.added.md",
+        "a2.added.md",
+        "a10.added.md",
+        "1.fixed.md",
+    ]
+
+
+def test_a_bullet_inside_a_code_fence_is_not_a_second_entry(tmp_path: Path) -> None:
+    body = "- **A.** Run:\n\n  ```\n\n- not an entry\n  ```\n"
+    root = _tree(tmp_path, {"1.added.md": body.replace("  ```", "```")})
+    assert len(cl.load_fragments(root / "changelog.d")) == 1
+
+
+def test_a_heading_line_in_a_fragment_is_refused(tmp_path: Path) -> None:
+    root = _tree(tmp_path, {"1.added.md": "- **A.**\n\n## Sneaky\n"})
+    assert cl.main(["--root", str(root), "preview"]) != 0
 
 
 def test_a_pull_request_that_changes_the_product_carries_a_fragment() -> None:
     base = os.environ.get("GITHUB_BASE_REF")
+    required = bool(os.environ.get("HAMMUNITION_REQUIRE_PR_RANGE"))
     if not base:
+        if required:
+            pytest.fail("HAMMUNITION_REQUIRE_PR_RANGE is set but GITHUB_BASE_REF is not")
         pytest.skip("not a pull request run (GITHUB_BASE_REF is unset)")
     ref = f"origin/{base}"
-    try:
-        _git("rev-parse", "--verify", ref)
-    except subprocess.CalledProcessError:
-        if os.environ.get("HAMMUNITION_REQUIRE_PR_RANGE"):
+    probe = subprocess.run(
+        ["git", "rev-parse", "--verify", ref], cwd=REPO_ROOT, capture_output=True, text=True
+    )
+    if probe.returncode != 0:
+        if required:
             pytest.fail(f"{ref} is not fetched; the job needs fetch-depth: 0")
         pytest.skip(f"{ref} is not available in this checkout")
-    changed = _git("diff", "--name-only", f"{ref}...HEAD").split()
-    if not needs_fragment(changed):
-        return
-    added = _git("diff", "--name-only", "--diff-filter=A", f"{ref}...HEAD").split()
-    assert has_fragment(added), (
-        "This pull request changes src/, catalog/ or docs/guides/ and adds no "
-        "changelog fragment. Add changelog.d/<pr>.<kind>.md (kinds: "
-        f"{', '.join(cl.KINDS)}); see changelog.d/README.md. Do not edit CHANGELOG.md."
-    )
+    problem = cl.check_range(REPO_ROOT, ref)
+    assert problem is None, problem

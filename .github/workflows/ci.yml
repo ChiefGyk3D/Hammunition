@@ -76,10 +76,14 @@ jobs:
       # fragment (D-031's neighbour: the test, not a script, holds the rule).
       # Here, with the history, an unfetched base fails instead of skipping.
       - name: A fragment for a change that needs one
+        env:
+          BASE: ${{ github.base_ref }}
         run: |
           pip install pytest
-          git fetch --no-tags origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
-          HAMMUNITION_REQUIRE_PR_RANGE=1 python -m pytest tests/test_changelog.py -q -p no:cacheprovider
+          git fetch --no-tags origin "$BASE:refs/remotes/origin/$BASE"
+          # --noconftest: the check is stdlib-only; conftest imports the engine.
+          HAMMUNITION_REQUIRE_PR_RANGE=1 python -m pytest tests/test_changelog.py -q \
+            -p no:cacheprovider --noconftest
       - name: Every commit in the pull request
         run: |
           set -euo pipefail

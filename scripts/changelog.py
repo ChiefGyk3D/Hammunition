@@ -26,7 +26,9 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -50,6 +52,11 @@ def _natural(text: str) -> list[tuple[int, int, str]]:
     ]
 
 
+def _outside_fences(text: str) -> str:
+    """The text with fenced code blocks blanked, so a bullet in code is not an entry."""
+    return re.sub(r"(?ms)^```.*?^```", "", text)
+
+
 def load_fragments(directory: Path) -> list[tuple[str, str, str]]:
     """Return ``(kind, name, entry)`` for every fragment, in assembly order."""
     found: list[tuple[str, str, str]] = []
@@ -70,7 +77,11 @@ def load_fragments(directory: Path) -> list[tuple[str, str, str]]:
         entry = "\n".join(line.rstrip() for line in entry.splitlines())
         if not entry.startswith("- "):
             errors.append(f"{path.name}: must hold one entry starting with its '- ' bullet")
-        elif re.search(r"\n\n+- ", entry):
+        elif re.search(r"(?m)^#{1,2} ", _outside_fences(entry)):
+            errors.append(
+                f"{path.name}: a line starting with '# ' or '## ' would split the changelog"
+            )
+        elif re.search(r"\n\n+- ", _outside_fences(entry)):
             errors.append(f"{path.name}: holds more than one entry; one entry per file")
         else:
             found.append((match["kind"], path.name, entry))
@@ -123,16 +134,65 @@ def assemble_text(
     return changelog[: match.start()] + replacement + changelog[match.end() :]
 
 
+NEEDS_FRAGMENT = ("src/", "catalog/", "docs/guides/")
+
+
+def pr_problem(changed: list[str], added: list[str], deleted: list[str]) -> str | None:
+    """Why a pull request lacks its fragment, or None when it is fine.
+
+    A change to src/, catalog/ or docs/guides/ must ADD a fragment. A release
+    commit is exempt: it deletes fragments (assemble) and says so by doing it.
+    """
+    if not any(p.startswith(NEEDS_FRAGMENT) for p in changed):
+        return None
+
+    def is_fragment(p: str) -> bool:
+        return p.startswith("changelog.d/") and p.endswith(".md") and p != "changelog.d/README.md"
+
+    if any(is_fragment(p) for p in added) or any(is_fragment(p) for p in deleted):
+        return None
+    return (
+        "this pull request changes src/, catalog/ or docs/guides/ and adds no changelog "
+        f"fragment: add changelog.d/<pr>.<kind>.md (kinds: {', '.join(KINDS)}; see "
+        "changelog.d/README.md). Do not edit CHANGELOG.md."
+    )
+
+
+def check_range(root: Path, base_ref: str) -> str | None:
+    def diff(*extra: str) -> list[str]:
+        out = subprocess.run(
+            ["git", "diff", "--name-only", *extra, f"{base_ref}...HEAD"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        return out.split()
+
+    return pr_problem(diff(), diff("--diff-filter=A"), diff("--diff-filter=D"))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("preview", help="print the section Unreleased would contain")
+    chk = sub.add_parser(
+        "check-pr", help="fail if the range BASE...HEAD needs a fragment and has none"
+    )
+    chk.add_argument("--base", required=True, help="e.g. origin/main")
     asm = sub.add_parser("assemble", help="write a release section and delete the fragments")
     asm.add_argument("--version", required=True)
     asm.add_argument("--date", required=True)
     asm.add_argument("--summary", help="text after the date in the release heading")
     args = parser.parse_args(argv)
+
+    if args.command == "check-pr":
+        problem = check_range(args.root, args.base)
+        if problem:
+            print(f"changelog: {problem}", file=sys.stderr)
+            return 1
+        return 0
 
     directory = args.root / "changelog.d"
     changelog_path = args.root / "CHANGELOG.md"
@@ -151,7 +211,11 @@ def main(argv: list[str] | None = None) -> int:
     except FragmentError as err:
         print(f"changelog: {err}", file=sys.stderr)
         return 2
-    changelog_path.write_text(new, encoding="utf-8")
+    # Write whole or not at all, then delete: a crash between the two leaves
+    # fragments to remove by hand, never a half-written changelog.
+    scratch = changelog_path.with_name(changelog_path.name + ".tmp")
+    scratch.write_text(new, encoding="utf-8")
+    os.replace(scratch, changelog_path)
     for _, name, _ in fragments:
         (directory / name).unlink()
     print(f"changelog: {args.version} written with {len(fragments)} entries; fragments removed")

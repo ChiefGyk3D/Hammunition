@@ -314,7 +314,10 @@ python3 scripts/changelog.py assemble --version v0.20.0 --date 2026-10-09 \
 `assemble` puts the release section under a `## Unreleased` that reads
 `Nothing yet.`, orders entries by kind and then by fragment name, and refuses
 to run with no fragments or over a version that already has a section, so a
-second run changes nothing. Compare the section with
+second run changes nothing. It writes no "N pull requests since" line; add
+one by hand to the section if you want it. The check that a pull request
+carries its fragment exempts a commit that deletes fragments, which is what a
+release commit does. Compare the section with
 `gh pr list --state merged` since the last tag: a merged pull request with no
 fragment is a gap to fill by adding the missing fragment before assembling.
 A tag that the changelog does not describe is a tag nobody can review.
