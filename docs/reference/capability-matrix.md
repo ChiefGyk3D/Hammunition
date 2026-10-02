@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 100 | 2 | 214 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 100 | 2 | 214 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 97 | 3 | 216 |
-| kali-rolling *(unswept)* | 0 | 0 | 93 | 1 | 222 |
-| parrot *(unswept)* | 0 | 0 | 98 | 2 | 216 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 97 | 3 | 216 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 95 | 7 | 214 |
+| debian-13 *(unswept)* | 0 | 0 | 105 | 2 | 214 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 103 | 2 | 216 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 102 | 3 | 216 |
+| kali-rolling *(unswept)* | 0 | 0 | 96 | 1 | 224 |
+| parrot *(unswept)* | 0 | 0 | 103 | 2 | 216 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 102 | 3 | 216 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 100 | 7 | 214 |
 
-**316 manifests** against **7 targets**.
+**321 manifests** against **7 targets**.
 
 ---
 
@@ -181,6 +181,7 @@ build HAS been run in a container say so in their own install notes.
 | `hammunition-tray-qt` | binary | binary | binary | binary | binary | binary | binary |
 | `hcxdumptool` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `hcxtools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `hydrasdr-host` | git | apt ? | git | apt ? | git | git | git |
 | `ibp` | source | source | source | source | source | source | source |
 | `icom` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `ics-forms` | data | data | data | data | data | data | data |
@@ -200,6 +201,8 @@ build HAS been run in a container say so in their own install notes.
 | `langford-utils` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `libacars` | git | git | git | git | git | git | git |
 | `libbladerf2` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `libfobos` | git | git | git | git | git | git | git |
+| `libfobos-sdr-agile` | git | git | git | git | git | git | git |
 | `libfreefare-bin` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `libhamlib-utils` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `libiio-utils` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -302,7 +305,9 @@ build HAS been run in a container say so in their own install notes.
 | `soapysdr-module-airspy` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `soapysdr-module-audio` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `soapysdr-module-bladerf` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `soapysdr-module-fobos` | git | git | git | git | git | git | git |
 | `soapysdr-module-hackrf` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `soapysdr-module-hydrasdr` | git | apt ? | git | apt ? | git | git | git |
 | `soapysdr-module-lms7` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `soapysdr-module-mirisdr` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `soapysdr-module-osmosdr` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

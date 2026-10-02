@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**316 programs and packages** from the catalog, laid out the way the
+**321 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -339,8 +339,11 @@ SDR receivers and toolkits, device support, and receive-only decoders for aircra
 | [gr-limesdr](packages/gr-limesdr.md) | GNU Radio blocks for LimeSDR hardware | [wiki.myriadrf.org/Gr-limesdr_Plugin_for_GNURadio](https://wiki.myriadrf.org/Gr-limesdr_Plugin_for_GNURadio) |
 | [gr-osmosdr](packages/gr-osmosdr.md) | One GNU Radio source block that speaks to nearly every SDR | [osmocom.org/projects/gr-osmosdr/wiki](https://osmocom.org/projects/gr-osmosdr/wiki) |
 | [hackrf](packages/hackrf.md) | Host tools for HackRF — transfer, sweep, spectrum and firmware utilities | [github.com/greatscottgadgets/hackrf](https://github.com/greatscottgadgets/hackrf) |
+| [hydrasdr-host](packages/hydrasdr-host.md) | Host library and command-line tools for the HydraSDR RFOne receiver | [github.com/hydrasdr/hydrasdr-host](https://github.com/hydrasdr/hydrasdr-host) |
 | [langford-utils](packages/langford-utils.md) | Control programs for the Per Vices Noctar board | [pervices.com](https://www.pervices.com/) |
 | [libbladerf2](packages/libbladerf2.md) | Library and udev rules for Nuand bladeRF boards | [github.com/Nuand/bladeRF](https://github.com/Nuand/bladeRF) |
+| [libfobos](packages/libfobos.md) | Host library and command-line tools for the RigExpert Fobos SDR receiver | [github.com/rigexpert/libfobos](https://github.com/rigexpert/libfobos) |
+| [libfobos-sdr-agile](packages/libfobos-sdr-agile.md) | Host library for RigExpert Fobos SDR boards running the "agile" firmware | [github.com/rigexpert/libfobos-sdr-agile](https://github.com/rigexpert/libfobos-sdr-agile) |
 | [libiio-utils](packages/libiio-utils.md) | Command-line tools that find and talk to IIO devices such as the PlutoSDR and ADALM2000 | [github.com/analogdevicesinc/libiio](https://github.com/analogdevicesinc/libiio) |
 | [libmirisdr4](packages/libmirisdr4.md) | Open driver for Mirics-based receivers, including SDRplay RSP hardware | [github.com/f4exb/libmirisdr-4](https://github.com/f4exb/libmirisdr-4) |
 | [limesuite](packages/limesuite.md) | Host tools and library for LimeSDR hardware | [github.com/myriadrf/LimeSuite](https://github.com/myriadrf/LimeSuite) |
@@ -352,7 +355,9 @@ SDR receivers and toolkits, device support, and receive-only decoders for aircra
 | [soapysdr-module-airspy](packages/soapysdr-module-airspy.md) | SoapySDR driver module for Airspy hardware | [github.com/pothosware/SoapySDR/wiki](https://github.com/pothosware/SoapySDR/wiki) |
 | [soapysdr-module-audio](packages/soapysdr-module-audio.md) | SoapySDR driver module for sound-card SDRs and Airspy HF hardware | [github.com/pothosware/SoapyAudio/wiki](https://github.com/pothosware/SoapyAudio/wiki) |
 | [soapysdr-module-bladerf](packages/soapysdr-module-bladerf.md) | SoapySDR driver module for bladeRF hardware | [github.com/pothosware/SoapySDR/wiki](https://github.com/pothosware/SoapySDR/wiki) |
+| [soapysdr-module-fobos](packages/soapysdr-module-fobos.md) | SoapySDR driver module for the RigExpert Fobos SDR | [github.com/rigexpert/SoapyFobosSDR](https://github.com/rigexpert/SoapyFobosSDR) |
 | [soapysdr-module-hackrf](packages/soapysdr-module-hackrf.md) | SoapySDR driver module for HackRF hardware | [github.com/pothosware/SoapySDR/wiki](https://github.com/pothosware/SoapySDR/wiki) |
+| [soapysdr-module-hydrasdr](packages/soapysdr-module-hydrasdr.md) | SoapySDR driver module for the HydraSDR RFOne | [github.com/hydrasdr/SoapyHydraSDR](https://github.com/hydrasdr/SoapyHydraSDR) |
 | [soapysdr-module-lms7](packages/soapysdr-module-lms7.md) | SoapySDR driver module for LimeSDR (LMS7002M) hardware | [github.com/myriadrf/LimeSuite](https://github.com/myriadrf/LimeSuite) |
 | [soapysdr-module-mirisdr](packages/soapysdr-module-mirisdr.md) | SoapySDR driver module for Mirics hardware | [github.com/pothosware/SoapySDR/wiki](https://github.com/pothosware/SoapySDR/wiki) |
 | [soapysdr-module-osmosdr](packages/soapysdr-module-osmosdr.md) | SoapySDR driver module for OsmoSDR and MiriSDR hardware | [github.com/pothosware/SoapyOsmo/wiki](https://github.com/pothosware/SoapyOsmo/wiki) |

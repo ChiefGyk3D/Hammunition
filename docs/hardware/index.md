@@ -15,10 +15,12 @@ One page per catalogued device: what it is, how it identifies itself on USB, wha
 | [dell-dw5821e](dell-dw5821e.md) | untested | — | Dell DW5821e — Snapdragon X20 LTE modem on USB, the field laptop's current WWAN card |
 | [dell-dw5930e](dell-dw5930e.md) | untested | — | Dell DW5930e — 5G modem on PCIe/MHI, a documented gap for parking with the radio switch as the way to quiet it |
 | [flipper-zero](flipper-zero.md) | supported | — | Flipper Zero — multi-protocol handheld for sub-GHz, NFC, RFID, infrared and iButton |
+| [fobos-sdr](fobos-sdr.md) | untested | — | RigExpert Fobos SDR -- a USB wideband receive-only SDR |
 | [free-wili-2](free-wili-2.md) | supported | ✅ | Free-WiLi 2 — multi-function hardware-hacking tool presenting six USB devices |
 | [funcube-dongle](funcube-dongle.md) | supported | — | FUNcube Dongle Pro and Pro+ — AMSAT-UK's receive-only satellite SDR |
 | [hackrf-one](hackrf-one.md) | supported | — | Half-duplex 1 MHz - 6 GHz software defined radio, transmit capable |
 | [hackrf-pro](hackrf-pro.md) | supported | ✅ | HackRF Pro — Great Scott Gadgets' successor to the HackRF One |
+| [hydrasdr-rfone](hydrasdr-rfone.md) | supported | — | HydraSDR RFOne -- a USB receive-only SDR, successor to the Airspy host design |
 | [intel-ax210-bluetooth](intel-ax210-bluetooth.md) | untested | — | Intel AX210 Bluetooth — the Bluetooth half of the field laptop's Wi-Fi 6E card, on USB |
 | [krakensdr](krakensdr.md) | untested | — | KrakenSDR — five coherent RTL-SDR receivers for direction finding |
 | [librevna](librevna.md) | untested | — | LibreVNA — open-hardware two-port vector network analyser, 100 kHz to 6 GHz, over USB |

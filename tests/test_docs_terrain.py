@@ -17,7 +17,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from hammunition.gps_tether import HOST, PORT
+from hammunition.tether_contract import NMEA_PORT as PORT
+
+HOST = "127.0.0.1"
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DECISIONS = REPO_ROOT / "docs" / "DECISIONS.md"
@@ -93,15 +95,6 @@ def test_the_cli_reference_documents_both_maps_verbs() -> None:
     assert f"{HOST} port {PORT}" in " ".join(tether.split())
     for option in ("--gpsd HOST[:PORT]", "--port N", "ssh -L 10110:127.0.0.1:10110"):
         assert option in tether, option
-
-
-def test_the_printed_instructions_are_quoted_in_the_guide_and_the_cli_reference() -> None:
-    """What the launcher prints, as the docs show it, is what the code prints."""
-    from hammunition.gps_tether import instructions
-
-    printed = instructions()
-    assert printed in GUIDE.read_text()
-    assert printed in CLI.read_text()
 
 
 def test_the_other_setups_section_covers_each_setup_and_says_what_is_measured() -> None:

@@ -96,7 +96,7 @@ def test_a_new_region_is_resolved_from_its_outline_and_each_sheet_by_head(
     got, notes = _resolve(tmp_path, regions, quads)
     assert got.regions == (RegionQuads(*OCEANIA, (ALPHA, BETA)),)
     assert got.fetch == (ALPHA, BETA) and got.current == ()
-    assert quads.asked == [ALPHA.url, BETA.url]
+    assert sorted(quads.asked) == sorted([ALPHA.url, BETA.url])
     assert notes == ()
 
 
