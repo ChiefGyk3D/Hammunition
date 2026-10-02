@@ -1,0 +1,134 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: librevna
+version: "1.6.5"
+summary: The PC program for the LibreVNA, an open-hardware 6 GHz vector network analyser
+menu_title: LibreVNA vector network analyser (LibreVNA-GUI)
+categories: [antenna-analysers, electronics]
+
+# ADD, 2026-09 gap analysis section B Group 6 and section D item 10 (second
+# batch). Measured 2026-10-01:
+#   - D-032: default branch `master`, head 1517c739ea96 committed 2026-09-25
+#     ("add support for hardware version 0xE1"); tag v1.6.5 2026-03-06,
+#     v1.6.4 2025-05; 18 commits since the tag.
+#   - Licence: LICENSE is GPL-3.0; pid.codes lists the project's USB
+#     identifier under GPL-3.0. The GUI bundles Eigen (MPL-2.0) and
+#     nlohmann/json (MIT) in its tree.
+#   - Archives (scripts/apt-policy-sweep.sh, seven targets): no target
+#     offers `librevna` or `librevna-gui`. nixpkgs packages tag v1.6.5, and
+#     the AUR's librevna-gui builds 1.6.5. The pin is upstream's tag (D-024's
+#     tag case), the one nixpkgs builds.
+#   - Hardware: `catalog/hardware/devices/librevna.yaml`, not owned by the
+#     maintainer (D-027).
+install:
+  - install:
+      method: git
+      repo: https://github.com/jankae/LibreVNA
+      ref: v1.6.5
+      # D-069: the annotated tag must still resolve to this commit.
+      commit: 5fee370d4e56c30efaa0c6040a504bd01a63cc90
+      # The GUI's .pro sits three directories down and its CI runs qmake on
+      # it directly; the engine runs qmake6 from the top of the tree with
+      # the path, which is the same thing. It writes the git hash into the
+      # program with `git rev-parse HEAD`, so the checkout must be a clone,
+      # which a git block is. The .pro has no INSTALLS, so the executable is
+      # installed by name.
+      build_system: qmake6
+      project_file: Software/PC_Application/LibreVNA-GUI/LibreVNA-GUI.pro
+      provides_install_target: false
+    build_depends:
+      - build-essential
+      - git
+      - qmake6
+      - qt6-base-dev
+      - qt6-svg-dev
+      - libusb-1.0-0-dev
+      - libgl-dev
+    note: >-
+      Built on 2026-10-01 in a rootless debian:13 container the way this
+      block runs it -- qmake6 from the top of the tree on the .pro, then
+      `make -j 2` as an unprivileged user with the build_depends above:
+      exit 0, 14 min 19 s wall at the lowest priority, 859 MiB peak, one
+      compiler warning. The executable is 7.0 MB and links Qt 6 Core, Gui,
+      Widgets, Network, Svg and DBus, and libusb. `make install` into an
+      INSTALL_ROOT wrote nothing, which is why the executable is installed
+      by name. The build dependencies came to 218 packages and about 780 MB
+      on a bare debian:13 image. The same build in an ubuntu:24.04
+      container, with Qt 6.4.2, took 13 min 57 s and 769 MiB and started
+      the same way. In kali-rolling, with Qt 6.10.2, it took 12 min
+      45 s and 873 MiB, with 267 warnings and no errors, and started.
+
+binaries:
+  - produced: LibreVNA-GUI
+    install_as: LibreVNA-GUI
+
+launchers:
+  - name: librevna-window
+    title: LibreVNA vector network analyser (LibreVNA-GUI)
+    exec: LibreVNA-GUI
+    terminal: false
+
+update:
+  probe:
+    method: github_tags
+    repo: jankae/LibreVNA
+  strategy: rebuild
+  cadence_hint: >-
+    Upstream tags about once or twice a year (v1.6.2 2025-02, v1.6.3 and
+    v1.6.4 2025-05, v1.6.5 2026-03) and keeps fixing on master between
+    them. Move the tag and its commit together, and check the device
+    entry's identifiers against librevnausbdriver.cpp at the new tag.
+
+documentation:
+  what_it_does: >-
+    LibreVNA-GUI is the program that drives a LibreVNA, the open-hardware
+    two-port vector network analyser (100 kHz to 6 GHz), over USB. It
+    sweeps the device and shows the results on Smith, polar and XY charts
+    with markers and math on the traces; it calibrates against a
+    calibration kit, de-embeds fixtures, transforms to the time domain to
+    find faults along a cable (TDR), and saves Touchstone files. It also runs the device as a
+    spectrum analyser and as a signal generator, and it can update the
+    device's firmware. A SCPI server lets other programs and scripts drive
+    it over TCP.
+
+    **The device emits RF from its ports.** Sweeping is the device
+    sending a signal out of a port into whatever is
+    connected -- usually an antenna, a filter or a cable under test -- and
+    the generator mode sends a steady carrier. An antenna on a port
+    radiates that signal. Installing the program sends nothing; the device
+    emits only while it sweeps or generates.
+  why_you_want_it: >-
+    The catalog's `nanovna-saver` and `flaa` speak to the NanoVNA and to
+    RigExpert analysers; nothing spoke to the LibreVNA, an open design with
+    two full ports, whose program upstream publishes for Linux as source
+    and as a zip of a prebuilt binary. This is that program built from its
+    tagged source.
+  prerequisites: >-
+    A LibreVNA, and access to its raw USB device: see the `librevna`
+    hardware entry, whose identifiers are read from upstream's source and
+    not yet seen on hardware here, so no udev rule is generated from it
+    yet. A calibration kit for the connector type you measure through, and
+    the time to calibrate before measuring.
+  known_problems: >-
+    **Its SCPI server listens on every network address by default.**
+    Upstream's preferences enable it on TCP port 19542, and
+    `tcpserver.cpp` listens on `QHostAddress::Any`, with no password: on a
+    network, any machine that can reach the laptop can drive the
+    instrument, including its generator. Turn it off under Preferences
+    when you do not need it, or firewall the port. The streaming servers
+    (ports 19000 to 19101) are off by default.
+
+    What was measured: built on Debian 13, Ubuntu 24.04 and Kali, and
+    started under a virtual display with no device on all three: it opened its four-trace VNA window with "No device connected",
+    logged "Listening on port 19542", and on Ubuntu 24.04 and Kali the
+    container's /proc/net/tcp6 showed that port bound to every address. Not measured: a LibreVNA,
+    calibration, a sweep, the generator, a firmware update, or SCPI from
+    another program.
+  upstream_url: https://github.com/jankae/LibreVNA
+  upstream_support: >-
+    The project's repository: issues and discussions at the URL above, the
+    user manual and the SCPI programming guide (PDFs in its Documentation
+    directory), and the LibreVNA-support group on groups.io, which the
+    README names for questions.
+    Licence: GPL-3.0.

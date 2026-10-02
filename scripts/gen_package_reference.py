@@ -55,6 +55,7 @@ from hammunition.manifest.schema import (  # noqa: E402
     PackageManifest,
     PipxInstall,
     RegionalDataInstall,
+    RegisterInstall,
     Selector,
     SourceInstall,
     Status,
@@ -123,6 +124,13 @@ def method_of(block: InstallBlock) -> str:
         return (
             f"topographic map sheets from {install.provider} for the regions in station "
             f"config ({install.licence}, {install.licence_url})"
+        )
+    if isinstance(install, RegisterInstall):
+        return (
+            f"the publisher's whole file from {install.provider}, rebuilt daily and "
+            f"**unverified** (no checksum is published; the zip's own CRC-32s and the tables "
+            f"its reader needs are checked); installed by name only "
+            f"({install.licence}, {install.licence_url})"
         )
     if isinstance(install, KiwixBooksInstall):
         return (

@@ -4427,6 +4427,34 @@ of Hammunition's catalog can be pointed straight at a small, single-purpose
 tray applet without being handed a 249-package ham-radio catalog to get one
 power switch.
 
+### Amendment (2026-10-02): three more controllable classes, and the field laptop's entries
+
+The suite's design gave the tray one place to switch every device that has a
+control, and the catalog had exactly one `power_control` block. Three classes
+join it, each `usb_deauthorize` with no quiet verbs: **`wwan-modem`**,
+**`bluetooth-controller`** and **`camera`**. Four device entries carry the
+field laptop's own hardware, their identifiers read-only on 2026-10-01
+(`lsusb`, `udevadm info`, sysfs reads; nothing written, nothing parked):
+`dell-dw5821e` (`413c:81d7`, the modem fitted now), `intel-ax210-bluetooth`
+(`8087:0032`), `sunplus-integrated-webcam-fhd` (`1bcf:2a03`, named from
+`udevadm`'s model string), and `dell-dw5930e`, the 5G card that is MHI/PCIe,
+not USB.
+
+What the amendment does not claim. **No park has been run on any of the three
+new classes**, so none of the entries carries `maintainer_verified`, and each
+class note says so. A USB park leaves the device unconfigured, not unpowered
+at the port; the radios have a lighter switch (`nmcli radio wwan off`,
+`bluetoothctl power off`) that the tray's planned Radios panel will wrap, and
+the camera has none. **The DW5930e is the documented gap**: `pci_runtime`
+stays schema-valid and refused (nothing is shipped that has not been run),
+the entry exists so the gap, its reason (no USB node; the hardware report
+reads USB only, so the entry is never offered for parking) and its route (the
+radio switch) are on the page, and its PCI identifier is prose from the
+maintainer's bring-up notes, not re-read on 2026-10-01 because the card is out
+of the machine. No `udev` block is carried for any of them (D-028, D-029): an
+identifier naming a chip or a module never names a `/dev` node, and
+ModemManager, BlueZ and the kernel already name what they own.
+
 **See also:** `docs/hardware/power-control.md` for the operator-facing page
 — what parking changes, how to inspect it, and how to reverse it.
 
@@ -5983,6 +6011,128 @@ another machine, a phone, a Bluetooth receiver or a rig's GPS; the guide's
 section 12 says so for each. **Rejected:** a `--bind` option or any
 listener beyond loopback (the position to anyone who asks), and a watch
 per client (N copies of gpsd's stream for identical output).
+
+### Amendment (2026-10-02): the terrain layer serves three readers, and SPLAT! and Signal-Server join QMapShack
+
+The gap report's A5 (`docs/reference/catalog-gaps-2026-09.md`) said the
+terrain this decision fetches serves one reader and could serve four.
+Built on branch `terrain-readers` from
+`docs/superpowers/specs/2026-10-02-terrain-readers-design.md`, on the
+architectural path; Q-022 needed no ruling for it. **Amends** this
+decision's converter enum with `splat-sdf`, and D-068's amendment, whose
+`alternative` input `splat-sdf` now reads as `gdal-dem` does.
+
+**The readers, measured.** QMapShack was served (`dem-qmapshack`). SPLAT!
+(carried, apt) and Signal-Server (added here) read SPLAT Data Files, and
+are now served by `splat-sdf`. Xastir (carried) draws a GeoTIFF or a
+`.geo`-described image, which an SDF is not: its route is a shaded-relief
+image per tile with a `.geo` beside it, `gdal-dem`'s shape again, not built
+because nobody has measured Xastir drawing one, and SPLAT's own `-geo`
+output is an Xastir layer today. `gpredict` and `hamclock-next` read no
+terrain; a horizon mask is post-1.0, as A5 says. So three of the four A5
+counts are served, and the fourth is written down with its route.
+
+**The format, from SPLAT's own tools.** Run on 2026-10-01 over synthetic
+`.hgt` files whose samples encode their row and column: four header lines
+(`max_west`, `min_lat`, `min_west`, `max_lat`, longitudes west and
+positive), then 1200 x 1200 or 3600 x 3600 integers, the south row first
+and each row from east to west, the `.hgt`'s north row and east column
+dropped. Names as `srtm2sdf` writes them, measured on nine squares in four
+hemispheres (`36:37:116:117`, `-34:-33:208:209`, and `0:1:359:0` for the
+square east of Greenwich). `srtm2sdf-hd` reads the one-arc-second `.hgt`
+for 30 m data.
+
+**Measured finding: the tools erase land below sea level by default.**
+`-n`, "the elevation below which SRTM data is replaced", defaults to 0; a
+synthetic block at -50 m came out at 104 m, and the real tile's -91 m
+survived only with `-n -32767`. The converter passes `-d /dev/null -n
+-32767`: `/dev/null` is the manual's "prevents data replacement" and keeps
+the tool from reading `~/.splat_path`, which names this converter's own
+output.
+
+**Ruling: SPLAT's tools, not a writer of our own.** Over one HD tile a
+Python writer took 1.06 s where `srtm2sdf-hd` took 4.53 s, and its output
+was byte-identical except at a void. The tools define the format, fill
+voids the way SPLAT expects, and keep the rule that a converter is an
+archive program run as the operator in staging, never the engine parsing
+downloaded data under `sudo`.
+
+**Ruling: compressed, both resolutions.** SPLAT! reads `.sdf.bz2` and
+Signal-Server `.sdf.bz2` and `.sdf.gz`. On Death Valley's Copernicus tile
+(the square at 36 N 117 W, a public example chosen for its land below sea
+level, verified against its ETag and deleted after) the HD file
+is 57,033,174 bytes as text and 5,668,563 compressed; the standard one
+6,336,641 and 867,797. `splat-hd` is built for 4 square degrees and
+`splat` for 8, and a 20 km coverage map took them 22 s and 1.3 s, so both
+files are made.
+
+**The converter.** Per tile, as the operator in `splat.work` under one
+lock: `gdalbuildvrt -resolution highest` over the tile and its installed
+neighbours (a Copernicus tile's south row and east column are theirs:
+its origin is half a sample beyond its north-west corner, measured);
+`gdalwarp -r average -dstnodata -32768` to a 3601-sample `.hgt` centred
+on whole arc seconds, a sample no tile covers becoming a void that
+`srtm2sdf-hd` fills from its neighbours; `srtm2sdf-hd`, `bzip2 -9`; the
+same at 1201 samples with `srtm2sdf`; both files published with a
+`.source` sidecar (the tile, its window, `splat-sdf 1`) and a link
+beside each under Signal-Server's name (`36_37_116_117-hd.sdf.bz2`; for
+the square east of Greenwich `0_1_359_360`, from its `LoadTopoData`, not
+run). A changed source tile (`--dem-source`), a changed window or a new
+converter remakes a square; a square no region needs loses its files.
+`PrefixWriter.link` makes the links: a sibling name only. Through the
+engine's own code on that tile: 16.3 s, 151.2 MB peak in the children,
+the same bytes as the manual run, and the next plan found it current;
+`splat-hd` and `splat` then reported 699 m and -17 m at two sites where
+the source tile has 699.2 and -16.7.
+
+**Signal-Server.** Cloud-RF's repository was reduced to a history README
+on 2025-08-28; its code was deleted in 2023 and it names two forks. Cloned
+once each on 2026-10-01 (D-032): N9OZB's head is 2019-07-30, W3AXL's
+2026-01-30, GPL-2.0 both, no tags in either, no distribution package.
+**Ruling: W3AXL's head, `7f6242a`, a D-024 pin with `basis: own_choice`.**
+Built in rootless Podman on Debian 13: configure 0.4 s, compile 38.4 s at
+420 MB peak. **Measured: a release build crashes on every plot.** The
+engine configures CMake as Release, which adds `-DNDEBUG`, and
+Signal-Server allocates ITWOM's arrays inside `assert()`
+(`src/models/itwom3.0.cc`, lines 2143 and 2196): `-O2` ran clean, `-O2
+-DNDEBUG` crashed in `d1thx`. The manifest passes
+`-DCMAKE_CXX_FLAGS_RELEASE=-O2`, no patch. **Measured: the threaded plot
+races**: 2 crashes in 10 at 30 m and 1 in 20 at 90 m with threads, none in
+the unthreaded runs; the guide's command passes `-nothreads`. Its
+`CMakeLists.txt` is in `src/`, and the CMake path now passes `-S
+<tree>/<project_file>`, which the schema had always documented and the
+engine had ignored; a `project_file` must stay inside the tree.
+
+**Pointing the readers.** `hammunition maps splat`, per user and refused
+as root, writes `~/.splat_path` only when it is absent, leaves another
+directory alone with the `-d` to pass, refuses a symbolic link, and
+prints Signal-Server's `-sdf`. Nothing writes it during an install.
+
+**Rejected.** A writer of our own (above). Uncompressed files (ten times
+the disk). Only the HD files (`splat-hd`'s 4 square degrees). A patch to
+Signal-Server for the `assert()` (a configure argument does it, and
+`patches` stay a measured zero). N9OZB's fork (seven years still).
+Signal-Server's LIDAR mode and the web front ends (not fed, unmeasured).
+
+**Not measured, and owed by the bench:** `splat-sdf` through `hammunition
+install` on a real region; SPLAT! and Signal-Server plots over it on the
+field laptop; the threaded crash on other hardware.
+
+**Consequences.** `src/hammunition/backends/splat_sdf.py`;
+`PrefixWriter.link` in `src/hammunition/backends/verified.py`; the CMake
+`-S` in `src/hammunition/backends/source.py`; `INPUT_OWNERS` and the enum
+member in `src/hammunition/manifest/schema.py`; `TerrainRun.splat` and
+`splat_source` in `src/hammunition/terrain_plan.py`; the SDF estimates in
+`src/hammunition/backends/terrain.py`; the plan's lines and JSON fields in
+`src/hammunition/interface/plan.py`; `src/hammunition/splat_path.py` and
+`maps splat` in `src/hammunition/cli/main.py`;
+`catalog/packages/splat-sdf.yaml`, `catalog/packages/signal-server.yaml`,
+`catalog/profiles/antenna.yaml`. The operator's page is
+`docs/guides/propagation.md`, *Terrain for coverage plots*. Tests:
+`tests/test_splat_sdf.py`, `tests/test_splat_sdf_schema.py`,
+`tests/test_splat_sdf_plan.py`, `tests/test_splat_sdf_catalog.py`,
+`tests/test_splat_path.py`, and additions to
+`tests/test_verified_install.py` and `tests/test_source_backend.py`.
 
 ---
 
@@ -8386,6 +8536,139 @@ and its weekly CI step; tests `tests/test_repeater_sources.py`,
 `tests/test_repeater_sources_cli.py`, `tests/test_repeater_layers.py`,
 `tests/test_gen_open_repeater_pin.py`; the offline-navigation guide's
 section 13, `docs/guides/lan-mirror.md` and `docs/reference/cli.md`.
+
+### Amendment, 2026-10-01 — the ACMA register is built: a `register` unit, unverified because nothing else is possible, and a layer filtered to the installed regions
+
+**Status:** proposed (the task named the route; implemented on branch
+`acma-register`; the maintainer decides it at review). **Supersedes** the
+"Not carried" sentence above that named the ACMA register as a route not
+built, and rule 6's precedence list, which gains the regulator.
+
+**What was measured** on 2026-10-01, with two requests to
+`https://cdn.acma.gov.au/rrl/spectra_rrl.zip` (a `HEAD`, then one `GET`
+asking for a current Azure storage API version):
+
+- 67,513,955 bytes, `Last-Modified` 21:31:17 GMT, served from Azure Blob
+  storage behind Front Door. **The ETag, `0x8DF200353F0B4AF`, is Azure's
+  version stamp, not an MD5**, and no `Content-MD5` is stored, even when
+  the 2021-08-06 storage API is asked for. The ACMA publishes no checksum
+  anywhere the file names. The spike's "a dated, hashable file" was true of
+  the bytes and not of any check the publisher offers, so the Copernicus
+  route ("from the publisher's object metadata; not pinned by Hammunition")
+  does not exist here, and a sha256 pin dies with the next day's rebuild.
+- 31 members. `LICENCE.TXT`, "LICENCE TO USE THE REGISTER OF
+  RADIOCOMMUNICATIONS LICENCES": clause 5 licenses use, reproduction,
+  adaptation, derivatives and their distribution; clause 8 forbids a
+  natural person's Client Information in a derivative; clause 9 requires
+  "Based on Australian Communications and Media Authority information" on
+  anything derived. The manifest quotes clauses 5, 8 and 9 verbatim.
+- `licence.csv`: sub-service 602, *Amateur Repeater*: 501 granted, 12
+  expired, 1 not granted. `device_details.csv` (386 MB uncompressed): 3,939
+  devices on those licences, 1,981 transmitters and 1,958 receivers; a
+  transmitter pairs with the receiver of the same licence and `EFL_SYSTEM`
+  in 1,853 cases. 1,784 granted transmitters have a site, 473 callsigns.
+  `site.csv`: 506 sites, every one with a position; 347 "Within 10
+  metres", 94 "Within 100 metres", 65 "Unknown". The member timestamps
+  (2026-10-02 07:31, the ACMA's local time) are the register's own date.
+- Read through the new reader on this machine: every Australian
+  transmitter in one box kept 1,768 rows, 1,696 after D-064's merge, in
+  about 16 seconds; a Tasmanian box kept 109 (106 merged).
+- A third request, a `HEAD` for a licence page on `www.acma.gov.au`, was
+  reset by the server; the licence is stated only inside the file, which
+  is why the manifest's `licence_url` is the file itself.
+
+**The rule.**
+
+1. **A new install method, `register`**, `provider: acma-rrl`, with the
+   URL, the file name and the check in the engine (`src/hammunition/acma.py`),
+   never the catalog: the `dem-tiles` shape. `data`'s rule that every
+   artifact carries a sha256 is left exactly as it was.
+2. **The check is the file's own structure**: the members the import reads
+   and their header columns, a cap on what the members declare
+   uncompressed, and every member's CRC-32. It catches a damaged, cut-off
+   or substituted-by-a-web-page download, never a file altered at the
+   source. `Fetcher.fetch_checked` runs it on what arrived, from a LAN
+   mirror first and the publisher second, and never reuses a cached copy.
+   The plan prints "about 67.5 MB" (the size measured here; the file moves
+   daily) and "unverified" with what is checked.
+3. **In no profile, installed by name only**: the FSTopo ruling of
+   2026-10-01 (D-068, amended) applies as written, and unlike FSTopo there
+   is no condition under which it can rejoin one, since nothing can be
+   pinned.
+4. **`artifacts` lists it** as `acma-register/spectra_rrl.zip`, check
+   `unverified-zip`, digest null, the size from one `HEAD` to the ACMA per
+   listing (deferred, with the reason, when that fails).
+5. **`maps repeaters import --from-acma [FILE]`** writes the `acma` layer,
+   *Repeaters (ACMA, YYYY-MM-DD)*, dated by the register: transmitters on
+   granted 602 licences with a site, a callsign and a frequency from 1 to
+   10,000 MHz, whose site lies in the bounding box of an installed region
+   extract (each box read from the extract's PBF header, as Navit's centre
+   is, D-057). A row outside every box is counted, never numbered.
+   No region, an extract with no readable box (named by its number), or no
+   row inside any box is refused and nothing is written, the last saying
+   the register covers Australia only. The emission designator is kept
+   with plain words for the classes the 2026-10-01 file uses (`FM
+   (16K0F3E)`); there are no tones in the register.
+6. **`client.csv` is never opened**, which a test proves; the layer carries
+   the site's name and state, the licence number and the site precision.
+   The installed file still holds licensees' names and addresses, and the
+   guide and the Bunker page say to keep it to the operator's own machines.
+7. **Precedence, best first:** the operator's export or list; the
+   regulator (the ACMA); the ETCC; Open Repeater; hearham; Brandmeister;
+   OSM. The ACMA and the ETCC never cover the same place, so their order
+   decides nothing today.
+
+**Rulings made on the way.**
+
+- **The task's `check: etag-md5` was measured away**, not adopted: an
+  Azure ETag is not a digest, and carrying it as one would print a check
+  the engine never makes.
+- **No plan-time network.** The plan prints the measured size as "about";
+  a dry run stays offline. Only `artifacts`, which already asks Geofabrik
+  and the Copernicus bucket, asks the ACMA for the day's size.
+- **Bounding boxes from the installed extracts**, not station config: the
+  same source `--from-osm` reads, offline, and what the station actually
+  has. A box is a rectangle, so it can take in sites over a state border;
+  the guide says so.
+- **An empty layer is refused, not written**, the existing rule for an
+  import that keeps nothing; an older `acma` layer is left as it was.
+- **The import does not re-run the CRC pass** over 600 MB the install
+  already checked; it checks the tables and columns, then reads.
+- **From the final review.** A table stored in a compression `zipfile`
+  cannot read (or encrypted) raised `NotImplementedError` (or
+  `RuntimeError`) past the check and the import, a traceback rather than a
+  named refusal; both are now the check's "damaged" error, and a test
+  crafts such a member.
+
+**What has run.** The test suite: the check against a synthetic register
+in the real file's column layout, falsified by a flipped byte in a member
+nothing else reads (caught only by the CRC pass, which the test proves by
+passing the same file without it), a truncated zip, a web page, a missing
+table, a renamed column and the inflation cap; the reader's every skip and
+its pairing, the antimeridian, `client.csv` never opened; the backend from
+the publisher and from a mirror, a damaged mirror copy passed over; the
+plan's text and document; `artifacts` with a fake `HEAD`; the CLI end to
+end with real PBF headers around Tasmania and Victoria. On the
+maintainer's laptop, from a scratch directory in the worktree: the reader
+over the real 2026-10-01 file (about 16 seconds a pass), the file deleted
+after. Nothing was installed through the engine and no GUI started.
+
+**Owed to the bench:** `install acma-register` through the engine, from
+the ACMA and from a Bunker; `--from-acma` over a real Australian extract's
+header (only synthetic headers have been read); QMapShack and Navit drawing
+the layer; and the maintainer's decision whether a Bunker may hold a file
+that carries licensees' client information.
+
+**Consequences.** `src/hammunition/acma.py`; `RegisterInstall` in
+`src/hammunition/manifest/schema.py`; `Fetcher.fetch_checked`;
+`DataBackend.register_steps`; the plan's `data` lines gain `verified_by`
+and `approximate`; `unverified-zip` in the `artifacts` contract;
+`read_acma` in `src/hammunition/repeater_sources.py`; `--from-acma` and
+`remove --layer acma` in `src/hammunition/cli/main.py`;
+`catalog/packages/acma-register.yaml`; tests `tests/test_acma.py`,
+`tests/test_acma_backend.py`, `tests/test_acma_cli.py`, with
+`tests/acma_support.py`; the guide's section 13, `docs/guides/lan-mirror.md`,
+`docs/reference/cli.md`.
 
 ## D-075 — Infrastructure and EMCOMM layers: eight OpenStreetMap layers from the extracts already here, FAA NASR, EIA-860M and WRI as pinned data, FCC ASR and NOAA Weather Radio on request, an `infra` tile layer and GeoJSON overlays on the browser map
 

@@ -48,6 +48,7 @@ IMPLEMENTED_METHODS: frozenset[str] = frozenset(
         "mwm-regions",
         "node",
         "osm-regions",
+        "register",
         "source",
         "topo-quads",
         "venv",

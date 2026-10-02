@@ -70,7 +70,7 @@ argument — js8call is apt on Linux Mint 22.3 and a cmake build elsewhere.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `when` | `Selector` | no |  |
-| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall \| RegionalDataInstall \| DemTilesInstall \| TopoQuadsInstall \| DerivedDataInstall \| KiwixBooksInstall \| MwmRegionsInstall` | **yes** |  |
+| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall \| RegionalDataInstall \| DemTilesInstall \| TopoQuadsInstall \| RegisterInstall \| DerivedDataInstall \| KiwixBooksInstall \| MwmRegionsInstall` | **yes** |  |
 | `build_depends` | `list[str]` | no | apt packages needed to BUILD only. Never reported as installed. |
 | `binaries` | `list[Binary] \| None` | no | This block's own build outputs, replacing the manifest's `binaries` wherever this block is the one that resolves. A prebuilt archive selected by `arch` can carry a different path per architecture -- rayhunter's zip has `installer` at the top level and one `rayhunter-check` under a per-platform directory -- and one manifest-level list cannot describe both. Omit the key to use the manifest's list; an empty list is refused, because it reads as an override to nothing. |
 | `note` | `str \| None` | no |  |
@@ -562,13 +562,13 @@ wide because only the catalog knows what `source` resolves to (D-061).
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `method` | `Literal[derived]` | no (default `derived`) |  |
-| `converter` | `Literal[navit-maptool, mkgmap, routino-planetsplitter, gdal-dem, brouter-mapcreator, mapsforge-map, mapsforge-poi, ustopo-mosaic, tilemaker-pmtiles]` | **yes** | The transformation to run. Each needs a `source` of one particular install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): `navit-maptool`, `mkgmap`, `routino-planetsplitter`, `brouter-mapcreator`, `mapsforge-map`, `mapsforge-poi` and `tilemaker-pmtiles` need an `osm-regions` source; `gdal-dem` needs a `dem-tiles` source; `ustopo-mosaic` needs a `topo-quads` source (D-068). |
-| `source` | `str` | **yes** | The catalog package name this is derived from: an `osm-regions` unit, for `gdal-dem` a `dem-tiles` unit, for `ustopo-mosaic` a `topo-quads` unit. |
+| `converter` | `Literal[navit-maptool, mkgmap, routino-planetsplitter, gdal-dem, brouter-mapcreator, mapsforge-map, mapsforge-poi, ustopo-mosaic, tilemaker-pmtiles, splat-sdf]` | **yes** | The transformation to run. Each needs a `source` of one particular install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): `navit-maptool`, `mkgmap`, `routino-planetsplitter`, `brouter-mapcreator`, `mapsforge-map`, `mapsforge-poi` and `tilemaker-pmtiles` need an `osm-regions` source; `gdal-dem` and `splat-sdf` (D-061, amended 2026-10-02) need a `dem-tiles` source; `ustopo-mosaic` needs a `topo-quads` source (D-068). |
+| `source` | `str` | **yes** | The catalog package name this is derived from: an `osm-regions` unit, for `gdal-dem` and `splat-sdf` a `dem-tiles` unit, for `ustopo-mosaic` a `topo-quads` unit. |
 | `boundaries` | `str \| None` | no | The catalog data unit holding country boundaries (one GeoJSON file) that `navit-maptool` merges into each region before conversion, so maptool files towns under a country and address search finds them (D-057 amendment, 2026-09-28). Must also be in `depends`. |
 | `program` | `str \| None` | no | `brouter-mapcreator` only, and required there (D-063): the `binary` unit whose installed tree holds BRouter's jar, which carries the map creator. Must also be in `depends`. |
 | `profiles` | `str \| None` | no | `brouter-mapcreator` only, and required there (D-063): the `data` unit holding `all.brf` and `softaccess.brf`, the map creator's filters, which BRouter's release zip does not carry. Must also be in `depends`. |
 | `elevation` | `str \| None` | no | `brouter-mapcreator` only, optional (D-063): the `dem-tiles` unit whose installed tiles are folded into the routing files as elevation. Without it the routes are flat. Must also be in `depends`. |
-| `alternative` | `str \| None` | no | `gdal-dem` only, optional (D-068, amended 2026-10-01): the `dem-tiles` unit of provider `usgs-3dep` drawn from instead of `source` when the station's `dem_source` is `3dep`. Must also be in `depends`. |
+| `alternative` | `str \| None` | no | `gdal-dem` and `splat-sdf` only, optional (D-068, amended 2026-10-01; D-061, amended 2026-10-02): the `dem-tiles` unit of provider `usgs-3dep` drawn from instead of `source` when the station's `dem_source` is `3dep`. Must also be in `depends`. |
 | `fstopo` | `str \| None` | no | `ustopo-mosaic` only, optional (D-068, amended 2026-10-01): the `topo-quads` unit of provider `usfs-fstopo` whose sheets, when installed, are made a second QMapShack map, `FSTopo.vrt`, beside `ustopo.vrt`. Read, never depended on: the Forest Service publishes no checksum, so its sheets are installed only by name (CLAUDE.md's checksum rule), and US Topo's map works without them. |
 | `kit` | `str \| None` | no | `tilemaker-pmtiles` only, and required there (D-071): the `data` unit holding tilemaker's OpenMapTiles profile (config and Lua) and the Natural Earth shapefiles the profile names. Must also be in `depends`. |
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
@@ -683,6 +683,28 @@ file, never the transaction" rule as any other station-dependent unit.
 |---|---|---|---|
 | `method` | `Literal[osm-regions]` | no (default `osm-regions`) |  |
 | `provider` | `Literal[geofabrik]` | no (default `geofabrik`) |  |
+| `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
+| `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
+
+### `RegisterInstall`
+
+A publisher's whole file, rebuilt so often that no pin survives and
+checked by no digest the publisher offers (D-074, amended 2026-10-01).
+
+The one member today is ``acma-rrl``: the ACMA's Register of
+Radiocommunications Licences, one zip at one URL, rebuilt daily, whose
+ETag is a storage version stamp rather than a digest. `provider` is an
+enum so the URL, the file's name and its check live in the engine
+(:mod:`hammunition.acma`), never in the catalog, as with `dem-tiles`.
+What is checked is the file's own structure (every member's CRC-32 and
+the tables a reader needs), and the plan says "unverified" beside it:
+such a unit is installed by name only, in no profile (the FSTopo ruling,
+D-068 amended 2026-10-01).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `method` | `Literal[register]` | no (default `register`) |  |
+| `provider` | `Literal[acma-rrl]` | no (default `acma-rrl`) |  |
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
 

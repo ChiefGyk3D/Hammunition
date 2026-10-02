@@ -52,6 +52,7 @@ from typing import Any
 from xml.sax.saxutils import escape
 
 __all__ = [
+    "ACMA",
     "ALL_SOURCES",
     "BRANDMEISTER",
     "DIREWOLF",
@@ -114,6 +115,8 @@ OSM = "osm-extract"
 ETCC = "etcc-csv"
 BRANDMEISTER = "brandmeister-json"
 DIREWOLF = "direwolf-log"
+# The ACMA register (D-074, amended 2026-10-01).
+ACMA = "acma-register"
 
 #: The hand-typed CSV's header, exactly (D-064).
 HAND_HEADER = (
@@ -133,6 +136,7 @@ HAND_HEADER = (
 #: ``fetch-hearham`` write it, under D-064's names.
 LAYERS: dict[str, str] = {
     "export": "repeaters",
+    "acma": "repeaters-acma",
     "open-repeater": "repeaters-open-repeater",
     "osm": "repeaters-osm",
     "etcc": "repeaters-etcc",
@@ -192,6 +196,7 @@ SOURCE_NAMES = {
     REPEATERBOOK_CSV: "RepeaterBook export. Data courtesy of RepeaterBook.com",
     HEARHAM: "hearham.com, unverified",
     HAND: "your own list",
+    ACMA: "ACMA Register of Radiocommunications Licences. Based on Australian Communications and Media Authority information",
     OPEN_REPEATER: "Open Repeater, CC0",
     OSM: "OpenStreetMap contributors, ODbL",
     ETCC: "RSGB ETCC (ukrepeater.net), unverified",
@@ -399,6 +404,8 @@ def read_input(path: Path) -> ParsedInput:
     except OSError as exc:
         raise RepeaterInputError(f"{path}: cannot read it: {exc.strerror or exc}") from None
     digest = hashlib.sha256(raw).hexdigest()
+    if raw[:4] == b"PK\x03\x04":
+        raise _zip(path, raw)
     if path.suffix.lower() == ".img" or CHIRP_MAGIC in raw:
         raise RepeaterInputError(
             f"{path}: a CHIRP radio image holds a radio's memories and no coordinates, "
@@ -441,6 +448,17 @@ def read_inputs(paths: Sequence[Path]) -> tuple[ParsedInput, ...]:
     if refused:
         raise RepeaterInputError("\n".join(refused))
     return tuple(parsed)
+
+
+def _zip(path: Path, raw: bytes) -> RepeaterInputError:
+    """A zip given as an export: the ACMA register is its own layer (D-074,
+    amended 2026-10-01); any other archive is unpacked first."""
+    if b"device_details.csv" in raw and b"licence.csv" in raw:
+        return RepeaterInputError(
+            f"{path}: the ACMA register is its own layer (D-074); import it with "
+            f"`hammunition maps repeaters import --from-acma {path}`"
+        )
+    return RepeaterInputError(f"{path}: a zip archive; unpack it and give the GPX or CSV inside it")
 
 
 def _kml(path: Path) -> RepeaterInputError:

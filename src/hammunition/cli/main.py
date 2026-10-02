@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn, TextIO, cast
 
 from hammunition import navit_config
+from hammunition.acma import AcmaProbe
 from hammunition.backends import (
     Action,
     AptBackend,
@@ -193,6 +194,7 @@ from hammunition.terrain_plan import (
     contour_source,
     resolve_station_3dep,
     resolve_station_terrain,
+    splat_source,
 )
 from hammunition.tiles_plan import build_tiles_run
 from hammunition.topo_plan import (
@@ -1234,6 +1236,7 @@ def cmd_artifacts(args: argparse.Namespace) -> int:
         today=date.today(),
         region_probe=UrllibProbe(),
         tile_probe=S3Probe(),
+        register_probe=AcmaProbe(),
     )
     doc = ArtifactsDocument(
         map_regions=regions,
@@ -1542,6 +1545,50 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
     return EXIT_FAILED
+
+
+def cmd_maps_splat(args: argparse.Namespace) -> int:
+    """Point SPLAT! at Hammunition's terrain through ``~/.splat_path``, and
+    print Signal-Server's ``-sdf`` argument.  D-061, amended 2026-10-02.
+
+    Per user, refused under root, as ``maps qmapshack`` is. The file is
+    written only when absent; one naming another directory is left alone
+    with the ``-d`` to pass instead; a symbolic link or anything but a
+    regular file there is refused and nothing changes.
+    """
+    from hammunition.splat_path import SplatPathError, ensure_splat_path, splat_path_file
+
+    if os.geteuid() == 0:
+        print(
+            "error: ~/.splat_path is per user; run this as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    directory = data_root(DEFAULT_PREFIX) / "splat-sdf"
+    path = splat_path_file()
+    try:
+        state = ensure_splat_path(path, directory)
+    except (SplatPathError, OSError) as exc:
+        print(f"error: {exc}. Nothing was changed.", file=sys.stderr)
+        return EXIT_FAILED
+    if state == "written":
+        print(f"wrote {path}: SPLAT! now finds its terrain in {directory}/")
+    elif state == "already":
+        print(f"{path} already names {directory}/")
+    else:
+        line = (path.read_text().splitlines() or [""])[0].strip()
+        print(
+            f"{path} names {line}, which is yours and is left alone; pass "
+            f"-d {directory}/ to splat or splat-hd to read Hammunition's terrain"
+        )
+    print(f"Signal-Server: signalserver -sdf {directory}/ ... (signalserverHD for 30 m)")
+    if not any(directory.glob("*.sdf.bz2")):
+        print(
+            "note: no SPLAT terrain is installed yet; `hammunition install splat-sdf` makes "
+            "it from your map regions' elevation",
+            file=sys.stderr,
+        )
+    return EXIT_OK
 
 
 def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
@@ -1938,10 +1985,12 @@ def cmd_maps_repeaters_import(args: argparse.Namespace) -> int:
     directory, adds it to QMapShack's ``poiPaths`` and writes the operator's
     Navit configuration. Refused as root: the files are the operator's.
 
-    D-074 adds three inputs, each its own layer and each exclusive of the
+    D-074 adds four inputs, each its own layer and each exclusive of the
     files and of the others: ``--from-open-repeater [FILE]`` (the installed
-    ``open-repeater`` data unit's file by default), ``--from-osm`` (the
-    region extracts installed here, filtered by osmium) and
+    ``open-repeater`` data unit's file by default), ``--from-acma [FILE]``
+    (the installed ``acma-register`` unit's zip by default, filtered to the
+    installed regions' bounding boxes; amended 2026-10-01), ``--from-osm``
+    (the region extracts installed here, filtered by osmium) and
     ``--from-direwolf-log FILE...``.
     """
     from hammunition.repeaters import (
@@ -1962,6 +2011,7 @@ def cmd_maps_repeaters_import(args: argparse.Namespace) -> int:
         for name, given in (
             ("FILE...", bool(args.files)),
             ("--from-open-repeater", args.from_open_repeater is not None),
+            ("--from-acma", args.from_acma is not None),
             ("--from-osm", args.from_osm),
             ("--from-direwolf-log", bool(args.from_direwolf_log)),
         )
@@ -1970,7 +2020,7 @@ def cmd_maps_repeaters_import(args: argparse.Namespace) -> int:
     if len(routes) != 1:
         print(
             "error: give one source per import: your export files, --from-open-repeater, "
-            "--from-osm or --from-direwolf-log; each is its own layer (D-074)"
+            "--from-acma, --from-osm or --from-direwolf-log; each is its own layer (D-074)"
             + (f", not {' and '.join(routes)}" if routes else "")
             + ". Nothing was written.",
             file=sys.stderr,
@@ -2011,10 +2061,46 @@ def cmd_maps_repeaters_import(args: argparse.Namespace) -> int:
 
 #: Where the ``open-repeater`` data unit installs its file (D-049, D-074).
 OPEN_REPEATER_FILE = Path("open-repeater") / "open-repeater.json"
+#: Where the ``acma-register`` unit installs the register (D-074, amended 2026-10-01).
+ACMA_FILE = Path("acma-register") / "spectra_rrl.zip"
+
+
+def _region_boxes() -> tuple[list[tuple[float, float, float, float]], int]:
+    """The bounding box of every installed region extract, from its header,
+    and how many extracts there are. Every message names an extract by its
+    number, never its file: a region says where the operator is (D-057)."""
+    from hammunition import osm_pbf
+    from hammunition import repeater_sources as rs
+    from hammunition.repeaters import RepeaterInputError
+
+    extracts = rs.installed_extracts(DEFAULT_PREFIX)
+    if not extracts:
+        raise RepeaterInputError(
+            f"no map region is installed in {data_root(DEFAULT_PREFIX) / 'osm-regions'}: the "
+            f"ACMA layer keeps the repeaters inside your regions' bounding boxes, so "
+            f"`hammunition install osm-regions` comes first"
+        )
+    boxes: list[tuple[float, float, float, float]] = []
+    for number, (pbf, _) in enumerate(extracts, start=1):
+        label = f"region extract {number} of {len(extracts)}"
+        try:
+            box = osm_pbf.header_bbox(pbf)
+        except (osm_pbf.OsmPbfError, OSError):
+            raise RepeaterInputError(
+                f"{label}: its header cannot be read for a bounding box; reinstall it with "
+                f"`hammunition install osm-regions`"
+            ) from None
+        if box is None:
+            raise RepeaterInputError(
+                f"{label} carries no bounding box in its header, so the repeaters in it "
+                f"cannot be chosen"
+            )
+        boxes.append(box)
+    return boxes, len(extracts)
 
 
 def _import_repeater_source(args: argparse.Namespace) -> int:
-    """``import --from-open-repeater``, ``--from-osm`` or
+    """``import --from-open-repeater``, ``--from-acma``, ``--from-osm`` or
     ``--from-direwolf-log``: one D-074 source into its own layer."""
     from hammunition import repeater_sources as rs
     from hammunition.repeaters import (
@@ -2047,6 +2133,30 @@ def _import_repeater_source(args: argparse.Namespace) -> int:
                 [rs.open_repeater_licence()],
                 args,
                 "open-repeater",
+            )
+        if args.from_acma is not None:
+            if args.from_acma:
+                path = Path(args.from_acma)
+            else:
+                path = data_root(DEFAULT_PREFIX) / ACMA_FILE
+                if not path.is_file():
+                    raise RepeaterInputError(
+                        f"no ACMA register at {path}: `hammunition install acma-register` "
+                        f"installs it (about 67.5 MB, unverified: the ACMA publishes no "
+                        f"checksum), or give a copy you downloaded: --from-acma FILE"
+                    )
+            boxes, regions = _region_boxes()
+            parsed = rs.read_acma(path, boxes)
+            if not parsed.rows:
+                raise RepeaterInputError(
+                    f"none of the register's {parsed.read} amateur repeater transmitters is "
+                    f"inside the bounding boxes of your {regions} installed map region(s), so "
+                    f"the ACMA layer would be empty. The register covers Australia only "
+                    f"(Geofabrik's australia-oceania/australia and its states)"
+                )
+            day = rs.acma_date(path)
+            return _write_repeater_layer(
+                [parsed], rs.acma_layer_name(day), day, [rs.acma_licence(day)], args, "acma"
             )
         if args.from_osm:
             extracts = rs.installed_extracts(DEFAULT_PREFIX)
@@ -3413,6 +3523,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         dem_source=station.elevation,
         contour_source=contour_source(plan),
         fstopo=fstopo_resolution,
+        splat_source=splat_source(plan),
     )
     # D-067: the phone converters, from the same regions, as the operator.
     phone = build_phone_run(
@@ -5990,6 +6101,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_maps_qms.set_defaults(func=cmd_maps_qmapshack)
 
+    p_maps_splat = maps_sub.add_parser(
+        "splat",
+        help="point SPLAT! at Hammunition's terrain through ~/.splat_path, and print "
+        "Signal-Server's -sdf argument (D-061)",
+    )
+    p_maps_splat.set_defaults(func=cmd_maps_splat)
+
     p_maps_comaps = maps_sub.add_parser(
         "comaps",
         help="accept CoMaps' licence notice and link your maps for it, then start it (D-069)",
@@ -6090,7 +6208,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_rep_import = rep_sub.add_parser(
         "import",
         help="convert a RepeaterBook GPX or CSV export, hearham JSON or your own CSV, or one "
-        "of --from-open-repeater, --from-osm, --from-direwolf-log; offline",
+        "of --from-open-repeater, --from-acma, --from-osm, --from-direwolf-log; offline",
     )
     p_rep_import.add_argument("files", nargs="*", metavar="FILE", help="the export(s) to convert")
     p_rep_import.add_argument(
@@ -6106,6 +6224,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="FILE",
         help="Open Repeater's CC0 list: the installed open-repeater unit's file, or FILE (D-074)",
+    )
+    p_rep_import.add_argument(
+        "--from-acma",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="FILE",
+        help="the Australian regulator's register: the installed acma-register unit's zip, or "
+        "FILE; keeps the repeaters inside your installed regions (D-074)",
     )
     p_rep_import.add_argument(
         "--from-osm",
@@ -6144,7 +6271,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_rep_remove.add_argument(
         "--layer",
-        choices=("export", "open-repeater", "osm", "etcc", "brandmeister", "aprs-heard"),
+        choices=("export", "acma", "open-repeater", "osm", "etcc", "brandmeister", "aprs-heard"),
         default=None,
         help="remove only this layer (default: every layer and the all-sources file)",
     )

@@ -25,7 +25,7 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ..manifest.schema import DataArtifact, DataInstall, PackageManifest
+from ..manifest.schema import DataArtifact, DataInstall, PackageManifest, RegisterInstall
 from .base import Action, BackendError, Command, CommandRunner
 from .source import extract, needs_root_for
 from .verified import PrefixWriter
@@ -131,6 +131,85 @@ class DataBackend:
                 )
             )
         return steps
+
+    def register_steps(
+        self, manifest: PackageManifest, block: RegisterInstall
+    ) -> list[Action | Command]:
+        """A ``register`` block (D-074, amended 2026-10-01): the ACMA's
+        register, fetched whole, checked by its own structure only, and
+        installed as one file under the unit's data directory."""
+        from .. import acma
+        from ..fetch import MirrorPath, fetch_disclosure
+
+        where = MirrorPath(manifest.name, acma.FILE_NAME)
+        note, urls, sources = fetch_disclosure(self.fetcher, acma.URL, where, "zip's own structure")
+        fetched: dict[str, Path] = {}
+        digests: dict[str, str] = {}
+        facts: dict[str, str] = {}
+        dest = self.data_dir(manifest) / acma.FILE_NAME
+        return [
+            Action(
+                kind="fetch",
+                description=(
+                    f"Fetch {manifest.name} data (about {human_size(acma.MEASURED_SIZE)}, "
+                    f"{block.licence}) — UNVERIFIED: no checksum is published{note}"
+                ),
+                detail=f"{urls} ({acma.VERIFIED_BY})",
+                perform=partial(self._fetch_register, fetched, digests, where, facts),
+                sources=sources,
+                facts=facts,
+            ),
+            Action(
+                kind="install-data",
+                description=f"Install {manifest.name} data file {acma.FILE_NAME}, then delete "
+                f"its cached copy",
+                detail=str(dest),
+                perform=partial(self._install_register, fetched, digests, dest),
+                requires_root=needs_root_for(self.prefix),
+            ),
+        ]
+
+    def _fetch_register(
+        self,
+        fetched: dict[str, Path],
+        digests: dict[str, str],
+        where: MirrorPath,
+        facts: dict[str, str],
+    ) -> str:
+        from .. import acma
+        from ..fetch import VerificationError, record_fetch
+
+        def check(path: Path) -> None:
+            try:
+                acma.check_register(path)
+            except acma.AcmaError as exc:
+                raise VerificationError(str(exc)) from None
+
+        result = self.fetcher.fetch_checked(
+            acma.URL, max_bytes=acma.FETCH_LIMIT, check=check, mirror=where
+        )
+        source = record_fetch(result, facts, mirrored=bool(self.fetcher.mirror))
+        fetched["path"] = result.path
+        digests["sha256"] = result.sha256
+        return (
+            f"downloaded {result.size} bytes, unverified: every member's CRC-32 and the "
+            f"tables checked, sha256 {result.sha256[:12]}… recorded{source}"
+        )
+
+    def _install_register(
+        self, fetched: dict[str, Path], digests: dict[str, str], dest: Path
+    ) -> str:
+        path = fetched.get("path")
+        if path is None:  # pragma: no cover
+            raise BackendError("the register was not fetched before the install step")
+        size = path.stat().st_size
+        writer = PrefixWriter(privileged=needs_root_for(self.prefix), runner=self.runner)
+        writer.install_verified(path, dest, algorithm="sha256", digest=digests["sha256"])
+        path.unlink(missing_ok=True)
+        return (
+            f"installed {dest} ({human_size(size)}, mode 0644, sha256 "
+            f"re-checked against what arrived); deleted the cached copy"
+        )
 
     def _fetch(
         self,

@@ -4,17 +4,18 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**304 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**312 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
-### `aircraft` — 10
+### `aircraft` — 11
 
 Transponder and datalink decoders, multilateration feeders, airband voice.
 
 - [acarsdec](acarsdec.md) — VHF ACARS decoder for aircraft datalink messages
 - [acarsserv](acarsserv.md) — Stores what acarsdec and dumpvdl2 decode into a SQLite database
 - [dump1090-mutability](dump1090-mutability.md) — The older dump1090 fork, kept because two targets still carry it
+- [dump978-fa](dump978-fa.md) — Decoder for 978 MHz UAT, the second ADS-B link -- US general aviation below 18,000 ft
 - [dumphfdl](dumphfdl.md) — HFDL decoder for long-range oceanic aircraft datalink
 - [dumpvdl2](dumpvdl2.md) — VDL Mode 2 decoder for aircraft datalink
 - [gr-air-modes](gr-air-modes.md) — Decodes aircraft transponder replies with GNU Radio
@@ -23,7 +24,7 @@ Transponder and datalink decoders, multilateration feeders, airband voice.
 - [readsb](readsb.md) — Efficient Mode S and ADS-B decoder — the maintained dump1090 successor
 - [rtlsdr-airband](rtlsdr-airband.md) — Multi-channel AM/NFM voice receiver with streaming output
 
-### `antenna` — 10
+### `antenna` — 11
 
 NEC2, Yagi and Moxon design, dish modelling, coil and line calculators.
 
@@ -34,16 +35,18 @@ NEC2, Yagi and Moxon design, dish modelling, coil and line calculators.
 - [fl-moxgen](fl-moxgen.md) — Designs Moxon rectangle antennas and prints them to scale
 - [gsmc](gsmc.md) — Interactive Smith chart for designing impedance matching networks
 - [nec2c](nec2c.md) — The NEC2 antenna modelling engine as a C program, for scripting
+- [signal-server](signal-server.md) — Multi-threaded radio coverage prediction from SPLAT! terrain, on the command line
 - [splat](splat.md) — Terrain-aware path analysis for VHF and above, from real elevation data
 - [xnec2c](xnec2c.md) — Interactive antenna modelling — NEC2 with a live graphical front end
 - [yagiuda](yagiuda.md) — Analyse and optimise Yagi-Uda arrays without writing a NEC model
 
-### `antenna-analysers` — 3
+### `antenna-analysers` — 4
 
 NanoVNA and RigExpert analysers from the computer.
 
 - [antscope2](antscope2.md) — RigExpert's own analyzer software, for their antenna analyzers
 - [flaa](flaa.md) — Drives a RigExpert antenna analyser from the desktop
+- [librevna](librevna.md) — The PC program for the LibreVNA, an open-hardware 6 GHz vector network analyser
 - [nanovna-saver](nanovna-saver.md) — Sweep, chart and calibrate a NanoVNA from the computer
 
 ### `aprs` — 7
@@ -67,12 +70,13 @@ Ubertooth sniffing and spectrum.
 - [spectools](spectools.md) — Spectrum display for MetaGeek Wi-Spy dongles and the Ubertooth One
 - [ubertooth](ubertooth.md) — Host tools for the Ubertooth One Bluetooth sniffer
 
-### `broadcast` — 7
+### `broadcast` — 8
 
 DAB and DAB+ receivers and the data alongside broadcast FM.
 
 - [dablin](dablin.md) — Lightweight DAB receiver for the command line or a small window
 - [gr-rds](gr-rds.md) — Decodes the data carried alongside broadcast FM — station names, traffic
+- [nrsc5](nrsc5.md) — HD Radio (NRSC-5) receiver for an RTL-SDR -- the digital side of North American FM and AM
 - [odr-audioenc](odr-audioenc.md) — Encodes audio into the DAB and DAB+ formats a multiplexer expects
 - [odr-dabmod](odr-dabmod.md) — Turns a DAB ensemble into a transmittable OFDM signal
 - [odr-dabmux](odr-dabmux.md) — Assembles audio services into a DAB ensemble multiplex
@@ -160,12 +164,13 @@ FreeDV over HF and decoders for the digital voice protocols heard on VHF and UHF
 - [dsdcc](dsdcc.md) — Decodes digital voice protocols from demodulated audio
 - [freedv](freedv.md) — Digital voice over HF in the bandwidth of an SSB signal
 
-### `dmr` — 2
+### `dmr` — 3
 
 Codeplug editors for DMR radios.
 
 - [dmrconfig](dmrconfig.md) — Command-line DMR codeplug tool — the text-file approach to the same job
 - [qdmr](qdmr.md) — Codeplug editor for DMR handhelds — one codeplug, many radios
+- [radio-tool](radio-tool.md) — Flashes firmware -- OpenRTX among it -- onto TYT, Baofeng, Radioddity and other DMR handhelds from Linux
 
 ### `dx-cluster` — 2
 
@@ -186,7 +191,7 @@ EchoLink clients, SvxLink repeater and node software, and their link and calibra
 - [svxlink-server](svxlink-server.md) — Repeater controller and EchoLink node in software
 - [svxreflector](svxreflector.md) — Conference server that links many SvxLink nodes into one talk group
 
-### `electronics` — 7
+### `electronics` — 8
 
 Circuit design, matching networks, lab instruments and the Blend's RF design tools.
 
@@ -195,6 +200,7 @@ Circuit design, matching networks, lab instruments and the Blend's RF design too
 - [electronics-radio-dev](electronics-radio-dev.md) — Metapackage pulling in the Blend's RF circuit-design tools
 - [gsmc](gsmc.md) — Interactive Smith chart for designing impedance matching networks
 - [libiio-utils](libiio-utils.md) — Command-line tools that find and talk to IIO devices such as the PlutoSDR and ADALM2000
+- [librevna](librevna.md) — The PC program for the LibreVNA, an open-hardware 6 GHz vector network analyser
 - [m2kcli](m2kcli.md) — Command-line control of the ADALM2000 lab instrument
 - [tempest-for-eliza](tempest-for-eliza.md) — Makes a monitor radiate music on an AM radio — a TEMPEST demonstration
 
@@ -316,10 +322,11 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 32
+### `navigation-maps` — 33
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
+- [acma-register](acma-register.md) — The Australian regulator's licence register, for the ACMA repeater layer on the map
 - [brouter](brouter.md) — BRouter, the offline router QMapShack runs for hiking, bike and car routes with elevation
 - [brouter-mapcreator-profiles](brouter-mapcreator-profiles.md) — The two filter files BRouter's map creator needs and its release zip leaves out
 - [brouter-segments](brouter-segments.md) — BRouter routing files built from your own regions, with elevation, never downloaded
@@ -395,7 +402,7 @@ POCSAG, FLEX, DTMF and the other audio-band modes multimon reads.
 - [multimon](multimon.md) — The original multimon decoder, kept for the modes its successor dropped
 - [multimon-ng](multimon-ng.md) — Decoder for POCSAG, FLEX, AFSK, DTMF and other audio-band digital modes
 
-### `programmer` — 9
+### `programmer` — 10
 
 AVR, ESP, STM32, FPGA and flash-chip programmers, DFU, JTAG and SWD.
 
@@ -404,12 +411,13 @@ AVR, ESP, STM32, FPGA and flash-chip programmers, DFU, JTAG and SWD.
 - [dfu-util](dfu-util.md) — Device Firmware Upgrade tool — flash devices that expose a standard DFU mode
 - [esptool](esptool.md) — Flash and inspect ESP8266 and ESP32 chips over their serial bootloader
 - [flashrom](flashrom.md) — Reads, writes and verifies SPI, LPC and parallel flash chips in place
+- [k5prog](k5prog.md) — Reads and writes a Quansheng UV-K5's memory, and flashes its firmware, over the programming cable
 - [openfpgaloader](openfpgaloader.md) — Universal bitstream loader for FPGAs, over JTAG and SPI
 - [openocd](openocd.md) — On-chip debugging and in-system programming over JTAG and SWD
 - [stlink-tools](stlink-tools.md) — Flash and debug STM32 targets through an ST-Link probe
 - [stm32flash](stm32flash.md) — Flash STM32 microcontrollers over their built-in serial bootloader
 
-### `propagation` — 7
+### `propagation` — 9
 
 VOACAP predictions, terrain path analysis, beacons, grey line and the solar picture.
 
@@ -417,17 +425,21 @@ VOACAP predictions, terrain path analysis, beacons, grey line and the solar pict
 - [ibp](ibp.md) — Shows which NCDXF/IARU beacon is transmitting right now, on which band
 - [openhamclock](openhamclock.md) — Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites
 - [pythonprop](pythonprop.md) — Graphical front end that makes VOACAP predictions readable
+- [signal-server](signal-server.md) — Multi-threaded radio coverage prediction from SPLAT! terrain, on the command line
 - [splat](splat.md) — Terrain-aware path analysis for VHF and above, from real elevation data
+- [splat-sdf](splat-sdf.md) — SPLAT! and Signal-Server terrain, made from your map regions' elevation
 - [sunclock](sunclock.md) — World map showing the day-night terminator and where the sun is now
 - [voacapl](voacapl.md) — The VOACAP HF propagation prediction engine, ported to Linux
 
-### `radio-programming` — 4
+### `radio-programming` — 6
 
 Writing channels and settings into a transceiver: CHIRP and the TNC built into Kenwood radios.
 
 - [chirp](chirp.md) — Reads, edits and writes the memory channels of hundreds of radios
 - [dmrconfig](dmrconfig.md) — Command-line DMR codeplug tool — the text-file approach to the same job
+- [k5prog](k5prog.md) — Reads and writes a Quansheng UV-K5's memory, and flashes its firmware, over the programming cable
 - [qdmr](qdmr.md) — Codeplug editor for DMR handhelds — one codeplug, many radios
+- [radio-tool](radio-tool.md) — Flashes firmware -- OpenRTX among it -- onto TYT, Baofeng, Radioddity and other DMR handhelds from Linux
 - [tmd710-tncsetup](tmd710-tncsetup.md) — Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios
 
 ### `references` — 8
@@ -713,6 +725,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [a2d](a2d.md) | Bridges APRS messages to DAPNET pagers | apt |
 | [acarsdec](acarsdec.md) | VHF ACARS decoder for aircraft datalink messages | git |
 | [acarsserv](acarsserv.md) | Stores what acarsdec and dumpvdl2 decode into a SQLite database | git |
+| [acma-register](acma-register.md) | The Australian regulator's licence register, for the ACMA repeater layer on the map | register |
 | [aethersdr](aethersdr.md) | Linux client for FlexRadio transceivers | apt |
 | [aircrack-ng](aircrack-ng.md) | Wi-Fi security auditing suite — capture, analysis and key recovery | apt |
 | [airspy](airspy.md) | Host tools and library for Airspy R2 and Mini receivers | apt |
@@ -772,6 +785,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [droidstar](droidstar.md) | M17, DMR, D-STAR, Fusion, P25 and NXDN over reflectors, with software vocoders and no radio | git |
 | [dsdcc](dsdcc.md) | Decodes digital voice protocols from demodulated audio | apt |
 | [dump1090-mutability](dump1090-mutability.md) | The older dump1090 fork, kept because two targets still carry it | apt |
+| [dump978-fa](dump978-fa.md) | Decoder for 978 MHz UAT, the second ADS-B link -- US general aviation below 18,000 ft | git |
 | [dumphfdl](dumphfdl.md) | HFDL decoder for long-range oceanic aircraft datalink | source |
 | [dumpvdl2](dumpvdl2.md) | VDL Mode 2 decoder for aircraft datalink | git |
 | [ebook2cw](ebook2cw.md) | Converts a text file or ebook into Morse code audio at a chosen speed | apt |
@@ -842,6 +856,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [js8call](js8call.md) | Weak-signal keyboard-to-keyboard messaging built on the FT8 modem | apt, git |
 | [js8spotter](js8spotter.md) | JS8Call's companion — spot tracking, forms, APRS and SMS gateways | binary |
 | [jtdx](jtdx.md) | WSJT-X derivative tuned for DX working and crowded FT8 conditions | apt |
+| [k5prog](k5prog.md) | Reads and writes a Quansheng UV-K5's memory, and flashes its firmware, over the programming cable | git |
 | [kalibrate-rtl](kalibrate-rtl.md) | Measures an SDR dongle's frequency error against GSM base stations | apt, git |
 | [kappanhang](kappanhang.md) | Opens an Icom network radio as an ordinary sound card and serial port | apt |
 | [kel-agent](kel-agent.md) | Bridges browser-based logging software to the radio hardware on your desk | apt |
@@ -858,6 +873,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [libiio-utils](libiio-utils.md) | Command-line tools that find and talk to IIO devices such as the PlutoSDR and ADALM2000 | apt |
 | [libmirisdr4](libmirisdr4.md) | Open driver for Mirics-based receivers, including SDRplay RSP hardware | apt |
 | [libnfc-bin](libnfc-bin.md) | Command-line tools for PN53x-based NFC readers | apt |
+| [librevna](librevna.md) | The PC program for the LibreVNA, an open-hardware 6 GHz vector network analyser | git |
 | [limesuite](limesuite.md) | Host tools and library for LimeSDR hardware | apt |
 | [linbpq](linbpq.md) | BPQ32 packet-radio node, BBS and Winlink gateway | git |
 | [linpac](linpac.md) | Terminal for AX.25 packet with a built-in mail client and macros | apt |
@@ -885,6 +901,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [nec2c](nec2c.md) | The NEC2 antenna modelling engine as a C program, for scripting | apt |
 | [noaa-apt](noaa-apt.md) | Decoder for NOAA weather-satellite APT imagery | binary |
 | [not1mm](not1mm.md) | A contest logger that speaks to your rig, keyer and cluster | venv |
+| [nrsc5](nrsc5.md) | HD Radio (NRSC-5) receiver for an RTL-SDR -- the digital side of North American FM and AM | git |
 | [odr-audioenc](odr-audioenc.md) | Encodes audio into the DAB and DAB+ formats a multiplexer expects | apt |
 | [odr-dabmod](odr-dabmod.md) | Turns a DAB ensemble into a transmittable OFDM signal | apt |
 | [odr-dabmux](odr-dabmux.md) | Assembles audio services into a DAB ensemble multiplex | apt |
@@ -930,6 +947,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [qttermtcp](qttermtcp.md) | Packet terminal that connects over TCP to a BPQ node | git |
 | [qttinysa](qttinysa.md) | Desktop front end for the tinySA and tinySA Ultra spectrum analysers | apt |
 | [quisk](quisk.md) | SDR transceiver software with a real front panel, driving hardware or a dongle | apt |
+| [radio-tool](radio-tool.md) | Flashes firmware -- OpenRTX among it -- onto TYT, Baofeng, Radioddity and other DMR handhelds from Linux | git |
 | [radioclk](radioclk.md) | Disciplines the system clock from an MSF, WWVB or DCF77 time signal | apt |
 | [radiosonde-auto-rx](radiosonde-auto-rx.md) | Automatically receive, decode and map weather-balloon radiosondes | venv |
 | [rayhunter](rayhunter.md) | EFF's IMSI-catcher detector — the installer for a supported hotspot, and the offline capture analyser | binary |
@@ -946,6 +964,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [sdrangel](sdrangel.md) | SDR transceiver and analyser that does several things at once | apt, binary |
 | [sdrpp](sdrpp.md) | SDR++ — cross-platform SDR receiver with a modular DSP chain | apt, git |
 | [ser2net](ser2net.md) | Serve a serial port over TCP, so a rig's CAT port can be reached from another machine | apt |
+| [signal-server](signal-server.md) | Multi-threaded radio coverage prediction from SPLAT! terrain, on the command line | git |
 | [skid-finder](skid-finder.md) | Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector | binary |
 | [soapyremote-server](soapyremote-server.md) | Serves a local SDR over the network to software on another machine | apt |
 | [soapysdr-module-airspy](soapysdr-module-airspy.md) | SoapySDR driver module for Airspy hardware | apt |
@@ -965,6 +984,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [socat](socat.md) | A relay between two data channels, sockets, files or programs | apt |
 | [spectools](spectools.md) | Spectrum display for MetaGeek Wi-Spy dongles and the Ubertooth One | apt |
 | [splat](splat.md) | Terrain-aware path analysis for VHF and above, from real elevation data | apt |
+| [splat-sdf](splat-sdf.md) | SPLAT! and Signal-Server terrain, made from your map regions' elevation | derived |
 | [stlink-tools](stlink-tools.md) | Flash and debug STM32 targets through an ST-Link probe | apt |
 | [stm32flash](stm32flash.md) | Flash STM32 microcontrollers over their built-in serial bootloader | apt |
 | [sunclock](sunclock.md) | World map showing the day-night terminator and where the sun is now | apt |

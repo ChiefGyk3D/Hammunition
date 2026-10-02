@@ -1,0 +1,161 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: nrsc5
+version: "3.2.0"
+summary: HD Radio (NRSC-5) receiver for an RTL-SDR -- the digital side of North American FM and AM
+menu_title: HD Radio receiver (nrsc5)
+categories: [broadcast]
+
+# ADD, 2026-09 gap analysis section B Group 4 and section D item 10 (second
+# batch). Measured 2026-10-01:
+#   - D-032: default branch `master`, head 9beb2c77171 committed 2026-09-29
+#     (a merged pull request); tags v3.0 to v3.2.0 in 2025-26, v3.2.0 on
+#     2026-06-02.
+#   - Licence: LICENSE is GPL-3.0 with "either version 3 of the License, or
+#     (at your option) any later version".
+#   - Archives (scripts/apt-policy-sweep.sh, seven targets): no target
+#     offers `nrsc5` or a libnrsc5. nixpkgs packages the tag v3.2.0, and the
+#     AUR builds the default branch. The pin is upstream's tag (D-024's tag
+#     case), the same one nixpkgs builds.
+#   - The build fetches FAAD2. HD Radio's audio is a variant of AAC that
+#     needs a patched FAAD2, so upstream's CMake clones knik0/faad2 at tag
+#     2.11.2 while building, applies its own patch, and links the result
+#     statically. A git tag is mutable and the clone is checked against
+#     nothing, so the patch below turns it into the GitHub archive of that
+#     tag with a sha256 that CMake verifies -- the same tag nixpkgs pins with
+#     a hash of its own. `source-build-gaps.md` #10.
+install:
+  - install:
+      method: git
+      repo: https://github.com/theori-io/nrsc5
+      ref: v3.2.0
+      # D-069: the annotated tag must still resolve to this commit.
+      commit: a5c09723b135327aeef157770caae9aebf597547
+      build_system: cmake
+      # Upstream's install rule also puts libnrsc5 (shared and static) and
+      # its header into the prefix. The command-line program links the
+      # static library, so it alone is installed: a shared library in
+      # /usr/local/lib with nothing in the catalog using it would be a
+      # system modification for no one.
+      provides_install_target: false
+      patches:
+        - file: CMakeLists.txt
+          description: >-
+            Upstream's ExternalProject step clones FAAD2 at GIT_TAG 2.11.2
+            during the build and verifies nothing. This replaces the clone
+            with the GitHub archive of the same tag and a URL_HASH, so CMake
+            downloads it and refuses it unless the sha256 matches.
+            Measured 2026-10-01 in debian:13: with the patch the build logged
+            "verifying file" and succeeded; with one digit of the hash
+            changed it stopped at "Hash mismatch" and exited 2 (D-031). The
+            archive's sha256 was computed from a download the same day; the
+            tag points at commit 673a22a3c7c3. upstream's own FAAD2 patch
+            (support/faad2-hdc-support.patch) is still applied by its
+            PATCH_COMMAND, untouched.
+          unified_diff: |
+            --- a/CMakeLists.txt
+            +++ b/CMakeLists.txt
+            @@ -242,8 +242,8 @@
+                     ExternalProject_Add (
+                         faad2_external
+                         TIMEOUT 120
+            -            GIT_REPOSITORY "https://github.com/knik0/faad2.git"
+            -            GIT_TAG 2.11.2
+            +            URL "https://github.com/knik0/faad2/archive/refs/tags/2.11.2.tar.gz"
+            +            URL_HASH SHA256=3fcbd305e4abd34768c62050e18ca0986f7d9c5eca343fb98275418013065c0e
+                         PREFIX ${FAAD2_PREFIX}
+
+                         UPDATE_COMMAND ""
+    build_depends:
+      - build-essential
+      - git
+      - cmake
+      - pkg-config
+      - patch
+      - autoconf
+      - automake
+      - libtool
+      - libao-dev
+      - libfftw3-dev
+      - librtlsdr-dev
+      - libusb-1.0-0-dev
+    note: >-
+      Built on 2026-10-01 in a rootless debian:13 container the way this
+      block runs it -- the patch, cmake configure, `cmake --build --parallel
+      2` as an unprivileged user with the build_depends above: exit 0, 40 s
+      wall including the FAAD2 download and its build, 70 MiB peak, two
+      compiler warnings. The executable is 1.0 MB and links libao, FFTW
+      (single precision), librtlsdr and libusb from the archive, with FAAD2
+      linked in statically. The build dependencies came to 120 packages and
+      about 490 MB on a bare debian:13 image. The same build in a
+      kali-rolling container took 52 s and 86 MiB peak, and decoded the same
+      sample.
+
+binaries:
+  - produced: src/nrsc5
+    install_as: nrsc5
+
+update:
+  probe:
+    method: github_tags
+    repo: theori-io/nrsc5
+  strategy: rebuild
+  cadence_hint: >-
+    Upstream has tagged three to four times a year since 2025 (v3.0 2025-05,
+    v3.1.0 2025-12, v3.2.0 2026-06). Move the tag and its commit together;
+    check whether the FAAD2 tag in CMakeLists.txt moved with it, and if so
+    take the new tag's archive hash -- the patch must name the tag upstream
+    builds.
+
+documentation:
+  what_it_does: >-
+    nrsc5 receives HD Radio, the in-band digital broadcast used by FM and
+    AM stations in the United States and some other parts of North America
+    (the NRSC-5 standard), from an RTL-SDR dongle, and plays it. Give it a
+    station's frequency and a program number -- 0 is the main program, and
+    upstream's usage takes 0 to 3 -- and it decodes the digital
+    audio to the sound card or to a WAV file, and prints what the station
+    sends alongside: station name, song title and artist, and the
+    station's emergency alerts. It can also save the files the station
+    transmits beside the audio, such as album art (`--dump-aas-files`), read
+    from an `rtl_tcp` server on the network (`-H`), or decode a recording
+    instead of a live dongle (`-r`). Receive only.
+  why_you_want_it: >-
+    The catalog had DAB twice (`welle-io`, `dablin`) and HD Radio not at
+    all, and HD Radio is the digital broadcast standard a North American
+    listener can actually hear. A station's second and third programs
+    (HD2, HD3) exist only in digital and are not heard on an analog radio
+    at all. It is the reference open decoder; GUIs such as NRSC5 Studio and
+    SDR programs with HD Radio plug-ins build on its library, and none of
+    those is carried.
+  prerequisites: >-
+    An RTL-SDR dongle and an FM antenna, and the dongle's permissions (the
+    `rtl-sdr` hardware entry's `plugdev` group). A sound device for live
+    listening; `-o file.wav` needs none. A station in range that broadcasts
+    HD Radio: outside North America there is usually none, and nrsc5
+    reports nothing rather than an error.
+  known_problems: >-
+    **It needs the whole dongle**: like every librtlsdr program it cannot
+    share the device with gqrx, readsb or another decoder running at the
+    same time. HD Radio is weaker than the analog signal it rides beside,
+    so a station that plays clearly on FM can still lose digital
+    synchronisation indoors; it logs "Lost synchronization" and recovers
+    when the signal does. Set the dongle's frequency error with `-p` if it
+    is more than a few PPM out. `-h` is not an option; the usage line it
+    prints in reply lists them all. **`--dump-aas-files` is marked
+    "insecure" in upstream's own README**: it writes files into the
+    directory you give, named from what the station transmits
+    (`src/main.c` builds the path from the broadcast name). Give it an
+    empty directory of its own, or leave it off.
+
+    What was measured: built on Debian 13 and Kali, and on both decoded upstream's own
+    recorded sample (`support/sample.xz`, read with `-r`): it synchronised,
+    printed the station name, two audio programs and their titles, and
+    wrote 2 MB of audio. Not measured: a live dongle, a real station,
+    sound output, the image dumps or `rtl_tcp`.
+  upstream_url: https://github.com/theori-io/nrsc5
+  upstream_support: >-
+    The project's repository: issues at the URL above, and the README's
+    usage section, which lists every option and the keyboard controls for
+    switching program while it plays. Licence: GPL-3.0-or-later.

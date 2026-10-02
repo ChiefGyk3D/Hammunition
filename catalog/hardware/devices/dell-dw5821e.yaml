@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: dell-dw5821e
+summary: Dell DW5821e — Snapdragon X20 LTE modem on USB, the field laptop's current WWAN card
+vendor: Dell
+device_class: wwan-modem
+status: untested
+
+# Measured read-only on the field laptop on 2026-10-01: `lsusb`, `udevadm info`
+# and reads of /sys/bus/usb/devices/4-4. Nothing was written to the device and
+# nothing was parked. `maintainer_verified` is absent because parking it has
+# not been run: the identifier is read, the behaviour is not (D-027).
+usb_ids:
+  - vendor: "413c"
+    product: "81d7"
+    description: Dell DW5821e Snapdragon X20 LTE
+    evidence: >-
+      `lsusb -d 413c:81d7` on the field laptop reads "Dell Computer Corp.
+      DW5821e Snapdragon X20 LTE"; `udevadm info` reports ID_USB_MODEL_ID
+      81d7, ID_USB_VENDOR_ID 413c, USB revision 0318, TYPE 239/2/1. Seven
+      interfaces (an MBIM control and data pair on cdc_mbim, four serial
+      ports on option, and a vendor-specific interface, 2.6, with no driver
+      bound). Four ttyUSB nodes appear under /dev/serial/by-id, and the
+      descriptor carries a per-unit serial (presence checked, value not
+      recorded). sysfs: authorized 1, power/control on, removable "fixed",
+      SuperSpeed.
+    confirmed: true
+    node_kind: serial
+    ports: 4
+    reports_serial: true
+    ambiguity:
+      basis: shared_across_products
+      evidence: >-
+        On the generated list in docs/reference/usb-ambiguity.md: the sweep
+        sees the pair in modemmanager's rules and in usb-modeswitch-data and
+        reads two names, "Dell DW5821e" and "if 05: diag/qcdm port"; the
+        second labels interface 05 of the same card, so nothing here is
+        evidence of another product. The device that carries it is the one read.
+      also_used_by:
+        - modemmanager and usb-modeswitch-data rules, both naming the DW5821e
+
+documentation:
+  what_it_is: >-
+    A Dell LTE modem on the Qualcomm Snapdragon X20 (its USB product string says so),
+    fitted in a laptop's WWAN slot and presented to the kernel on the USB
+    bus. On the field laptop it is the card that stands in for the 5G DW5930e
+    until that one is back in the machine.
+  what_you_can_do_with_it: >-
+    Be parked and woken from the CLI, the generated menu entries or the tray
+    (the class's `usb_deauthorize`), or quieted without detaching through the
+    NetworkManager radio switch. Under ModemManager it is the host modem the
+    cellular tooling reads (issue #69).
+  setup_steps: >-
+    Nothing to install: ModemManager and NetworkManager drive it. A SIM and an
+    APN are the operator's. Run `hammunition hardware park wwan-modem` to park
+    and `hammunition hardware wake wwan-modem` to wake; `hammunition hardware
+    state` shows which. Parking and waking have not been run on this card.
+  known_problems: >-
+    Measured read-only on 2026-10-01 only. This card is carried as a USB
+    device and parked the way a GPS receiver is; what NetworkManager and
+    ModemManager do when it vanishes and returns is unmeasured. The
+    design notes in
+    docs/superpowers/specs/2026-09-27-device-kept-off-design.md call this
+    card FCC-locked, so it may not register on every network; that is the
+    card's, not the catalog's, and it was not re-measured here.

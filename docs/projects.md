@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**304 programs and packages** from the catalog, laid out the way the
+**312 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -99,6 +99,7 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 
 | Project | What it is | Its home |
 |---|---|---|
+| [acma-register](packages/acma-register.md) | The Australian regulator's licence register, for the ACMA repeater layer on the map | [acma.gov.au](https://www.acma.gov.au/) |
 | [brouter](packages/brouter.md) | BRouter, the offline router QMapShack runs for hiking, bike and car routes with elevation | [github.com/abrensch/brouter](https://github.com/abrensch/brouter) |
 | [brouter-mapcreator-profiles](packages/brouter-mapcreator-profiles.md) | The two filter files BRouter's map creator needs and its release zip leaves out | [github.com/abrensch/brouter](https://github.com/abrensch/brouter) |
 | [brouter-segments](packages/brouter-segments.md) | BRouter routing files built from your own regions, with elevation, never downloaded | [github.com/abrensch/brouter](https://github.com/abrensch/brouter) |
@@ -368,6 +369,7 @@ SDR receivers and toolkits, device support, and receive-only decoders for aircra
 |---|---|---|
 | [dablin](packages/dablin.md) | Lightweight DAB receiver for the command line or a small window | [github.com/Opendigitalradio/dablin](https://github.com/Opendigitalradio/dablin) |
 | [gr-rds](packages/gr-rds.md) | Decodes the data carried alongside broadcast FM — station names, traffic | [github.com/bastibl/gr-rds](https://github.com/bastibl/gr-rds) |
+| [nrsc5](packages/nrsc5.md) | HD Radio (NRSC-5) receiver for an RTL-SDR -- the digital side of North American FM and AM | [github.com/theori-io/nrsc5](https://github.com/theori-io/nrsc5) |
 | [welle-io](packages/welle-io.md) | DAB and DAB+ digital radio receiver with a modern interface | [welle.io](https://www.welle.io/) |
 
 ### Aircraft (ADS-B, ACARS, Airband)
@@ -377,6 +379,7 @@ SDR receivers and toolkits, device support, and receive-only decoders for aircra
 | [acarsdec](packages/acarsdec.md) | VHF ACARS decoder for aircraft datalink messages | [github.com/f00b4r0/acarsdec](https://github.com/f00b4r0/acarsdec) |
 | [acarsserv](packages/acarsserv.md) | Stores what acarsdec and dumpvdl2 decode into a SQLite database | [github.com/TLeconte/acarsserv](https://github.com/TLeconte/acarsserv) |
 | [dump1090-mutability](packages/dump1090-mutability.md) | The older dump1090 fork, kept because two targets still carry it | [github.com/mutability/dump1090](https://github.com/mutability/dump1090) |
+| [dump978-fa](packages/dump978-fa.md) | Decoder for 978 MHz UAT, the second ADS-B link -- US general aviation below 18,000 ft | [github.com/flightaware/dump978](https://github.com/flightaware/dump978) |
 | [dumphfdl](packages/dumphfdl.md) | HFDL decoder for long-range oceanic aircraft datalink | [github.com/szpajder/dumphfdl](https://github.com/szpajder/dumphfdl) |
 | [dumpvdl2](packages/dumpvdl2.md) | VDL Mode 2 decoder for aircraft datalink | [github.com/szpajder/dumpvdl2](https://github.com/szpajder/dumpvdl2) |
 | [gr-air-modes](packages/gr-air-modes.md) | Decodes aircraft transponder replies with GNU Radio | [github.com/bistromath/gr-air-modes](https://github.com/bistromath/gr-air-modes) |
@@ -434,7 +437,9 @@ Satellite passes, satellite imagery and telemetry, HF propagation and the solar 
 |---|---|---|
 | [ibp](packages/ibp.md) | Shows which NCDXF/IARU beacon is transmitting right now, on which band | [pa3fwm.nl/software/ibp](http://www.pa3fwm.nl/software/ibp/) |
 | [pythonprop](packages/pythonprop.md) | Graphical front end that makes VOACAP predictions readable | [qsl.net/hz1jw/pythonprop/index.html](https://www.qsl.net/hz1jw/pythonprop/index.html) |
+| [signal-server](packages/signal-server.md) | Multi-threaded radio coverage prediction from SPLAT! terrain, on the command line | [github.com/W3AXL/Signal-Server](https://github.com/W3AXL/Signal-Server) |
 | [splat](packages/splat.md) | Terrain-aware path analysis for VHF and above, from real elevation data | [qsl.net/kd2bd/splat.html](http://www.qsl.net/kd2bd/splat.html) |
+| [splat-sdf](packages/splat-sdf.md) | SPLAT! and Signal-Server terrain, made from your map regions' elevation | [qsl.net/kd2bd/splat.html](https://www.qsl.net/kd2bd/splat.html) |
 | [voacapl](packages/voacapl.md) | The VOACAP HF propagation prediction engine, ported to Linux | [qsl.net/hz1jw/voacapl/index.html](https://www.qsl.net/hz1jw/voacapl/index.html) |
 
 ## Antennas, Bench & Programming
@@ -458,6 +463,7 @@ Antenna design and analysers, spectrum analysers, electronics, radio memories, f
 |---|---|---|
 | [antscope2](packages/antscope2.md) | RigExpert's own analyzer software, for their antenna analyzers | [rigexpert.com/software/antscope2](https://rigexpert.com/software/antscope2/) |
 | [flaa](packages/flaa.md) | Drives a RigExpert antenna analyser from the desktop | [w1hkj.org](https://w1hkj.org/) |
+| [librevna](packages/librevna.md) | The PC program for the LibreVNA, an open-hardware 6 GHz vector network analyser | [github.com/jankae/LibreVNA](https://github.com/jankae/LibreVNA) |
 | [nanovna-saver](packages/nanovna-saver.md) | Sweep, chart and calibrate a NanoVNA from the computer | [github.com/NanoVNA-Saver/nanovna-saver](https://github.com/NanoVNA-Saver/nanovna-saver) |
 
 ### Spectrum Analysers
@@ -481,6 +487,8 @@ Antenna design and analysers, spectrum analysers, electronics, radio memories, f
 | Project | What it is | Its home |
 |---|---|---|
 | [chirp](packages/chirp.md) | Reads, edits and writes the memory channels of hundreds of radios | [chirpmyradio.com](https://chirpmyradio.com/) |
+| [k5prog](packages/k5prog.md) | Reads and writes a Quansheng UV-K5's memory, and flashes its firmware, over the programming cable | [github.com/sq5bpf/k5prog](https://github.com/sq5bpf/k5prog) |
+| [radio-tool](packages/radio-tool.md) | Flashes firmware -- OpenRTX among it -- onto TYT, Baofeng, Radioddity and other DMR handhelds from Linux | [github.com/v0l/radio_tool](https://github.com/v0l/radio_tool) |
 
 ### DMR Codeplugs
 

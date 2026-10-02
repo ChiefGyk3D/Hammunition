@@ -2,7 +2,7 @@
 
 # Device naming: what `/dev/serial/by-id/` covers, and what it does not
 
-Generated 2026-10-01 from `catalog/hardware/`. 26 devices.
+Generated 2026-10-02 from `catalog/hardware/`. 31 devices.
 
 This project's stated highest-value hardware feature was persistent udev
 symlinks by serial. A Proxmark3 capture put that in doubt, because
@@ -17,11 +17,11 @@ device, and the third column is the one that changed the plan.
 
 | | Devices |
 |---|---|
-| Get a `/dev/serial/by-id/` path for every confirmed identifier | **7** |
+| Get a `/dev/serial/by-id/` path for every confirmed identifier | **8** |
 | Get one for some identifiers and not others | **3** |
-| Get none at all — nothing they present is a serial interface | **11** |
-| Not yet recorded either way | **5** |
-| **Where by-id is insufficient for at least one reason** | **22 of 26** |
+| Get none at all — nothing they present is a serial interface | **13** |
+| Not yet recorded either way | **7** |
+| **Where by-id is insufficient for at least one reason** | **27 of 31** |
 | Carry a udev symlink from this catalog | **5** |
 | …of which duplicate a path by-id would have given anyway | **0** |
 
@@ -40,8 +40,8 @@ A device can hit more than one, so these do not sum to the row above.
 |---|---|---|
 | `no-serial-subsystem` | 14 | No `/dev/serial/` entry exists. The device is claimed by libusb, or by a storage/HID class driver, and systemd's serial rule never sees it. |
 | `no-unit-serial` | 1 | It is a serial device, but supplies no per-unit serial. by-id composes its path from manufacturer, product and serial, so two of these collide *there* exactly as they would under a naive symlink. |
-| `unlabelled-ports` | 3 | One interface presents several ports. by-id hands out a stable path for each and labels none of them; a stable path to a port you cannot identify is not an answer. |
-| `unrecorded` | 5 | Nobody has recorded what kind of interface this is, so the question cannot be answered yet. Counted as uncovered rather than assumed away. |
+| `unlabelled-ports` | 4 | One interface presents several ports. by-id hands out a stable path for each and labels none of them; a stable path to a port you cannot identify is not an answer. |
+| `unrecorded` | 9 | Nobody has recorded what kind of interface this is, so the question cannot be answered yet. Counted as uncovered rather than assumed away. |
 
 ## Per device
 
@@ -57,12 +57,16 @@ and we should not be inventing work.
 | `c5-wardriver` | yes | access, packages, firmware mode | — |
 | `catsniffer-v3` | yes | access, packages, documented gap | — |
 | `clip-boy` | yes | access, packages, firmware mode | — |
+| `dell-dw5821e` | yes | — | `unlabelled-ports` |
+| `dell-dw5930e` | unknown | documented gap | `unrecorded` |
 | `flipper-zero` | partly | access, packages, firmware mode, documented gap | `no-serial-subsystem` |
 | `free-wili-2` | partly | access, interface map, packages, documented gap | `no-serial-subsystem`, `unlabelled-ports` |
 | `funcube-dongle` | no | packages | `no-serial-subsystem` |
 | `hackrf-one` | no | symlink `/dev/hackrf`, access, packages, firmware mode | `no-serial-subsystem` |
 | `hackrf-pro` | no | symlink `/dev/hackrf-pro`, access, packages, firmware mode | `no-serial-subsystem` |
+| `intel-ax210-bluetooth` | no | — | `unrecorded` |
 | `krakensdr` | unknown | access, packages, documented gap | `unrecorded` |
+| `librevna` | unknown | access, packages, documented gap | `unrecorded` |
 | `limesdr` | no | access, packages, documented gap | `no-serial-subsystem` |
 | `meshtastic` | partly | access, packages, firmware mode, documented gap | `no-serial-subsystem` |
 | `minino` | yes | access, packages, firmware mode | — |
@@ -72,6 +76,7 @@ and we should not be inventing work.
 | `proxmark3` | yes | access, firmware mode, documented gap | `no-unit-serial` |
 | `rtl-sdr` | no | access, packages | `no-serial-subsystem` |
 | `sdrplay-rsp` | no | access, packages, documented gap | `no-serial-subsystem` |
+| `sunplus-integrated-webcam-fhd` | no | — | `unrecorded` |
 | `ubertooth-one` | no | symlink `/dev/ubertooth`, access, packages | `no-serial-subsystem` |
 | `uconsole` | unknown | documented gap | `unrecorded` |
 | `usrp` | no | access, packages | `no-serial-subsystem` |
@@ -87,11 +92,14 @@ that drives them.
 | Class | by-id | Named by | Devices in it |
 |---|---|---|---|
 | `badgelife` | yes | nothing device-specific | 4 |
+| `bluetooth-controller` | no | nothing device-specific | 1 |
+| `camera` | no | nothing device-specific | 1 |
 | `dmr-radio` | partly | nothing device-specific | 0 |
 | `gps-receiver` | yes | the distribution — `/dev/gpsN, from gpsd's own 60-gpsd.rules` | 0 |
 | `nfc-reader` | no | us — `/dev/nfc` | 0 |
 | `programmer` | no | nothing device-specific | 0 |
 | `rig` | yes | the distribution — `/dev/serial/by-id/, from systemd's own 60-serial.rules` | 2 |
+| `wwan-modem` | yes | nothing device-specific | 1 |
 
 ## What this changes
 

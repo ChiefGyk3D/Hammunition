@@ -1,0 +1,115 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: signal-server
+version: "4.0+git20260130.7f6242a"
+summary: Multi-threaded radio coverage prediction from SPLAT! terrain, on the command line
+menu_title: RF coverage map generator (signalserver)
+categories: [propagation, antenna]
+
+# D-061, amended 2026-10-02 (the gap report's A5). Cloud-RF's own repository
+# was reduced to a history README on 2025-08-28 and its code deleted in
+# 2023; it names two forks. Both were cloned on 2026-10-01: N9OZB's head is
+# 2019-07-30, W3AXL's 2026-01-30 (buffer-overflow fixes merged). Neither has
+# ever tagged, and no Debian-family archive packages either, so this is a
+# commit pin under D-024 with our own review.
+install:
+  - install:
+      method: git
+      repo: https://github.com/W3AXL/Signal-Server
+      ref: 7f6242afb3685ff31d9ad14062b80d692ee56327
+      build_system: cmake
+      # Its CMakeLists.txt is in src/.
+      project_file: src
+      configure_args:
+        # The engine builds CMake projects as Release, which adds -DNDEBUG,
+        # and Signal-Server allocates ITWOM's arrays inside assert()
+        # (src/models/itwom3.0.cc, lines 2143 and 2196): with NDEBUG the
+        # allocation is compiled out and every plot crashes in d1thx
+        # (measured 2026-10-01: -O2 ran clean, -O2 -DNDEBUG crashed). The
+        # release flags without NDEBUG, no patch.
+        - -DCMAKE_CXX_FLAGS_RELEASE=-O2
+      pin_review:
+        last_reviewed: 2026-10-01
+        reviewed_by: hammunition-maintainers
+        basis: own_choice
+        rationale: >-
+          The head of W3AXL's master, 7f6242a (2026-01-30), which merged
+          "Fix buffer overflows" (af1dc37, 2025-09-12). Cloud-RF's README
+          names this fork and N9OZB's as the ones to use; N9OZB's has not
+          moved since 2019-07-30. No tag exists in either and no
+          Debian-family archive packages Signal-Server (DragonOS builds one
+          into its image; which commit is not measurable from here). Built
+          on Debian 13 in rootless Podman on 2026-10-01 and run over terrain
+          made by splat-sdf from one Copernicus tile.
+        cadence_days: 180
+    build_depends:
+      - build-essential
+      - cmake
+      - libspdlog-dev
+      - libbz2-dev
+      - zlib1g-dev
+    note: >-
+      Built from this commit in a Debian 13 container on 2026-10-01 (GCC
+      14.2, CMake 3.31.6, spdlog 1.15.2): configure 0.4 s, compile 38.4 s
+      with one job at 420 MB peak; `cmake --install` puts the three programs
+      in /usr/local/bin. They are one binary that picks its resolution from
+      the name it was started under, so the names are kept.
+
+binaries:
+  - produced: signalserver
+    install_as: signalserver
+  - produced: signalserverHD
+    install_as: signalserverHD
+  - produced: signalserverLIDAR
+    install_as: signalserverLIDAR
+
+update:
+  probe:
+    method: none
+  strategy: rebuild
+  cadence_hint: >-
+    No tags and no releases: the pin review, due every 180 days, is the
+    check. Read W3AXL's log, build the head in a container and run a plot
+    before moving the pin.
+
+documentation:
+  what_it_does: >-
+    Predicts where a transmitter can be heard: from a site, an antenna height,
+    a frequency and a power, it computes path loss over real terrain in every
+    direction out to a radius and writes a coverage map as a PPM image (with a
+    colour key file), using one of twelve propagation models -- ITM
+    (Longley-Rice), ITWOM, Hata, COST-Hata, ECC33, SUI, Ericsson, Egli, free
+    space, plane earth, line of sight and soil. `signalserver` reads the
+    three-arc-second (90 m) terrain, `signalserverHD` the one-arc-second
+    (30 m) terrain with `-res 3600`.
+  why_you_want_it: >-
+    It is SPLAT! rebuilt to run unattended: every input is a command-line
+    argument rather than a site file, the models are wider than SPLAT's two,
+    and it is multi-threaded. It is what to reach for when planning a
+    repeater site, a simplex net, or a link across hills, and it reads the
+    terrain `splat-sdf` makes from your own map regions, so it works offline.
+  prerequisites: >-
+    Terrain from `splat-sdf` (or SPLAT Data Files of your own); without it
+    every square reads as sea level. Pass the directory with `-sdf`:
+    `hammunition maps splat` prints it. The coverage guide
+    (docs/guides/propagation.md, "Terrain for coverage plots") has a
+    complete command. ImageMagick or any image viewer that reads PPM to look
+    at the result.
+  known_problems: >-
+    **The threaded plot is not reliable: pass `-nothreads`.** Measured on
+    2026-10-01 over one tile at a 20 km radius, a one-arc-second plot
+    crashed 2 times in 10 with threads and completed 10 times in 10 without
+    (19 to 29 s, 1.36 GB of memory; the three-arc-second plot took 1 to 2 s and
+    600 MB). A missing terrain file is not an error: the square is treated as
+    sea level with a warning and the program exits 0, so a plot with the
+    wrong terrain looks like a plot. Its own usage text limits the transmitter
+    to latitudes within 70 degrees of the equator.
+    The LIDAR program reads ASCII grids, which nothing here makes. No web
+    front end is carried.
+  upstream_url: https://github.com/W3AXL/Signal-Server
+  upstream_support: >-
+    W3AXL's fork on GitHub, issues and pull requests there; it carries the
+    original README and `doc/` from Cloud-RF. GPL-2.0, read from LICENSE.txt
+    at the pinned commit. SPLAT!'s manual explains the terrain files and the
+    ITM model behind it.

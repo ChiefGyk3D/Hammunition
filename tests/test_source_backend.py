@@ -298,6 +298,26 @@ def test_the_qmake_project_file_is_passed_when_declared(tmp_path: Path) -> None:
     assert "MSHV_64.pro" in qmake.argv
 
 
+def test_the_cmake_project_file_names_the_source_subdirectory(tmp_path: Path) -> None:
+    """The schema has always called `project_file` "qmake .pro / cmake
+    subdir"; the CMake path ignored it until Signal-Server, whose
+    CMakeLists.txt is in `src/` (D-061, amended 2026-10-02)."""
+    manifest = _manifest("cmake", project_file="src")
+    backend = _backend(tmp_path)
+    layout = backend.layout(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, manifest.install[0])
+    configure = next(s for s in steps if isinstance(s, Command) and "--fresh" in s.argv)
+    assert configure.argv[configure.argv.index("-S") + 1] == str(layout.src / "src")
+    assert configure.cwd == layout.src
+    plain = _manifest("cmake")
+    steps = backend.steps(plain, plain.install[0])
+    configure = next(s for s in steps if isinstance(s, Command) and "--fresh" in s.argv)
+    assert configure.argv[configure.argv.index("-S") + 1] == str(layout.src)
+    for outside in ("../src", "/src", "a/../../b"):
+        with pytest.raises(ValidationError, match="project_file"):
+            _manifest("cmake", project_file=outside)
+
+
 def test_the_install_prefix_is_usr_local(tmp_path: Path) -> None:
     manifest = _manifest("autotools")
     backend = _backend(tmp_path)

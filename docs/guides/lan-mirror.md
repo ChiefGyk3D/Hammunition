@@ -99,7 +99,8 @@ sha256 and the book comes from Kiwix instead.
 Nothing from the mirror is trusted. A download from it is checked against
 the same digest the publisher's would be: the sha256 Hammunition pins, or
 the publisher's own MD5 for an unpinned region or tile, read from the
-publisher while the plan is made. If the mirror is switched off, does not
+publisher while the plan is made (the ACMA register, which has no digest at
+all, is the exception; see the end of this page). If the mirror is switched off, does not
 have the file, sends too much, sends the wrong size or sends the wrong
 bytes, the download is discarded and the publisher is asked instead. A
 mirror that does not answer at all is not asked again in that run, so a
@@ -132,6 +133,18 @@ Bunker took at the pinned digest still installs. The repeater lists fetched
 on request (hearham, the ETCC, Brandmeister) are not data units and are not
 in the list; whether a Bunker may keep copies of them is the maintainer's
 decision, not yet made.
+
+The ACMA's register (`acma-register`, **D-074**, amended 2026-10-01) is in
+the list as `acma-register/spectra_rrl.zip` with check `unverified-zip`, the
+day's size from a `HEAD` to the ACMA, and no digest, because the ACMA
+publishes none and rebuilds the file daily. The station checks a mirror's
+copy the way it checks the ACMA's: every member's CRC-32 and the tables the
+repeater import reads. That is the one entry where the mirror is checked by
+nothing but the file's own structure, so over plain http nothing ties the
+copy to the ACMA; the plan says "unverified" either way. The file also
+holds licensees' names and addresses, which the ACMA's licence does not let
+you pass on for a private person: a Bunker serving it to your own machines
+is a copy you keep, not one you share.
 
 The infrastructure layers' three data units (**D-075**) mirror like any
 pinned data: `faa-nasr-airports/APT_CSV.zip`, `eia-860m/eia860m.xlsx` and
