@@ -436,3 +436,13 @@ def _no_host_dpkg_for_the_helper(monkeypatch: pytest.MonkeyPatch) -> None:
     from hammunition.hardware import polkit
 
     monkeypatch.setattr(polkit, "writable_including_symlink_target", lambda *a, **k: None)
+
+
+@pytest.fixture(autouse=True)
+def _no_retry_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The plan-time retry policy (#200) never really waits in a test, and each
+    test starts with no host given up on."""
+    from hammunition import retry
+
+    monkeypatch.setattr(retry.POLICY, "sleep", lambda _seconds: None)
+    retry.POLICY.reset()

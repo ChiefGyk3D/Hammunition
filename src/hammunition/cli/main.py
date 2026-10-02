@@ -173,6 +173,13 @@ from hammunition.paths import (
 from hammunition.phone_plan import build_phone_run
 from hammunition.plan import NO_MAP_REGIONS, Blocker, InstallPlan, PlanError, resolve
 from hammunition.progress import Progress
+from hammunition.retry import (
+    POLICY,
+    Outages,
+    RetryingProbe,
+    reporter_for,
+    retrying_head,
+)
 from hammunition.routing_plan import build_graph_run, graphhopper_jar
 from hammunition.state import (
     RemovalError,
@@ -3393,8 +3400,16 @@ def cmd_install(args: argparse.Namespace) -> int:
     # D-061: terrain tiles for the same regions, resolved before the plan
     # prints for the same reason -- each tile's size and how it is verified
     # are the disclosure. The outlines are asked once for both (D-068).
-    outlines = MemoProbe(UrllibProbe())
-    terrain_tile_probe = CachingTileProbe(S3Probe(), source.fetcher.cache_dir)
+    #
+    # Every probe below is retried on a 5xx, a connection error or a read
+    # timeout (#200), and what a publisher still does not answer after that
+    # is deferred by name for a profile member (`outages`), refused only for
+    # a unit the operator typed.
+    outlines = MemoProbe(RetryingProbe(UrllibProbe()))
+    outages = Outages()
+    POLICY.reset()
+    terrain_tile_probe = CachingTileProbe(RetryingProbe(S3Probe()), source.fetcher.cache_dir)
+    usgs_tile_probe = CachingTileProbe(RetryingProbe(ustopo_probe()), source.fetcher.cache_dir)
     try:
         dem_resolution = resolve_station_terrain(
             plan,
@@ -3403,6 +3418,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             prefix=source.prefix,
             region_probe=outlines,
             tile_probe=terrain_tile_probe,
+            outages=outages,
         )
     except CopernicusError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3413,7 +3429,6 @@ def cmd_install(args: argparse.Namespace) -> int:
         terrain_tile_probe.flush()
     # D-068: the US Topo sheets for the same regions, each HEAD-checked
     # against the ETag the carried index lists.
-    usgs_tile_probe = CachingTileProbe(ustopo_probe(), source.fetcher.cache_dir)
     try:
         topo_resolution, topo_notes = resolve_station_topo(
             plan,
@@ -3422,6 +3437,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             prefix=source.prefix,
             region_probe=outlines,
             quad_probe=usgs_tile_probe,
+            outages=outages,
         )
     except UstopoError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3442,6 +3458,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             source=station.elevation,
             region_probe=outlines,
             tile_probe=usgs_tile_probe,
+            outages=outages,
         )
     except CopernicusError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3458,6 +3475,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             prefix=source.prefix,
             region_probe=outlines,
             gateway=GatewayProbe(),
+            outages=outages,
         )
     except FstopoError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3476,7 +3494,8 @@ def cmd_install(args: argparse.Namespace) -> int:
                 station.reference_books,
                 catalog_root,
                 installed=data_root(source.prefix) / book_units[0].name,
-                head=KiwixProbe().head,
+                head=retrying_head(KiwixProbe().head),
+                on_outage=reporter_for(outages, book_units[0]),
             )
         except KiwixError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -3484,7 +3503,13 @@ def cmd_install(args: argparse.Namespace) -> int:
             refused("reference books", str(exc))
             return EXIT_UNPLANNABLE
     books = KiwixBooksBackend(
-        fetcher=source.fetcher, prefix=source.prefix, files=book_files, runner=runner
+        fetcher=source.fetcher,
+        prefix=source.prefix,
+        files=book_files,
+        runner=runner,
+        keep_unlisted=any(o.unit == book_units[0].name for o in outages.items)
+        if book_units
+        else False,
     )
     region_notes = list(resolution.notes)
     region_notes.extend(topo_notes)
@@ -3502,7 +3527,8 @@ def cmd_install(args: argparse.Namespace) -> int:
                 station.map_regions,
                 catalog_root,
                 installed=data_root(source.prefix) / mwm_units[0].name,
-                head=CdnProbe().head,
+                head=retrying_head(CdnProbe().head),
+                on_outage=reporter_for(outages, mwm_units[0]),
             )
         except ComapsError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -3511,8 +3537,23 @@ def cmd_install(args: argparse.Namespace) -> int:
             return EXIT_UNPLANNABLE
         region_notes.extend(mwm_notes)
     mwm = ComapsMapsBackend(
-        fetcher=source.fetcher, prefix=source.prefix, files=mwm_files, runner=runner
+        fetcher=source.fetcher,
+        prefix=source.prefix,
+        files=mwm_files,
+        runner=runner,
+        keep_unlisted=any(o.unit == mwm_units[0].name for o in outages.items)
+        if mwm_units
+        else False,
     )
+    # #200: what a publisher did not answer for becomes a deferral by name in the
+    # plan (printed under "Will NOT happen", written to the transaction log, shown
+    # by `status`), and one line saying how to try again.
+    if outages:
+        plan = dataclasses.replace(plan, deferrals=(*plan.deferrals, *outages.deferrals()))
+        footer = outages.footer()
+        if footer is not None:
+            region_notes.append(footer)
+
     try:
         border, countries, border_notes = map_borders(plan, packages, catalog_root, source.prefix)
     except CountryBoundaryError as exc:

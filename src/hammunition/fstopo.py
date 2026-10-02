@@ -48,6 +48,7 @@ from pathlib import Path
 import yaml
 
 from .copernicus import Ring
+from .retry import retrying_head
 from .ustopo import QuadIndex, boxed_cells
 
 __all__ = [
@@ -300,7 +301,8 @@ class GatewayProbe:
     ``data.fs.usda.gov``: a redirect anywhere else is refused, never followed."""
 
     def __init__(self, head: Head | None = None) -> None:
-        self._head: Head = head or _real_head
+        # Under the plan-time retry policy (#200) unless a test supplies its own.
+        self._head: Head = head or retrying_head(_real_head)
 
     def locate(self, secoord: int) -> tuple[str, int]:
         """(the sheet's file URL, its size), or an :class:`FstopoError` naming why not."""
