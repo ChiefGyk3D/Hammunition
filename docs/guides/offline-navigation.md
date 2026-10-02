@@ -577,8 +577,11 @@ QMapShack.
 
 QMapShack does not talk to gpsd. Its Realtime source *GPS TCP/IP* reads NMEA, the sentence
 format GPS receivers speak, from a network port. The tether makes that NMEA
-from gpsd's position and serves it on this machine only. Run the *GPS
-position for QMapShack* launcher, or in a terminal:
+from gpsd's position and serves it on this machine only. It is the
+`gps-tether` unit of the `navigation` profile (or `hammunition install
+gps-tether` by itself), which also sets it up to run as a login service
+([below](#run-it-as-a-service)); the commands here need it installed. Run the
+*GPS position for QMapShack* launcher, or in a terminal:
 
 ```
 hammunition maps gps-tether
