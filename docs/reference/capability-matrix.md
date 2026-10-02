@@ -150,7 +150,7 @@ build HAS been run in a container say so in their own install notes.
 | `goldendict-ng` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gpa` | source | apt ? | apt ? | source | source | apt ? | source |
 | `gpredict` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
-| `gps-tether` | venv | venv | venv | venv | venv | venv | venv |
+| `gps-tether` | binary | binary | binary | binary | binary | binary | binary |
 | `gpsbabel` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gpsd` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gpsd-clients` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

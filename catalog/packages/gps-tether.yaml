@@ -14,34 +14,39 @@ categories: [navigation-maps, gps-gnss]
 # *user* service so the position is there at every login with no window to
 # leave open.
 #
-# Standard library only, so the whole install is one wheel. It is the wheel
-# the project's tagged release publishes, pinned by sha256 and installed with
-# `pip --require-hashes` into its own venv, which puts
-# `~/.local/bin/hammunition-gps-tether` on the operator's PATH (the venv
-# backend's wrapper). Measured 2026-10-02 on this machine, with a wheel built
-# locally from the project's tree *before the first tag existed* (so not the
-# artifact pinned here): a hash-pinned `file://` wheel line installed under
-# `--require-hashes --no-index`, no build and no network, and
-# `hammunition-gps-tether --help` ran from the venv's script. The release wheel
-# itself has not been fetched or run.
+# Standard library only, so the install is the tag's source tree and nothing
+# else: GitHub's tarball of tag v0.1.0 (annotated tag c16012a, commit
+# 58d4bb7eab9fbf5c8b6e8ccce2b0f3178b17d44e, resolved 2026-10-02 with
+# `gh api`), pinned by sha256 and unpacked to
+# /usr/local/share/hammunition/gps-tether like skid-finder's tree, with no build,
+# no pip and no network after the fetch. The tarball was fetched twice on
+# 2026-10-02 and hashed identically (140967 bytes). Run from an unpacked copy:
+# `PYTHONPATH=<tree>/src python3 -m hammunition_gps_tether --version` printed
+# "hammunition-gps-tether 0.1.0" on Debian 13 (Python 3.13.5). The project
+# publishes no wheel or release asset for v0.1.0 (no release exists on
+# 2026-10-02), so the tag's own tarball is what there is to pin; a published
+# wheel would be the better artifact and the pin moves to it when it exists.
 #
-# PIN STATE. The digest below is the all-zero value the engine calls
-# unpinned (`UNPINNED_SHA256`): the planner refuses it by name at `--dry-run`,
-# before any step runs, and tests/test_gps_tether_catalog.py keeps the unit out
-# of every profile and every `depends` while it stands. Replace the line with the v0.1.0 release wheel's URL and the sha256 `sha256sum` prints for
-# the downloaded file.
+# The tree is run in place with the archive's python3 and PYTHONPATH, through
+# `/usr/bin/env` so the unit's ExecStart is one absolute program and plain
+# argv words (no shell). The tether needs Python 3.11 or later, which every
+# target but Ubuntu 22.04 and Pop!_OS 22.04 ships.
 install:
   - install:
-      method: venv
-      python: ">=3.11"
-      expose: [hammunition-gps-tether]
-      requirements:
-        - https://github.com/ChiefGyk3D/hammunition-gps-tether/releases/download/v0.1.0/hammunition_gps_tether-0.1.0-py3-none-any.whl --hash=sha256:0000000000000000000000000000000000000000000000000000000000000000
+      method: binary
+      artifact:
+        url: https://github.com/ChiefGyk3D/hammunition-gps-tether/archive/refs/tags/v0.1.0.tar.gz
+        sha256: a707794b330b2127d458ff0741f3a9a506689b4e60b25de3926a4c7e9f76b90a
+      format: tarball
+      install_tree: true
+      # GitHub's tag tarball has one top directory, which extraction strips.
+      tree_marker: src/hammunition_gps_tether/__main__.py
     note: >-
-      A per-user venv holding the one wheel, and `~/.local/bin/hammunition-gps-tether`
-      reaching it. Nothing is installed system-wide and nothing needs root.
+      The tag's source tree, installed to /usr/local/share/hammunition/gps-tether
+      and handed to the operator. Nothing is built; nothing runs as root but the
+      copy.
 
-depends: [gpsd, python3-venv]
+depends: [gpsd, python3]
 
 # The service the program is for. The unit file is rendered by the engine
 # from these fields (D-073 §6), never written by hand: it runs the installed
@@ -53,12 +58,18 @@ user_services:
   - name: hammunition-gps-tether
     description: GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue
     exec:
-      - "{user_bin}/hammunition-gps-tether"
+      - /usr/bin/env
+      - PYTHONPATH=/usr/local/share/hammunition/gps-tether/src
+      - /usr/bin/python3
+      - -m
+      - hammunition_gps_tether
     listens:
       - {protocol: tcp, address: 127.0.0.1, port: 10110}
       - {protocol: tcp, address: 127.0.0.1, port: 10111}
     restart: on-failure
     restart_sec: 5
+    # The tether exits 1 when it refuses (a taken port, root): not retried.
+    restart_prevent_exit_status: [1]
 
 update:
   probe:
@@ -66,8 +77,8 @@ update:
     repo: ChiefGyk3D/hammunition-gps-tether
   strategy: reinstall
   cadence_hint: >-
-    Tagged releases with the wheel attached. A release is a new URL and a new
-    digest; re-pin both.
+    Tagged releases, no release assets yet. A tag is a new tarball URL and a new
+    digest; re-pin both (and the tag in the comment).
 
 documentation:
   what_it_does: >-
@@ -104,9 +115,14 @@ documentation:
     can read your position from it. The user service starts at login only
     when your user manager is running; on a machine you never log in to
     graphically it does not start until you do (or `loginctl enable-linger`,
-    which `hammunition` does not set for this unit). Not yet measured: the
-    service started on a machine from this unit, and a reboot with it
-    enabled. A change to the tether's options means editing the unit by hand
+    which `hammunition` does not set for this unit). The tether needs Python
+    3.11 or later; Ubuntu 22.04 and Pop!_OS 22.04 ship 3.10, where it will
+    not start. The unit does not restart a tether that exited 1, its refusal
+    (a taken port, root). There is no `hammunition-gps-tether` command on your
+    PATH: the program is the installed tree run by the service, and
+    `hammunition maps gps-tether` runs the same tree in a terminal. Not yet
+    measured: the service started on a machine from this unit, and a reboot
+    with it enabled. A change to the tether's options means editing the unit by hand
     or running it yourself — the engine renders the unit with no arguments
     and replaces it whole on a reinstall.
   upstream_url: https://github.com/ChiefGyk3D/hammunition-gps-tether

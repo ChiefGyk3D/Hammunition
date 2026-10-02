@@ -759,6 +759,7 @@ the CAT service and the PTT-only service are two complete services chosen by
 | `listens` | `list[UserServiceListen]` | no |  |
 | `restart` | `Literal[on-failure, always, no]` | no (default `on-failure`) | systemd's Restart=, from a fixed set; never free text in a unit file. |
 | `restart_sec` | `int` | no (default `5`) | RestartSec=, in seconds (1 to 300). |
+| `restart_prevent_exit_status` | `list[Annotated[int, annotation=NoneType required=True metadata=[Ge(ge=1), Le(le=255)]]]` | no | Exit codes systemd must not restart after (RestartPreventExitStatus=): a program that refuses by exiting 1, such as the tether on a taken port, is not retried forever. |
 
 ### `UserServiceListen`
 

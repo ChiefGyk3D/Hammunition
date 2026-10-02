@@ -1822,6 +1822,14 @@ class UserService(Strict):
     restart_sec: int = Field(
         default=5, ge=1, le=300, description="RestartSec=, in seconds (1 to 300)."
     )
+    restart_prevent_exit_status: list[Annotated[int, Field(ge=1, le=255)]] = Field(
+        default_factory=list,
+        description=(
+            "Exit codes systemd must not restart after (RestartPreventExitStatus=): "
+            "a program that refuses by exiting 1, such as the tether on a taken "
+            "port, is not retried forever."
+        ),
+    )
 
     @property
     def is_plain(self) -> bool:
@@ -1856,21 +1864,17 @@ class UserService(Strict):
         # interpreter that rendered the unit, as a launcher embeds the engine
         # path, #145). Nothing else: a bare name resolves against systemd's own
         # PATH, not ours.
-        if (
-            self.exec[0] != "{python}"
-            and not self.exec[0].startswith("{user_bin}/")
-            and not self.exec[0].startswith("/")
-        ):
+        if self.exec[0] != "{python}" and not self.exec[0].startswith("/"):
             raise ManifestError(
-                f"user service {self.name!r}: exec[0] {self.exec[0]!r} must be an absolute path, "
-                f"{{python}} or begin {{user_bin}}/ (the operator's ~/.local/bin)"
+                f"user service {self.name!r}: exec[0] {self.exec[0]!r} must be an absolute path "
+                f"or {{python}}"
             )
         for word in self.exec:
             # A {station.*} reference stands in for a value re-checked after
             # substitution (D-073 §4, §6a); strip it before the word check so a
             # legitimate reference is not mistaken for a metacharacter. {python}
             # is likewise an engine placeholder, not a shell token.
-            bare = STATION_REF.sub("X", word).replace("{python}", "X").replace("{user_bin}", "X")
+            bare = STATION_REF.sub("X", word).replace("{python}", "X")
             if any(c in bare for c in _EXEC_FORBIDDEN):
                 raise ManifestError(
                     f"user service {self.name!r}: exec element {word!r} is not one argv word; "

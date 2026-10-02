@@ -814,7 +814,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [goldendict-ng](goldendict-ng.md) | A desktop dictionary that looks words up in dictd and in Kiwix books | apt |
 | [gpa](gpa.md) | GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic | apt, source |
 | [gpredict](gpredict.md) | Real-time satellite tracking and pass prediction, with radio control | apt |
-| [gps-tether](gps-tether.md) | Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service | venv |
+| [gps-tether](gps-tether.md) | Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service | binary |
 | [gpsbabel](gpsbabel.md) | Converts between GPS file formats and talks to the receiver | apt |
 | [gpsd](gpsd.md) | GPS service daemon — one process owns the receiver, everything else asks it | apt |
 | [gpsd-clients](gpsd-clients.md) | Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode | apt |

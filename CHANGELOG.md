@@ -17,16 +17,17 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   always planned, needing neither the station nor the hardware catalog. The
   unit file's header names the catalog unit that wrote it, several units can
   share a plan, and `restart` / `restart_sec` are fixed-set manifest fields;
-  the rig's unit renders byte for byte as before. `{user_bin}` in an exec is
-  the operator's `~/.local/bin`. A new `gps-tether` unit installs
-  `hammunition-gps-tether` (now its own repository, pinned wheel in a venv) and
-  runs it as `hammunition-gps-tether.service` on 127.0.0.1 ports 10110 and
-  10111, enabled at install and started at next login (a reinstall `try-restart`s a
-  running one). An unfinished pin, the all-zero digest, is refused by name at
-  plan time. `hammunition maps
-  gps-tether` runs the installed program when there is one (and says so) and
-  its own copy, with a deprecation note, otherwise. The service and a
-  foreground run cannot share port 10110. Not yet run on a machine.
+  the rig's unit renders byte for byte as before; `restart_prevent_exit_status`
+  keeps systemd from retrying a refusal. A new `gps-tether` unit (in
+  `navigation`) installs the project's v0.1.0 source tree, pinned by tag,
+  commit and tarball sha256, as `hammunition-gps-tether` (now its own
+  repository), and runs it as `hammunition-gps-tether.service` on 127.0.0.1
+  ports 10110 and 10111, enabled at install and started at next login (a
+  reinstall `try-restart`s a running one). A venv requirement
+  with the all-zero placeholder digest is refused by name at plan time. `hammunition maps gps-tether` runs
+  the installed tether when there is one (and says so) and its own copy, with a
+  deprecation note, otherwise. The service and a foreground run cannot share
+  port 10110. Not yet run on a machine.
 
 - **Australia's repeaters from the regulator** (D-074, amended
   2026-10-01). `acma-register` installs the ACMA's Register of

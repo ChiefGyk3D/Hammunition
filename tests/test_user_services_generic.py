@@ -287,30 +287,6 @@ def test_a_rig_service_still_carries_the_transmitter_warning() -> None:
     assert "rig-service: hammunition-rigctld" in text
 
 
-# -- {user_bin}: the operator's ~/.local/bin, where a venv's wrapper lands --
-
-
-def test_user_bin_fills_the_operators_bin_directory() -> None:
-    entry = {**_PLAIN, "exec": ["{user_bin}/hammunition-gps-tether"]}
-    manifest = _manifest("gps-tether", [entry])
-    (svc,) = manifest.user_services
-    assert svc.is_plain  # a placeholder for a directory is not a station value
-    planned, deferrals, _ = plan_user_services(
-        manifest, Station(), None, user_bin=Path("/home/op/.local/bin")
-    )
-    assert not deferrals
-    assert planned[0].exec_argv == ("/home/op/.local/bin/hammunition-gps-tether",)
-    assert "ExecStart=/home/op/.local/bin/hammunition-gps-tether\n" in planned[0].unit_body
-
-
-def test_user_bin_is_allowed_only_at_the_start_of_the_program_word() -> None:
-    entry = {**_PLAIN, "exec": ["/usr/bin/env", "{user_bin}/x"]}
-    # as an argument it is allowed (it is one safe word), as exec[0] it is the program
-    _manifest("gps-tether", [entry])
-    with pytest.raises((ValidationError, ManifestError)):
-        _manifest("gps-tether", [{**_PLAIN, "exec": ["x{user_bin}/y"]}])
-
-
 # -- review fixes ------------------------------------------------------------
 
 
@@ -327,7 +303,7 @@ def test_a_plain_service_is_try_restarted_so_an_upgrade_reaches_a_running_one(
         user_services: tuple[Any, ...]
 
     manifest = _manifest("gps-tether", [_PLAIN])
-    planned, _d, _n = plan_user_services(manifest, Station(), None, user_bin=tmp_path)
+    planned, _d, _n = plan_user_services(manifest, Station(), None)
     steps = user_service_steps(_Plan(tuple(planned)), home=tmp_path)  # type: ignore[arg-type]
     argvs = [s.argv for s in steps if isinstance(s, Command)]
     assert ("systemctl", "--user", "try-restart", "hammunition-gps-tether.service") in argvs
@@ -356,18 +332,37 @@ def test_the_rigs_proxy_is_still_never_restarted_without_its_device(tmp_path: Pa
         filled_from=("rig",),
         listens=(),
     )
-    argvs = [
-        s.argv
-        for s in user_service_steps(_Plan((svc,)), home=tmp_path)
-        if isinstance(s, Command)  # type: ignore[arg-type]
-    ]
+    steps = user_service_steps(_Plan((svc,)), home=tmp_path)  # type: ignore[arg-type]
+    argvs = [s.argv for s in steps if isinstance(s, Command)]
     assert not any("restart" in a or "try-restart" in a for a in argvs)
 
 
-def test_a_home_the_unit_file_cannot_carry_defers_the_service_instead_of_crashing() -> None:
-    entry = {**_PLAIN, "exec": ["{user_bin}/hammunition-gps-tether"]}
+def test_restart_prevent_exit_status_is_a_fixed_list_of_exit_codes() -> None:
+    (svc,) = _manifest(
+        "gps-tether", [{**_PLAIN, "restart_prevent_exit_status": [1, 2]}]
+    ).user_services
+    assert svc.restart_prevent_exit_status == [1, 2]
+    assert _manifest("gps-tether", [_PLAIN]).user_services[0].restart_prevent_exit_status == []
+    for bad in ([0], [256], [-1]):
+        with pytest.raises((ValidationError, ManifestError)):
+            _manifest("gps-tether", [{**_PLAIN, "restart_prevent_exit_status": bad}])
+
+
+def test_a_unit_carries_restart_prevent_exit_status_only_when_asked() -> None:
+    plain = render_unit_file("n", "d", ("/p",), None, unit="u", station_fed=False)
+    assert "RestartPreventExitStatus" not in plain
+    body = render_unit_file(
+        "n", "d", ("/p",), None, unit="u", station_fed=False, restart_prevent_exit_status=(1, 2)
+    )
+    lines = body.splitlines()
+    assert "RestartPreventExitStatus=1 2" in lines
+    assert lines.index("RestartSec=5") + 1 == lines.index("RestartPreventExitStatus=1 2")
+
+
+def test_an_interpreter_path_the_unit_file_cannot_carry_defers_instead_of_crashing() -> None:
+    entry = {**_PLAIN, "exec": ["{python}", "-m", "x"]}
     planned, deferrals, _ = plan_user_services(
-        _manifest("gps-tether", [entry]), Station(), None, user_bin=Path("/home/a b/.local/bin")
+        _manifest("gps-tether", [entry]), Station(), None, interpreter="/home/a b/venv/bin/python"
     )
     assert not planned
     (deferral,) = deferrals

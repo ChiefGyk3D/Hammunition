@@ -19,7 +19,7 @@ from pathlib import Path
 
 from hammunition.manifest.load import load_catalog, load_profile
 from hammunition.manifest.schema import UNPINNED_SHA256 as UNPINNED
-from hammunition.manifest.schema import PackageManifest, VenvInstall
+from hammunition.manifest.schema import BinaryInstall, PackageManifest
 from hammunition.station import Station
 from hammunition.userservice import header_for, plan_user_services
 
@@ -31,40 +31,44 @@ def _unit() -> PackageManifest:
     return load_catalog(CATALOG / "packages")["gps-tether"]
 
 
-def _line() -> str:
+def _artifact() -> BinaryInstall:
     (alt,) = _unit().install
-    assert isinstance(alt.install, VenvInstall)
-    (line,) = alt.install.requirements
-    return line
+    assert isinstance(alt.install, BinaryInstall)
+    return alt.install
 
 
 def is_unpinned() -> bool:
-    return f"--hash=sha256:{UNPINNED}" in _line()
+    return _artifact().artifact.sha256 == UNPINNED
 
 
-def test_it_is_a_venv_of_one_hash_pinned_wheel_that_exposes_the_program() -> None:
-    (alt,) = _unit().install
-    block = alt.install
-    assert isinstance(block, VenvInstall)
-    assert block.expose == ["hammunition-gps-tether"]
-    url = _line().split()[0]
-    assert url.startswith(
-        "https://github.com/ChiefGyk3D/hammunition-gps-tether/releases/download/v0.1.0/"
+def test_it_is_the_tags_tarball_pinned_by_sha256_and_installed_as_a_tree() -> None:
+    block = _artifact()
+    assert block.format == "tarball" and block.install_tree
+    assert block.tree_marker == "src/hammunition_gps_tether/__main__.py"
+    assert block.artifact.url == (
+        "https://github.com/ChiefGyk3D/hammunition-gps-tether/archive/refs/tags/v0.1.0.tar.gz"
     )
-    assert url.endswith(".whl")
-    assert re.search(r"--hash=sha256:[0-9a-f]{64}$", _line())
+    assert re.fullmatch(r"[0-9a-f]{64}", block.artifact.sha256)
+    assert not is_unpinned(), "the placeholder digest is still in the manifest"
 
 
 def test_the_unit_names_the_tag_it_pins() -> None:
     unit = _unit()
     assert unit.version == "0.1.0"
-    assert "v0.1.0" in _line()
+    assert "/v0.1.0.tar.gz" in _artifact().artifact.url
 
 
 def test_the_service_is_the_tethers_two_loopback_ports_with_no_device() -> None:
     (svc,) = _unit().user_services
     assert svc.name == "hammunition-gps-tether"
-    assert svc.exec == ["{user_bin}/hammunition-gps-tether"]
+    assert svc.exec == [
+        "/usr/bin/env",
+        "PYTHONPATH=/usr/local/share/hammunition/gps-tether/src",
+        "/usr/bin/python3",
+        "-m",
+        "hammunition_gps_tether",
+    ]
+    assert svc.restart_prevent_exit_status == [1]  # the tether's refusals (a taken port)
     assert [(lst.address, lst.port) for lst in svc.listens] == [
         ("127.0.0.1", 10110),
         ("127.0.0.1", 10111),
@@ -75,14 +79,16 @@ def test_the_service_is_the_tethers_two_loopback_ports_with_no_device() -> None:
 
 
 def test_it_plans_a_user_unit_with_no_station_and_no_hardware_catalog() -> None:
-    planned, deferrals, notes = plan_user_services(
-        _unit(), Station(), None, user_bin=Path("/home/op/.local/bin")
-    )
+    planned, deferrals, notes = plan_user_services(_unit(), Station(), None)
     assert not deferrals and not notes
     (svc,) = planned
     assert svc.unit == "gps-tether"
     assert svc.unit_body.startswith(header_for("gps-tether"))
-    assert "ExecStart=/home/op/.local/bin/hammunition-gps-tether\n" in svc.unit_body
+    assert (
+        "ExecStart=/usr/bin/env PYTHONPATH=/usr/local/share/hammunition/gps-tether/src "
+        "/usr/bin/python3 -m hammunition_gps_tether\n"
+    ) in svc.unit_body
+    assert "RestartPreventExitStatus=1\n" in svc.unit_body
     assert "Restart=on-failure" in svc.unit_body and "RestartSec=5" in svc.unit_body
     assert "BindsTo" not in svc.unit_body
 
@@ -120,11 +126,26 @@ def test_the_shipped_unit_obeys_the_rule_for_the_state_it_is_in() -> None:
 
 
 def _wheel_unit(digest: str) -> PackageManifest:
-    unit = _unit().model_dump(mode="json", exclude_none=True)
-    unit["install"][0]["install"]["requirements"] = [
-        f"https://example.invalid/x-0.1.0-py3-none-any.whl --hash=sha256:{digest}"
-    ]
-    return PackageManifest.model_validate(unit)
+    return PackageManifest.model_validate(
+        {
+            "name": "wheel-unit",
+            "version": "0.1.0",
+            "summary": "A venv unit for the unpinned check",
+            "categories": ["navigation-maps"],
+            "install": [
+                {
+                    "install": {
+                        "method": "venv",
+                        "requirements": [
+                            f"https://example.invalid/x-0.1.0-py3-none-any.whl --hash=sha256:{digest}"
+                        ],
+                    }
+                }
+            ],
+            "update": {"probe": {"method": "apt_policy"}, "strategy": "apt_upgrade"},
+            "documentation": _unit().documentation.model_dump(mode="json", exclude_none=True),
+        }
+    )
 
 
 def test_the_engine_refuses_the_zero_digest_at_plan_time_by_name() -> None:
@@ -132,7 +153,7 @@ def test_the_engine_refuses_the_zero_digest_at_plan_time_by_name() -> None:
 
     unpinned = _wheel_unit(UNPINNED)
     found = _check_engine_capability(unpinned, unpinned.install[0])
-    assert [b.subject for b in found] == ["gps-tether"]
+    assert [b.subject for b in found] == ["wheel-unit"]
     assert "unpinned" in found[0].reason and "all-zero" in found[0].reason
 
     pinned = _wheel_unit("ab" * 32)

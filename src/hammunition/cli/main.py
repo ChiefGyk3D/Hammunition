@@ -1539,18 +1539,37 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
 #: `gps-tether` catalog unit (D-071 note, 2026-10-02).
 TETHER_PROGRAM = "hammunition-gps-tether"
 
-
-def installed_tether() -> str | None:
-    """The installed ``hammunition-gps-tether``, or None: on the PATH, else in
-    the operator's ``~/.local/bin`` where the venv's wrapper lands (a menu entry
-    Plasma starts has no ``~/.local/bin`` on its PATH, issue #145)."""
-    found = shutil.which(TETHER_PROGRAM)
-    if found is not None:
-        return found
-    return shutil.which(TETHER_PROGRAM, path=str(user_bin_dir(None)))
+#: Where that unit installs the project's source tree (a `binary` tarball with
+#: `install_tree`, at `<prefix>/share/hammunition/<unit>`); a variable so a test
+#: can point it at a scratch tree.
+TETHER_TREE = Path("/usr/local/share/hammunition/gps-tether")
 
 
-def _tether_call_through(program: str, args: argparse.Namespace) -> int:
+def installed_tether() -> tuple[list[str], str] | None:
+    """The installed GPS tether as ``(argv, where)``, or None.
+
+    The catalog unit's tree first: run in place with the archive's python3, as
+    the user service does. Failing that a ``hammunition-gps-tether`` on the PATH
+    or in the operator's ``~/.local/bin`` (a menu entry Plasma starts has no
+    ``~/.local/bin`` on its PATH, issue #145), which is how a ``pip install
+    --user`` of the project would leave it.
+    """
+    if (TETHER_TREE / "src" / "hammunition_gps_tether" / "__main__.py").is_file():
+        argv = [
+            "/usr/bin/env",
+            f"PYTHONPATH={TETHER_TREE / 'src'}",
+            "/usr/bin/python3",
+            "-m",
+            "hammunition_gps_tether",
+        ]
+        return argv, str(TETHER_TREE)
+    found = shutil.which(TETHER_PROGRAM) or shutil.which(
+        TETHER_PROGRAM, path=str(user_bin_dir(None))
+    )
+    return None if found is None else ([found], found)
+
+
+def _tether_call_through(installed: tuple[list[str], str], args: argparse.Namespace) -> int:
     """Run the installed tether in this process's place, with the options given."""
     if os.geteuid() == 0:
         print(
@@ -1558,7 +1577,8 @@ def _tether_call_through(program: str, args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return EXIT_FAILED
-    argv = [program]
+    prefix, where = installed
+    argv = list(prefix)
     for flag, value in (
         ("--gpsd", args.gpsd),
         ("--port", args.port),
@@ -1570,15 +1590,15 @@ def _tether_call_through(program: str, args: argparse.Namespace) -> int:
     if args.no_nmea_socket:
         argv.append("--no-nmea-socket")
     print(
-        f"hammunition: running {program}, installed from hammunition-gps-tether. "
+        f"hammunition: running the installed tether from {where} (hammunition-gps-tether). "
         f"Run it directly; this verb will go away in a later release.",
         file=sys.stderr,
         flush=True,
     )
     try:
-        os.execv(program, argv)  # replaces this process; returns only by raising
+        os.execv(argv[0], argv)  # replaces this process; returns only by raising
     except OSError as exc:
-        print(f"error: cannot run {program}: {exc.strerror or exc}.", file=sys.stderr)
+        print(f"error: cannot run {argv[0]}: {exc.strerror or exc}.", file=sys.stderr)
         return EXIT_FAILED
 
 

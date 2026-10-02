@@ -407,8 +407,8 @@ What the `gps-tether` launcher ran (**D-061**), and now the way to run it
 once by hand. **The tether is its own project** (D-071 note, 2026-10-02):
 `hammunition install gps-tether` installs `hammunition-gps-tether` from
 <https://github.com/ChiefGyk3D/hammunition-gps-tether> and a systemd user
-service for it. With that program on the PATH (or in `~/.local/bin`), this verb
-**runs it in its place**, passing every option given through, and prints on
+service for it. With that tree installed (or a `hammunition-gps-tether` on the PATH or in
+`~/.local/bin`), this verb **runs it in its place**, passing every option given through, and prints on
 stderr where it is running from; root is refused first. Without it, the verb runs
 the engine's own copy as before, with a note on stderr that it will go away in
 a later release. The service and a foreground run cannot share port 10110. The

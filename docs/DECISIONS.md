@@ -7717,6 +7717,15 @@ problems in `catalog/packages/comaps.yaml`; the guide's section 17,
 `tests/test_docs_geoclue.py`, and the socket cases in
 `tests/test_gps_tether.py` and `tests/test_maps_tools.py`.
 
+**Note 2026-10-02: four constants are shared and change together.** The GeoClue
+drop-in's path, its header line, the socket's path and the group are written by
+`hammunition hardware apply` (`src/hammunition/geoclue.py`) and read by the
+tether, which is now its own project (`hammunition-gps-tether`, D-071 note) and
+carries its own copy of all four to decide whether to serve the unix socket by
+default. Changing one here without the other leaves the tether silently not
+serving GeoClue (or serving it where nothing reads it); both repositories change
+in the same step, and the tether's own tests pin its copy.
+
 ## D-070 — A data artifact may be taken from a LAN mirror the operator names, verified the same either way, and the engine can list what it would fetch without a station
 
 **Date:** 2026-09-29. **Status:** proposed (implemented on branch
@@ -8026,7 +8035,10 @@ changes: the same two loopback ports, the same `GET /position` stream, the
 same flags. `hammunition maps gps-tether` runs the installed program when it
 is present and the engine's own module, with a deprecation note, when it is
 not; the verb and the module go in a later release. The service and a
-foreground run cannot share port 10110. Not yet run as a service on a machine.
+foreground run cannot share port 10110. The engine's `gps_tether.py` stays
+for this release (`reference serve`, `doctor` and the GeoClue code reference
+it); deleting it and the verb is the next step. Not yet run as a service on a
+machine.
 
 ---
 
@@ -8221,16 +8233,25 @@ assumptions came out and the rig's behaviour and tests did not move.
    and leaves a stopped one stopped, so a new pin does not leave the old code
    holding the ports. A venv requirement carrying the all-zero digest
    (`UNPINNED_SHA256`) is refused by name at plan time, before any step.
-4. **`restart` and `restart_sec`** are manifest fields from a fixed set
-   (`on-failure`, `always`, `no`; 1 to 300 seconds), defaulting to what every
-   unit already had. `{user_bin}` joins `{python}` as a placeholder in an
-   exec: the operator's `~/.local/bin`, where a venv unit's wrapper lands,
-   re-checked as one safe word like every substitution.
+4. **`restart`, `restart_sec` and `restart_prevent_exit_status`** are manifest
+   fields from fixed sets (`on-failure`, `always`, `no`; 1 to 300 seconds;
+   exit codes 1 to 255), defaulting to what every unit already had; a unit
+   carries `RestartPreventExitStatus=` only when asked.
 
 The first plain service is the `gps-tether` unit: `hammunition-gps-tether`
-installed from its own repository as a hash-pinned wheel in a venv, running on
-127.0.0.1:10110 and :10111 (D-071 note). Not yet run on a machine; the bench
-owes the service at login and after a reboot.
+(its own repository) installed as the tag's source tree, a `binary` tarball
+pinned by sha256 and unpacked with `install_tree` beside skid-finder's, run in
+place by the unit with `/usr/bin/env PYTHONPATH=… /usr/bin/python3 -m
+hammunition_gps_tether` on 127.0.0.1:10110 and :10111 (D-071 note). Pin: tag
+`v0.1.0`, commit `58d4bb7eab9fbf5c8b6e8ccce2b0f3178b17d44e`, tarball sha256
+`a707794b330b2127d458ff0741f3a9a506689b4e60b25de3926a4c7e9f76b90a` (fetched
+three times, identical). The project publishes no wheel or release file for
+v0.1.0, which is why the pin is the tag's own tarball; a wheel would be the
+better artifact. A venv requirement carrying the all-zero digest
+(`UNPINNED_SHA256`), the convention for an unfinished pin, is refused by name at
+plan time (a binary artifact is not: fixtures across the suite use zeros for a
+dummy .deb). Not yet run on a machine; the bench owes the service at login and after
+a reboot.
 
 ---
 

@@ -7,7 +7,7 @@
 - **Version recorded:** 0.1.0
 - **Categories:** `gps-gnss`, `navigation-maps`
 - **Upstream:** <https://github.com/ChiefGyk3D/hammunition-gps-tether>
-- **Needs first:** `gpsd`, `python3-venv`
+- **Needs first:** `gpsd`, `python3`
 
 ## What it does
 
@@ -23,18 +23,24 @@ gpsd running with a receiver that has a fix (the `station` profile's gpsd is soc
 
 ## How it installs
 
-- python venv: `https://github.com/ChiefGyk3D/hammunition-gps-tether/releases/download/v0.1.0/hammunition_gps_tether-0.1.0-py3-none-any.whl --hash=sha256:0000000000000000000000000000000000000000000000000000000000000000`
-  - A per-user venv holding the one wheel, and `~/.local/bin/hammunition-gps-tether` reaching it. Nothing is installed system-wide and nothing needs root.
+- prebuilt tarball from https://github.com/ChiefGyk3D/hammunition-gps-tether/archive/refs/tags/v0.1.0.tar.gz
+  - The tag's source tree, installed to /usr/local/share/hammunition/gps-tether and handed to the operator. Nothing is built; nothing runs as root but the copy.
+
+## What it changes on your machine
+
+- **installed tree** — `/usr/local/share/hammunition/gps-tether` is created and handed to the operator who ran the install by an explicit `chown` step in the plan (**D-043**): the software keeps settings, logs or data beside its executable, so the tree has to be writable by whoever runs it. On a shared machine that means anyone who can act as that user can change what the launcher runs.
+  - `/usr/local/share/hammunition` stays root-owned; the tree itself is replaced whole on every install, so anything the software wrote inside it is lost then
+  - undo: `hammunition uninstall gps-tether` removes the tree
 
 ## Known problems
 
-**One tether per machine.** The service and a foreground run — QMapShack's "GPS position for QMapShack" menu entry, or `hammunition maps gps-tether` — cannot share port 10110: whichever starts second reports "cannot listen" and stops. With the service enabled you do not need the menu entry; stop the service first (`systemctl --user stop hammunition-gps-tether.service`) if you want a foreground run, for another gpsd with `--gpsd HOST` say. It listens on loopback only, but loopback is not per-user: any local account can read your position from it. The user service starts at login only when your user manager is running; on a machine you never log in to graphically it does not start until you do (or `loginctl enable-linger`, which `hammunition` does not set for this unit). Not yet measured: the service started on a machine from this unit, and a reboot with it enabled. A change to the tether's options means editing the unit by hand or running it yourself — the engine renders the unit with no arguments and replaces it whole on a reinstall.
+**One tether per machine.** The service and a foreground run — QMapShack's "GPS position for QMapShack" menu entry, or `hammunition maps gps-tether` — cannot share port 10110: whichever starts second reports "cannot listen" and stops. With the service enabled you do not need the menu entry; stop the service first (`systemctl --user stop hammunition-gps-tether.service`) if you want a foreground run, for another gpsd with `--gpsd HOST` say. It listens on loopback only, but loopback is not per-user: any local account can read your position from it. The user service starts at login only when your user manager is running; on a machine you never log in to graphically it does not start until you do (or `loginctl enable-linger`, which `hammunition` does not set for this unit). The tether needs Python 3.11 or later; Ubuntu 22.04 and Pop!_OS 22.04 ship 3.10, where it will not start. The unit does not restart a tether that exited 1, its refusal (a taken port, root). There is no `hammunition-gps-tether` command on your PATH: the program is the installed tree run by the service, and `hammunition maps gps-tether` runs the same tree in a terminal. Not yet measured: the service started on a machine from this unit, and a reboot with it enabled. A change to the tether's options means editing the unit by hand or running it yourself — the engine renders the unit with no arguments and replaces it whole on a reinstall.
 
 ## Keeping it current
 
 - probe: github release (`ChiefGyk3D/hammunition-gps-tether`)
 - strategy: reinstall
-- Tagged releases with the wheel attached. A release is a new URL and a new digest; re-pin both.
+- Tagged releases, no release assets yet. A tag is a new tarball URL and a new digest; re-pin both (and the tag in the comment).
 
 ## Where to get help with the software itself
 
