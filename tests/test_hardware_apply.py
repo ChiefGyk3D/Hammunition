@@ -228,3 +228,30 @@ def test_the_shipped_gps_receiver_class_declares_the_resume_step() -> None:
     classes, _ = load_hardware(root)
     resume = classes["gps-receiver"].resume
     assert resume is not None and resume.step == "gpsd_reopen"
+
+
+def test_the_devctl_export_is_planned_only_when_asked(
+    tmp_path: Path, devctl_export_files: Path
+) -> None:
+    """D-056 amended: `hardware apply` asks for the helper's two lists."""
+    classes, devices = _catalog()
+    rules = tmp_path / "65-hammunition.rules"
+    rules.write_text(rules_file([*devices.values()])[0])
+
+    def plan(asked: bool) -> HardwarePlan:
+        return plan_hardware(
+            classes,
+            devices,
+            user="op",
+            user_groups_now=frozenset({"plugdev", "dialout"}),
+            attached=[],
+            rules_path=str(rules),
+            polkit=_NOOP_POLKIT,
+            with_devctl_export=asked,
+        )
+
+    assert plan(False).devctl_export is None
+    assert plan(False).is_noop
+    asked = plan(True)
+    assert asked.devctl_export is not None
+    assert not asked.is_noop  # the two lists are still to write

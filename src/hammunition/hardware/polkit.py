@@ -9,8 +9,11 @@ import enum
 import grp
 import os
 import pwd
+import re
 import shlex
+import signal
 import stat as stat_module
+import subprocess
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -25,6 +28,7 @@ __all__ = [
     "WritabilityRisk",
     "describe_refusal",
     "group_is_private_to",
+    "installed_helper_version",
     "plan_polkit",
     "policy_xml",
     "wrapper_script",
@@ -83,6 +87,12 @@ def wrapper_script(interpreter: str) -> str:
 def policy_xml() -> str:
     """One action, authorising one executable. The battery applet's shape.
 
+    **The text is hammunition-tray's, byte for byte** (``policy_xml`` in its
+    ``hammunition_devctl/polkit.py``, contract 1; the description and message
+    name the system services it can now control). This engine's own copy exists
+    only until the next release, for a machine where no helper answers
+    ``--version``, and must never read as drift against the tray's file.
+
     ``auth_self_keep`` on an active session: the operator authenticates once
     and stays authorised for a few minutes afterwards (polkit's own manual
     page: "a brief period (e.g. five minutes)", not the rest of the
@@ -99,8 +109,8 @@ def policy_xml() -> str:
   <vendor>Hammunition</vendor>
   <vendor_url>https://github.com/ChiefGyk3D/Hammunition</vendor_url>
   <action id="{ACTION_ID}">
-    <description>Park or wake a radio device, set the clock's time source, or keep your services running after you log out</description>
-    <message>Authentication is required to change a radio device's power state, the clock's time source, or whether your services keep running after you log out</message>
+    <description>Park or wake a radio device, set the clock's time source, control a system service Hammunition manages, or keep your services running after you log out</description>
+    <message>Authentication is required to change a radio device's power state, the clock's time source, a system service Hammunition manages, or whether your services keep running after you log out</message>
     <icon_name>preferences-system-power</icon_name>
     <defaults>
       <allow_any>auth_admin</allow_any>
@@ -310,6 +320,12 @@ class PolkitArtifacts:
     the code the wrapper imports and runs as root, independent of which
     interpreter runs it."""
 
+    handed_over: str | None = None
+    """What the installed helper answered to ``--version``, when it answered:
+    the helper is hammunition-tray's and ``hardware apply`` writes neither its
+    wrapper nor its policy (D-056, amended 2026-10-02). None means the helper,
+    if any, is this engine's own."""
+
     @property
     def is_noop(self) -> bool:
         return self.helper_current and self.policy_current
@@ -376,6 +392,101 @@ def describe_refusal(findings: list[WritabilityFinding]) -> str:
     return "; ".join(clauses)
 
 
+_CONTRACT_LINE = re.compile(r"hammunition-devctl contract (?P<number>[0-9]+)")
+"""The one line contract 1 says ``--version`` prints (hammunition-tray's
+``docs/contract.md``): the word ``contract`` and an integer."""
+
+
+def _probe_identity(
+    *,
+    euid: int | None = None,
+    sudo_uid: str | None = None,
+    sudo_gid: str | None = None,
+) -> tuple[int, int] | None:
+    """The (uid, gid) to run the version probe as, or None to run as ourselves.
+
+    Planning must not run an operator-owned tree as root: the writability gate
+    that decides whether the engine's own wrapper may be trusted comes *after*
+    this probe. Under ``sudo`` the probe runs as the invoking operator; as root
+    with no sudo it runs as ``nobody``, never as root.
+    """
+    effective = os.geteuid() if euid is None else euid
+    if effective != 0:
+        return None
+    uid_text = os.environ.get("SUDO_UID") if sudo_uid is None else sudo_uid
+    gid_text = os.environ.get("SUDO_GID") if sudo_gid is None else sudo_gid
+    if uid_text and uid_text.isdigit() and int(uid_text) != 0:
+        gid = int(gid_text) if gid_text and gid_text.isdigit() else int(uid_text)
+        return int(uid_text), gid
+    try:
+        nobody = pwd.getpwnam("nobody")
+        return nobody.pw_uid, nobody.pw_gid
+    except KeyError:
+        return 65534, 65534
+
+
+def installed_helper_version(path: str = HELPER_PATH, timeout: float = 10.0) -> str | None:
+    """What the installed helper answers to ``--version``, or None.
+
+    The hand-over test (D-056, amended 2026-10-02): the engine's own wrapper
+    execs a module whose argparse has no ``--version``, so it exits 2 and is not
+    a hand-over; the tray's helper answers its contract version. One argument,
+    no shell, a fixed environment, its own process group (a wrapper that hangs
+    is killed with whatever it spawned), and never as root (:func:`_probe_identity`).
+    Anything but a zero exit whose first line is contract 1's own
+    (``hammunition-devctl contract N``, N at least 1) is None.
+
+    **A weak identity test, on purpose.** Any executable at the helper's path
+    that exits 0 printing that line passes: the path is root-owned, and the
+    probe decides only whether the engine should *stop writing its own copy*,
+    never whether anything is trusted. Nobody should later read this as
+    authentication; the polkit action and the root-owned path are what bound
+    what runs as root.
+    """
+    identity = _probe_identity()
+    try:
+        proc = subprocess.Popen(
+            [path, "--version"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd="/",
+            env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"},
+            start_new_session=True,
+            user=identity[0] if identity is not None else None,
+            group=identity[1] if identity is not None else None,
+            # Without this the child keeps root's supplementary groups (gid 0
+            # among them) and "never as root" would be true of the uid only.
+            # setgroups needs root, so an unprivileged probe asks for nothing.
+            extra_groups=[] if identity is not None else None,
+        )
+    except (OSError, ValueError):
+        return None
+    try:
+        out, _ = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except OSError:
+            proc.kill()
+        proc.communicate()
+        return None
+    if proc.returncode != 0:
+        return None
+    for line in out.splitlines():
+        if line.strip():
+            match = _CONTRACT_LINE.fullmatch(line.strip())
+            return line.strip() if match is not None and int(match["number"]) >= 1 else None
+    return None
+
+
+_probe_helper_version = installed_helper_version
+"""The real probe under a second name, so a test can restore it after the
+suite-wide stub replaces ``installed_helper_version`` (no test may run the
+host's installed helper)."""
+
+
 def _current(path: str, content: str) -> bool:
     try:
         return Path(path).read_text() == content
@@ -410,6 +521,24 @@ def plan_polkit(interpreter: str | None = None) -> PolkitArtifacts:
     python = interpreter or sys.executable
     helper = wrapper_script(python)
     policy = policy_xml()
+    version = installed_helper_version()
+    if version is not None:
+        # D-056, amended 2026-10-02: the helper that answers is hammunition-tray's.
+        # Its wrapper is never rewritten, its policy only written where absent,
+        # and the interpreter the engine would have baked in is nobody's
+        # concern here, so there is nothing to gate.
+        return PolkitArtifacts(
+            helper_path=HELPER_PATH,
+            helper_content=helper,
+            policy_path=POLICY_PATH,
+            policy_content=policy,
+            helper_current=True,
+            policy_current=Path(POLICY_PATH).exists(),
+            interpreter=python,
+            unsafe_interpreter=None,
+            unsafe_package=None,
+            handed_over=version,
+        )
     return PolkitArtifacts(
         helper_path=HELPER_PATH,
         helper_content=helper,

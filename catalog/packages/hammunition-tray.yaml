@@ -43,7 +43,25 @@ install:
     note: >-
       Installs the applet system-wide under /usr/share/plasma/plasmoids and its
       icon under /usr/share/icons/hicolor. It runs nothing as root itself; it
-      calls the helper `hammunition hardware apply` installs.
+      calls the helper, which `hammunition hardware apply` installs until a tray
+      release carries it (the `hammunition-devctl` .deb, added to this unit at the
+      re-pin; see the comment below) and which reads the lists that command writes.
+
+# D-056, amended 2026-10-02: the privileged helper now lives in hammunition-tray,
+# and its wrapper and polkit action are the tray repository's to install: from a
+# checkout with `install.sh`, or from the `hammunition-devctl` .deb the tray's
+# release is to carry, whose postinst writes the wrapper and which owns the
+# polkit file. THIS UNIT DECLARES NO `config_files` FOR EITHER, and must not:
+#   - the wrapper bakes in an interpreter (the engine's venv, so the helper's
+#     `time` verbs can import the engine), which a catalog file cannot name;
+#   - the polkit file is dpkg-owned in the deb route, and a catalog write over a
+#     package's file is the clash `hardware apply` avoids by its hand-over;
+#   - written against this v0.4.0 pin, which ships no helper, it would replace a
+#     working helper with one that exits 2 (review of this change, Critical).
+# At the re-pin to the tray release that ships the helper, the unit gains the
+# `hammunition-devctl` .deb as an install step (a binary deb, hash-pinned like
+# this one), disclosed in the plan like any other; tests/test_tray_unit_files.py
+# holds the absence until then.
 
 update:
   probe:
@@ -71,9 +89,10 @@ documentation:
     park` and `wake` (D-056), so it does exactly what those do and nothing
     else.
   prerequisites: >-
-    KDE Plasma 6. `hammunition hardware apply` must have been run: it
-    installs the root helper and the polkit action the switches call. Without
-    them the applet says "Device control is not installed" instead of showing
+    KDE Plasma 6. `hammunition hardware apply` must have been run: it installs the
+    root helper and the polkit action the switches call (the helper is moving
+    to hammunition-tray, whose own release will install it), and writes the device and service lists it reads. Without them the
+    applet says "Device control is not installed" instead of showing
     switches. A device only gets a switch when its catalog entry carries a
     power_control block and it is plugged in.
   known_problems: >-
