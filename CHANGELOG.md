@@ -11,7 +11,14 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
-Nothing yet.
+- **Docs sweep after the 2026-10-02 batch** (documentation only, no code). A
+  guide for the tray's Controls panel and `hammunition services`
+  (`docs/guides/tray-controls.md`); contradictions between pages resolved in
+  favour of the code, the bench record and `docs/DECISIONS.md` (park and wake
+  on hardware, the helper's lists, the rig's default owner, the tether as a
+  service, desktop tray versions); the README status table gains the rows
+  v0.19.0 left out; the nav and entry pages reach every guide; and
+  `docs/contributing/docs-sweep.md` is the checklist, now a release step.
 
 ## v0.19.0 — 2026-10-02 — the rig as station data, repeater sources, infrastructure layers, GraphHopper, terrain for coverage plots, the tether as its own project, device and service control for the tray
 

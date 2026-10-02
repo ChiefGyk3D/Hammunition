@@ -309,6 +309,5 @@ nobody can review.
 **The docs sweep is a release step.** Before the changelog entry, run
 [the docs sweep](docs-sweep.md) over what merged since the last tag and merge
 its pull request first, so the release is cut from documentation that agrees
-with itself, with the code and with `docs/DECISIONS.md`. It found 11
-contradictions and 8 gaps the first time it was run (after v0.19.0), none of
-which any single branch's review could have seen.
+with itself, with the code and with `docs/DECISIONS.md`. The first one (after v0.19.0)
+found contradictions and gaps that no single branch's review could have seen.
