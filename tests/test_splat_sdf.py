@@ -264,24 +264,41 @@ def test_a_neighbour_gained_rebuilds_the_edge_it_supplies(
     assert _converter(tmp_path, A, B).pending(manifest()) == [A, B]
 
 
-def test_a_missing_or_wrong_signal_server_link_remakes_the_square(
+def test_a_missing_or_wrong_signal_server_link_repairs_only_the_link(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Final review, I1: Signal-Server reads a missing file as sea level, so
     a link gone or pointing elsewhere is not current."""
-    install_fakes(monkeypatch, tmp_path / "bin", _fakes(A))
+    log = install_fakes(monkeypatch, tmp_path / "bin", _fakes(A))
     _install_tiles(tmp_path, A)
     conv = _converter(tmp_path, A)
     _run(conv)
     out = _data(tmp_path, "splat-sdf")
     link = out / "0_1_359_360-hd.sdf.bz2"
+    log.write_text("")
     link.unlink()
-    assert conv.pending(manifest()) == [A]
-    _run(conv)
+    assert conv.pending(manifest()) == []
+    assert conv.links_to_repair(manifest()) == [link]
+    steps = _actions(conv.steps(manifest(), _block(manifest())))
+    assert len(steps) == 1
+    assert f"relink {link.name} for Signal-Server" in steps[0].description
+    assert steps[0].detail == str(link)
+    assert steps[0].perform()
+    assert calls(log) == []
     assert link.is_symlink() and conv.current(manifest())
+
     link.unlink()
-    link.symlink_to("0:1:359:0.sdf.bz2")  # the standard file, not the HD one
+    link.symlink_to("0:1:359:0.sdf.bz2")
+    assert conv.pending(manifest()) == []
+    assert conv.links_to_repair(manifest()) == [link]
+    _run(conv)
+    assert calls(log) == []
+    assert link.is_symlink() and link.readlink() == Path(sdf_name(A, hd=True))
+    assert conv.current(manifest())
+
+    (out / f"{sdf_name(A, hd=True)}.source").unlink()
     assert conv.pending(manifest()) == [A]
+    assert conv.links_to_repair(manifest()) == []
 
 
 def test_a_tool_that_exits_zero_and_writes_nothing_fails_the_tile_by_name(
