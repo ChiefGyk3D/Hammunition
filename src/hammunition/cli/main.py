@@ -172,6 +172,7 @@ from hammunition.paths import (
 )
 from hammunition.phone_plan import build_phone_run
 from hammunition.plan import NO_MAP_REGIONS, Blocker, InstallPlan, PlanError, resolve
+from hammunition.progress import Progress
 from hammunition.state import (
     RemovalError,
     RemovalPaths,
@@ -3062,7 +3063,11 @@ def resolve_map_regions(
     files: list[RegionFile] = []
     kept: list[KeptRegion] = []
     refused: list[str] = []
-    for region in station.map_regions:
+    bar = Progress()
+    bar.start("map regions against Geofabrik", len(station.map_regions))
+    for index, region in enumerate(station.map_regions):
+        if index:
+            bar.tick()  # the previous region is finished
         try:
             resolved = resolve_region(
                 region, station.freshness, today=today, pins=pins, probe=probe
@@ -3094,6 +3099,8 @@ def resolve_map_regions(
                     refused.append(f"  {region}: {problem}")
                 continue
         files.append(resolved)
+    bar.tick()
+    bar.done()
     if refused:
         raise GeofabrikError(
             f"{len(refused)} map region(s) could not be resolved and are not installed "

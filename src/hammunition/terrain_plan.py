@@ -75,6 +75,7 @@ from .fetch import Fetcher
 from .geofabrik import BASE, GeofabrikError, Probe, RegionFile
 from .manifest.schema import BinaryInstall, DemTilesInstall, DerivedDataInstall, TopoQuadsInstall
 from .plan import InstallPlan, PlannedPackage
+from .progress import run_checks
 from .usgs3dep import TileRow, check_tile, tile_url
 from .usgs3dep import load_tile_list as load_threedep_list
 from .usgs3dep import tile_name as threedep_name
@@ -124,18 +125,23 @@ def resolve_terrain(
         except (GeofabrikError, CopernicusError, OSError) as exc:
             refused.append(f"  {region}: its outline could not be read: {exc}")
     wanted = sorted({name for entry in entries for name in entry.tiles})
+    current = [name for name in wanted if (installed / f"{name}{TIF}").is_file()]
+    held = set(current)
+    todo = [name for name in wanted if name not in held]
+
+    def check(name: str) -> TileFile:
+        tile = resolve_tile(name, pins=pins, probe=tile_probe)
+        if tile.sha256 is not None:
+            status, _, _ = tile_probe.head(tile.url)
+            if status != 200:
+                raise CopernicusError(f"{tile.url} answered HTTP {status}, not 200")
+        return tile
+
     fetch: list[TileFile] = []
-    current: list[str] = []
-    for name in wanted:
-        if (installed / f"{name}{TIF}").is_file():
-            current.append(name)
-            continue
+    outcomes = run_checks(todo, check, label="terrain tiles against the Copernicus DEM bucket")
+    for name, outcome in zip(todo, outcomes, strict=True):
         try:
-            tile = resolve_tile(name, pins=pins, probe=tile_probe)
-            if tile.sha256 is not None:
-                status, _, _ = tile_probe.head(tile.url)
-                if status != 200:
-                    raise CopernicusError(f"{tile.url} answered HTTP {status}, not 200")
+            tile = outcome.get()
         except (CopernicusError, OSError) as exc:
             refused.append(f"  {name}: {exc}")
             continue
@@ -181,12 +187,12 @@ def resolve_bare_earth(
         found = tuple(sorted(name for name in names if name in tiles))
         entries.append(RegionTiles(region, slug, found, len(names) - len(found)))
     wanted = sorted({name for entry in entries for name in entry.tiles})
+    current = [name for name in wanted if (installed / f"{name}{TIF}").is_file()]
+    held = set(current)
+    todo = [name for name in wanted if name not in held]
     fetch: list[TileFile] = []
-    current: list[str] = []
-    for name in wanted:
-        if (installed / f"{name}{TIF}").is_file():
-            current.append(name)
-            continue
+    rows: list[tuple[str, TileRow]] = []
+    for name in todo:
         row = tiles.get(name)
         if row is None:
             refused.append(
@@ -194,8 +200,15 @@ def resolve_bare_earth(
                 f"scripts/gen_3dep_tiles.py --fetch regenerates it"
             )
             continue
+        rows.append((name, row))
+    outcomes = run_checks(
+        rows,
+        lambda item: check_tile(item[1], tile_probe),
+        label="3DEP terrain tiles against the USGS bucket",
+    )
+    for (name, row), outcome in zip(rows, outcomes, strict=True):
         try:
-            check_tile(row, tile_probe)
+            outcome.get()
         except (CopernicusError, OSError) as exc:
             refused.append(f"  {name}: {exc}")
             continue

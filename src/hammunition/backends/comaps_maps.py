@@ -44,6 +44,7 @@ from ..comaps import (
 )
 from ..fetch import Fetcher, MirrorPath, fetch_disclosure, record_fetch
 from ..manifest.schema import MwmRegionsInstall, PackageManifest
+from ..progress import run_checks
 from .base import Action, Command, CommandRunner
 from .data import human_size
 from .regions import data_root, device_at, free_bytes_at
@@ -271,11 +272,11 @@ def resolve_station_maps(
             "this run; CoMaps itself shows only its world overview"
         )
     problems: list[str] = []
-    for f in files:
-        if map_current(map_dest(installed, f), f):
-            continue
+    todo = [f for f in files if not map_current(map_dest(installed, f), f)]
+    outcomes = run_checks(todo, lambda f: head(f.url), label="CoMaps maps against the CoMaps CDN")
+    for f, outcome in zip(todo, outcomes, strict=True):
         try:
-            status, size = head(f.url)
+            status, size = outcome.get()
         except ComapsError as exc:
             problems.append(f"  {f.id}: {exc}")
             continue
