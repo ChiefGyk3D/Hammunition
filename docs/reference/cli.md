@@ -363,6 +363,22 @@ line when it switched BRouter from online to local or bound it to
 `qmapshack` is a named error, exit 1, after the edit. There is no `--json`
 form, because it replaces itself with a GUI (D-059).
 
+### `hammunition maps splat`
+
+Points SPLAT! at the terrain `splat-sdf` makes (**D-061, amended
+2026-10-02**) by writing `~/.splat_path`, the one-line file SPLAT! reads
+for its terrain directory. Per user: refused as root, exit 1. The file is
+written only when it is absent (the directory and a trailing slash, mode
+0644); one naming the directory already is left as it is; one naming
+another directory is yours and is left alone, with a line saying to pass
+`-d /usr/local/share/hammunition/data/splat-sdf/` instead; a symbolic link
+or anything but a regular file there is refused with nothing changed,
+exit 1. It always prints Signal-Server's `-sdf` argument, and says on
+stderr when no terrain file is installed yet. Nothing writes the file
+during an install. The coverage guide (`docs/guides/propagation.md`,
+*Terrain for coverage plots*) has complete SPLAT! and Signal-Server
+commands. No `--json` form.
+
 ### `hammunition maps comaps [--configure-only]`
 
 What the `comaps-offline` launcher runs (**D-069**). As the operator, never
@@ -1072,6 +1088,26 @@ mixed, and the next run rebuilds), and is reported by the same last
 terrain step. The record names the jar and the filters' version the plan
 installs, read from the planned manifests, so a BRouter upgraded in the
 same run rebuilds the routing files in that run.
+
+When `splat-sdf` (**D-061, amended 2026-10-02**) has tiles to convert, the
+Terrain block gains its own heading, from its test's synthetic plan:
+
+```
+  Built for SPLAT! and Signal-Server (sizes an estimate, measured on one tile):
+    SDF terrain for 3 tile(s)  about 21.0 MB (both resolutions, bzip2), with up to 0.10 GB of scratch at a time
+```
+
+and the JSON plan's `terrain` object carries `splat_tiles`,
+`splat_estimate` and `splat_estimate_human`. The disk check counts one
+tile's scratch in `~/.cache/hammunition/build/splat-sdf/` and every tile's
+files under the prefix. Per tile, as the operator in `splat.work` under
+one lock: `gdalbuildvrt` over the tile and its installed neighbours,
+`gdalwarp` into a one-arc-second `.hgt`, SPLAT's `srtm2sdf-hd -d /dev/null
+-n -32767` and `bzip2 -9`, the same at three arc seconds with `srtm2sdf`,
+then both files installed with a `.source` sidecar and a link under
+Signal-Server's name. A tile whose conversion fails is named by the same
+last terrain step. With the station's `dem_source` set to `3dep`, the files
+are made from the 3DEP tiles instead, as QMapShack's elevation is.
 
 The commands section shows each tile's fetch (all fetches first, as every
 download is), each install, each region's record, each Garmin build and the

@@ -8,17 +8,17 @@
 
 ## What it installs
 
-NEC2 in two forms — interactive with a live pattern display, and as a scriptable engine — plus three specialised modellers for the geometries NEC handles awkwardly: Yagi arrays, Moxon rectangles and Cassegrain dishes. Then the things that connect an antenna to reality: an arbitrary transmission-line solver, terrain-aware path analysis, a locator distance and bearing tool, and desktop front ends for the two analysers people actually measure with.
+NEC2 in two forms — interactive with a live pattern display, and as a scriptable engine — plus three specialised modellers for the geometries NEC handles awkwardly: Yagi arrays, Moxon rectangles and Cassegrain dishes. Then the things that connect an antenna to reality: an arbitrary transmission-line solver, terrain-aware path analysis and coverage maps (SPLAT! and Signal-Server, with their terrain made from your map regions' elevation), a locator distance and bearing tool, and desktop front ends for the two analysers people actually measure with.
 
-**Disk footprint:** Around 150 MB, plus whatever terrain data you download for SPLAT! — that is usually far larger than the software and is entirely up to you.
+**Disk footprint:** Around 150 MB of software, plus the terrain when map regions are set: about 39 MB of Copernicus elevation and 7 MB of SPLAT files for each one degree square the regions touch (measured on one tile), and the regions' map extracts, which `dem-copernicus` brings with it. A US state is tens of squares.
 
 ## Why these belong together
 
-Antenna work is a loop — model it, build it, measure it, find out the model was optimistic, change something. Splitting the modellers from the analysers would break that loop across two installs. `wwl` and `splat` are here because a beam heading and a path profile are questions you ask about an antenna, not about propagation in general.
+Antenna work is a loop — model it, build it, measure it, find out the model was optimistic, change something. Splitting the modellers from the analysers would break that loop across two installs. `wwl`, `splat` and `signal-server` are here because a beam heading, a path profile and a coverage map are questions you ask about an antenna, not about propagation in general.
 
-## Packages (10)
+## Packages (12)
 
-[`xnec2c`](../packages/xnec2c.md), [`nec2c`](../packages/nec2c.md), [`yagiuda`](../packages/yagiuda.md), [`fl-moxgen`](../packages/fl-moxgen.md), [`cassbeam`](../packages/cassbeam.md), [`atlc`](../packages/atlc.md), [`splat`](../packages/splat.md), [`wwl`](../packages/wwl.md), [`nanovna-saver`](../packages/nanovna-saver.md), [`flaa`](../packages/flaa.md)
+[`xnec2c`](../packages/xnec2c.md), [`nec2c`](../packages/nec2c.md), [`yagiuda`](../packages/yagiuda.md), [`fl-moxgen`](../packages/fl-moxgen.md), [`cassbeam`](../packages/cassbeam.md), [`atlc`](../packages/atlc.md), [`splat`](../packages/splat.md), [`splat-sdf`](../packages/splat-sdf.md), [`signal-server`](../packages/signal-server.md), [`wwl`](../packages/wwl.md), [`nanovna-saver`](../packages/nanovna-saver.md), [`flaa`](../packages/flaa.md)
 
 ## What it deliberately excludes
 
@@ -26,4 +26,4 @@ General propagation prediction, which is `propagation` — VOACAP answers "will 
 
 ## What you configure by hand afterward
 
-**SPLAT! needs terrain data and will run without it**, assuming a flat earth and producing plausible output that is worthless. Download SRTM tiles for your region and convert them with the tools it ships; nothing here does that for you, because which tiles you need depends on where you are. NanoVNA-Saver and flaa need access to their instrument's serial port, which means the `dialout` group and a session started after you were added to it. NEC2 has real modelling rules about segment length and wire diameter, and breaking them produces confident, wrong answers rather than errors.
+**SPLAT! and Signal-Server need terrain data and will run without it**, assuming a flat earth at sea level and producing plausible output that is worthless. `splat-sdf` makes that terrain from the elevation of your map regions, so set them first (`hammunition station set --map-regions ...`); with none set it is deferred by name and the rest of the profile installs. Then run `hammunition maps splat` once as yourself, which points SPLAT! at the files through `~/.splat_path` and prints Signal-Server's `-sdf` argument. With regions set, this profile also downloads their elevation tiles and their map extracts, both listed with their sizes in the plan. NanoVNA-Saver and flaa need access to their instrument's serial port, which means the `dialout` group and a session started after you were added to it. NEC2 has real modelling rules about segment length and wire diameter, and breaking them produces confident, wrong answers rather than errors.

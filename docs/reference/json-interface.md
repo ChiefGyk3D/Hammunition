@@ -1444,6 +1444,9 @@ Terrain, and what is built for QMapShack (D-061). Names where the operator is: l
 | `contours_from` | string | the provider the contours and QMapShack's elevation are drawn from this run: `copernicus-glo30`, or `usgs-3dep` when the station chose it (D-068, amended 2026-10-01) |
 | `bare_earth` | [`BareEarthSectionView`](#bareearthsectionview) or null | USGS 3DEP (D-068, amended 2026-10-01); null when no 3DEP unit is planned |
 | `fstopo` | [`FsTopoSectionView`](#fstoposectionview) or null | Forest Service FSTopo quads and their map (D-068, amended 2026-10-01); null when neither is planned |
+| `splat_tiles` | integer | tiles SPLAT's terrain (SDF files) is made for this run, for SPLAT! and Signal-Server (D-061, amended 2026-10-02) |
+| `splat_estimate` | integer | bytes those files are estimated to take |
+| `splat_estimate_human` | string | as the text prints it |
 
 #### `TerrainRegionLine`
 
@@ -3384,6 +3387,18 @@ A unit and files.
               "type": "null"
             }
           ]
+        },
+        "splat_tiles": {
+          "title": "Splat Tiles",
+          "type": "integer"
+        },
+        "splat_estimate": {
+          "title": "Splat Estimate",
+          "type": "integer"
+        },
+        "splat_estimate_human": {
+          "title": "Splat Estimate Human",
+          "type": "string"
         }
       },
       "required": [
@@ -3411,7 +3426,10 @@ A unit and files.
         "topo",
         "contours_from",
         "bare_earth",
-        "fstopo"
+        "fstopo",
+        "splat_tiles",
+        "splat_estimate",
+        "splat_estimate_human"
       ],
       "title": "TerrainSectionView",
       "type": "object"

@@ -740,7 +740,11 @@ def build_commands(
                     # Idempotent re-runs need the configure to be fresh too.
                     "--fresh",
                     "-S",
-                    str(layout.src),
+                    # `project_file` names the subdirectory holding the
+                    # project's CMakeLists.txt (Signal-Server's is in src/,
+                    # D-061 amended 2026-10-02); the schema documented it so
+                    # long before this path read it.
+                    str(layout.src / project_file) if project_file else str(layout.src),
                     "-B",
                     str(layout.build),
                     f"-DCMAKE_INSTALL_PREFIX={prefix}",
