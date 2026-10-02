@@ -33,6 +33,9 @@ def _script(path: Path, body: str) -> Path:
 def real_probe(monkeypatch: pytest.MonkeyPatch) -> None:
     """The unpatched probe, restored for the one test that runs it."""
     monkeypatch.setattr(polkit, "installed_helper_version", polkit._probe_helper_version)
+    # The suite may itself run as (namespaced) root, where the probe would drop to
+    # an unmapped uid; identity is proven separately, through Popen's kwargs.
+    monkeypatch.setattr(polkit, "_probe_identity", lambda **_: None)
 
 
 def test_a_helper_that_answers_version_is_reported(tmp_path: Path, real_probe: None) -> None:

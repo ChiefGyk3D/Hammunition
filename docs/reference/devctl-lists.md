@@ -38,7 +38,7 @@ root could do that.
 
 Every catalogued class or device whose manifest carries a `power_control`
 block, sorted by name. Today that is `gps-receiver` alone. The shape is
-hammunition-tray's contract 1 (`docs/contract.md` in that repository); the tray's
+hammunition-tray's contract 1 (the contract page in that repository's docs directory); the tray's
 helper reader loaded a file this exporter wrote with no complaint (run once,
 by hand, against its branch).
 
