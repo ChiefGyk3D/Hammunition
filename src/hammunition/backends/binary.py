@@ -39,6 +39,7 @@ refused by name so the gap stays visible (D-014).
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -243,6 +244,45 @@ class BinaryBackend:
                 )
             return steps
 
+        if block.install_tree:
+            # D-076: one file that is not a program (GraphHopper's jar) lands in
+            # the unit's tree under its marker, mode 0644, by the commands every
+            # tree uses, so uninstall and the effect check need nothing new.
+            if binaries:
+                raise BackendError(
+                    f"{manifest.name} installs its one file as a tree; `binaries` beside "
+                    f"it would install the same file twice, once as a program"
+                )
+            marker = block.tree_marker
+            assert marker is not None  # the schema requires it with install_tree
+            layout = self.layout(manifest, block)
+            staged = layout.src / marker
+            steps.append(
+                Action(
+                    kind="prepare",
+                    description=f"Clear any previous {manifest.name} staging",
+                    detail=f"{layout.src} (removed if present, then recreated)",
+                    perform=lambda: prepare_tree(layout.src),
+                )
+            )
+            steps.append(
+                Action(
+                    kind="stage",
+                    description=f"Stage {manifest.name} as {marker} (mode 0644)",
+                    detail=str(staged),
+                    perform=lambda: self._stage_file(fetched, staged),
+                )
+            )
+            steps.extend(
+                tree_install_commands(
+                    name=manifest.name,
+                    source_tree=layout.src,
+                    prefix=self.prefix,
+                    owner=self.owner,
+                )
+            )
+            return steps
+
         # `executable`: one file, installed under the name the manifest gives it.
         if len(binaries) != 1:
             raise BackendError(
@@ -286,6 +326,16 @@ class BinaryBackend:
                 f"and left the dependencies broken."
             )
         return f"installed {path.name} through apt"
+
+    @staticmethod
+    def _stage_file(fetched: dict[str, Path], staged: Path) -> str:
+        path = fetched.get("path")
+        if path is None:  # pragma: no cover - the fetch Action always runs first
+            raise BackendError("the file was not fetched before the staging step")
+        # Copied, never moved: the fetch cache is content-addressed and shared.
+        shutil.copyfile(path, staged)
+        staged.chmod(0o644)
+        return f"staged {staged} (mode 0644)"
 
     def _install_executable(self, fetched: dict[str, Path], target: Path) -> str:
         path = fetched.get("path")

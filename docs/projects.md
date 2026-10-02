@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**313 programs and packages** from the catalog, laid out the way the
+**315 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -113,6 +113,8 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 | [faa-nasr-airports](packages/faa-nasr-airports.md) | The FAA's airport, heliport and seaplane base list (NASR), for the infrastructure layers | [faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription](https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/) |
 | [gdal-bin](packages/gdal-bin.md) | GDAL's command-line tools for rasters and elevation data | [gdal.org](https://gdal.org/) |
 | [gps-tether](packages/gps-tether.md) | Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service | [github.com/ChiefGyk3D/hammunition-gps-tether](https://github.com/ChiefGyk3D/hammunition-gps-tether) |
+| [graphhopper](packages/graphhopper.md) | GraphHopper, the offline router behind the browser map's car, bike, foot and hiking routes | [github.com/graphhopper/graphhopper](https://github.com/graphhopper/graphhopper) |
+| [graphhopper-graph](packages/graphhopper-graph.md) | GraphHopper's route graph built from your own regions, for routes on the browser map | [github.com/graphhopper/graphhopper](https://github.com/graphhopper/graphhopper) |
 | [mapsforge-map](packages/mapsforge-map.md) | Mapsforge vector maps of your OpenStreetMap regions, for phone map apps | [github.com/mapsforge/mapsforge](https://github.com/mapsforge/mapsforge) |
 | [mapsforge-poi](packages/mapsforge-poi.md) | Mapsforge points-of-interest files of your regions, for searching on a phone | [github.com/mapsforge/mapsforge](https://github.com/mapsforge/mapsforge) |
 | [mkgmap](packages/mkgmap.md) | Builds Garmin-format maps from OpenStreetMap data | [mkgmap.org.uk](https://www.mkgmap.org.uk/) |

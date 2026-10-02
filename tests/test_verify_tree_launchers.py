@@ -314,6 +314,7 @@ def test_every_catalog_tree_names_its_marker() -> None:
         "artemis",
         "brouter",
         "gps-tether",
+        "graphhopper",
         "js8spotter",
         "morse-runner",
         "mshv",

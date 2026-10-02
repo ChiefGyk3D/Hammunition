@@ -23,12 +23,19 @@ reads it. The attribution control is not collapsed and reads
 :data:`CREDIT`, which the OpenMapTiles schema's CC-BY licence requires
 visibly on the map. "You are here" comes from the GPS tether's
 ``/position`` event stream on 127.0.0.1 (:mod:`hammunition.gps_tether`).
+
+With a router (D-076) the bar gains a profile selector, *Route* and *Clear*:
+the route is asked of this server at ``/map/route``, which asks GraphHopper,
+and drawn from the GeoJSON line it answers with. It starts at the tether's
+position when one has arrived. ``#route=LAT,LON;LAT,LON;PROFILE`` in the
+address routes on load.
 """
 
 from __future__ import annotations
 
 import html
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -42,6 +49,8 @@ MAP = "/map/"
 KIT = "/map/kit/"
 TILES = "/map/tiles/"
 REGIONS = "/map/regions.json"
+#: Where the page asks for a route; ``reference serve`` asks GraphHopper (D-076).
+ROUTE = "/map/route"
 OVERLAYS = "/map/overlays.json"
 OVERLAY = "/map/overlays/"
 STYLE_LICENCE = "/map/infra-style-licence.txt"
@@ -180,6 +189,7 @@ def regions_json(shelf: MapShelf) -> bytes:
 _SCRIPT = """
 import * as maplibregl from '__KIT__maplibre/maplibre-gl.mjs';
 const credit = __CREDIT__;
+const router = __ROUTER__;
 const infraLayers = __INFRA_LAYERS__;
 const esc = (s) => { const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; };
 const positionUrl = 'http://127.0.0.1:__POSITION__/position';
@@ -217,7 +227,8 @@ if (!regions.length) {
     const h = await new pmtiles.PMTiles(location.origin + url).getHeader();
     map.fitBounds([[h.minLon, h.minLat], [h.maxLon, h.maxLat]], {animate: false});
   };
-  map.once('load', () => frame(regions[0].url));
+  const asked = /^#route=([^;]+);([^;]+)(?:;([a-z]+))?$/.exec(location.hash);
+  map.once('load', () => (router && asked ? null : frame(regions[0].url)));
   const overlays = await (await fetch('__OVERLAYS__')).json();
   const colours = ['#d62728', '#1f77b4', '#2ca02c', '#9467bd', '#ff7f0e', '#8c564b', '#e377c2', '#17becf', '#bcbd22', '#7f7f7f', '#393b79', '#637939', '#843c39'];
   const shown = document.getElementById('layers');
@@ -265,15 +276,134 @@ if (!regions.length) {
   events.onerror = () => {
     where.textContent = 'No position: run `hammunition maps gps-tether`, which serves it on 127.0.0.1:__POSITION__.';
   };
-}
+__ROUTES__}
 """
 
 
-def map_page(*, position_port: int) -> str:
+#: The route control, in the page only with a router (D-076).
+_ROUTES = """
+  if (router) {
+    const profile = document.getElementById('profile');
+    const info = document.getElementById('routeinfo');
+    let picking = null;
+    let points = null;
+    const pins = [];
+    const say = (text) => { info.textContent = text; };
+    const pin = (at, color) => {
+      pins.push(new maplibregl.Marker({color}).setLngLat(at).addTo(map));
+    };
+    const draw = (geometry) => {
+      const data = {type: 'Feature', geometry, properties: {}};
+      const source = map.getSource('route');
+      if (source) { source.setData(data); return; }
+      map.addSource('route', {type: 'geojson', data});
+      map.addLayer({id: 'route-line', type: 'line', source: 'route',
+        layout: {'line-join': 'round', 'line-cap': 'round'},
+        paint: {'line-color': '#1a5fd0', 'line-width': 5, 'line-opacity': 0.85}});
+    };
+    const duration = (ms) => {
+      const m = Math.round(ms / 60000);
+      return m >= 60 ? Math.floor(m / 60) + ' h ' + (m % 60) + ' min' : m + ' min';
+    };
+    const ask = async () => {
+      if (!points) return;
+      const q = new URLSearchParams();
+      for (const [lon, lat] of points) q.append('point', lat + ',' + lon);
+      q.append('profile', profile.value);
+      say('Routing…');
+      document.body.dataset.route = 'asking';
+      let answer;
+      try {
+        const r = await fetch('__ROUTE__?' + q.toString());
+        answer = await r.json();
+        if (!r.ok) {
+          say('No route: ' + (answer.message || r.status));
+          document.body.dataset.route = 'refused';
+          return;
+        }
+      } catch (e) {
+        say('No route: ' + (e.message || e));
+        document.body.dataset.route = 'error';
+        return;
+      }
+      const path = answer.paths && answer.paths[0];
+      if (!path || !path.points || path.points.type !== 'LineString') {
+        say('No route in the answer.');
+        document.body.dataset.route = 'refused';
+        return;
+      }
+      draw(path.points);
+      for (const p of pins.splice(0)) p.remove();
+      pin(points[0], '#2a2');
+      pin(points[1], '#1a5fd0');
+      const c = path.points.coordinates;
+      const box = [[c[0][0], c[0][1]], [c[0][0], c[0][1]]];
+      for (const [x, y] of c) {
+        box[0][0] = Math.min(box[0][0], x); box[0][1] = Math.min(box[0][1], y);
+        box[1][0] = Math.max(box[1][0], x); box[1][1] = Math.max(box[1][1], y);
+      }
+      const top = document.getElementById('bar').offsetHeight + 24;
+      map.fitBounds(box, {padding: {top, bottom: 40, left: 40, right: 40}, animate: false, maxZoom: 16});
+      info.textContent = '';
+      const steps = document.createElement('details');
+      const head = document.createElement('summary');
+      head.textContent = (path.distance / 1000).toFixed(1) + ' km, ' + duration(path.time) +
+        ' (' + profile.value + ')';
+      steps.appendChild(head);
+      const list = document.createElement('ol');
+      for (const step of path.instructions || []) {
+        const li = document.createElement('li');
+        li.textContent = step.text;
+        list.appendChild(li);
+      }
+      steps.appendChild(list);
+      info.appendChild(steps);
+      document.body.dataset.route = 'drawn';
+    };
+    const clear = () => {
+      for (const p of pins.splice(0)) p.remove();
+      points = null;
+      picking = null;
+      if (map.getLayer('route-line')) map.removeLayer('route-line');
+      if (map.getSource('route')) map.removeSource('route');
+      say('');
+      delete document.body.dataset.route;
+    };
+    document.getElementById('route').addEventListener('click', () => {
+      clear();
+      picking = here ? [here] : [];
+      say(here ? 'Click where to go; the route starts where you are.' : 'Click where to start.');
+    });
+    document.getElementById('clear').addEventListener('click', clear);
+    profile.addEventListener('change', ask);
+    map.on('click', (e) => {
+      if (!picking) return;
+      const at = [e.lngLat.lng, e.lngLat.lat];
+      picking.push(at);
+      pin(at, picking.length === 1 ? '#2a2' : '#1a5fd0');
+      if (picking.length === 1) { say('Click where to go.'); return; }
+      points = picking;
+      picking = null;
+      ask();
+    });
+    if (asked) {
+      const lonlat = (text) => { const [lat, lon] = text.split(',').map(Number); return [lon, lat]; };
+      points = [lonlat(asked[1]), lonlat(asked[2])];
+      if (asked[3] && router.includes(asked[3])) profile.value = asked[3];
+      map.once('load', ask);
+    }
+  }
+"""
+
+
+def map_page(*, position_port: int, router: Sequence[str] | None = None) -> str:
     """The page. Everything it names is on this server, except the position,
-    which is the tether's, also on 127.0.0.1."""
+    which is the tether's, also on 127.0.0.1. With *router*, the profiles the
+    route graph was built with, the route control (D-076)."""
     script = (
         _SCRIPT.replace("__KIT__", KIT)
+        .replace("__ROUTER__", json.dumps(list(router)) if router else "null")
+        .replace("__ROUTES__", _ROUTES.replace("__ROUTE__", ROUTE) if router else "")
         .replace("__STYLE__", STYLE)
         .replace("__FONTS__", quote(FONTS))
         .replace("__REGIONS__", REGIONS)
@@ -300,6 +430,17 @@ def map_page(*, position_port: int) -> str:
                 '<button id="centre" type="button">Centre on me</button> '
                 '<span id="where">Waiting for a position…</span> <span id="status"></span> '
                 '<span id="layers"></span>',
+                *(
+                    [
+                        '<br><label>Route for <select id="profile">'
+                        + "".join(f"<option>{html.escape(name)}</option>" for name in router)
+                        + '</select></label> <button id="route" type="button">Route</button> '
+                        '<button id="clear" type="button">Clear</button> <span id="routeinfo">'
+                        "</span>"
+                    ]
+                    if router
+                    else []
+                ),
                 f"<noscript>{html.escape(CREDIT)}. The map needs JavaScript.</noscript></div>",
                 "<script>window.addEventListener('error',(e)=>{document.body.dataset.error="
                 "String(e.message);document.getElementById('status').textContent='Error: '+e.message;});"
