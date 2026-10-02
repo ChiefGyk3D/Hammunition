@@ -2032,7 +2032,7 @@ Part of the request that will not happen; the rest still does (D-035, D-039, D-0
 
 | field | type | meaning |
 |---|---|---|
-| `kind` | string | `config` (a file not written) or `package` (a member not installed: the target lacks it, or, D-060, the machine has no session for the desktop it is for) |
+| `kind` | string | `config` (a file not written) or `package` (a member not installed: the target lacks it, or, D-060, the machine has no session for the desktop it is for; or, #200, a publisher did not answer for some of its items after the retries) |
 | `subject` | string | what is deferred |
 | `what` | string | what will not happen |
 | `why` | string | what is missing |

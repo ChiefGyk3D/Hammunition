@@ -2591,6 +2591,61 @@ from its own package being absent unless the plan checks which list the
 name came from — so it checks, and defers only when every missing name is
 in the unit's own `packages:`.
 
+### Amendment, 2026-10-02 — a publisher that does not answer is a fourth reason (#200)
+
+D-039 listed three reasons a profile member defers, each a fact about the
+*target*. `hammunition install navigation --dry-run` refused whole with "3 US
+Topo item(s) could not be resolved" over a Geofabrik outline answering 502, a
+second outline timing out and one US Topo sheet answering 503, and the same
+command a minute later was expected to pass. A plan-time probe made one request
+and read any failure as final. One request is not a measurement, and nothing
+about the target, the catalog or the operator's request was wrong.
+
+**The rule.** A plan-time probe (every `HEAD` and outline `GET` the plan makes
+for terrain, 3DEP, US Topo, FSTopo, Kiwix and CoMaps) is tried up to three
+times on an HTTP 5xx, an HTTP 429, a connection error or a read timeout,
+waiting 1 s, 3 s and 9 s, and says so on stderr at each retry (the host and
+the attempt). Any other 4xx is final at once: a 404 on a listed sheet is the
+stale-index case and keeps its remedy (`scripts/gen_ustopo_index.py --fetch`),
+because that remedy is wrong for a 503. After the last try the probe raises
+`PublisherUnavailable` carrying the publisher's last answer. Then:
+
+- **A profile member defers what that publisher did not answer, by name.**
+  The item (one sheet, one tile, one book, one map, or one region's outline)
+  is left out, the rest of the unit and of the plan resolve, and the plan
+  prints one deferral per unit under "Will NOT happen" with the answer quoted
+  ("prd-tnm.s3.amazonaws.com answered HTTP 503"), writes it to the transaction
+  log (`kind: package`, as D-039's other deferrals), `status` shows it, and a
+  note at the foot says to run the same command again. An outline that does
+  not answer defers that region's items in **every** unit that needs it and no
+  other region's.
+- **A unit the operator typed still refuses**, in full, with the publisher's
+  answer and "the publisher is not answering right now" in place of the
+  stale-index remedy, exactly as D-039 treats a typed name for a unit the
+  target lacks.
+- **Nothing installed is lost to a deferral.** A deferred sheet whose older
+  edition is installed keeps that edition (raw and warped) and the VRT still
+  draws it; a deferred book or map suspends the unit's removal of unlisted
+  files for the run. Without this an outage would have deleted what it could
+  not replace.
+
+**Why D-039 and not D-049.** D-049 shaped the data unit; this changes which
+failures a *profile member* defers on, which is D-039's classification and
+D-035's principle (one part of the plan does not happen, named, and the rest
+does). D-061, D-066, D-068 and D-069 keep owning what each probe checks.
+
+**Two choices recorded.** A failure is remembered for the rest of the run only
+once the retries are spent (`MemoProbe`), so three units needing one dead
+outline ask it three times in all, not nine. And a host whose probes have
+failed three times running at the connection level is asked once each, with no
+backoff, for the rest of the run, so an offline plan costs seconds where
+retrying every item would cost minutes; a success resets it. **Not done:** a
+deferred item is not retried later in the same run, and the Geofabrik region
+index (`resolve_map_regions`) is not under the policy, because it already keeps
+a region that is installed rather than deferring. Code `src/hammunition/retry.py`,
+`topo_plan.py`, `terrain_plan.py`; tests `tests/test_retry.py`,
+`tests/test_plan_retry.py`.
+
 ---
 
 ## D-040 — A third-party apt repository is added only against a key the manifest pins by fingerprint, only when the target's own archive offers nothing, only after the operator affirms that fingerprint, and it comes out whole on uninstall
