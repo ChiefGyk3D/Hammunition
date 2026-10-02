@@ -88,6 +88,9 @@ class FsTopoResolution:
     """Sheets already installed; nothing happens to them."""
     pinned: frozenset[int] = frozenset()
     """The secoords among the regions' sheets with a pin in the catalog."""
+    deferred: tuple[FsQuad, ...] = ()
+    """Sheets a region needs that this run does not fetch because the publisher
+    is not answering (#200); see :attr:`TopoResolution.deferred`."""
 
     def all_pinned(self, entry: RegionSheets) -> bool:
         """Whether every sheet *entry* needs is pinned (the condition for the
@@ -97,6 +100,14 @@ class FsTopoResolution:
     @property
     def quads(self) -> tuple[FsQuad, ...]:
         found = {q.secoord: q for q in (*(f.quad for f in self.fetch), *self.current)}
+        return tuple(found[s] for s in sorted(found))
+
+    @property
+    def wanted(self) -> tuple[FsQuad, ...]:
+        """:attr:`quads` and the deferred sheets (see :attr:`TopoResolution.wanted`)."""
+        found = {
+            q.secoord: q for q in (*(f.quad for f in self.fetch), *self.current, *self.deferred)
+        }
         return tuple(found[s] for s in sorted(found))
 
 
@@ -189,7 +200,7 @@ class FsTopoBackend:
             )
         slugs = {entry.slug for entry in self.resolution.regions} | set(self.keep)
         steps.extend(removal_steps(out, QUADS, slugs, writer))
-        wanted = [q.name for q in self.resolution.quads]
+        wanted = [q.name for q in self.resolution.wanted]
         old, replacing = replaced_steps(out, wanted, writer, "FSTopo quad")
         steps.extend(removal_steps(out, TIF, set(wanted) | old, writer))
         steps.extend(replacing)
