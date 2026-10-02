@@ -436,6 +436,31 @@ def test_the_dry_run_discloses_terrain_in_text_and_json_and_changes_nothing(
     assert [t["tile"] for t in terrain["fetch"]] == [A] and terrain["contours"] == 1
 
 
+def test_install_dry_runs_reuse_cached_tile_heads(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    class CountingProbe(TileProbe):
+        def __init__(self) -> None:
+            self.asked: list[str] = []
+
+        def head(self, url: str) -> tuple[int, int, str | None]:
+            self.asked.append(url)
+            return super().head(url)
+
+    cli = _machine(monkeypatch, tmp_path)
+    probe = CountingProbe()
+    monkeypatch.setattr(cli, "S3Probe", lambda: probe)
+    catalog = str(_terrain_catalog(tmp_path))
+    argv = ["--catalog", catalog, "install", "--dry-run", "dem-qmapshack"]
+
+    assert cli.main(argv) == 0
+    capsys.readouterr()
+    assert cli.main(argv) == 0
+    capsys.readouterr()
+
+    assert probe.asked == [tile_url(A)]
+
+
 def test_an_unresolvable_terrain_refuses_the_plan_and_changes_nothing(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
