@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**306 programs and packages** from the catalog, laid out the way the
+**307 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -99,6 +99,7 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 
 | Project | What it is | Its home |
 |---|---|---|
+| [acma-register](packages/acma-register.md) | The Australian regulator's licence register, for the ACMA repeater layer on the map | [acma.gov.au](https://www.acma.gov.au/) |
 | [brouter](packages/brouter.md) | BRouter, the offline router QMapShack runs for hiking, bike and car routes with elevation | [github.com/abrensch/brouter](https://github.com/abrensch/brouter) |
 | [brouter-mapcreator-profiles](packages/brouter-mapcreator-profiles.md) | The two filter files BRouter's map creator needs and its release zip leaves out | [github.com/abrensch/brouter](https://github.com/abrensch/brouter) |
 | [brouter-segments](packages/brouter-segments.md) | BRouter routing files built from your own regions, with elevation, never downloaded | [github.com/abrensch/brouter](https://github.com/abrensch/brouter) |

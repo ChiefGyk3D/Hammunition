@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**306 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**307 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -318,10 +318,11 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 29
+### `navigation-maps` — 30
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
+- [acma-register](acma-register.md) — The Australian regulator's licence register, for the ACMA repeater layer on the map
 - [brouter](brouter.md) — BRouter, the offline router QMapShack runs for hiking, bike and car routes with elevation
 - [brouter-mapcreator-profiles](brouter-mapcreator-profiles.md) — The two filter files BRouter's map creator needs and its release zip leaves out
 - [brouter-segments](brouter-segments.md) — BRouter routing files built from your own regions, with elevation, never downloaded
@@ -715,6 +716,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [a2d](a2d.md) | Bridges APRS messages to DAPNET pagers | apt |
 | [acarsdec](acarsdec.md) | VHF ACARS decoder for aircraft datalink messages | git |
 | [acarsserv](acarsserv.md) | Stores what acarsdec and dumpvdl2 decode into a SQLite database | git |
+| [acma-register](acma-register.md) | The Australian regulator's licence register, for the ACMA repeater layer on the map | register |
 | [aethersdr](aethersdr.md) | Linux client for FlexRadio transceivers | apt |
 | [aircrack-ng](aircrack-ng.md) | Wi-Fi security auditing suite — capture, analysis and key recovery | apt |
 | [airspy](airspy.md) | Host tools and library for Airspy R2 and Mini receivers | apt |
