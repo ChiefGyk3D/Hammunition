@@ -192,6 +192,11 @@ class TerrainDisclosure:
     when neither the unit nor the mosaic's ``fstopo`` input is planned."""
     elevation: str = COPERNICUS
     """The provider QMapShack's contours are drawn from this run."""
+    splat_tiles: int = 0
+    """How many tiles get SPLAT's terrain made this run (D-061, amended
+    2026-10-02)."""
+    splat_building: bool = False
+    """Whether ``splat-sdf`` has anything to do: files to make or remove."""
 
 
 @dataclass(frozen=True)

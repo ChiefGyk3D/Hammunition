@@ -175,6 +175,7 @@ def test_the_run_discloses_each_converter_s_pending_work(tmp_path: Path) -> None
         "gdal-dem",
         "ustopo-mosaic",
         "brouter-mapcreator",
+        "splat-sdf",
     }
 
 

@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**307 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**309 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -24,7 +24,7 @@ Transponder and datalink decoders, multilateration feeders, airband voice.
 - [readsb](readsb.md) — Efficient Mode S and ADS-B decoder — the maintained dump1090 successor
 - [rtlsdr-airband](rtlsdr-airband.md) — Multi-channel AM/NFM voice receiver with streaming output
 
-### `antenna` — 10
+### `antenna` — 11
 
 NEC2, Yagi and Moxon design, dish modelling, coil and line calculators.
 
@@ -35,6 +35,7 @@ NEC2, Yagi and Moxon design, dish modelling, coil and line calculators.
 - [fl-moxgen](fl-moxgen.md) — Designs Moxon rectangle antennas and prints them to scale
 - [gsmc](gsmc.md) — Interactive Smith chart for designing impedance matching networks
 - [nec2c](nec2c.md) — The NEC2 antenna modelling engine as a C program, for scripting
+- [signal-server](signal-server.md) — Multi-threaded radio coverage prediction from SPLAT! terrain, on the command line
 - [splat](splat.md) — Terrain-aware path analysis for VHF and above, from real elevation data
 - [xnec2c](xnec2c.md) — Interactive antenna modelling — NEC2 with a live graphical front end
 - [yagiuda](yagiuda.md) — Analyse and optimise Yagi-Uda arrays without writing a NEC model
@@ -410,7 +411,7 @@ AVR, ESP, STM32, FPGA and flash-chip programmers, DFU, JTAG and SWD.
 - [stlink-tools](stlink-tools.md) — Flash and debug STM32 targets through an ST-Link probe
 - [stm32flash](stm32flash.md) — Flash STM32 microcontrollers over their built-in serial bootloader
 
-### `propagation` — 7
+### `propagation` — 9
 
 VOACAP predictions, terrain path analysis, beacons, grey line and the solar picture.
 
@@ -418,7 +419,9 @@ VOACAP predictions, terrain path analysis, beacons, grey line and the solar pict
 - [ibp](ibp.md) — Shows which NCDXF/IARU beacon is transmitting right now, on which band
 - [openhamclock](openhamclock.md) — Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites
 - [pythonprop](pythonprop.md) — Graphical front end that makes VOACAP predictions readable
+- [signal-server](signal-server.md) — Multi-threaded radio coverage prediction from SPLAT! terrain, on the command line
 - [splat](splat.md) — Terrain-aware path analysis for VHF and above, from real elevation data
+- [splat-sdf](splat-sdf.md) — SPLAT! and Signal-Server terrain, made from your map regions' elevation
 - [sunclock](sunclock.md) — World map showing the day-night terminator and where the sun is now
 - [voacapl](voacapl.md) — The VOACAP HF propagation prediction engine, ported to Linux
 
@@ -953,6 +956,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [sdrangel](sdrangel.md) | SDR transceiver and analyser that does several things at once | apt, binary |
 | [sdrpp](sdrpp.md) | SDR++ — cross-platform SDR receiver with a modular DSP chain | apt, git |
 | [ser2net](ser2net.md) | Serve a serial port over TCP, so a rig's CAT port can be reached from another machine | apt |
+| [signal-server](signal-server.md) | Multi-threaded radio coverage prediction from SPLAT! terrain, on the command line | git |
 | [skid-finder](skid-finder.md) | Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector | binary |
 | [soapyremote-server](soapyremote-server.md) | Serves a local SDR over the network to software on another machine | apt |
 | [soapysdr-module-airspy](soapysdr-module-airspy.md) | SoapySDR driver module for Airspy hardware | apt |
@@ -972,6 +976,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [socat](socat.md) | A relay between two data channels, sockets, files or programs | apt |
 | [spectools](spectools.md) | Spectrum display for MetaGeek Wi-Spy dongles and the Ubertooth One | apt |
 | [splat](splat.md) | Terrain-aware path analysis for VHF and above, from real elevation data | apt |
+| [splat-sdf](splat-sdf.md) | SPLAT! and Signal-Server terrain, made from your map regions' elevation | derived |
 | [stlink-tools](stlink-tools.md) | Flash and debug STM32 targets through an ST-Link probe | apt |
 | [stm32flash](stm32flash.md) | Flash STM32 microcontrollers over their built-in serial bootloader | apt |
 | [sunclock](sunclock.md) | World map showing the day-night terminator and where the sun is now | apt |
