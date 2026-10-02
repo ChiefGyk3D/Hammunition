@@ -51,9 +51,12 @@ class InputView(Strict):
     format: str = described(
         "`repeaterbook-gpx`, `repeaterbook-csv`, `hearham-json` or `hand-csv` (D-064); "
         "`open-repeater-json`, `osm-extract`, `etcc-csv`, `brandmeister-json` or "
-        "`direwolf-log` (D-074)"
+        "`direwolf-log` (D-074); `acma-register` (D-074, amended 2026-10-01)"
     )
-    read: int = described("rows, objects, devices or waypoints in it")
+    read: int = described(
+        "rows, objects, devices or waypoints in it; for `acma-register`, the transmitters "
+        "on amateur repeater licences"
+    )
     used: int = described("of those, the ones kept: a position and a callsign or frequency")
     skipped: tuple[SkipView, ...] = described("the rest, by reason")
     sha256: str = described(
@@ -113,7 +116,7 @@ class RepeatersDocument(Strict):
 
     layer_id: str = described(
         "`export` (D-064's layer), `open-repeater`, `osm`, `etcc`, `brandmeister` or "
-        "`aprs-heard` (D-074)"
+        "`aprs-heard` (D-074), `acma` (D-074, amended 2026-10-01)"
     )
     layer: str = described("the layer's name, as QMapShack's project and POI file show it")
     exported: str = described(
@@ -164,6 +167,7 @@ _NUMBERED = {
     "etcc-csv": "lines",
     "brandmeister-json": "devices",
     "direwolf-log": "lines",
+    "acma-register": "lines",
 }
 
 
