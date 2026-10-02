@@ -4,9 +4,9 @@
 """``hammunition maps gps-tether`` calls the installed program when there is one.
 
 The tether is its own project now (hammunition-gps-tether); the engine's verb
-runs the installed program and says where from, and keeps working from the
-engine's own module, with a deprecation note, where it is not installed.  D-071
-note, 2026-10-02.
+runs the installed program and says where from, and where it is not installed
+refuses with the install command; the engine carries no copy.  D-071 note,
+2026-10-02.
 """
 
 from __future__ import annotations
@@ -95,25 +95,50 @@ def test_root_is_refused_before_anything_is_run(
     assert "not as root" in capsys.readouterr().err
 
 
-def test_without_the_program_the_engines_own_copy_runs_with_a_deprecation_note(
+def test_without_the_program_the_verb_refuses_and_names_the_install_command(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    import hammunition.gps_tether as tether
-
     seen = _record(monkeypatch)
     monkeypatch.setattr(cli, "installed_tether", lambda: None)
-    monkeypatch.setattr(tether, "listen", lambda port=tether.PORT: _Closer())
-    monkeypatch.setattr(tether, "serve", lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()))
-    assert cli.main(["maps", "gps-tether"]) == cli.EXIT_OK
+    assert cli.main(["maps", "gps-tether"]) == cli.EXIT_FAILED
     assert seen == []
     err = capsys.readouterr().err
-    assert "hammunition install gps-tether" in err
-    assert "will go away" in err
+    assert "hammunition install gps-tether" in err and "not installed" in err
 
 
-class _Closer:
-    def close(self) -> None:
-        pass
+def test_the_installed_program_is_really_run_and_its_exit_follows(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pytest.TempPathFactory
+) -> None:
+    """A script stands in for the installed program: the real execv, no fake."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    directory = Path(str(tmp_path)) / "bin"
+    program = directory / "hammunition-gps-tether"
+    _executable(program)
+    program.write_text('#!/bin/sh\necho "ran: $*"\nexit 7\n')
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; from hammunition.cli.main import main; main(sys.argv[1:])",
+            "maps",
+            "gps-tether",
+            "--port",
+            "10112",
+        ],
+        env={
+            "PATH": str(directory),
+            "HOME": str(tmp_path),
+            "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src"),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 7
+    assert "ran: --port 10112" in result.stdout
 
 
 def _executable(path: object) -> None:
