@@ -1,0 +1,130 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: soapysdr-module-hydrasdr
+version: "1.0.1"
+summary: SoapySDR driver module for the HydraSDR RFOne
+categories: [sdr-hardware]
+
+# ADD, "hardware without hardware" (see hydrasdr-host). Measured 2026-10-02:
+#   - D-032: github.com/hydrasdr/SoapyHydraSDR, default branch `main`, head
+#     77b6ae2 committed 2026-02-06 ("Refactor SoapySDR module directory
+#     handling"); tags v1.0.0 (2025-12-10) and v1.0.1 (2025-12-20), and five
+#     commits since v1.0.1: two CI workflow edits, a licence and links
+#     edit, "Changed soapy ABI from 0.7 to 0.8 (#8)" and the module-directory
+#     refactor. Active but quiet.
+#   - Licence: LICENSE.txt is the MIT licence, Copyright (c) 2015 Charles J.
+#     Cliffe (the SoapyAirspy file the module descends from).
+#   - Archives (containers, 2026-10-02): soapysdr-module-hydrasdr 1.0.1+dfsg-1
+#     on Kali rolling, 1.0.1-1 on Ubuntu 26.04; nothing on Debian 13 and
+#     Ubuntu 24.04. Debian forky and sid carry soapyhydrasdr 1.0.1+dfsg-1.
+#     The tag Debian packages is v1.0.1 (253ce50), so the build is the same
+#     revision as the packages (D-024's distribution case).
+install:
+  - when:
+      distro: [kali]
+    install:
+      method: apt
+      packages: [soapysdr-module-hydrasdr]
+    note: >-
+      Installed in a kali-rolling container on 2026-10-02: `SoapySDRUtil
+      --info` loads libSoapyHydraSDR.so (1.0.1) from the system module
+      directory and lists `hydrasdr` among the factories. Installing this
+      brings the hydrasdr-tools package's vendor udev rule with it (see
+      hydrasdr-host).
+
+  - when:
+      distro: [ubuntu]
+      distro_version: ["26.04"]
+    install:
+      method: apt
+      packages: [soapysdr-module-hydrasdr]
+    note: >-
+      Installed in an ubuntu:26.04 container on 2026-10-02: the module
+      (1.0.1) loads and `hydrasdr` is a listed factory. It pairs with that
+      archive's libhydrasdr0 1.0.3.
+
+  - install:
+      method: git
+      repo: https://github.com/hydrasdr/SoapyHydraSDR
+      # The revision Debian and Ubuntu package. A tag, so no pin_review.
+      # `main` is five commits past it, one of them an ABI 0.7 to 0.8 change
+      # that this tag predates; built here against SoapySDR 0.8 on four
+      # targets it loads and lists its factory all the same (see the note).
+      ref: v1.0.1
+      # D-069: the tag must still resolve to this commit.
+      commit: 253ce5089faab6fbe66c220e853b1f39f974153a
+      build_system: cmake
+      # Two defines, both measured on debian:13:
+      # SOAPY_SDR_MODULE_DIR: left alone, this tag's CMakeLists installs the
+      # module twice, once under the prefix and once to the absolute path it
+      # guesses, /usr/lib/x86_64-linux-gnu/SoapySDR/modules0.8 -- a directory
+      # dpkg owns, written as root, outside what the plan says. Naming the
+      # prefix's own directory (which SoapySDR searches: it is in
+      # `SoapySDRUtil --info`'s search path) leaves one copy. The path is the
+      # engine's default prefix and SoapySDR's 0.8 module ABI.
+      # CMAKE_INSTALL_RPATH: the module links libhydrasdr.so.1 in /usr/local/lib
+      # and nothing runs ldconfig, so it failed to load ("dlopen() failed:
+      # libhydrasdr.so.1: cannot open shared object file") until this was set.
+      configure_args:
+        - -DSOAPY_SDR_MODULE_DIR=/usr/local/lib/SoapySDR/modules0.8
+        - -DCMAKE_INSTALL_RPATH=/usr/local/lib
+    build_depends:
+      - build-essential
+      - cmake
+      - pkg-config
+      - libsoapysdr-dev
+      - libusb-1.0-0-dev
+    note: >-
+      Built on 2026-10-02 against the hydrasdr-host build, in the same
+      rootless containers: debian:13, ubuntu:24.04, ubuntu:26.04 and
+      kali-rolling all configure, compile and install, exit 0, about 2 s,
+      five -Wdeprecated warnings. `SoapySDRUtil --info` then lists
+      /usr/local/lib/SoapySDR/modules0.8/libSoapyHydraSDR.so (1.0.1-253ce50)
+      and `hydrasdr` among the factories, with no ldconfig run. `--find`
+      reports no devices, there being none. Built on x86_64 only; arm64 is unmeasured. Not measured: a board.
+
+depends: [hydrasdr-host]
+
+after:
+  - hydrasdr-host
+
+installed_files:
+  - lib/SoapySDR/modules0.8/libSoapyHydraSDR.so
+
+update:
+  probe:
+    method: github_tags
+    repo: hydrasdr/SoapyHydraSDR
+  strategy: rebuild
+  cadence_hint: >-
+    Two tags ten days apart (v1.0.0 2025-12-10, v1.0.1 2025-12-20) and five
+    commits since, the last on 2026-02-06 (module-directory handling that this
+    block works around with a define). Move the pin when Debian does.
+
+documentation:
+  what_it_does: >-
+    A plugin for SoapySDR, the vendor-neutral SDR abstraction layer, that makes
+    the HydraSDR RFOne usable through the generic SoapySDR interface.
+  why_you_want_it: >-
+    It is what lets one program drive many different radios. SDR++, GQRX,
+    CubicSDR, GNU Radio's Soapy source and a great deal else reach the RFOne
+    through this module, so installing it is usually the difference between an
+    application listing the radio and showing an empty device list. It is
+    derived from the Airspy module and keeps its shape.
+  prerequisites: >-
+    The HydraSDR host library (`hydrasdr-host`, which this unit depends on),
+    the udev rule and group from the `hydrasdr-rfone` hardware entry, and
+    SoapySDR itself, which the build and the packages pull in.
+  known_problems: >-
+    **A module and its library must match** or the radio is simply not listed
+    rather than reported as broken: `SoapySDRUtil --info` shows whether the
+    module loaded and any dlopen error, and is the first command to run. On
+    Debian 13, Parrot and Ubuntu 24.04 the module is built into /usr/local/lib/
+    SoapySDR/modules0.8, which SoapySDR 0.8 searches by default; a SoapySDR
+    built for a different module ABI would not look there. **Not measured:**
+    any board, streaming, or a client application against the module.
+  upstream_url: https://github.com/hydrasdr/SoapyHydraSDR
+  upstream_support: >-
+    Issues on the repository above. SoapySDR questions go to the SoapySDR
+    project. Licence: MIT.

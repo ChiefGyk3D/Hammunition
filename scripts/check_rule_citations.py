@@ -76,8 +76,18 @@ def load_sweep() -> tuple[dict[tuple[str, str, str], str], dict[tuple[str, str, 
     return enabled, reason
 
 
+# A rules file cited by URL is an upstream project's own file (HydraSDR's and
+# RigExpert's, mined by commit) and not a distribution's. The sweep covers
+# distribution packages only, so reading the file name out of the URL would
+# report "no package in the sweep ships it" for a citation that is exactly
+# what the maintainer asked for. URLs are dropped before names are read; a
+# distribution rule cited by path (`/lib/udev/rules.d/60-x.rules`) is not a
+# URL and is still checked.
+URL = re.compile(r"https?://\S+")
+
+
 def cited_files(text: str) -> set[str]:
-    return set(RULES_FILE.findall(text))
+    return set(RULES_FILE.findall(URL.sub(" ", text)))
 
 
 def check() -> list[str]:

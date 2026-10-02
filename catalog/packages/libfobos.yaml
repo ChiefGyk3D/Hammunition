@@ -1,0 +1,143 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: libfobos
+version: "2.4.1"
+summary: Host library and command-line tools for the RigExpert Fobos SDR receiver
+categories: [sdr-hardware]
+
+# ADD, "hardware without hardware": the maintainer does not own a Fobos SDR.
+# Measured 2026-10-02:
+#   - D-032: github.com/rigexpert/libfobos, default branch `main`, head
+#     1e0fab3 committed 2026-06-18 ("Update fobos.c"). Active: 50 commits
+#     since the last tag, 28 of them in June 2026. That tag, v2.4.0, is
+#     2025-08-25.
+#   - Licence: LICENSE is the GNU Lesser General Public Licence 2.1 (GitHub
+#     agrees: LGPL-2.1). The CMakeLists and udev rule headers carry a
+#     paragraph of GPL wording under an "LGPL" title; the LICENSE file is
+#     what this entry records.
+#   - Archives (apt-cache policy in containers, 2026-10-02: Debian 13, Kali
+#     rolling, Parrot, Ubuntu 24.04, Ubuntu 26.04): nothing named libfobos,
+#     fobos-tools or anything Fobos on any of them; sources.debian.org has no
+#     source package and Launchpad's Ubuntu archive has none. The tree itself
+#     carries a debian/ directory written for Debian 13 by a contributor in
+#     June 2026, which is upstream's own packaging and not a distribution's
+#     review. So the pin is our own choice (D-024).
+install:
+  - install:
+      method: git
+      repo: https://github.com/rigexpert/libfobos
+      ref: 1e0fab3d361ee553faa88f67d2ef0ae502483151
+      build_system: cmake
+      # CMAKE_INSTALL_RPATH: see hydrasdr-host -- /usr/local/lib is not in the
+      # library cache until ldconfig runs, and nothing here runs it.
+      # CMAKE_INSTALL_UDEVRULESDIR: this tree installs its udev rule on
+      # Linux, to `lib/udev/rules.d` under the prefix, which for /usr/local is
+      # a directory udev reads. A rule that gives the plugdev group the board
+      # would take effect from a library install with nothing in the plan
+      # saying so, so the rule is sent to an inert directory beside the
+      # catalog's own files and the hardware entry writes the real one. An
+      # absolute path is required: CMake turns a relative cache path into one
+      # under the build directory.
+      configure_args:
+        - -DCMAKE_INSTALL_RPATH=/usr/local/lib
+        - -DCMAKE_INSTALL_UDEVRULESDIR=/usr/local/share/hammunition/libfobos/udev-rules
+      pin_review:
+        last_reviewed: 2026-10-02
+        reviewed_by: hammunition-maintainers
+        basis: own_choice
+        rationale: >-
+          The default branch's head (D-032), 1e0fab3, 2026-06-18, rather than
+          the v2.4.0 tag. Both were built in debian:13 on 2026-10-02 and the
+          tag is the worse install: it writes its udev rule to the absolute
+          /etc/udev/rules.d from a build run as root (no variable moves it),
+          builds fobos_devinfo, fobos_recorder and fobos_fwloader and installs
+          none of them, and fails two -Wformat checks on a size_t. The head
+          installs the three tools, puts the rule under a settable variable,
+          fixes the printf formats and turns the debug printing off (the
+          commits 694d790 and 7c1054d). Checked for a distribution to
+          follow and found none (see above). Upstream has not tagged since
+          2025-08, so the next review is a look at whether a v2.4.1 exists.
+        cadence_days: 180
+    build_depends:
+      - build-essential
+      - cmake
+      - pkg-config
+      - libusb-1.0-0-dev
+    note: >-
+      Built on 2026-10-02 in rootless containers the way this block runs it
+      -- cmake configure, `cmake --build --parallel 2`, `cmake --install`
+      into /usr/local: debian:13 (cmake 3.31, gcc 14), ubuntu:24.04,
+      ubuntu:26.04 and kali-rolling (gcc 16) all exit 0 in about a second with
+      no compiler warnings. It leaves libfobos.so (version 2.4.1, soname 0),
+      fobos.h, libfobos.pc and three tools in the prefix, and the udev rule
+      in the inert directory named above; /etc/udev/rules.d was not created.
+      Run without a device: fobos_devinfo prints "API Info lib: 2.4.1 ...
+      found devices: 0", exit 0, and without any ldconfig. Built on x86_64 only; arm64 is unmeasured.
+      Not measured: a board.
+
+binaries:
+  - produced: fobos_devinfo
+    install_as: fobos_devinfo
+  - produced: fobos_recorder
+    install_as: fobos_recorder
+  - produced: fobos_fwloader
+    install_as: fobos_fwloader
+
+installed_files:
+  - lib/libfobos.so
+  - lib/libfobos.so.0
+  - lib/pkgconfig/libfobos.pc
+  - include/fobos.h
+
+update:
+  probe:
+    method: none
+  strategy: rebuild
+  cadence_hint: >-
+    50 commits since the v2.4.0 tag, 28 of them in June 2026 (a
+    contributor's Debian packaging among them). Read the default
+    branch's head (D-032) at each review; a v2.4.1 tag would replace this
+    commit pin with a tag, and versions.txt in the tree already lists
+    "v.2.4.1(beta)".
+
+documentation:
+  what_it_does: >-
+    The host side of the RigExpert Fobos SDR, a USB software defined radio
+    receiver: a shared library (libfobos) that opens the board, tunes it and
+    streams samples, and three command-line programs. `fobos_devinfo` lists
+    the boards and prints their hardware revision, firmware version and
+    serial, `fobos_recorder` records samples to a WAV file, and `fobos_fwloader`
+    writes firmware to the board. The library's API is receive-only: it sets a
+    frequency, gain and sample rate and reads samples, and has no transmit
+    call.
+  why_you_want_it: >-
+    It is the layer the SoapySDR module (`soapysdr-module-fobos`), and through
+    it SDR++, GQRX and GNU Radio, reach the board through, and `fobos_devinfo`
+    is the first check that the board and its permissions are right before an
+    application is involved. RigExpert sells the Fobos as an HF-to-microwave
+    wideband receiver; this project has not measured its coverage or
+    sensitivity (D-027) and quotes none.
+  prerequisites: >-
+    A Fobos SDR, which the maintainer does not own, and the udev rule and
+    `plugdev` membership from the `fobos-sdr` hardware entry
+    (`hammunition hardware apply`). Upstream's versions.txt, at v.2.3.2, says
+    "please update the firmware to v.2.1.1" and "HW rev 3.0.0 or higher
+    only"; `fobos_fwloader` writes firmware. The sibling library
+    `libfobos-sdr-agile` says it supports revision 4 natively and revisions 2
+    and 3 only with special firmware.
+  known_problems: >-
+    **The board presents the same USB identifier (16d0:132e) under two
+    firmware families**, the original and the "agile" one, and tells them
+    apart only by the device descriptor's bcdDevice: this library opens
+    bcdDevice 0x0000 and its sibling libfobos-sdr-agile opens 0x0101. Loading
+    the wrong firmware makes the board invisible to the library you have, not
+    broken. Builds install into /usr/local and the library is found through an
+    embedded run path, so a program of your own that links it needs
+    `-L/usr/local/lib -Wl,-rpath,/usr/local/lib` or `ldconfig`. This is an
+    untagged pin: the unit is built from a commit, not a release. **Not
+    measured:** everything that needs a board, including firmware writes.
+  upstream_url: https://github.com/rigexpert/libfobos
+  upstream_support: >-
+    Issues on the repository above and rigexpert.com, who make the hardware.
+    Licence: LGPL-2.1.

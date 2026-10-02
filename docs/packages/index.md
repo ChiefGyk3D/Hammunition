@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**315 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**320 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -512,7 +512,7 @@ Pass prediction and antenna and radio control for amateur and weather satellites
 
 - [gpredict](gpredict.md) — Real-time satellite tracking and pass prediction, with radio control
 
-### `sdr-hardware` — 34
+### `sdr-hardware` — 39
 
 Host tools, libraries, udev rules and SoapySDR modules for every supported receiver and transceiver.
 
@@ -524,8 +524,11 @@ Host tools, libraries, udev rules and SoapySDR modules for every supported recei
 - [gr-limesdr](gr-limesdr.md) — GNU Radio blocks for LimeSDR hardware
 - [gr-osmosdr](gr-osmosdr.md) — One GNU Radio source block that speaks to nearly every SDR
 - [hackrf](hackrf.md) — Host tools for HackRF — transfer, sweep, spectrum and firmware utilities
+- [hydrasdr-host](hydrasdr-host.md) — Host library and command-line tools for the HydraSDR RFOne receiver
 - [langford-utils](langford-utils.md) — Control programs for the Per Vices Noctar board
 - [libbladerf2](libbladerf2.md) — Library and udev rules for Nuand bladeRF boards
+- [libfobos](libfobos.md) — Host library and command-line tools for the RigExpert Fobos SDR receiver
+- [libfobos-sdr-agile](libfobos-sdr-agile.md) — Host library for RigExpert Fobos SDR boards running the "agile" firmware
 - [libiio-utils](libiio-utils.md) — Command-line tools that find and talk to IIO devices such as the PlutoSDR and ADALM2000
 - [libmirisdr4](libmirisdr4.md) — Open driver for Mirics-based receivers, including SDRplay RSP hardware
 - [limesuite](limesuite.md) — Host tools and library for LimeSDR hardware
@@ -537,7 +540,9 @@ Host tools, libraries, udev rules and SoapySDR modules for every supported recei
 - [soapysdr-module-airspy](soapysdr-module-airspy.md) — SoapySDR driver module for Airspy hardware
 - [soapysdr-module-audio](soapysdr-module-audio.md) — SoapySDR driver module for sound-card SDRs and Airspy HF hardware
 - [soapysdr-module-bladerf](soapysdr-module-bladerf.md) — SoapySDR driver module for bladeRF hardware
+- [soapysdr-module-fobos](soapysdr-module-fobos.md) — SoapySDR driver module for the RigExpert Fobos SDR
 - [soapysdr-module-hackrf](soapysdr-module-hackrf.md) — SoapySDR driver module for HackRF hardware
+- [soapysdr-module-hydrasdr](soapysdr-module-hydrasdr.md) — SoapySDR driver module for the HydraSDR RFOne
 - [soapysdr-module-lms7](soapysdr-module-lms7.md) — SoapySDR driver module for LimeSDR (LMS7002M) hardware
 - [soapysdr-module-mirisdr](soapysdr-module-mirisdr.md) — SoapySDR driver module for Mirics hardware
 - [soapysdr-module-osmosdr](soapysdr-module-osmosdr.md) — SoapySDR driver module for OsmoSDR and MiriSDR hardware
@@ -856,6 +861,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [hammunition-tray-qt](hammunition-tray-qt.md) | Tray switches for parking and waking radio devices on Xfce, LXQt, LXDE, MATE and Cinnamon — the Hammunition family's own | binary |
 | [hcxdumptool](hcxdumptool.md) | Wi-Fi frame capture aimed at producing hash files for offline analysis | apt |
 | [hcxtools](hcxtools.md) | Converts captured Wi-Fi frames into hash formats analysis tools read | apt |
+| [hydrasdr-host](hydrasdr-host.md) | Host library and command-line tools for the HydraSDR RFOne receiver | apt, git |
 | [ibp](ibp.md) | Shows which NCDXF/IARU beacon is transmitting right now, on which band | source |
 | [icom](icom.md) | Minimal CI-V control for Icom radios from the command line | apt |
 | [ics-forms](ics-forms.md) | FEMA's 39 fillable ICS forms, 205 radio communications plan and 213 general message among them | data |
@@ -875,6 +881,8 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [langford-utils](langford-utils.md) | Control programs for the Per Vices Noctar board | apt |
 | [libacars](libacars.md) | Shared library that decodes ACARS application-layer messages | git |
 | [libbladerf2](libbladerf2.md) | Library and udev rules for Nuand bladeRF boards | apt |
+| [libfobos](libfobos.md) | Host library and command-line tools for the RigExpert Fobos SDR receiver | git |
+| [libfobos-sdr-agile](libfobos-sdr-agile.md) | Host library for RigExpert Fobos SDR boards running the "agile" firmware | git |
 | [libfreefare-bin](libfreefare-bin.md) | Tools for MIFARE DESFire, Ultralight and Classic over libnfc | apt |
 | [libhamlib-utils](libhamlib-utils.md) | The command-line tools for hamlib — test a radio before blaming software | apt |
 | [libiio-utils](libiio-utils.md) | Command-line tools that find and talk to IIO devices such as the PlutoSDR and ADALM2000 | apt |
@@ -977,7 +985,9 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [soapysdr-module-airspy](soapysdr-module-airspy.md) | SoapySDR driver module for Airspy hardware | apt |
 | [soapysdr-module-audio](soapysdr-module-audio.md) | SoapySDR driver module for sound-card SDRs and Airspy HF hardware | apt |
 | [soapysdr-module-bladerf](soapysdr-module-bladerf.md) | SoapySDR driver module for bladeRF hardware | apt |
+| [soapysdr-module-fobos](soapysdr-module-fobos.md) | SoapySDR driver module for the RigExpert Fobos SDR | git |
 | [soapysdr-module-hackrf](soapysdr-module-hackrf.md) | SoapySDR driver module for HackRF hardware | apt |
+| [soapysdr-module-hydrasdr](soapysdr-module-hydrasdr.md) | SoapySDR driver module for the HydraSDR RFOne | apt, git |
 | [soapysdr-module-lms7](soapysdr-module-lms7.md) | SoapySDR driver module for LimeSDR (LMS7002M) hardware | apt |
 | [soapysdr-module-mirisdr](soapysdr-module-mirisdr.md) | SoapySDR driver module for Mirics hardware | apt |
 | [soapysdr-module-osmosdr](soapysdr-module-osmosdr.md) | SoapySDR driver module for OsmoSDR and MiriSDR hardware | apt |
