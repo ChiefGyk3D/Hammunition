@@ -434,3 +434,97 @@ def test_the_weekly_ref_check_refuses_a_tag_off_its_commit(tmp_path: Path) -> No
     assert module.verify_ref(str(repo), "v1", head) is None
     problem = module.verify_ref(str(repo), "v1", "0" * 40)
     assert problem is not None and head in problem and "0" * 40 in problem
+
+
+@pytest.mark.skipif(
+    shutil.which("git") is None, reason="needs git on PATH (the container jobs have none)"
+)
+def test_the_ref_check_peels_an_annotated_tag_to_its_commit(tmp_path: Path) -> None:
+    """An annotated tag is its own object. FETCH_HEAD after fetching it is the
+    tag object's id, not the commit, so a check that compares that id reports
+    every correctly pinned annotated tag as missing (librevna, nrsc5, pihpsdr,
+    2026-10-02) and, worse, would accept a pin that is the tag object's id.
+    The install checks out FETCH_HEAD and compares `rev-parse HEAD`, i.e. the
+    commit; the check must compare the same thing."""
+    import importlib.util
+    import subprocess
+
+    repo = tmp_path / "upstream"
+    env = {
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@example.invalid",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@example.invalid",
+        "PATH": os.environ["PATH"],
+        "HOME": str(tmp_path),
+    }
+    for argv in (
+        ("git", "init", "--quiet", str(repo)),
+        ("git", "-C", str(repo), "commit", "--quiet", "--allow-empty", "-m", "one"),
+        ("git", "-C", str(repo), "tag", "-a", "v1", "-m", "release"),
+    ):
+        subprocess.run(argv, check=True, env=env, capture_output=True)
+
+    def rev(spec: str) -> str:
+        return subprocess.run(
+            ("git", "-C", str(repo), "rev-parse", spec), check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    commit, tag_object = rev("v1^{commit}"), rev("v1")
+    assert commit != tag_object
+    spec = importlib.util.spec_from_file_location(
+        "check_pin_reviews",
+        Path(__file__).resolve().parent.parent / "scripts" / "check_pin_reviews.py",
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.verify_ref(str(repo), "v1", commit) is None
+    problem = module.verify_ref(str(repo), "v1", tag_object)
+    assert problem is not None and commit in problem and tag_object in problem
+
+
+def test_verify_only_checks_changed_manifests(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The pull-request job passes the changed manifests. A manifest with no git
+    block has nothing to fetch (no network here: reaching upstream would fail
+    the test), a name not in the catalog is an error so a typo cannot pass, and
+    a ref that does not resolve fails the run and is named."""
+    import importlib.util
+
+    root = Path(__file__).resolve().parent.parent
+    spec = importlib.util.spec_from_file_location(
+        "check_pin_reviews", root / "scripts" / "check_pin_reviews.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    from hammunition.manifest.load import load_catalog
+    from hammunition.manifest.schema import GitInstall
+
+    catalog = load_catalog(root / "catalog" / "packages")
+    no_git = next(
+        (
+            n
+            for n, m in sorted(catalog.items())
+            if not any(isinstance(b.install, GitInstall) for b in m.install)
+        ),
+        None,
+    )
+    git_unit = next(
+        (
+            n
+            for n, m in sorted(catalog.items())
+            if any(isinstance(b.install, GitInstall) for b in m.install)
+        ),
+        None,
+    )
+    assert no_git and git_unit
+    assert module.verify_only(catalog, [no_git]) == 0
+    assert "0 git ref(s) checked" in capsys.readouterr().out
+    assert module.verify_only(catalog, ["no-such-unit"]) == 1
+    assert "ERROR" in capsys.readouterr().out
+    monkeypatch.setattr(module, "verify_ref", lambda repo, ref, commit=None: "boom")
+    assert module.verify_only(catalog, [git_unit]) == 1
+    assert "MISSING" in capsys.readouterr().out
