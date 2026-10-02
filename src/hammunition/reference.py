@@ -57,6 +57,8 @@ from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote, unquote
 
+from . import aircraft_page
+from .aircraft_page import AircraftShelf
 from .graphhopper import HOST as ROUTER_HOST
 from .graphhopper import RouteRefused, RouterSpec, route_query
 from .kiwix import Book
@@ -208,6 +210,7 @@ def landing_page(
     kiwix_port: int,
     map_shelf: MapShelf | None = None,
     routes: str | None = None,
+    aircraft: AircraftShelf | None = None,
 ) -> str:
     """The page. Every name that came from the disk is escaped."""
     e = html.escape
@@ -265,6 +268,7 @@ def landing_page(
         parts.append(landing_section(map_shelf))
         if routes is not None:
             parts.append(f"<p>Routes: {e(routes)}</p>")
+    parts.append(aircraft_page.landing_section(aircraft))
     parts.append("</body></html>")
     return "\n".join(parts) + "\n"
 
@@ -283,6 +287,13 @@ KINDS: dict[str, str] = {
     # D-075: the infrastructure overlays and the style's licence notice.
     ".geojson": "application/geo+json",
     ".openinframap": "text/plain; charset=utf-8",
+    # the aircraft page (tar1090's html/): its flags and icons, its page
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".gif": "image/gif",
+    ".jpg": "image/jpeg",
+    ".html": "text/html; charset=utf-8",
+    ".txt": "text/plain; charset=utf-8",
 }
 _RANGE = re.compile(r"bytes=(\d{0,19})-(\d{0,19})")
 CHUNK = 1 << 16
@@ -326,10 +337,18 @@ class _Server(http.server.ThreadingHTTPServer):
     overlays: bytes
     files: dict[str, Path]
     router: RouterState | None
+    aircraft: AircraftShelf | None
 
 
 class _Handler(http.server.BaseHTTPRequestHandler):
     server: _Server
+    #: Headers added to every response of this request (the aircraft page's policy).
+    extra: tuple[tuple[str, str], ...] = ()
+
+    def end_headers(self) -> None:
+        for name, value in self.extra:
+            self.send_header(name, value)
+        super().end_headers()
 
     def log_message(self, format: str, *args: object) -> None:
         """Quiet: the terminal is for what the operator needs."""
@@ -397,6 +416,42 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         host = (self.headers.get("Host") or "").strip().lower()
         return host in {f"{HOST}:{port}", f"localhost:{port}"}
 
+    def _aircraft(self, path: str) -> None:
+        """The aircraft page (tar1090), under a policy that names no host."""
+        shelf = self.server.aircraft
+        assert shelf is not None
+        self.extra = (("Content-Security-Policy", aircraft_page.CONTENT_SECURITY_POLICY),)
+        if path == aircraft_page.AIRCRAFT.rstrip("/"):
+            self.send_response(301)
+            self.send_header("Location", aircraft_page.AIRCRAFT)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        if path in (aircraft_page.AIRCRAFT, aircraft_page.AIRCRAFT + "index.html"):
+            self._send(200, shelf.index, "text/html; charset=utf-8")
+            return
+        if path == aircraft_page.AIRCRAFT + "config.js":
+            self._send(200, shelf.config, "text/javascript")
+            return
+        if path == aircraft_page.AIRCRAFT + aircraft_page.LAYERS_FILE:
+            self._send(200, shelf.layers, "text/javascript")
+            return
+        if path.startswith(aircraft_page.DATA):
+            # readsb's output, one plain ``name.json`` at a time: nothing is
+            # joined to a directory but a name of letters, digits, _ and -.
+            found = aircraft_page.data_file(shelf, unquote(path[len(aircraft_page.DATA) :]))
+            if found is None:
+                self._send(404, b"not found\n", "text/plain")
+                return
+            self.extra = (*self.extra, ("Cache-Control", "no-store"))
+            self._send_file(found)
+            return
+        found = shelf.files.get(unquote(path))
+        if found is None:
+            self._send(404, b"not found\n", "text/plain")
+            return
+        self._send_file(found)
+
     def _send_file(self, path: Path) -> None:
         """A file, whole or the one byte range asked for, and HEAD its size."""
         kind = KINDS.get(path.suffix, "application/octet-stream")
@@ -443,6 +498,12 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             self._send(403, b"refused: ask for 127.0.0.1 or localhost\n", "text/plain")
             return
         path, _, query = self.path.partition("?")
+        self.extra = ()
+        if self.server.aircraft is not None and (
+            path == aircraft_page.AIRCRAFT.rstrip("/") or path.startswith(aircraft_page.AIRCRAFT)
+        ):
+            self._aircraft(path)
+            return
         if path == ROUTE and self.server.router is not None and self.server.map_page is not None:
             self._route(query)
             return
@@ -489,10 +550,12 @@ def make_server(
     map_shelf: MapShelf | None = None,
     position_port: int = POSITION_PORT,
     router: RouterState | None = None,
+    aircraft: AircraftShelf | None = None,
 ) -> _Server:
     """The landing server, bound to 127.0.0.1 and nothing else; with
     *map_shelf*, the offline map beside it (D-071); with *router*, its route
-    control and ``/map/route`` (D-076)."""
+    control and ``/map/route`` (D-076); with *aircraft*, tar1090 at
+    ``/aircraft/``."""
     server = _Server((HOST, port), _Handler)
     server.page = page.encode("utf-8")
     server.forms = {f"{FORMS}{quote(p.name)}": p for p in forms}
@@ -501,6 +564,7 @@ def make_server(
     server.overlays = b"[]\n"
     server.files = {}
     server.router = None
+    server.aircraft = aircraft
     if map_shelf is not None and map_shelf.ready:
         server.router = router
         server.map_page = map_page(
@@ -544,6 +608,7 @@ def run(
     router: RouterSpec | None = None,
     start_router: Callable[[RouterSpec], Child] | None = None,
     routes_note: str | None = None,
+    aircraft: AircraftShelf | None = None,
 ) -> int:
     """Serve until Ctrl-C (exit 0) or until kiwix-serve exits (exit 1).
 
@@ -567,11 +632,14 @@ def run(
     )
     server = make_server(
         port,
-        landing_page(shelf, kiwix_port=kiwix_port, map_shelf=map_shelf, routes=routes),
+        landing_page(
+            shelf, kiwix_port=kiwix_port, map_shelf=map_shelf, routes=routes, aircraft=aircraft
+        ),
         shelf.forms,
         map_shelf=map_shelf,
         position_port=position_port,
         router=state,
+        aircraft=aircraft,
     )
     try:
         if shelf.books:
@@ -593,6 +661,7 @@ def run(
                     kiwix_port=kiwix_port,
                     map_shelf=map_shelf,
                     routes=f"off: {server.router.why}",
+                    aircraft=aircraft,
                 ).encode("utf-8")
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -604,6 +673,16 @@ def run(
             log(
                 f"  map: http://{HOST}:{bound}{MAP}  ({len(map_shelf.regions)} region(s); "
                 f"your position from `hammunition maps gps-tether` on port {position_port})"
+            )
+        if aircraft is not None:
+            log(
+                f"  aircraft: http://{HOST}:{bound}{aircraft_page.AIRCRAFT}  (tar1090 over "
+                f"readsb's JSON in {aircraft.json_dir}; "
+                + (
+                    "the basemap is your offline map)"
+                    if aircraft.basemap
+                    else f"{aircraft.reason})"
+                )
             )
         if router_child is not None and router is not None:
             log(
