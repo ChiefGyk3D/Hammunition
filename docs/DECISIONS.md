@@ -644,6 +644,49 @@ Carried across from AHRL and corrected in our manifests:
 | `LIBWXGTK_DEV` resolved by `apt-cache search libwxgtk \| grep dev \| grep -v media \| grep -v webview` | Replace with **explicit per-distro package names**. The wxWidgets 3.2 → 3.3 transition changes the name and the pipeline silently returns the wrong package or nothing. Affects `freedv`, `gspiceui`, `tqsl`, `xwxapt`. |
 | `install_gspiceui` hardcodes an `aarch64-linux-gnu` symlink path on every arch | Dangling symlink on x86_64. Use the `arch` selector (**D-002**). |
 
+
+### Amendment, 2026-10-02 — the text of a plan groups repeated same-shape steps
+
+**Decided:** The plan's *text* collapses a run of steps that share one
+template, and `--full` prints every step expanded. Rendering only: the JSON
+plan document (D-059), the transaction log and the real run are untouched, and
+`--dry-run` stays "complete and accurate, not approximate" because the group
+is lossless, not a summary.
+
+**Why:** `ustopo-qmapshack` printed, for every US Topo sheet, a comment, a
+full `gdalwarp ... then gdaladdo ...` command and two more lines: hundreds of
+near-identical blocks, which is how the one line that differed (a refusal, a
+size) went unread. Terrain tiles, contours, SPLAT squares, FSTopo sheets,
+Kiwix books and the per-region vector-tile builds have the same shape.
+
+**How:**
+- *Generic, from the rendered text, never per unit.* Two steps share a template
+  when they are the engine's own in-process steps (a fetch, a convert, an
+  install-data) of the same kind and privilege, have the same number of tokens
+  and agree on at least half of them (`interface/plan_group.py`). A command
+  never groups: `install -m 0755 a /usr/local/b` then the same for `c` are two
+  modifications an operator reads one by one. The tokens that differ are
+  the per-item arguments. A repeating unit of up to four steps (fetch, install,
+  prune) groups as one block, in execution order. Fewer than four repeats never
+  group.
+- *Nothing hidden.* A group prints each template once with `<name>`
+  placeholders, the first item written out in full, every item's own values
+  on a line, and the totals of any size column. A group is kept only if
+  rebuilding every step from its template and its item values returns that
+  step's text exactly; a run that does not round-trip prints step by step.
+- *`--dry-run --full`* (also accepted by a real `install` for its pre-run
+  listing) prints every step as the plan always did, byte for byte.
+- *What does not group:* steps that differ in anything but arguments (a command,
+  another kind, another privilege, another wording such as a verified
+  and an unverified fetch among unverified ones), runs shorter than four, and
+  steps whose only per-item content is constant (a SPLAT square's output size
+  is the same for every square, so there is no size column to total).
+
+**Evidence:** `tests/test_plan_group.py` runs the real backends of
+`ustopo-qmapshack`, `dem-qmapshack` (contours), `splat-sdf`, `dem-copernicus`,
+`usfs-fstopo`, `kiwix-library` and `osm-pmtiles` on twelve synthetic items each;
+all seven group and round-trip.
+
 ---
 
 ## D-017 — 1.0 is the five-source union, not AHRL parity alone

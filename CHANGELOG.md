@@ -11,6 +11,14 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **The plan groups repeated same-shape steps; `--dry-run --full` expands them**
+  (**D-016** amendment, 2026-10-02). A unit that repeats one step per sheet,
+  tile or book (`ustopo-qmapshack`, contours, SPLAT, terrain tiles, FSTopo,
+  Kiwix, the vector-tile builds) printed hundreds of near-identical blocks. The
+  text now prints the template once with `<placeholders>`, the first item in
+  full, every item's own values and the totals; a group is kept only if it
+  rebuilds every step exactly. `--full` prints every step as before; the JSON
+  document, the transaction log and the real run are unchanged.
 - **The engine's own GPS tether copy retired; the ACMA Bunker ruling recorded**
   (**D-071** note, **D-074**, 2026-10-02). `gps_tether.py` and its tests are
   deleted: the tether is hammunition-gps-tether, installed by the `gps-tether`

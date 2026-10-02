@@ -306,6 +306,7 @@ def render_plan(
     built: frozenset[str] = frozenset(),
     maps: MapDisclosure | None = None,
     terrain: TerrainDisclosure | None = None,
+    full: bool = False,
 ) -> list[str]:
     """The complete account of what will happen. Printed for every run.
 
@@ -338,7 +339,7 @@ def render_plan(
         maps=maps,
         terrain=terrain,
     )
-    return render_plan_view(view, target=target_view(plan.target))
+    return render_plan_view(view, target=target_view(plan.target), full=full)
 
 
 # ---------------------------------------------------------------------------
@@ -3807,7 +3808,9 @@ def cmd_install(args: argparse.Namespace) -> int:
         return EXIT_OK
     for note in (*suggestion_notes, *region_notes):
         print(f"note: {note}")
-    for line in render_plan_view(view, target=target_view(plan.target)):
+    for line in render_plan_view(
+        view, target=target_view(plan.target), full=getattr(args, "full", False)
+    ):
         print(line)
 
     print(
@@ -6766,6 +6769,15 @@ def build_parser() -> argparse.ArgumentParser:
             "its ticket valid until the run ends, so a long unprivileged step cannot leave "
             "a later root step waiting at a prompt (the default; D-062). "
             "--no-sudo-keepalive turns it off"
+        ),
+    )
+    p_install.add_argument(
+        "--full",
+        action="store_true",
+        help=(
+            "print every step of the plan expanded; without it a run of steps that "
+            "repeat one template for many items (a sheet, a tile, a book) is shown "
+            "as the template, one example, every item and the totals (D-016)"
         ),
     )
     p_install.add_argument(
