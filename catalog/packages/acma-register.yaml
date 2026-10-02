@@ -1,0 +1,107 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: acma-register
+version: "daily"
+summary: The Australian regulator's licence register, for the ACMA repeater layer on the map
+categories: [navigation-maps]
+
+# D-074, amended 2026-10-01. The Australian Communications and Media
+# Authority publishes its whole Register of Radiocommunications Licences as
+# one zip at one URL (https://cdn.acma.gov.au/rrl/spectra_rrl.zip), rebuilt
+# every day. Measured 2026-10-01: 67,513,955 bytes, 31 members; 501 granted
+# "Amateur Repeater" licences (sub-service 602) holding 1,981 transmitters,
+# 1,784 of them with a site position, 473 callsigns.
+#
+# No checksum is published. The ETag (0x8DF200353F0B4AF that day) is Azure
+# Blob storage's version stamp, not an MD5 of the bytes, and no Content-MD5
+# is stored; a sha256 pin would die the next day. So nothing is pinned by
+# Hammunition: the engine checks the file's own structure (every member's
+# CRC-32 and the tables the import reads) and says "unverified" in the plan.
+# Like FSTopo's unpinned sheets (D-068, amended 2026-10-01), it is in no
+# profile: it is installed only when the operator types its name.
+#
+# The licence is LICENCE.TXT inside the zip, "LICENCE TO USE THE REGISTER OF
+# RADIOCOMMUNICATIONS LICENCES". Clause 5, verbatim: "Subject to these
+# Terms and Conditions, the ACMA grants you a non-transferable,
+# non-exclusive Licence to use, reproduce and adapt the Register, including
+# the right to incorporate the Register in an electronic information
+# retrieval system or in any other software product, to merge the Register
+# with other material (including documents, equipment or goods and medium
+# whatsoever in which information is embodied), to develop derivative
+# material based on the Register, and to distribute any derivatives
+# developed by you to third parties." Clause 8: "Where the Licensee is a
+# natural person, this Licence does not permit you to reproduce or
+# distribute the Licensee's Client Information contained in the Register in
+# any Derivative work authorised by this Licence." Clause 9: "If you have
+# modified or transformed the Register, or derived new material from the
+# Register in any way, the following attribution must be used: "Based on
+# Australian Communications and Media Authority information"." The licence
+# is stated only inside the file, so licence_url below is the file itself.
+#
+# `hammunition maps repeaters import --from-acma` reads it into its own
+# layer, filtered to the installed map regions; it never reads client.csv.
+install:
+  - install:
+      method: register
+      provider: acma-rrl
+      licence: >-
+        ACMA Register of Radiocommunications Licences, Licence to use the
+        Register of Radiocommunications Licences, attribution required
+      licence_url: https://cdn.acma.gov.au/rrl/spectra_rrl.zip
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    The ACMA rebuilds the file every day. Re-running `hammunition install
+    acma-register` fetches the day's file (about 67.5 MB) and replaces the
+    installed one; then `hammunition maps repeaters import --from-acma`
+    rebuilds the layer from it. Repeater licences change slowly, so a month
+    or a season between fetches loses little.
+
+documentation:
+  what_it_does: >-
+    Installs one file, the Australian Communications and Media Authority's
+    whole Register of Radiocommunications Licences (a zip of about 67.5 MB),
+    under /usr/local/share/hammunition/data/acma-register/. Nothing reads it
+    on its own: `hammunition maps repeaters import --from-acma` takes the
+    granted amateur repeater licences out of it, keeps the transmitters whose
+    site lies inside your installed map regions, and writes them as a
+    repeater layer for QMapShack, Navit and phones, named "Repeaters (ACMA,
+    YYYY-MM-DD)" after the register's own date.
+  why_you_want_it: >-
+    It is the regulator's own record of every licensed amateur repeater in
+    Australia, with each site's position and each transmitter's output and
+    input frequency, under a licence that allows a derived map layer with
+    attribution. On 2026-10-01 it held 1,784 repeater transmitters with a
+    site position. It is the Australian source for the map; the WIA's
+    directory is all rights reserved, and RepeaterBook forbids offline
+    bundling. Outside Australia it adds nothing.
+  prerequisites: >-
+    For the layer: at least one Australian map region installed
+    (`hammunition station set --map-regions australia-oceania/australia/tasmania`
+    and `hammunition install osm-regions`), because the import keeps only
+    the repeaters inside the installed regions' bounding boxes. QMapShack
+    and Navit show the layer when they are installed.
+  known_problems: >-
+    Unverified: the ACMA publishes no checksum and rebuilds the file daily,
+    so Hammunition can check only that the zip is whole (every member's
+    CRC-32) and has the tables the import reads. That catches a damaged
+    download, not a deliberately altered one; the plan says so, and the unit
+    is in no profile for that reason. A LAN mirror's copy is checked the same
+    way, and over plain http nothing ties it to the ACMA. The download is
+    the whole register (licences of every service, and licensees' names and
+    addresses in client.csv) for about 1,800 repeater rows; the import never
+    opens client.csv, but the installed file holds it, so do not pass the
+    file on. Bounding boxes are rectangles: a box around one state can take
+    in a neighbour's border sites. Tones are not in the register; offsets
+    are paired from each licence's receiver, and a transmitter with no
+    single receiver has none. The import reads 386 MB of CSV inside the zip
+    and takes about 20 seconds on a laptop.
+  upstream_url: https://www.acma.gov.au/
+  upstream_support: >-
+    The ACMA (info@acma.gov.au, as the register's own documentation gives
+    it) for a wrong or missing licence record; the licensee for anything
+    about the repeater itself. Hammunition only converts the file.

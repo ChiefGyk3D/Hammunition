@@ -1106,6 +1106,36 @@ class TopoQuadsInstall(Strict):
         return self
 
 
+class RegisterInstall(Strict):
+    """A publisher's whole file, rebuilt so often that no pin survives and
+    checked by no digest the publisher offers (D-074, amended 2026-10-01).
+
+    The one member today is ``acma-rrl``: the ACMA's Register of
+    Radiocommunications Licences, one zip at one URL, rebuilt daily, whose
+    ETag is a storage version stamp rather than a digest. `provider` is an
+    enum so the URL, the file's name and its check live in the engine
+    (:mod:`hammunition.acma`), never in the catalog, as with `dem-tiles`.
+    What is checked is the file's own structure (every member's CRC-32 and
+    the tables a reader needs), and the plan says "unverified" beside it:
+    such a unit is installed by name only, in no profile (the FSTopo ruling,
+    D-068 amended 2026-10-01).
+    """
+
+    method: Literal["register"] = "register"
+    provider: Literal["acma-rrl"] = "acma-rrl"
+    licence: str = Field(
+        min_length=2,
+        description="SPDX identifier where one exists, else the publisher's own words.",
+    )
+    licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+
+    @model_validator(mode="after")
+    def _check(self) -> RegisterInstall:
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        return self
+
+
 class KiwixBooksInstall(Strict):
     """The Kiwix books the operator chose in station config (D-066).
 
@@ -1441,6 +1471,7 @@ InstallMethod = Annotated[
     | RegionalDataInstall
     | DemTilesInstall
     | TopoQuadsInstall
+    | RegisterInstall
     | DerivedDataInstall
     | KiwixBooksInstall
     | MwmRegionsInstall,

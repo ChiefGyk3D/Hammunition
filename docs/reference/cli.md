@@ -284,9 +284,12 @@ the exit code.
 With `--json`, prints an `artifacts` document
 ([json-interface.md](json-interface.md)): per artifact the unit, its stable
 name within the unit (what a mirror serves at `<mirror>/<unit>/<name>`), the
-publisher URL, the check (`sha256`, `md5-publisher`, `etag-md5`, `sha1-publisher` for CoMaps' maps, D-069), the
-expected digest, where a publisher checksum was read, the size, the licence,
-and `deferred`. It carries the regions and books given, and nothing of the
+publisher URL, the check (`sha256`, `md5-publisher`, `etag-md5`, `sha1-publisher` for CoMaps' maps, D-069, or
+`unverified-zip` for the ACMA register, D-074 amended 2026-10-01), the
+expected digest (null for `unverified-zip`: none is published), where a
+publisher checksum was read, the size, the licence, and `deferred`. The
+ACMA register's size is asked of the ACMA with one `HEAD` each listing,
+because the file changes daily; when that fails the entry is deferred. It carries the regions and books given, and nothing of the
 station's.
 
 ### `hammunition maps qmapshack [--configure-only]`
@@ -523,7 +526,7 @@ be written (a symbolic link in its place, a generated file with other than
 one enabled mapset). A missing `navit` is a named error, exit 1. There is no
 `--json` form, because it replaces itself with a GUI (D-059).
 
-### `hammunition maps repeaters import [FILE...] [--exported YYYY-MM-DD] [--from-open-repeater [FILE] | --from-osm | --from-direwolf-log FILE...]`
+### `hammunition maps repeaters import [FILE...] [--exported YYYY-MM-DD] [--from-open-repeater [FILE] | --from-acma [FILE] | --from-osm | --from-direwolf-log FILE...]`
 
 Converts your own repeater export into overlays for QMapShack and Navit, on
 this machine, with no network (**D-064**). It reads, recognised from the
@@ -574,13 +577,15 @@ writes it as its own layer, under its own file stem in the same directory:
 |---|---|---|---|
 | `FILE...` (above) | `export` | `repeaters` | `Repeaters (own export …)` or `(hearham …)` |
 | `--from-open-repeater [FILE]` | `open-repeater` | `repeaters-open-repeater` | `Repeaters (Open Repeater YYYY-MM-DD, CC0)` |
+| `--from-acma [FILE]` | `acma` | `repeaters-acma` | `Repeaters (ACMA, YYYY-MM-DD)` |
 | `--from-osm` | `osm` | `repeaters-osm` | `Repeaters (OpenStreetMap, ODbL, YYYY-MM-DD)` |
 | `--from-direwolf-log FILE...` | `aprs-heard` | `repeaters-aprs-heard` | `Repeaters heard off the air (APRS objects, YYYY-MM-DD)` |
 
 The options exclude each other and `FILE...`; `--exported` dates your own
 export only, and each other source is dated by its own data. An Open
-Repeater file, an ETCC CSV or a Direwolf log given as `FILE` is refused,
-naming the option or command that reads it.
+Repeater file, the ACMA register, an ETCC CSV or a Direwolf log given as
+`FILE` is refused, naming the option or command that reads it; any other
+zip is refused with "unpack it".
 
 - **`--from-open-repeater`** reads the file the `open-repeater` data unit
   installs (`/usr/local/share/hammunition/data/open-repeater/open-repeater.json`;
@@ -602,6 +607,25 @@ naming the option or command that reads it.
   of its nodes; a relation is counted and skipped. Dated by the oldest
   extract's snapshot. The text and the document name the extracts'
   directory, never a region, and carry no digest.
+- **`--from-acma`** reads the ACMA's Register of Radiocommunications
+  Licences as the `acma-register` unit installs it
+  (`/usr/local/share/hammunition/data/acma-register/spectra_rrl.zip`;
+  refused, naming `hammunition install acma-register`, when it is not
+  there), or `FILE`, a copy of `https://cdn.acma.gov.au/rrl/spectra_rrl.zip`
+  you downloaded (**D-074**, amended 2026-10-01). A row is a transmitter on a
+  licence of sub-service 602, *Amateur Repeater*; its input is the receiver
+  of the same licence and `EFL_SYSTEM`, its position its site's. Skipped and
+  counted, with their `device_details.csv` line numbers: a licence not
+  granted, no site, no position, no callsign, a frequency outside 1 to
+  10,000 MHz. Kept only inside the bounding box (from each extract's PBF
+  header) of a region extract installed under
+  `/usr/local/share/hammunition/data/osm-regions/`; a row outside every box
+  is counted without line numbers, since which rows fall outside says where
+  your regions are. No region installed, an extract without a readable box
+  (named by its number, never its file), or no row inside any box is
+  refused, exit 1, and nothing is written; the last says the register
+  covers Australia only. `client.csv`, the licensees' names and addresses,
+  is never opened. Dated by the register's own `licence.csv` timestamp.
 - **`--from-direwolf-log`** reads Direwolf's `-l` daily logs or its `-L`
   file (header measured from Direwolf 1.8.1:
   `chan,utime,isotime,source,heard,level,error,dti,name,symbol,latitude,longitude,speed,course,altitude,frequency,offset,tone,system,status,telemetry,comment`).
@@ -705,8 +729,8 @@ observed sha256 recorded. No `--json` form.
 Deletes every layer's files, the all-sources file, your Navit copy, and the
 directory when it is left empty; anything else you put there stays. It
 takes the directory out of QMapShack's `poiPaths` and changes nothing else
-in that file. With `--layer` (`export`, `open-repeater`, `osm`, `etcc`,
-`brandmeister` or `aprs-heard`) it deletes that layer only, rebuilds the
+in that file. With `--layer` (`export`, `acma`, `open-repeater`, `osm`,
+`etcc`, `brandmeister` or `aprs-heard`) it deletes that layer only, rebuilds the
 all-sources file from what is left, and rewrites your Navit copy with the
 layers that remain. Nothing to remove is exit 0; a QMapShack settings file
 it cannot edit is exit 1, named.
