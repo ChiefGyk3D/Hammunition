@@ -19,9 +19,42 @@ says so on stderr (`checking 412 terrain tiles … (needs the network)…`) with
 count. If you see nothing at all, stderr is not a terminal; run it with
 `HAMMUNITION_PROGRESS=1` in front, or in a terminal rather than through a pipe
 or a log. A tile already installed is not asked about. With the network down
-every request waits out its own 30 s timeout, four at a time, so a few hundred
-tiles can take the better part of an hour to refuse; interrupt with Ctrl-C,
-fix the connection and run again.
+a request that cannot connect is retried, then the host is given up on after
+three such failures in a row and each remaining request is asked once (a
+publisher answering 503 for everything is treated the same); a blackholed
+connection still waits out its own 30 s timeout, four at a time, so a few
+hundred tiles can take a long while to refuse. Interrupt with Ctrl-C, fix the
+connection and run again.
+
+## <a name="publisher-not-answering"></a>The plan said a publisher is not answering
+
+```text
+Will NOT happen (the rest of the transaction still will):
+  usgs-ustopo: will not fetch 3 item(s) this run: <sheet>, <sheet>, <region> (its outline)
+      why: the publisher is not answering right now (prd-tnm.s3.amazonaws.com answered
+      HTTP 503); 3 attempts each, then given up
+```
+
+Nothing is wrong with your station or the catalog. A publisher (a Geofabrik
+outline, the USGS bucket, Kiwix, a CDN) answered a 5xx, dropped the connection
+or timed out three times running for those items, and the plan left them out
+rather than refuse everything else. Run the same command again in a few
+minutes: the items are asked again and, once the publisher is back, planned as
+usual. Anything of theirs already on disk was kept; when the deferred item is a
+Kiwix book or a CoMaps map, the unit removes no unlisted file in that run, so a
+book you deselected goes at the next complete one. A certificate that does not
+verify is never treated as an outage: it refuses by name.
+
+- `hammunition install <unit>` (the unit named in the line) asks again for just
+  that unit and, if the publisher still does not answer, refuses with its last
+  answer instead of deferring.
+- `hammunition status` keeps listing the deferral for as long as that was your
+  latest transaction.
+- An **HTTP 404** on a sheet is a different message and a different fix: the
+  carried index is stale, and the line names `scripts/gen_ustopo_index.py
+  --fetch`. That is not an outage and is never deferred.
+- Retry lines on stderr (`retrying (attempt 2 of 3)`) show only on a terminal,
+  or with `HAMMUNITION_PROGRESS=1` in front.
 
 ## <a name="dead-url"></a>A source build fails to fetch — HTTP 404
 
