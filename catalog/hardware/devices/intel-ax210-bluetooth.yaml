@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: intel-ax210-bluetooth
+summary: Intel AX210 Bluetooth — the Bluetooth half of the field laptop's Wi-Fi 6E card, on USB
+vendor: Intel
+device_class: bluetooth-controller
+status: untested
+
+# Measured read-only on the field laptop on 2026-10-01 (`lsusb`, `udevadm info`,
+# sysfs reads). The Wi-Fi half is a separate PCIe function and is not this
+# device. Parking it has not been run, so there is no maintainer_verified.
+usb_ids:
+  - vendor: "8087"
+    product: "0032"
+    description: Intel AX210 Bluetooth
+    evidence: >-
+      `lsusb -d 8087:0032` on the field laptop reads "Intel Corp. AX210
+      Bluetooth"; `udevadm info` on /sys/bus/usb/devices/3-10 reports
+      ID_USB_MODEL_ID 0032, ID_USB_VENDOR_ID 8087, revision 0000, TYPE
+      224/1/1, and two e0/01/01 interfaces bound to btusb. The descriptor has
+      no manufacturer or product string. sysfs: authorized 1, power/control
+      auto (runtime-suspended when idle), removable "fixed", wakeup disabled.
+    confirmed: true
+    reports_serial: false  # no serial attribute on the node (checked)
+
+documentation:
+  what_it_is: >-
+    The Bluetooth controller of an Intel AX210 Wi-Fi 6E card,
+    which presents to the kernel as a USB device on the machine's internal bus
+    even though the card sits in an M.2 slot. btusb drives it, BlueZ manages it.
+  what_you_can_do_with_it: >-
+    Park it for power and radio silence in the field, wake it when a headset or
+    a keyboard is wanted, or switch the radio off through BlueZ without
+    detaching it. See the `bluetooth-controller` class for what each does.
+  setup_steps: >-
+    Nothing to install. `hammunition hardware park bluetooth-controller` and
+    `hammunition hardware wake bluetooth-controller`; `bluetoothctl power off`
+    is the lighter switch. Parking has not been run on this controller.
+  known_problems: >-
+    A Bluetooth keyboard or mouse goes with a parked controller. Whether the
+    adapter returns powered on after a wake is unmeasured here.

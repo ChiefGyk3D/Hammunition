@@ -18,7 +18,7 @@ Above about 30 MHz the question is line of sight and what is in the way, and tha
 
 ## Before it will work
 
-Elevation data -- SRTM tiles for the region of interest, converted to SPLAT's own SDF format with the tools it ships. That download is the real setup cost and is not automated here, because which tiles you need depends on where you are. gnuplot, which the package depends on, draws the profiles.
+Elevation data in SPLAT's own SDF format. `splat-sdf` makes it from the elevation of your map regions (D-061, amended 2026-10-02), with the `srtm2sdf` tools this package ships; `hammunition maps splat` then points SPLAT! at it through `~/.splat_path`. Without map regions, convert SRTM tiles yourself with the same tools. gnuplot, which the package depends on, draws the profiles.
 
 ## How it installs
 

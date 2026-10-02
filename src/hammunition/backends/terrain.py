@@ -101,6 +101,18 @@ ELEVATION_SCRATCH_BYTES = 25 * HGT_BYTES
 #: Delaware's square, measured; rounded up.
 BEF_BYTES = 8_000_000
 
+#: SPLAT's terrain for one tile, both files compressed (D-061, amended
+#: 2026-10-02): measured on 2026-10-01 on Death Valley's Copernicus tile,
+#: 5,668,563 bytes at 3600 samples and 867,797 at 1200, 6.54 MB, rounded up.
+#: The output grid is the same whichever provider the tile came from.
+SDF_BYTES = 7_000_000
+#: The most one tile's conversion holds in scratch at once: the one-second
+#: ``.hgt`` (25,934,402 bytes), the text SDF ``srtm2sdf-hd`` writes from it
+#: (57,033,174) and its compressed copy while ``bzip2`` runs, 88.6 MB,
+#: rounded up. Emptied before the next tile.
+SDF_SCRATCH_BYTES = 100_000_000
+SDF_MEASURED = "measured on one tile"
+
 TERRAIN_NOTE = (
     f"QMapShack's maps at {GARMIN_FACTOR}x each download with "
     f"{GARMIN_SCRATCH_FACTOR}x of scratch, the Routino database at {ROUTINO_FACTOR}x "
@@ -112,7 +124,9 @@ TERRAIN_NOTE = (
     f"warped at {WARP_FACTOR}x each download with as much again of scratch, measured "
     f"on one quad; FSTopo sheets converted at {FSTOPO_FACTOR}x each sheet, "
     f"{FSTOPO_MEASURED}; and 3DEP contours at about {human_size(CONTOUR_BYTES_3DEP)} a "
-    f"tile with up to {human_size(CONTOUR_SCRATCH_BYTES_3DEP)} of scratch"
+    f"tile with up to {human_size(CONTOUR_SCRATCH_BYTES_3DEP)} of scratch; and SPLAT's "
+    f"terrain at about {human_size(SDF_BYTES)} a tile with up to "
+    f"{human_size(SDF_SCRATCH_BYTES)} of scratch, {SDF_MEASURED}"
 )
 
 
@@ -194,6 +208,8 @@ class TerrainWork:
     """The sheet size of each FSTopo sheet ``ustopo-mosaic`` converts."""
     elevation: str = "copernicus-glo30"
     """The provider the contours are drawn from, for their estimates."""
+    splat_tiles: int = 0
+    """How many tiles get SPLAT's terrain made (D-061, amended 2026-10-02)."""
 
     def any(self) -> bool:
         return bool(
@@ -207,6 +223,7 @@ class TerrainWork:
             or self.bare_earth
             or self.sheets
             or self.convert
+            or self.splat_tiles
         )
 
 
@@ -220,6 +237,7 @@ def terrain_needs(
     prefix: Path,
     brouter_staging: Path | None = None,
     mosaic_staging: Path | None = None,
+    splat_staging: Path | None = None,
 ) -> dict[Path, int]:
     """Bytes each location needs: each tile and sheet in the fetch cache and
     under the prefix; the largest Garmin build's scratch (they run one at a
@@ -229,13 +247,16 @@ def terrain_needs(
     again under the prefix. BRouter's build (D-063): its allowance of scratch,
     the merged input when there are two regions or more, one square's
     ``.hgt`` files and every square's ``.bef`` in its staging directory, and
-    its routing files under the prefix."""
+    its routing files under the prefix. SPLAT's terrain (D-061, amended
+    2026-10-02): one tile's scratch at a time in its staging directory, and
+    every tile's files under the prefix."""
     garmin_out = sum(garmin_estimate(size) for size in work.garmin)
     routino_out = routino_estimate(work.routino)
     brouter_out = brouter_estimate(work.brouter)
     contours = work.contour_tiles * contour_bytes(work.elevation)
     warped = round(sum(work.warp) * WARP_FACTOR)
     converted = round(sum(work.convert) * FSTOPO_FACTOR)
+    splat_out = work.splat_tiles * SDF_BYTES
     downloads = work.tiles + work.quads + work.bare_earth + work.sheets
     brouter_scratch = (
         BROUTER_SCRATCH_FACTOR * work.brouter
@@ -267,8 +288,19 @@ def terrain_needs(
             ),
         ),
         (
+            splat_staging or contour_staging,
+            SDF_SCRATCH_BYTES if work.splat_tiles else 0,
+        ),
+        (
             prefix,
-            downloads + garmin_out + routino_out + contours + brouter_out + warped + converted,
+            downloads
+            + garmin_out
+            + routino_out
+            + contours
+            + brouter_out
+            + warped
+            + converted
+            + splat_out,
         ),
     ):
         needs[where] = needs.get(where, 0) + round(amount)

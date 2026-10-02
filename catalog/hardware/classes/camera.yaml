@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: class
+name: camera
+summary: USB cameras, including a laptop's built-in webcam — parked when nobody is using them
+
+# A USB camera is a UVC device, and UVC is a USB *class* (interface class 0e),
+# so the kernel's uvcvideo driver binds it by class, not by identifier, and
+# the identifier below is only the one webcam this catalog has read. A class
+# keyed on one pair does not recognise another maker's camera; a second
+# webcam joins the class by its own confirmed identifier. D-029: the kernel
+# already makes /dev/videoN and nothing here writes a rule or a symlink.
+usb_ids:
+  - vendor: "1bcf"
+    product: "2a03"
+    description: Sunplus Innovation Integrated_Webcam_FHD
+    evidence: >-
+      Read from the field laptop on 2026-10-01: `lsusb -d 1bcf:2a03` ("Sunplus
+      Innovation Technology Inc. Integrated_Webcam_FHD") and `udevadm info`
+      on /sys/bus/usb/devices/3-6 (ID_USB_MODEL Integrated_Webcam_FHD,
+      ID_USB_MODEL_ID 2a03, four interfaces of class 0e bound to uvcvideo).
+    confirmed: true
+    reports_serial: true  # the descriptor carries one; presence checked, value not recorded
+    product_string: Integrated_Webcam_FHD
+
+packages: []
+
+# D-056 (amended 2026-10-02).
+power_control:
+  method: usb_deauthorize
+  quiet: []
+  note: >-
+    A parked USB camera is unconfigured, not unpowered at the port: uvcvideo
+    drops /dev/videoN and the port is only allowed to suspend, so the camera
+    stops being a camera to every program. This does not cut its supply, and
+    it is not a hardware privacy switch: a camera is as unusable while parked
+    as software can make it, which is a statement about the kernel's view,
+    not a guarantee about the module. Nothing needs quieting first. Parking
+    has not been run on a camera here (unmeasured).
+
+documentation:
+  what_it_is: >-
+    A camera on USB, which in practice means a UVC webcam: the laptop's
+    built-in one, or one plugged in. The kernel drives it with uvcvideo and
+    presents it as /dev/videoN.
+  what_you_can_do_with_it: >-
+    Park it so no program can open it, which is the conservative state for a
+    machine that also holds security tooling, and wake it when a video call or
+    a camera-based tool is wanted. On a laptop used in the field it also
+    saves the little power an idle camera draws.
+  setup_steps: >-
+    Nothing to install. Park and wake are `hammunition hardware park camera`
+    and `hammunition hardware wake camera`, through the same helper the tray
+    uses.
+  known_problems: >-
+    A program that has the camera open when it is parked loses it as it would
+    on an unplug. Some laptops expose the camera on the same hub as other
+    devices; parking one port leaves the hub's other devices alone. A laptop's
+    hardware privacy shutter or a keyboard camera-kill key is a separate
+    mechanism this class does not touch.

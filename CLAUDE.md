@@ -507,13 +507,11 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 309
-  packages/        # one YAML per piece of software          ✅ 309
-  packages/        # one YAML per piece of software          ✅ 309
+  packages/        # one YAML per piece of software          ✅ 311
   profiles/        # named bundles referencing packages      ✅ 19
   hardware/
-    classes/       # device families with shared Linux needs ✅ 6
-    devices/       # one YAML per device                     ✅ 27
+    classes/       # device families with shared Linux needs ✅ 9
+    devices/       # one YAML per device                     ✅ 31
 src/hammunition/
   cli/             # install/uninstall/update/list/status/show/doctor/hardware/menus/station ✅
     devctl.py      # the root helper for park/wake (D-056)   ✅ parked and woken on the field laptop's GPS

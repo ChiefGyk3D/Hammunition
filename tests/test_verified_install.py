@@ -153,3 +153,50 @@ def test_write_text_never_writes_through_a_planted_temporary(tmp_path: Path) -> 
         PrefixWriter(privileged=False).write_text(dest, "260101\n")
     assert victim.read_text() == "keep\n"
     assert not dest.exists()
+
+
+# ---------------------------------------------------------------------------
+# link(): a symbolic link to a sibling name (D-061, amended 2026-10-02:
+# Signal-Server reads SPLAT's terrain files under its own names).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("writer", _writers(), ids=["direct", "runner"])
+def test_link_makes_a_relative_link_to_a_sibling(tmp_path: Path, writer: PrefixWriter) -> None:
+    target = tmp_path / "prefix" / "36:37:116:117-hd.sdf.bz2"
+    target.parent.mkdir()
+    target.write_bytes(BODY)
+    dest = target.with_name("36_37_116_117-hd.sdf.bz2")
+    writer.link(dest, target.name)
+    assert dest.is_symlink() and os.readlink(dest) == target.name
+    assert dest.read_bytes() == BODY
+    writer.link(dest, target.name)  # idempotent: replaced in place
+    assert os.readlink(dest) == target.name
+    assert sorted(p.name for p in dest.parent.iterdir()) == sorted([target.name, dest.name])
+
+
+@pytest.mark.parametrize("writer", _writers(), ids=["direct", "runner"])
+@pytest.mark.parametrize("target", ["../etc/passwd", "/etc/passwd", "sub/x", "", ".", ".."])
+def test_link_refuses_anything_but_a_bare_sibling_name(
+    tmp_path: Path, writer: PrefixWriter, target: str
+) -> None:
+    dest = tmp_path / "prefix" / "x"
+    dest.parent.mkdir()
+    with pytest.raises(BackendError, match="sibling"):
+        writer.link(dest, target)
+    assert list(dest.parent.iterdir()) == []
+
+
+@pytest.mark.parametrize("writer", _writers(), ids=["direct", "runner"])
+def test_link_replaces_a_regular_file_and_remove_takes_the_link_only(
+    tmp_path: Path, writer: PrefixWriter
+) -> None:
+    target = tmp_path / "prefix" / "a.sdf.bz2"
+    target.parent.mkdir()
+    target.write_bytes(BODY)
+    dest = target.with_name("b.sdf.bz2")
+    dest.write_bytes(b"stale")
+    writer.link(dest, target.name)
+    assert dest.is_symlink()
+    writer.remove([dest])
+    assert not dest.is_symlink() and target.read_bytes() == BODY

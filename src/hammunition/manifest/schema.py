@@ -27,7 +27,7 @@ from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from hammunition.desktop import Desktop
 
@@ -238,6 +238,12 @@ class SourceInstall(Strict):
         default=None,
         description="qmake .pro / cmake subdir. MSHV needs a different one per arch.",
     )
+
+    @field_validator("project_file")
+    @classmethod
+    def _project_file_inside_the_tree(cls, value: str | None) -> str | None:
+        return _project_file_inside(value)
+
     patches: list[Patch] = Field(default_factory=list)
     build_dir: str | None = None
     autoreconf: bool = Field(
@@ -395,6 +401,16 @@ def _unhashed(lines: Sequence[str]) -> list[str]:
     ]
 
 
+def _project_file_inside(value: str | None) -> str | None:
+    """A ``project_file`` is a path inside the unpacked tree: the cmake path
+    configures ``<tree>/<project_file>`` (D-061, amended 2026-10-02)."""
+    if value is not None and not _inside_tree(value):
+        raise ManifestError(
+            f"project_file must be a relative path inside the source tree, with no '..': {value!r}"
+        )
+    return value
+
+
 def _inside_tree(path: str) -> bool:
     """A relative path with no ``..`` component: it cannot leave the tree."""
     parts = PurePosixPath(path).parts
@@ -512,6 +528,12 @@ class GitInstall(Strict):
         default=None,
         description="qmake .pro / cmake subdir, as for a source build.",
     )
+
+    @field_validator("project_file")
+    @classmethod
+    def _project_file_inside_the_tree(cls, value: str | None) -> str | None:
+        return _project_file_inside(value)
+
     build_args: list[str] = Field(default_factory=list)
     autoreconf: bool = Field(
         default=False,
@@ -1184,6 +1206,7 @@ CONVERTER_SOURCE_METHOD: dict[str, str] = {
     "ustopo-mosaic": "topo-quads",
     "tilemaker-pmtiles": "osm-regions",
     "graphhopper-import": "osm-regions",
+    "splat-sdf": "dem-tiles",
 }
 
 #: D-063: the other units a ``brouter-mapcreator`` block reads, the install
@@ -1207,7 +1230,8 @@ GRAPHHOPPER_INPUTS: dict[str, tuple[str, bool]] = {"program": ("binary", True)}
 #: D-068 (amended 2026-10-01): ``gdal-dem`` may name the ``dem-tiles`` unit it
 #: draws from instead of `source` when the station's ``dem_source`` selects
 #: that unit's provider; ``ustopo-mosaic`` may name the Forest Service's
-#: sheets, mosaicked beside US Topo as a second map.
+#: sheets, mosaicked beside US Topo as a second map. D-061 (amended
+#: 2026-10-02): ``splat-sdf`` reads the same ``alternative`` the same way.
 GDAL_DEM_INPUTS: dict[str, tuple[str, bool]] = {"alternative": ("dem-tiles", False)}
 MOSAIC_INPUTS: dict[str, tuple[str, bool]] = {"fstopo": ("topo-quads", False)}
 
@@ -1220,6 +1244,15 @@ CONVERTER_INPUTS: dict[str, dict[str, tuple[str, bool]]] = {
     "graphhopper-import": GRAPHHOPPER_INPUTS,
     "gdal-dem": GDAL_DEM_INPUTS,
     "ustopo-mosaic": MOSAIC_INPUTS,
+    "splat-sdf": GDAL_DEM_INPUTS,
+}
+
+#: Each input field and the converters that read it: a field is refused on
+#: every converter not among its owners.
+INPUT_OWNERS: dict[str, frozenset[str]] = {
+    name: frozenset(owner for owner, fields in CONVERTER_INPUTS.items() if name in fields)
+    for fields in CONVERTER_INPUTS.values()
+    for name in fields
 }
 
 #: The provider an input of these two must have, checked catalog-wide: an
@@ -1298,21 +1331,22 @@ class DerivedDataInstall(Strict):
         "ustopo-mosaic",
         "tilemaker-pmtiles",
         "graphhopper-import",
+        "splat-sdf",
     ] = Field(
         description=(
             "The transformation to run. Each needs a `source` of one particular "
             "install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): "
             "`navit-maptool`, `mkgmap`, `routino-planetsplitter`, `brouter-mapcreator`, "
             "`mapsforge-map`, `mapsforge-poi`, `tilemaker-pmtiles` and `graphhopper-import` "
-            "need an `osm-regions` "
-            "source; `gdal-dem` needs a `dem-tiles` source; `ustopo-mosaic` needs a "
-            "`topo-quads` source (D-068)."
+            "need an `osm-regions` source; `gdal-dem` and `splat-sdf` (D-061, amended 2026-10-02) "
+            "need a `dem-tiles` source; `ustopo-mosaic` needs a `topo-quads` source (D-068)."
         )
     )
     source: str = Field(
         description=(
             "The catalog package name this is derived from: an `osm-regions` unit, "
-            "for `gdal-dem` a `dem-tiles` unit, for `ustopo-mosaic` a `topo-quads` unit."
+            "for `gdal-dem` and `splat-sdf` a `dem-tiles` unit, for `ustopo-mosaic` a "
+            "`topo-quads` unit."
         )
     )
     boundaries: str | None = Field(
@@ -1352,9 +1386,10 @@ class DerivedDataInstall(Strict):
     alternative: str | None = Field(
         default=None,
         description=(
-            "`gdal-dem` only, optional (D-068, amended 2026-10-01): the `dem-tiles` unit "
-            "of provider `usgs-3dep` drawn from instead of `source` when the station's "
-            "`dem_source` is `3dep`. Must also be in `depends`."
+            "`gdal-dem` and `splat-sdf` only, optional (D-068, amended 2026-10-01; D-061, "
+            "amended 2026-10-02): the `dem-tiles` unit of provider `usgs-3dep` drawn from "
+            "instead of `source` when the station's `dem_source` is `3dep`. Must also be "
+            "in `depends`."
         ),
     )
     fstopo: str | None = Field(
@@ -1404,19 +1439,16 @@ class DerivedDataInstall(Strict):
                 f"converter {self.converter!r} runs only what the archive installs; a `tool` "
                 f"on it would be fetched for nothing"
             )
-        own = CONVERTER_INPUTS.get(self.converter, {})
-        for name, (_, required) in own.items():
+        for name, owners in INPUT_OWNERS.items():
+            if self.converter not in owners and getattr(self, name) is not None:
+                readers = " and ".join(sorted(owners))
+                raise ManifestError(
+                    f"{name} is read only by the {readers} converter"
+                    f"{'s' if len(owners) > 1 else ''}, not {self.converter!r}"
+                )
+        for name, (_, required) in CONVERTER_INPUTS.get(self.converter, {}).items():
             if required and getattr(self, name) is None:
                 raise ManifestError(f"converter {self.converter} needs {name}: the unit it reads")
-        # A field more than one converter reads (`program`: BRouter's and
-        # GraphHopper's, D-076) is refused on every converter that reads none.
-        for name in sorted({n for fields in CONVERTER_INPUTS.values() for n in fields} - set(own)):
-            if getattr(self, name) is not None:
-                readers = sorted(o for o, fields in CONVERTER_INPUTS.items() if name in fields)
-                raise ManifestError(
-                    f"{name} is read only by the {' and '.join(readers)} converter, "
-                    f"not {self.converter!r}"
-                )
         return self
 
     def inputs(self) -> tuple[str, ...]:
