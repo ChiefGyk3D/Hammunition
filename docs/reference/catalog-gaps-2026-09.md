@@ -205,10 +205,16 @@ changed below:
   repository, which OpenRTX's guide points at; there is no OpenRTX copy.
   The pin is past the last tag, which cannot flash, and Bluetooth LE is
   switched off so the build fetches nothing.
-- **tar1090 is not carried yet.** Its page works from any static server
-  on loopback over readsb's JSON, so the route is a `reference serve` page,
-  not lighttpd; that is engine work. Its aircraft database cannot be
-  pinned (`not-carried.md`).
+- **tar1090 is added (2026-10-02)** (`catalog/packages/tar1090.yaml`,
+  `listening`; depends on `readsb`). Its page works from any static server
+  on loopback over readsb's JSON, so the route was a `reference serve`
+  page, not lighttpd: `/aircraft/`, reading `/run/readsb`, with the pinned
+  archive's `html/` (commit `e784ee5`, own-choice pin, D-024) installed as
+  data. It cannot call out: its fetching settings are off, its online map
+  layers are replaced by the station's PMTiles map (a blank background and
+  the reason on the page without one) and the page's responses carry a
+  policy naming no host. Its aircraft database cannot be pinned and is not
+  carried (`dispositions.md`).
 
 ## A. Cross-cutting gaps — plans the catalog has not caught up with
 
@@ -408,7 +414,7 @@ profile's `deliberately_excludes` prose in the same commit.
 | `ARDOPGUI` | CARRY, post-1.0 (parity-coverage) | `ardopcf` 1.0.4.1.2 added a built-in browser GUI (`ardopcf -G 8514`, then `localhost:8514`); the catalog carries 1.0.4.1.3 | SUPERSEDE by `ardopcf` itself; the packet profile page documents the flag, as it does `pat http` |
 | Morse Runner | Reserved to maintainer, conditional: "if Morse Runner CE builds, that is carried and Wine leaves 1.0" | Morse Runner Community Edition (`w7sst/MorseRunner`, Lazarus/Free Pascal) has a Linux port and 1.86 in preparation as of September 2026 | Test the build on Debian 13 (Lazarus is apt: `lazarus`, `fpc`); carry on success under `morse-training`, which settles the conditional |
 | `chattervox` | The one NEEDS-DECISION unit | Last release 0.7.0 (2020); README last touched 2019; prior-art.md already lists it dead | RETIRE, world-changed/abandoned, on a D-032 head-commit check — the same verdict `prior-art.md` reached, not yet applied to `dispositions.md` |
-| `tar1090` | "documented gap rather than a shim" (readsb's manifest) | Unchanged upstream: a `curl \| bash` installer. But what it installs is static files plus a lighttpd or nginx stanza and a systemd unit — nothing a pinned `git` unit with `install_tree` and a `config_files` block cannot express | A `tar1090` manifest from a tagged release, serving under lighttpd; the web-server dependency is disclosed |
+| `tar1090` | "documented gap rather than a shim" (readsb's manifest) | Unchanged upstream: a `curl \| bash` installer. But what it installs is static files plus a lighttpd or nginx stanza and a systemd unit | ~~A `tar1090` manifest from a tagged release, serving under lighttpd~~ **Added 2026-10-02** as a data unit served by `reference serve` on 127.0.0.1, with no lighttpd: upstream has no tags, so the pin is a commit (see *Measured since*) |
 | `dream` | REVIVE, blocked on `libqt5webkit5-dev` | Unchanged; the question in `not-carried.md` (is WebKit only the optional dashboard?) still needs the source read | No change |
 | `FoxTelem` | Post-1.0 pending an AMSAT census | Unchanged | No change |
 | VARA / VARIM | Post-1.0, Wine prefix | **Mercury** (below) is an open VARA-API-compatible modem released May 2026; the case for a Wine prefix is weaker | Re-rank after Mercury is measured |
@@ -626,7 +632,8 @@ the cost:
 10. **Source-built adds** — piHPSDR, FreeDV 2.x, DroidStar, dump978-fa,
     nrsc5, LibreVNA, k5prog, radio_tool, tar1090; each a pinned build
     with a D-032 check first. (2026-10-01: piHPSDR and DroidStar carried,
-    FreeDV 2.x not yet; see *Measured since*.)
+    FreeDV 2.x not yet; 2026-10-02: tar1090 carried as a `reference serve`
+    page; see *Measured since*.)
 11. **Hardware without hardware** — HydraSDR and Fobos entries wait for a
     unit to measure with (D-027).
 

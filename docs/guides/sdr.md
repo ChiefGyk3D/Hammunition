@@ -100,6 +100,50 @@ where it is deferred. Its own documentation gives the command lines.
 
 Close Gqrx first: one program at a time can hold the dongle.
 
+### The aircraft map in a browser
+
+[tar1090](../packages/tar1090.md) is the page most ADS-B receivers are watched
+with: a table of aircraft, a track for each, altitude, speed and range
+rings, filters. It is in `listening` beside readsb and deferred by name
+wherever readsb is. Its own installer is not used (it is a root script piped
+from `wget` that opens a web server on port 80 on every address); instead
+`hammunition reference serve` serves the page on this machine only:
+
+```sh
+hammunition install tar1090          # or the whole listening profile
+sudo systemctl start readsb           # Debian's service; it writes /run/readsb
+hammunition reference serve
+```
+
+Open <http://127.0.0.1:8480/aircraft/>. It reads the JSON file readsb keeps
+up to date, read-only. If your readsb writes elsewhere (a hand-run
+`readsb --write-json DIR`), say so with `--readsb-json DIR`. dump978-fa's UAT
+aircraft appear on the same page when readsb takes them as an input
+(`--net-connector 127.0.0.1,30978,uat_in`, which is how the 978 sample was
+decoded with Debian's readsb).
+
+**What is behind the aircraft.** If you installed `osm-pmtiles` with map
+regions (the [navigation guide](offline-navigation.md)), the base map is
+your own regions, drawn from the same tiles as the page at `/map/`, only
+plainer. Without it there is no base map: aircraft on a plain background,
+and a line on the page saying why. The page never loads a map from the
+internet. Nor does it fetch aircraft photographs, flight routes, weather or
+airspace overlays, and the browser enforces that (a Content-Security-Policy
+that names no host). The links in an aircraft's detail panel to FlightAware
+and planespotters are still links: they open when you click them.
+
+**What is not there.** The aircraft database (type, operator, registration
+lookups) is not carried: its upstream replaces its only commit regularly, so
+it cannot be pinned. The columns show only what readsb decoded. Tracks are
+what the page has seen since you opened it, because tar1090's history service
+is not run.
+
+**Measured and not.** With synthetic aircraft and a synthetic map tile in
+headless Chromium, the aircraft table fills, a selected aircraft's panel
+opens, the map tile is decoded and no request leaves 127.0.0.1. Not yet seen
+with a live receiver, in Firefox, at street zoom over a real region, or on a
+phone.
+
 For aircraft datalink text rather than positions,
 [acarsdec](../packages/acarsdec.md) (VHF ACARS),
 [dumpvdl2](../packages/dumpvdl2.md) and [dumphfdl](../packages/dumphfdl.md)
