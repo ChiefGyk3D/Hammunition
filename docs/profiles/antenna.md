@@ -22,7 +22,7 @@ Antenna work is a loop — model it, build it, measure it, find out the model wa
 
 ## What it deliberately excludes
 
-General propagation prediction, which is `propagation` — VOACAP answers "will this band be open", and this profile answers "what does my antenna do". They are different questions and both are optional. Rotator control lives in `station` with the rest of hamlib.
+General propagation prediction, which is `propagation` — VOACAP answers "will this band be open", and this profile answers "what does my antenna do". They are different questions and both are optional. Rotator control lives in `station` with the rest of hamlib. LibreVNA-GUI is in `electronics` rather than here: it is a 14-minute source build of a bench instrument's program, and an antenna analyser is not the only thing it measures.
 
 ## What you configure by hand afterward
 

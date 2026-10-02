@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 87 | 2 | 214 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 87 | 2 | 214 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 84 | 3 | 216 |
-| kali-rolling *(unswept)* | 0 | 0 | 80 | 1 | 222 |
-| parrot *(unswept)* | 0 | 0 | 85 | 2 | 216 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 84 | 3 | 216 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 82 | 7 | 214 |
+| debian-13 *(unswept)* | 0 | 0 | 92 | 2 | 214 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 92 | 2 | 214 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 89 | 3 | 216 |
+| kali-rolling *(unswept)* | 0 | 0 | 85 | 1 | 222 |
+| parrot *(unswept)* | 0 | 0 | 90 | 2 | 216 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 89 | 3 | 216 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 87 | 7 | 214 |
 
-**303 manifests** against **7 targets**.
+**308 manifests** against **7 targets**.
 
 ---
 
@@ -113,6 +113,7 @@ build HAS been run in a container say so in their own install notes.
 | `droidstar` | git | git | — | git | git | — | git |
 | `dsdcc` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `dump1090-mutability` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `dump978-fa` | git | git | git | git | git | git | git |
 | `dumphfdl` | source | source | source | source | source | source | source |
 | `dumpvdl2` | git | git | git | git | git | git | git |
 | `ebook2cw` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -181,6 +182,7 @@ build HAS been run in a container say so in their own install notes.
 | `js8call` | git | git | apt ? | git | git | apt ? | git |
 | `js8spotter` | binary | binary | binary | binary | binary | binary | binary |
 | `jtdx` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `k5prog` | git | git | git | git | git | git | git |
 | `kalibrate-rtl` | git | git | git | apt ? | git | git | git |
 | `kappanhang` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `kel-agent` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -197,6 +199,7 @@ build HAS been run in a container say so in their own install notes.
 | `libiio-utils` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `libmirisdr4` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `libnfc-bin` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `librevna` | git | git | git | git | git | git | git |
 | `limesuite` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `linbpq` | git | git | git | git | git | git | git |
 | `linpac` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -224,6 +227,7 @@ build HAS been run in a container say so in their own install notes.
 | `nec2c` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `noaa-apt` | binary | binary | binary | binary | binary | binary | binary |
 | `not1mm` | venv | venv | venv | venv | venv | venv | venv |
+| `nrsc5` | git | git | git | git | git | git | git |
 | `odr-audioenc` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `odr-dabmod` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `odr-dabmux` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -269,6 +273,7 @@ build HAS been run in a container say so in their own install notes.
 | `qttermtcp` | git | git | git | git | git | git | git |
 | `qttinysa` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `quisk` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `radio-tool` | git | git | git | git | git | git | git |
 | `radioclk` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `radiosonde-auto-rx` | venv | venv | venv | venv | venv | venv | venv |
 | `rayhunter` | binary | binary | binary | binary | binary | binary | binary |

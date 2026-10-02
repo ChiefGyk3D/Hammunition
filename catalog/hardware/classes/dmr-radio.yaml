@@ -86,7 +86,7 @@ rejected_ids:
 
 firmware:
   - kind: dfu
-    packages: [qdmr, dmrconfig, dfu-util]
+    packages: [qdmr, dmrconfig, dfu-util, radio-tool]
     dfu_usb_id:
       vendor: "0483"
       product: "df11"
@@ -112,11 +112,13 @@ firmware:
     note: >-
       The TYT MD-UV380 family is programmed in the bootloader rather than in
       normal operation. Both qdmr and dmrconfig handle the transition
-      themselves; dfu-util is the recovery path. Nothing here flashes anything
+      themselves; dfu-util is the recovery path. radio-tool writes firmware --
+      the vendor's or OpenRTX -- in this mode when the operator runs it with
+      --flash. Nothing here flashes anything
       on its own, and no firmware is supplied by this project.
 
 groups: [dialout]
-packages: [qdmr, dmrconfig, dfu-util]
+packages: [qdmr, dmrconfig, dfu-util, radio-tool]
 
 documentation:
   what_it_is: >-

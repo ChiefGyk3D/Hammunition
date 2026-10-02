@@ -157,6 +157,59 @@ changed below:
   building, which cannot be pinned from outside
   (`source-build-gaps.md` #9, `not-carried.md`).
 
+### Measured since, 2026-10-01 — the second source-built batch of D.10
+
+`scripts/apt-policy-sweep.sh`, one target at a time, over the six units'
+names, the names their neighbours go by, and their build and runtime
+dependencies. `-` means the archive has no candidate.
+
+| Package | Debian 13 | Ubuntu 26.04 | Ubuntu 24.04 | Kali | Parrot 7 | Mint 22.3 | Debian 13 arm64 |
+|---|---|---|---|---|---|---|---|
+| `dump978`, `dump978-fa`, `skyaware978`, `uat2tools` | - | - | - | - | - | - | - |
+| `nrsc5`, `libnrsc5-dev` | - | - | - | - | - | - | - |
+| `librevna`, `librevna-gui` | - | - | - | - | - | - | - |
+| `k5prog`, `radio-tool`, `radiotool` | - | - | - | - | - | - | - |
+| `tar1090`, `dump1090-fa` | - | - | - | - | - | - | - |
+| `readsb` | 3.14.1630+git20240609.adc080d-1 | 3.16-2build1 | - | 3.16-2 | 3.14.1630+git20240609.adc080d-1 | - | 3.14.1630+git20240609.adc080d-1 |
+| `lighttpd` | 1.4.79-2 | 1.4.82-2ubuntu2 | 1.4.74-1ubuntu3 | 1.4.85-1 | 1.4.79-2 | 1.4.74-1ubuntu3 | 1.4.79-2 |
+| `libfaad-dev` | 2.11.2-1 | 2.11.2-1build1 | 2.11.1-1build1 | 2.11.3-1 | 2.11.2-1 | 2.11.1-1build1 | 2.11.2-1 |
+| `libboost-program-options-dev` | 1.83.0.2+b2 | 1.90.0.1ubuntu3 | 1.83.0.1ubuntu2 | 1.90.0.2+nmu1 | 1.83.0.2+b2 | 1.83.0.1ubuntu2 | 1.83.0.2+b2 |
+| `libsoapysdr-dev` | 0.8.1-5+b2 | 0.8.1-7build1 | 0.8.1-4build1 | 0.8.1-7+b2 | 0.8.1-5+b2 | 0.8.1-4build1 | 0.8.1-5+b2 |
+| `qt6-base-dev` | 6.8.2+dfsg-9+deb13u2 | 6.10.2+dfsg-7 | 6.4.2+dfsg-21.1build5 | 6.10.2+dfsg-16 | 6.8.2+dfsg-9+deb13u2 | 6.4.2+dfsg-21.1build5 | 6.8.2+dfsg-9+deb13u2 |
+| `qt6-svg-dev` | 6.8.2-3 | 6.10.2-2 | 6.4.2-4ubuntu3 | 6.10.2-9 | 6.8.2-3 | 6.4.2-4ubuntu3 | 6.8.2-3 |
+
+Every other build dependency of the six (the toolchain, cmake, autotools,
+`libao-dev`, `libfftw3-dev`, `librtlsdr-dev`, `libusb-1.0-0-dev`, `qmake6`,
+`libgl-dev`) has a candidate on all seven. `libfaad-dev` is offered
+everywhere but is the unpatched FAAD2; nrsc5 builds its own. What that
+changed below:
+
+- **dump978-fa is carried** (`catalog/packages/dump978-fa.yaml`,
+  `listening`), FlightAware's tag v11.1, built on Debian 13 and Kali. Its
+  licence is BSD-2-Clause. It decoded upstream's own sample to 21 aircraft,
+  and Debian's readsb took the same sample as a second input.
+- **nrsc5 is carried** (`catalog/packages/nrsc5.yaml`, `listening`), tag
+  v3.2.0. Its CMake clones FAAD2 at a tag while building; a two-line patch
+  makes that a sha256-checked archive (`source-build-gaps.md` #10).
+- **LibreVNA is carried** (`catalog/packages/librevna.yaml`,
+  `electronics`), tag v1.6.5, built on Debian 13, Ubuntu 24.04 (Qt 6.4)
+  and Kali. Its SCPI server listens on
+  every address by default, which its page says. The device entry
+  (`catalog/hardware/devices/librevna.yaml`) is not owned and its
+  identifiers come from upstream's source.
+- **k5prog is carried** (`catalog/packages/k5prog.yaml`), in no profile,
+  at its untagged head from 2023. Its licence is GPL-3.0-or-later, not the
+  GPL the row below gives.
+- **radio_tool is carried** as `radio-tool`
+  (`catalog/packages/radio-tool.yaml`), in no profile. It is v0l's
+  repository, which OpenRTX's guide points at; there is no OpenRTX copy.
+  The pin is past the last tag, which cannot flash, and Bluetooth LE is
+  switched off so the build fetches nothing.
+- **tar1090 is not carried yet.** Its page works from any static server
+  on loopback over readsb's JSON, so the route is a `reference serve` page,
+  not lighttpd; that is engine work. Its aircraft database cannot be
+  pinned (`not-carried.md`).
+
 ## A. Cross-cutting gaps — plans the catalog has not caught up with
 
 ### A1. Station config is built and almost nobody reads it
