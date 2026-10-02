@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: splat-sdf
+version: "station"
+summary: SPLAT! and Signal-Server terrain, made from your map regions' elevation
+categories: [propagation]
+
+# Derived data (D-061, amended 2026-10-02): the engine runs the `splat-sdf`
+# converter, an enum it implements, over the elevation tiles dem-copernicus
+# installed -- or dem-3dep's when the station's dem_source is 3dep, as for
+# QMapShack's elevation. SPLAT's own srtm2sdf and srtm2sdf-hd (from the
+# `splat` package) write the files; gdal-bin warps each tile into the .hgt
+# they read; bzip2 compresses the result, which both readers read as is.
+depends: [dem-copernicus, dem-3dep, splat, gdal-bin, bzip2]
+
+install:
+  - install:
+      method: derived
+      converter: splat-sdf
+      source: dem-copernicus
+      alternative: dem-3dep
+      licence: Copernicus DEM licence (free, with attribution)
+      licence_url: https://copernicus-dem-30m.s3.amazonaws.com/readme.html
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Follows the elevation tiles: a new tile gets its files on the next
+    install, a square no region needs loses them, and a change of
+    `--dem-source` or of a tile's neighbours remakes the squares it touches.
+
+documentation:
+  what_it_does: >-
+    Makes SPLAT Data Files, the terrain SPLAT! and Signal-Server read, for
+    every one-degree square your map regions touch, under
+    /usr/local/share/hammunition/data/splat-sdf/: one file at one arc second
+    (about 30 m, `36:37:116:117-hd.sdf.bz2`, for `splat-hd`) and one at three
+    (about 90 m, `36:37:116:117.sdf.bz2`, for `splat`), with a link beside
+    each under the name Signal-Server asks for (`36_37_116_117-hd.sdf.bz2`).
+    Each is made from the elevation tiles Hammunition already downloaded and
+    verified, with SPLAT's own converters, and kept compressed: both
+    programs read the compressed files directly.
+  why_you_want_it: >-
+    SPLAT! and Signal-Server answer "what does the terrain do to this path"
+    and "how far does this transmitter reach", and without terrain files both
+    assume a flat earth at sea level and give a confident, worthless answer.
+    SPLAT's documentation sends you to a retired USGS FTP server for SRTM
+    tiles; this makes the same files from data already on the machine, so a
+    coverage plot works with the network down.
+  prerequisites: >-
+    `osm-regions` with at least one map region set (`hammunition station set
+    --map-regions ...`); with none, this unit is deferred by name and the
+    rest of its profile installs. `dem-copernicus` supplies the elevation;
+    `dem-3dep` fetches nothing unless you choose USGS bare earth with
+    `hammunition station set --dem-source 3dep`, and then the files are made
+    from it. Run `hammunition maps splat` once as yourself to point SPLAT! at
+    the directory through `~/.splat_path`; or pass `-d` with the directory.
+  known_problems: >-
+    SPLAT's converters by default replace every elevation below sea level
+    with its neighbours' average, which would turn Death Valley or a polder
+    into dry land; Hammunition runs them with `-n -32767`, so only true voids
+    are filled (measured on 2026-10-01). A square no installed tile covers,
+    open sea for instance, has no file, and both programs then assume sea
+    level there without stopping. `splat-hd` analyses at most 4 square
+    degrees and `splat` 8, by their own build; a coverage plot wider than
+    that needs `splat`, which reads the three-arc-second files. Measured on
+    one Copernicus tile (Death Valley): about 15 s and 151 MB of memory at
+    the peak to convert, 6.5 MB of files (5.7 MB at one arc second, 0.9 MB at
+    three) where the uncompressed text would be 63 MB. Not yet run through
+    `hammunition install` on a real region.
+  upstream_url: https://www.qsl.net/kd2bd/splat.html
+  upstream_support: >-
+    The file format and the converters are SPLAT!'s: its manual
+    (`man splat`, the SPLAT DATA FILES section). For the elevation itself,
+    see `dem-copernicus` and `dem-3dep`.

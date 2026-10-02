@@ -35,6 +35,24 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   comes second in the all-sources precedence, after your own export.
   `hammunition artifacts` lists it for a Bunker as `unverified-zip`, with
   the day's size and no digest.
+- **SPLAT! and Signal-Server terrain from the station's elevation**
+  (D-061, amended 2026-10-02; the gap report's A5). `splat-sdf` makes
+  SPLAT Data Files for every square the map regions touch, at one and three
+  arc seconds, from the Copernicus tiles or from 3DEP when the station chose
+  it, with SPLAT's own `srtm2sdf` tools run as `-n -32767` (by default they
+  replace every elevation below zero) and kept bzip2-compressed, which both
+  readers read; a link beside each file carries Signal-Server's name.
+  `signal-server` is W3AXL's fork at 7f6242a: Cloud-RF's repository now
+  holds only a history README. It is built with the release flags without
+  `NDEBUG`, because its ITWOM arrays are allocated inside `assert()`, and the
+  guide's command passes `-nothreads`, because the threaded plot crashed 2
+  times in 10. Both join `antenna`, where `splat` is. `hammunition maps
+  splat` writes `~/.splat_path` when there is none. The plan's Terrain block
+  says what is made, in text and JSON. CMake builds now honour
+  `project_file` as the source subdirectory, as the schema always said.
+  Measured on one Copernicus tile and in a container; not yet run through
+  an install on a real region.
+
 - **The rig is station data: one shared `rigctld` for every program**
   (**D-073**, status proposed, bench owed). A `rig` hardware class and a
   `rig` block on a radio's manifest describe the radio — a hamlib model and
@@ -57,6 +75,7 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   line; a regression test guards it. `doctor` checks both services read-only and
   never keys the transmitter. gpredict's radio file is written for the shared
   `rigctld`; `docs/guides/rig-control.md` is rewritten around the service.
+
 - **Forest Service FSTopo sheets and USGS 3DEP bare-earth elevation**
   (D-068, amended 2026-10-01). `usfs-fstopo` installs the FSTopo
   7.5-minute sheets, with trail numbers, for the station's regions over

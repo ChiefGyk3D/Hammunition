@@ -505,8 +505,10 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 307
-  packages/        # one YAML per piece of software          ✅ 307
+  packages/        # one YAML per piece of software          ✅ 309
+  packages/        # one YAML per piece of software          ✅ 309
+  packages/        # one YAML per piece of software          ✅ 309
+  packages/        # one YAML per piece of software          ✅ 309
   profiles/        # named bundles referencing packages      ✅ 19
   hardware/
     classes/       # device families with shared Linux needs ✅ 9
