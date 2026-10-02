@@ -76,7 +76,7 @@ from hammunition.manifest.schema import (
 from hammunition.paths import OperatorDirError, open_operator_dir, operator_for
 from hammunition.plan import InstallPlan, PlannedPackage
 from hammunition.state import RemovalPlan, TransactionLog
-from hammunition.userservice import HEADER as USER_SERVICE_HEADER
+from hammunition.userservice import is_ours as is_user_service_ours
 
 #: One entry in a plan: a process to run, or something the engine does itself.
 #: `--dry-run` prints these and a real run performs them, from the same objects.
@@ -560,7 +560,7 @@ def _remove_user_unit_if_ours(path: Path) -> str:
         text = path.read_text()
     except FileNotFoundError:
         return f"{path} was already gone"
-    if not text.startswith(USER_SERVICE_HEADER):
+    if not is_user_service_ours(text):
         return f"left {path}: it no longer starts with Hammunition's header, so it is not ours"
     path.unlink()
     return f"removed {path}"

@@ -586,10 +586,10 @@ class UserServiceLine(Strict):
     unit: str = described("the catalog unit carrying it")
     name: str = described("the systemd user unit, without .service")
     path: str = described("the unit file written, under the operator's ~/.config/systemd/user/")
-    exec: str = described("the rigctld command line, with the device serial elided")
+    exec: str = described("the service's command line, with the device serial elided")
     fills: tuple[str, ...] = described("the station values that fed it, by name; never the values")
     listen: str = described("the loopback address:port it binds, e.g. 127.0.0.1:4532")
-    starts_now: bool = described("whether the plan restarts it now (the radio's port is present)")
+    starts_now: bool = described("whether the plan restarts it now (a rig service whose radio's port is present)")
 
 
 @dataclass(frozen=True)
@@ -1247,7 +1247,7 @@ def build_install_view(
         ),
         user_services=tuple(
             UserServiceLine(
-                unit="rig-service",
+                unit=svc.unit,
                 name=svc.name,
                 path=f"~/.config/systemd/user/{svc.name}.service",
                 exec=elide_serial(" ".join(svc.exec_argv)),
@@ -1470,18 +1470,28 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
             lines.append(f"  {svc.unit}: {svc.name}")
             lines.append(f"    writes   {svc.path}")
             lines.append(f"    runs     {svc.exec}")
-            lines.append(f"    filled from: {', '.join(svc.fills)}")
-            lines.append(
-                f"    listens  {svc.listen} — any program on this machine can key the "
-                f"transmitter through it; it has no password (rigctld -A is not implemented)"
-            )
+            if svc.fills:
+                lines.append(f"    filled from: {', '.join(svc.fills)}")
+                lines.append(
+                    f"    listens  {svc.listen} — any program on this machine can key the "
+                    f"transmitter through it; it has no password (rigctld -A is not implemented)"
+                )
+            elif svc.listen:
+                lines.append(
+                    f"    listens  {svc.listen} — loopback only; any program on this machine "
+                    f"can connect"
+                )
             lines.append("    then     systemctl --user daemon-reload")
             lines.append(f"             systemctl --user enable {svc.name}.service")
             if svc.starts_now:
                 lines.append(f"             systemctl --user restart {svc.name}.service")
-            else:
+            elif svc.fills:
                 lines.append(
                     f"             (restart deferred: {svc.name} starts when the radio's port appears)"
+                )
+            else:
+                lines.append(
+                    f"             (not started now: {svc.name} starts at your next login)"
                 )
             lines.append(f"    reverse  hammunition uninstall {svc.unit}")
         lines.append("")

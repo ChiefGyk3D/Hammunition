@@ -1342,26 +1342,13 @@ def resolve(
         deferrals.extend(unwritable)
 
         if manifest.user_services:
-            # The rig resolution needs the hardware catalog. Without it the
-            # services cannot be rendered, so they defer by name rather than
-            # resolve to nothing (D-035) — the same shape as a missing station
-            # value, with a reason the operator can act on.
-            if devices is None:
-                deferrals.append(
-                    Deferral(
-                        subject=manifest.name,
-                        what=f"will not run {manifest.user_services[0].name}",
-                        why="the hardware catalog was not available to resolve the rig",
-                        remedy="run this through `hammunition install`, which loads it",
-                    )
-                )
-            else:
-                svc_planned, svc_deferrals, svc_notes = plan_user_services(
-                    manifest, station, devices
-                )
-                user_services.extend(svc_planned)
-                deferrals.extend(svc_deferrals)
-                notes_early.extend(svc_notes)
+            # Plain services need nothing; the rig's need the hardware
+            # catalog and defer by name without it (D-035) -- decided in
+            # plan_user_services, which knows which is which.
+            svc_planned, svc_deferrals, svc_notes = plan_user_services(manifest, station, devices)
+            user_services.extend(svc_planned)
+            deferrals.extend(svc_deferrals)
+            notes_early.extend(svc_notes)
 
         # apt and source reach here; _check_engine_capability rejects the rest.
         # A source build needs its `build_depends` from apt before it can start,
