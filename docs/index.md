@@ -45,6 +45,9 @@ whole path.
 | Know when a band is open | [Propagation](guides/propagation.md) | [`propagation`](profiles/propagation.md) |
 | Navigate with no network at all | [Offline navigation](guides/offline-navigation.md) | [`navigation`](profiles/navigation.md) |
 | Keep the clock right with no network | [Time and position](guides/time-and-gps.md) | [`station`](profiles/station.md) |
+| Switch the GPS, a modem or a service off to save power | [The tray's Controls panel](guides/tray-controls.md) | [`station`](profiles/station.md) |
+| See repeaters, airfields and hospitals on an offline map | [Offline navigation](guides/offline-navigation.md) | [`navigation`](profiles/navigation.md) |
+| Read Wikipedia and the ICS forms with no network | [Offline reference](guides/offline-reference.md) | [`reference`](profiles/reference.md) |
 | Study wireless security | [RF security](rf-security/index.md) | [`rf-security`](profiles/rf-security.md) |
 
 Every guide says which parts were measured on real hardware and which were

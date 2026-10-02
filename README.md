@@ -38,7 +38,7 @@ tray by name instead of pulling Plasma in (D-060). **What remains for 1.0** is l
 [the 1.0 checklist](docs/reference/release-1.0-checklist.md): the Pop!_OS
 declaration decision, the rebuilt menu seen on GNOME, Xfce and COSMIC,
 the attached-hardware ladder on the bench (the field target is a Dell
-Latitude 5430 Rugged; [ten sessions](docs/reference/bench-verification-5430.md)
+Latitude 5430 Rugged; [twelve sessions](docs/reference/bench-verification-5430.md)
 have run there, the whole catalog installed and verified, its GPS receiver
 parked and woken from the tray, the radios not yet plugged in), and a signing key — the first signed tag waits on one
 that does not exist yet.
@@ -49,7 +49,7 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 **320**, up from 71 |
+| Package manifests | 🟡 **321**, up from 71 |
 | …Debian Blend coverage | ✅ **152 of 152** — SCOPE.md's first 1.0 stage, complete |
 | …parity coverage | 🟡 **111 of the 125 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
 | Hardware catalog | 🟡 33 devices, 9 classes, 302 confirmed USB identifiers |
@@ -76,6 +76,12 @@ exactly where things stand:
 | Offline trails and terrain: QMapShack, routing on foot, Copernicus elevation (D-061) | 🟡 built, not yet measured on hardware — Garmin maps and one Routino database built from your regions as the operator; elevation tiles checked by a sha256 Hammunition pinned or by the object's MD5 (no tile pinned yet), and the plan says which; contours at 20 m; `gps-tether` serves the position on 127.0.0.1 only; post-1.0 `navigation` profile, [guide](docs/guides/offline-navigation.md) |
 | Offline reference: Kiwix books, dictionaries, ICS forms (D-066) | 🟡 built, not yet measured on hardware — books chosen by id in station config from a 27-book list with each licence stated, each pinned by size and sha256 from Kiwix's `.meta4` and printed in the plan; dictd on 127.0.0.1; FEMA's 39 ICS forms by Hammunition's own sha256; `hammunition reference serve` on 127.0.0.1 only; post-1.0 `reference` profile, [guide](docs/guides/offline-reference.md) |
 | A LAN mirror for offline data, and `hammunition artifacts` (D-070) | 🟡 built, not yet measured on hardware — `station set --mirror` names a machine on your own network; each data download asks it first and its publisher on any failure, the same digest checked either way; `artifacts --json` lists what to mirror for [Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker), [guide](docs/guides/lan-mirror.md) |
+| The rig as station data: `station set --rig`, one shared `rigctld` (D-073) | 🟡 built, not yet run against a radio — a `rig` hardware class and five station values; `rig-service` (in `station`) renders one `rigctld` as a systemd user service on 127.0.0.1:4632 behind a loopback filter on 4532 that drops a browser's HTTP request (a browser POST keyed hamlib's dummy, measured); flrig stays the other route; `--unattended` is opt-in; the FT-991A and UV-50PRO benches are owed; [guide](docs/guides/rig-control.md) |
+| GPS time: the clock follows the GPS when the network is gone (D-058) | 🟡 built and tested in containers and fakes, not yet run on the bench — four modes, `auto` by default, ntpsec only (a `chrony` unit covers the rest, D-072); `hammunition time`, [guide](docs/guides/gps-time.md) |
+| Tray switches, the Controls panel and `hammunition services` (D-056 amended) | 🟡 the GPS receiver was parked and woken from the Plasma applet on the field laptop 2026-09-27; the Controls panel (devices, services, radios), `hammunition services` and the tray's own helper were exercised against fakes only; [guide](docs/guides/tray-controls.md) |
+| Repeaters, infrastructure and EMCOMM points on the offline maps (D-064, D-074, D-075) | 🟡 built, not yet drawn on a desktop — repeater layers from your own export, Open Repeater, OpenStreetMap, the ACMA register and on-request lists (unverified ones named as such); eight OpenStreetMap infrastructure layers and FAA, EIA and WRI data; none of it seen in QMapShack or Navit yet; [guide](docs/guides/offline-navigation.md) |
+| The offline browser map and GraphHopper routes (D-071, D-076) | 🟡 built, not yet measured on a desktop — vector tiles from your regions served on 127.0.0.1 only; GraphHopper (installed by name) routes car, bike, foot and hike offline; measured on synthetic and Delaware-sized regions on the development host with a headless browser; [guide](docs/guides/offline-navigation.md) |
+| Terrain for SPLAT! and Signal-Server from your regions' elevation (D-061 amended) | 🟡 built, measured on the development host, not on a real region through `install` — `splat-sdf` and `hammunition maps splat`; [guide](docs/guides/propagation.md) |
 | udev rule generation from the hardware catalog | ✅ generated and applied by `hammunition hardware apply`; applied on the field laptop and byte-identical to the catalog's set; not yet exercised against an attached device |
 | `uninstall` | ✅ working — reverses apt, venv, binary, .deb, trees and launchers; marker-verified, VM-proven; a real `make install` is refused by name |
 | End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04, and [Pop!_OS 24.04](docs/reference/vm-campaign-pop.md) as an undeclared target |
@@ -101,7 +107,7 @@ begins so a failure is a report rather than a half-installed machine, and a
 package this engine cannot handle is **refused by name with the reason**, never
 skipped. See [`docs/reference/cli.md`](docs/reference/cli.md). The
 commands a front end reads (`status`, `list`, `show`, `update`, `doctor`,
-`station show`, `hardware state`, `maps regions`, and the `install` and
+`station show`, `hardware state`, `maps regions`, `services` (the list), `artifacts`, and the `install` and
 `uninstall` plans under `--dry-run`) also print JSON with `--json`; see
 [`docs/reference/json-interface.md`](docs/reference/json-interface.md)
 (D-059).
@@ -131,11 +137,11 @@ this project's own maintainer.
 |---|---|---|
 | [Hammunition Hill](https://github.com/ChiefGyk3D/hammunition-hill) | A local-first operating-position dashboard — clocks, band plan, solar and propagation dials, DX spots coloured by your log, satellites, a CW trainer — served from your own machine to your own browser on loopback. | [`hammunition-hill`](docs/packages/hammunition-hill.md), in the `station` profile: a digest-pinned `.deb`. |
 | [Skid Finder](https://github.com/ChiefGyk3D/Skid-Finder) | A passive detector for BLE-spam and Wi-Fi attacks, built for foxhunting at a con. It listens and never transmits. Upstream is alpha. | [`skid-finder`](docs/packages/skid-finder.md), in the `rf-security` profile: a sha256-pinned tag tarball. |
-| [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) | A KDE Plasma tray applet: a switch per parkable device, calling this project's power-control helper (D-056). | [`hammunition-tray`](docs/packages/hammunition-tray.md), in the `station` profile: a digest-pinned `.deb`. KDE Plasma 6 only, deferred from `station` on a machine with no Plasma session ([desktops](docs/desktops.md)); run `hammunition hardware apply` first. |
+| [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) | A KDE Plasma tray applet: a switch per parkable device, and a Controls panel for services and radios, calling the helper this project installs (D-056). | [`hammunition-tray`](docs/packages/hammunition-tray.md), in the `station` profile: the release's source archive, digest-pinned, installing the helper too (0.5.0 published no `.deb`); `hammunition-tray-qt` is the same for Xfce, LXQt, LXDE, MATE and Cinnamon. KDE Plasma 6 only, deferred from `station` on a machine with no Plasma session ([desktops](docs/desktops.md)); run `hammunition hardware apply` first. |
 
 **There is one thing you can help with right now**, and it needs no code:
-[contributing hardware identifiers](docs/contributing/hardware.md). Eleven of
-the 24 catalogued devices still have something unknown about them, and seven of
+[contributing hardware identifiers](docs/contributing/hardware.md). Eighteen of
+the 33 catalogued devices still have something unknown about them, and ten of
 those are waiting on somebody who owns the hardware — the maintainer does not.
 Sixty-seven Meshtastic and MeshCore boards are waiting on one line each. It
 takes thirty seconds, there is a read-only script for it, and there are
@@ -257,17 +263,17 @@ systemd's `60-serial.rules` already gives every USB-*serial* device a stable
 `/dev/serial/by-id/` path, per unit, with no help from anybody. Stable naming
 was never the hard part.
 
-Of 24 catalogued devices, **20 are ones `by-id` does not settle**, and the
+Of 33 catalogued devices, **29 are ones `by-id` does not settle**, and the
 reasons are the work:
 
 | What `by-id` cannot do | Where it bites |
 |---|---|
 | **Permissions** | A device only root can open is unusable however stable its path. This is what actually stops people. |
-| **Non-serial devices** | 14 of 24 present nothing serial at all — every SDR, the Ubertooth, the Proxmark in client mode. `libusb` devices get no `/dev/serial/` entry to name. |
+| **Non-serial devices** | 15 of 33 present nothing serial at all — every SDR, the Ubertooth, the Proxmark in client mode. `libusb` devices get no `/dev/serial/` entry to name. |
 | **Identical units** | A Proxmark3 ships no product string and no serial. `by-id` builds its path from exactly those, so two of them collide there too. Only `by-path` separates them, and `by-path` changes when you move the cable. |
 | **Which interface is which** | A Free-WiLi 2 is six USB devices behind an internal hub, four serial ports on one of them. `by-id` gives each a stable path and labels none. |
 
-All five symlinks this catalog emits are on devices in the second row — none
+All seven symlinks this catalog emits are on devices in the second row — none
 duplicates a path `by-id` would have given anyway. That was not designed for,
 and it is the clearest statement of where the two mechanisms actually divide.
 
@@ -349,7 +355,7 @@ catalog and the measurements, so they cannot say what the code does not.
 | [`docs/QUESTIONS.md`](docs/QUESTIONS.md) | Open questions, with recommendations |
 | [`docs/reference/`](docs/reference/) | The measured inventories everything rests on |
 | [`docs/reference/hardware-gaps.md`](docs/reference/hardware-gaps.md) | Every USB identifier we don't have, who can close it, and what it blocks |
-| [`docs/reference/device-naming.md`](docs/reference/device-naming.md) | What `/dev/serial/by-id/` already covers, and the 19 of 23 devices where it does not |
+| [`docs/reference/device-naming.md`](docs/reference/device-naming.md) | What `/dev/serial/by-id/` already covers, and the 29 of 33 devices where it does not |
 | [`docs/contributing/hardware.md`](docs/contributing/hardware.md) | How to send one, and what we do and don't store |
 | [`docs/reference/bench-verification-5430.md`](docs/reference/bench-verification-5430.md) | What has run on the field target itself, a Dell Latitude 5430 Rugged, and what has not |
 | [`docs/reference/release-1.0-checklist.md`](docs/reference/release-1.0-checklist.md) | What stands between here and a 1.0 tag, each item with its owner and its measurement |

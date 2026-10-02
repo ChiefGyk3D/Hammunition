@@ -300,6 +300,7 @@ are unsigned; the first signed tag is 1.0.
 
 ## Before the tag
 
+<<<<<<< HEAD
 Every pull request carries its own entry as a fragment under `changelog.d/`
 (`changelog.d/README.md`), already naming the PR and the decision it rests
 on; nobody edits `CHANGELOG.md` between releases. The release commit
@@ -321,3 +322,16 @@ release commit does. Compare the section with
 `gh pr list --state merged` since the last tag: a merged pull request with no
 fragment is a gap to fill by adding the missing fragment before assembling.
 A tag that the changelog does not describe is a tag nobody can review.
+=======
+`CHANGELOG.md` gets the release's entry first, written from the merged pull
+requests since the last tag (`gh pr list --state merged`), each line naming
+the PR and the decision it rests on; the version in `pyproject.toml` moves
+in the same commit. A tag that the changelog does not describe is a tag
+nobody can review.
+
+**The docs sweep is a release step.** Before the changelog entry, run
+[the docs sweep](docs-sweep.md) over what merged since the last tag and merge
+its pull request first, so the release is cut from documentation that agrees
+with itself, with the code and with `docs/DECISIONS.md`. The first one (after v0.19.0)
+found contradictions and gaps that no single branch's review could have seen.
+>>>>>>> origin/main
