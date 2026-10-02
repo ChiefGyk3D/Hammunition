@@ -4540,6 +4540,73 @@ wrapper); and that its `time` verbs reach the engine under a `.deb`'s
 **See also:** `docs/hardware/power-control.md` for the operator-facing page
 — what parking changes, how to inspect it, and how to reverse it.
 
+### Amendment (2026-10-02, later): the tray units install the tray's helper, from the tray's own archive
+
+The re-pin the amendment above promised, to hammunition-tray v0.5.0, the
+release that carries the helper (`devctl/`, contract 1). **Which route, and
+why.** The release workflow had not published the `.deb` assets (its Parrot
+mirror answered 502), so the `.deb` route this decision named was not
+available; both units pin the tag's source archive instead, and the engine
+places its files. Measured, 2026-10-02: tag `v0.5.0` is annotated
+(`17f4715c…`) and peels to commit `b49e342b4c6883f6de061c5e6d66946ea53bdf8f`;
+the archive's sha256 is `614148fb…bfc438` on two separate downloads and again
+as the engine's fetcher verified it; 190,444 bytes, one top-level directory.
+When the `.deb`s are published each unit can go back to them.
+
+1. **What the engine does.** A `binary` block gains `devctl_helper` (the
+   archive directory and the module list; the paths and the interpreter are not
+   catalog data) and `placements`/`placement_dirs` (the files of the tray and the
+   Qt tray, one printed `install -D -m MODE SRC DEST` each). The helper is copied
+   from the unpacked archive to `/usr/local/lib/hammunition-devctl` (root never
+   runs the unpack), the wrapper goes to `/usr/local/libexec/hammunition-devctl`
+   with the engine's own venv interpreter baked in, exactly as `install.sh
+   --helper-only --interpreter` writes it, and the polkit action is
+   `policy_xml()`, which carries the tray's text. Wrapper and policy are
+   compared byte for byte with what the pinned archive's own
+   `render_helper_files.py` prints (`tests/test_devctl_helper.py`).
+   After the install the helper is asked `--version` and a missing contract line
+   fails the step (D-031); the effect check asks it again.
+2. **It does not fight another owner, and says whose it is.** A helper that
+   already answers contract 1 or newer is left alone, the plan naming the owner:
+   a package (dpkg owns the policy), the tray's own installer (the wrapper
+   carries its mark), an earlier run of this engine (the log attributes the
+   entry script, and then it is refreshed to this pin), or an installer that did
+   not mark its wrapper. A wrapper that answers nothing is replaced only when it
+   is the engine's own old `hardware apply` one (that replacement is the
+   hand-over); any other is left, by name.
+3. **The gates are `hardware apply`'s.** The engine's interpreter, and the
+   `hammunition` package its `time` verbs import, are checked as given and
+   resolved: a tree any account can write refuses the install (a dry run
+   reports the refusal too), a tree only its owner can write asks one typed
+   `yes` that `--yes` does not answer. Nothing is checked when nothing is
+   written.
+4. **Where files may go is an allow-list in the schema** (`/usr/local/`, the
+   Plasma applet directory, `/usr/share/hammunition-tray-qt/` because that
+   script puts exactly that directory on its import path, hicolor icons,
+   application and autostart entries): a destination outside it, a mode other
+   than 0644 or 0755 and a directory shared with other software do not load.
+5. **Uninstall rests on the log.** Each `install -D` is attributed by the
+   existing replay; a file the log does not attribute is reported and left. The
+   helper is removed only when the log attributes its entry script **and** no
+   other tray unit still installed (one of its placed files is on disk) needs
+   it; otherwise the plan says so. A helper another installer owns is never
+   touched.
+6. **`depends` replaces the `.deb`'s Depends line**, which apt no longer pulls
+   in (`pkexec` where the `.deb` said `pkexec | policykit-1`, because
+   `policykit-1` has no candidate on Debian 13).
+7. **Still not catalog `config_files`.** `tests/test_tray_unit_files.py` still
+   holds that absence, and now also holds the pin, the module list and the
+   placed files against the cached archive.
+
+**Not measured:** an install as root on a real machine (every step is printed
+and the real-run test writes into a temporary prefix as an ordinary user; as
+root the helper refuses a tree under `/tmp`, so that test is skipped there);
+that Plasma lists an applet placed under `/usr/share/plasma/plasmoids` with no
+package behind it; the helper's `time` verbs reaching the engine through the
+venv under `pkexec`; the polkit prompt itself; the Xfce, LXQt, LXDE, MATE and
+Cinnamon trays (as before); a target with no `pkexec` package (Debian 12), where
+the unit is deferred by name; and an uninstall on a real machine.
+
 ---
 
 ## D-057 — Offline navigation: map regions are station data, fetched at a chosen freshness with the check named per region, and converted for Navit by a converter the engine owns

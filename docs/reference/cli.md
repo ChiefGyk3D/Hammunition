@@ -1681,7 +1681,11 @@ contract 1's line (`hammunition-devctl contract N`), it is the tray's: `apply` t
 leaves the interpreter check out, because the engine's interpreter is not what
 that helper runs. The engine's own copy is still written where nothing
 answers; it is removed in a later release. What the tray's helper reads
-instead of the engine's catalog is the pair of lists below.
+instead of the engine's catalog is the pair of lists below. The two tray units
+(`hammunition-tray`, `hammunition-tray-qt`) install the tray's helper
+themselves from hammunition-tray v0.5.0's archive (a `devctl_helper` block, with
+the interpreter, the files and the owner of any helper already present printed in
+the plan; D-056 amended 2026-10-02, later), so `apply` hands over to it.
 
 - **All the rules, not only attached devices' —** a udev rule is declarative
   and harmless for a device that is not present, so applying the whole set

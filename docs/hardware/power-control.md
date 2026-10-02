@@ -402,9 +402,26 @@ engine:
 - **A hand-over.** Where the helper installed at
   `/usr/local/libexec/hammunition-devctl` answers `--version`, it is the
   tray's, and `hardware apply` writes neither its wrapper nor an existing
-  polkit action, and `hardware unapply` leaves both. Where nothing answers
-  (today, since the tray's helper is not yet released), the engine's own copy,
-  described above, is still written. It is removed in a later release.
+  polkit action, and `hardware unapply` leaves both. Where nothing answers,
+  the engine's own copy, described above, is still written. It is removed in a
+  later release.
+- **The tray units install it.** `hammunition install hammunition-tray` (or
+  `hammunition-tray-qt`) pins hammunition-tray v0.5.0's source archive, which
+  carries the helper and publishes no `.deb` yet, and installs the helper from
+  it, as root, exactly as that repository's `install.sh --helper-only
+  --interpreter` does: the code under `/usr/local/lib/hammunition-devctl`
+  (copied; root never runs the unpacked tree), the wrapper at
+  `/usr/local/libexec/hammunition-devctl` running the engine's own venv Python
+  as root, and the polkit action. The plan prints every one of those files and
+  the interpreter before anything is written; it asks one `yes` that `--yes`
+  cannot answer when that venv belongs to a single account, and refuses when
+  any account can write it. A helper already answering `--version` (the
+  `hammunition-devctl` `.deb`, the tray's own `install.sh`, an earlier run) is
+  left alone and the plan says whose it is. Check it afterwards with
+  `/usr/local/libexec/hammunition-devctl --version`, which prints
+  `hammunition-devctl contract 1`. `hammunition uninstall hammunition-tray`
+  removes the helper only if this engine installed it and no other tray unit is
+  still installed. Not yet measured: an install as root on a real machine.
 
 ## How to inspect it afterwards
 

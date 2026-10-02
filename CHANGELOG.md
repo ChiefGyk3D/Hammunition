@@ -11,6 +11,22 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **The tray units re-pinned to hammunition-tray v0.5.0, and they install its
+  device helper** (**D-056** amended 2026-10-02, later). The release publishes
+  no `.deb` yet, so both units pin the tag's archive (sha256 `614148fb…`,
+  measured twice) and the engine places its files: the Plasma applet, the Qt
+  tray, and the helper (`devctl_helper`: code copied to
+  `/usr/local/lib/hammunition-devctl`, the tray's wrapper with the engine's venv
+  interpreter, the polkit action), all printed in the plan, read back with
+  `--version`, removed by `uninstall` on the log's say-so and only when no other
+  tray unit still needs the helper. A helper another installer owns (a `.deb`,
+  the tray's `install.sh`, an earlier tray unit) is left alone and the plan names
+  the owner; an interpreter tree any account can write refuses, one only its
+  owner can write asks a `yes` that `--yes` does not answer. New manifest
+  fields `placements`, `placement_dirs` and `devctl_helper` on a `binary`
+  archive, with an allow-list of destinations; `depends` carries what the
+  `.deb`'s Depends line did.
+
 - **User services generalised; the GPS tether installed from its own project
   as one** (**D-073** amended 2026-10-02, **D-071** note). A `user_services`
   entry with no station condition, no station value and no device is *plain*:
