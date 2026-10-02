@@ -1573,7 +1573,11 @@ def _tether_call_through(program: str, args: argparse.Namespace) -> int:
         file=sys.stderr,
         flush=True,
     )
-    os.execv(program, argv)  # replaces this process; never returns
+    try:
+        os.execv(program, argv)  # replaces this process; returns only by raising
+    except OSError as exc:
+        print(f"error: cannot run {program}: {exc.strerror or exc}.", file=sys.stderr)
+        return EXIT_FAILED
 
 
 def cmd_maps_gps_tether(args: argparse.Namespace) -> int:

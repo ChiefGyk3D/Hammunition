@@ -21,7 +21,9 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   the operator's `~/.local/bin`. A new `gps-tether` unit installs
   `hammunition-gps-tether` (now its own repository, pinned wheel in a venv) and
   runs it as `hammunition-gps-tether.service` on 127.0.0.1 ports 10110 and
-  10111, enabled at install and started at next login. `hammunition maps
+  10111, enabled at install and started at next login (a reinstall `try-restart`s a
+  running one). An unfinished pin, the all-zero digest, is refused by name at
+  plan time. `hammunition maps
   gps-tether` runs the installed program when there is one (and says so) and
   its own copy, with a deprecation note, otherwise. The service and a
   foreground run cannot share port 10110. Not yet run on a machine.

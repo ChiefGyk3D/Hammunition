@@ -18,13 +18,13 @@ import re
 from pathlib import Path
 
 from hammunition.manifest.load import load_catalog, load_profile
+from hammunition.manifest.schema import UNPINNED_SHA256 as UNPINNED
 from hammunition.manifest.schema import PackageManifest, VenvInstall
 from hammunition.station import Station
 from hammunition.userservice import header_for, plan_user_services
 
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "catalog"
-UNPINNED = "0" * 64
 
 
 def _unit() -> PackageManifest:
@@ -96,23 +96,44 @@ def test_the_docs_say_the_service_and_a_foreground_run_cannot_share_the_port() -
     assert docs.prerequisites is not None and "gpsd" in docs.prerequisites
 
 
-def test_an_unpinned_unit_is_in_no_profile_and_a_pinned_one_is_in_navigation() -> None:
-    profiles = {p.name: p for p in map(load_profile, sorted((CATALOG / "profiles").glob("*.yaml")))}
-    members = [name for name, profile in profiles.items() if "gps-tether" in profile.packages]
-    if is_unpinned():
-        assert members == [], f"gps-tether is unpinned (the zero digest) but is in {members}"
-        dependents = [
-            name
-            for name, unit in load_catalog(CATALOG / "packages").items()
-            if "gps-tether" in unit.depends
-        ]
-        assert dependents == [], f"gps-tether is unpinned but {dependents} depend on it"
-    else:
-        assert members == ["navigation"]
+def _consistent(unpinned: bool, members: list[str], dependents: list[str]) -> bool:
+    """The rule: an unpinned unit is in no profile and depended on by none; a
+    pinned one is in `navigation`."""
+    return (not members and not dependents) if unpinned else members == ["navigation"]
 
 
-def test_the_unpinned_marker_is_recognised_as_not_installable() -> None:
-    """Falsifiable: the zero digest is what pip cannot match, and the check above
-    keys on exactly that string."""
-    assert re.fullmatch(r"[0-9a-f]{64}", UNPINNED)
-    assert not any(UNPINNED[i] != "0" for i in range(64))
+def test_the_rule_tells_a_pinned_unit_from_an_unpinned_one() -> None:
+    """Falsifiable: each state accepts its own shape and rejects the other's."""
+    assert _consistent(True, [], [])
+    assert not _consistent(True, ["navigation"], [])
+    assert not _consistent(True, [], ["qmapshack"])
+    assert _consistent(False, ["navigation"], [])
+    assert not _consistent(False, [], [])
+
+
+def test_the_shipped_unit_obeys_the_rule_for_the_state_it_is_in() -> None:
+    catalog = load_catalog(CATALOG / "packages")
+    profiles = [load_profile(p) for p in sorted((CATALOG / "profiles").glob("*.yaml"))]
+    members = [p.name for p in profiles if "gps-tether" in p.packages]
+    dependents = [n for n, u in catalog.items() if "gps-tether" in u.depends]
+    assert _consistent(is_unpinned(), members, dependents), (is_unpinned(), members, dependents)
+
+
+def _wheel_unit(digest: str) -> PackageManifest:
+    unit = _unit().model_dump(mode="json", exclude_none=True)
+    unit["install"][0]["install"]["requirements"] = [
+        f"https://example.invalid/x-0.1.0-py3-none-any.whl --hash=sha256:{digest}"
+    ]
+    return PackageManifest.model_validate(unit)
+
+
+def test_the_engine_refuses_the_zero_digest_at_plan_time_by_name() -> None:
+    from hammunition.plan import _check_engine_capability
+
+    unpinned = _wheel_unit(UNPINNED)
+    found = _check_engine_capability(unpinned, unpinned.install[0])
+    assert [b.subject for b in found] == ["gps-tether"]
+    assert "unpinned" in found[0].reason and "all-zero" in found[0].reason
+
+    pinned = _wheel_unit("ab" * 32)
+    assert _check_engine_capability(pinned, pinned.install[0]) == []

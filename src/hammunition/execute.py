@@ -550,6 +550,18 @@ def user_service_steps(
                     description=f"Start {svc.name} now (the radio's port is present)",
                 )
             )
+        elif svc.plain:
+            # No device to wait for, so no first start here (it starts at
+            # login), but a reinstall at a new pin must reach a copy that is
+            # already running. try-restart does nothing to a stopped service.
+            steps.append(
+                Command(
+                    argv=_systemctl(machine, "try-restart", f"{svc.name}.service"),
+                    description=(
+                        f"Restart {svc.name} if it is running, so it runs the installed program"
+                    ),
+                )
+            )
     return steps
 
 

@@ -1493,7 +1493,11 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
                 )
             else:
                 lines.append(
-                    f"             (not started now: {svc.name} starts at your next login)"
+                    f"             systemctl --user try-restart {svc.name}.service"
+                    f"  (only if it is already running)"
+                )
+                lines.append(
+                    f"             ({svc.name} is not started now: it starts at your next login)"
                 )
             lines.append(f"    reverse  hammunition uninstall {svc.unit}")
         lines.append("")

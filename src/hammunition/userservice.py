@@ -101,6 +101,10 @@ class PlannedUserService:
     listens: tuple[tuple[str, int], ...]
     unit: str = "rig-service"
     """The catalog unit carrying it (the default is the rig's, where this began)."""
+    plain: bool = False
+    """True for a plain service (:attr:`UserService.is_plain`): an install also
+    ``try-restart``s it, so an upgrade reaches one that is running and a stopped
+    one stays stopped until login."""
 
 
 def device_unit_name(path: str) -> str:
@@ -238,23 +242,39 @@ def plan_user_services(
     """
     import sys
 
+    from hammunition.plan import Deferral
+
     if not manifest.user_services:
         return [], [], []
 
     python = interpreter or sys.executable
     bin_dir = str(user_bin if user_bin is not None else user_bin_dir(None))
     planned: list[PlannedUserService] = []
+    deferred: list[Deferral] = []
     for svc in manifest.user_services:
         if svc.is_plain:
-            exec_argv = tuple(_substitute(word, {}, python, bin_dir) for word in svc.exec)
+            try:
+                exec_argv = tuple(_substitute(word, {}, python, bin_dir) for word in svc.exec)
+            except PlanUserServiceError as exc:
+                # A home the unit file cannot carry (a space, a `%`): named, not a traceback.
+                deferred.append(
+                    Deferral(
+                        subject=manifest.name,
+                        what=f"will not run {svc.name}",
+                        why=str(exc),
+                        remedy="the program's directory must be a path with no whitespace or "
+                        "shell character in it",
+                    )
+                )
+                continue
             planned.append(_planned(manifest, svc, exec_argv, None, ()))
     rig_entries = [svc for svc in manifest.user_services if not svc.is_plain]
     if not rig_entries:
-        return planned, [], []
+        return planned, deferred, []
     rig_planned, deferrals, notes = _plan_rig(
         manifest, rig_entries, station, devices, model_lister, python, bin_dir
     )
-    return planned + rig_planned, deferrals, notes
+    return planned + rig_planned, deferred + deferrals, notes
 
 
 def _planned(
@@ -284,6 +304,7 @@ def _planned(
         filled_from=filled,
         listens=tuple((lst.address, lst.port) for lst in svc.listens),
         unit=manifest.name,
+        plain=svc.is_plain,
     )
 
 

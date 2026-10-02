@@ -609,7 +609,8 @@ for the browser map), and `hammunition uninstall gps-tether` stops and removes
 it, but only a unit file that still starts with Hammunition's header.
 
 The install enables the service and does not start it: it starts at your next
-login. To start it now:
+login. (Installing again, at a newer release, restarts it if it is running and
+leaves it stopped if it is not.) To start it now:
 
 ```
 systemctl --user start hammunition-gps-tether.service

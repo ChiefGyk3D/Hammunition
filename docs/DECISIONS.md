@@ -8216,7 +8216,11 @@ assumptions came out and the rig's behaviour and tests did not move.
 3. **Several units in a plan**, each named in the plan view with only what is
    true of it: the "can key the transmitter" warning stays the rig's, and a
    service with no device says it is enabled and starts at next login (nothing
-   is started during an install that has no device to wait for).
+   is started during an install that has no device to wait for); a reinstall
+   runs `systemctl --user try-restart`, which reaches a copy that is running
+   and leaves a stopped one stopped, so a new pin does not leave the old code
+   holding the ports. A venv requirement carrying the all-zero digest
+   (`UNPINNED_SHA256`) is refused by name at plan time, before any step.
 4. **`restart` and `restart_sec`** are manifest fields from a fixed set
    (`on-failure`, `always`, `no`; 1 to 300 seconds), defaulting to what every
    unit already had. `{user_bin}` joins `{python}` as a placeholder in an

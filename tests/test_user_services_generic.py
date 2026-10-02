@@ -303,19 +303,74 @@ def test_user_bin_fills_the_operators_bin_directory() -> None:
     assert "ExecStart=/home/op/.local/bin/hammunition-gps-tether\n" in planned[0].unit_body
 
 
-def test_user_bin_with_whitespace_is_refused_at_render() -> None:
-    from hammunition.userservice import PlanUserServiceError
-
-    entry = {**_PLAIN, "exec": ["{user_bin}/hammunition-gps-tether"]}
-    with pytest.raises(PlanUserServiceError):
-        plan_user_services(
-            _manifest("gps-tether", [entry]), Station(), None, user_bin=Path("/home/a b/.local/bin")
-        )
-
-
 def test_user_bin_is_allowed_only_at_the_start_of_the_program_word() -> None:
     entry = {**_PLAIN, "exec": ["/usr/bin/env", "{user_bin}/x"]}
     # as an argument it is allowed (it is one safe word), as exec[0] it is the program
     _manifest("gps-tether", [entry])
     with pytest.raises((ValidationError, ManifestError)):
         _manifest("gps-tether", [{**_PLAIN, "exec": ["x{user_bin}/y"]}])
+
+
+# -- review fixes ------------------------------------------------------------
+
+
+def test_a_plain_service_is_try_restarted_so_an_upgrade_reaches_a_running_one(
+    tmp_path: Path,
+) -> None:
+    from dataclasses import dataclass
+
+    from hammunition.backends import Command
+    from hammunition.execute import user_service_steps
+
+    @dataclass
+    class _Plan:
+        user_services: tuple[Any, ...]
+
+    manifest = _manifest("gps-tether", [_PLAIN])
+    planned, _d, _n = plan_user_services(manifest, Station(), None, user_bin=tmp_path)
+    steps = user_service_steps(_Plan(tuple(planned)), home=tmp_path)  # type: ignore[arg-type]
+    argvs = [s.argv for s in steps if isinstance(s, Command)]
+    assert ("systemctl", "--user", "try-restart", "hammunition-gps-tether.service") in argvs
+    # never a plain restart: a stopped service stays stopped until login
+    assert ("systemctl", "--user", "restart", "hammunition-gps-tether.service") not in argvs
+
+
+def test_the_rigs_proxy_is_still_never_restarted_without_its_device(tmp_path: Path) -> None:
+    """The rig group's behaviour is unchanged: no device path, no restart step."""
+    from dataclasses import dataclass
+
+    from hammunition.backends import Command
+    from hammunition.execute import user_service_steps
+    from hammunition.userservice import PlannedUserService
+
+    @dataclass
+    class _Plan:
+        user_services: tuple[Any, ...]
+
+    svc = PlannedUserService(
+        name="hammunition-rig-proxy",
+        description="d",
+        exec_argv=("/p",),
+        unit_body=HEADER + "\n",
+        device_path=None,
+        filled_from=("rig",),
+        listens=(),
+    )
+    argvs = [
+        s.argv
+        for s in user_service_steps(_Plan((svc,)), home=tmp_path)
+        if isinstance(s, Command)  # type: ignore[arg-type]
+    ]
+    assert not any("restart" in a or "try-restart" in a for a in argvs)
+
+
+def test_a_home_the_unit_file_cannot_carry_defers_the_service_instead_of_crashing() -> None:
+    entry = {**_PLAIN, "exec": ["{user_bin}/hammunition-gps-tether"]}
+    planned, deferrals, _ = plan_user_services(
+        _manifest("gps-tether", [entry]), Station(), None, user_bin=Path("/home/a b/.local/bin")
+    )
+    assert not planned
+    (deferral,) = deferrals
+    assert deferral.subject == "gps-tether"
+    assert deferral.what == "will not run hammunition-gps-tether"
+    assert "whitespace" in deferral.why or "shell character" in deferral.why

@@ -19,15 +19,16 @@ categories: [navigation-maps, gps-gnss]
 # `pip --require-hashes` into its own venv, which puts
 # `~/.local/bin/hammunition-gps-tether` on the operator's PATH (the venv
 # backend's wrapper). Measured 2026-10-02 on this machine, with a wheel built
-# from the project's tree before the first tag existed: a hash-pinned `file://`
-# wheel line installed under `--require-hashes --no-index`, no build and no
-# network, and `hammunition-gps-tether --help` ran from the venv's script.
+# locally from the project's tree *before the first tag existed* (so not the
+# artifact pinned here): a hash-pinned `file://` wheel line installed under
+# `--require-hashes --no-index`, no build and no network, and
+# `hammunition-gps-tether --help` ran from the venv's script. The release wheel
+# itself has not been fetched or run.
 #
-# PIN STATE. The digest below is the all-zero value this catalog's tests
-# recognise as "unpinned": pip can never match it, so the install fails closed
-# at the pip step rather than installing something unverified, and
-# tests/test_gps_tether_catalog.py keeps the unit out of every profile while it
-# stands. Replace the line with the v0.1.0 release wheel's URL and the sha256 `sha256sum` prints for
+# PIN STATE. The digest below is the all-zero value the engine calls
+# unpinned (`UNPINNED_SHA256`): the planner refuses it by name at `--dry-run`,
+# before any step runs, and tests/test_gps_tether_catalog.py keeps the unit out
+# of every profile and every `depends` while it stands. Replace the line with the v0.1.0 release wheel's URL and the sha256 `sha256sum` prints for
 # the downloaded file.
 install:
   - install:

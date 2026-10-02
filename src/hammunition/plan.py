@@ -61,6 +61,7 @@ from hammunition.kernel import (
 )
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.schema import (
+    UNPINNED_SHA256,
     AptInstall,
     AptRepo,
     BinaryInstall,
@@ -79,6 +80,7 @@ from hammunition.manifest.schema import (
     SourceInstall,
     Status,
     TopoQuadsInstall,
+    VenvInstall,
     effective_binaries,
 )
 from hammunition.paths import user_bin_dir
@@ -577,6 +579,27 @@ def _check_engine_capability(
                 ),
             )
         )
+
+    if isinstance(block.install, VenvInstall):
+        zero = [
+            line.split()[0]
+            for line in block.install.requirements
+            if f"--hash=sha256:{UNPINNED_SHA256}" in line
+        ]
+        if zero:
+            found.append(
+                Blocker(
+                    subject=manifest.name,
+                    reason=(
+                        f"is unpinned: {zero[0]} carries the all-zero placeholder digest, "
+                        f"which no file can match"
+                    ),
+                    remedy=(
+                        "the artifact has not been published and pinned yet; replace the "
+                        "digest with what `sha256sum` prints for the release file"
+                    ),
+                )
+            )
 
     if isinstance(block.install, SourceInstall | GitInstall) and method in IMPLEMENTED_METHODS:
         # D-016: everything the run cannot do is found before anything is done.

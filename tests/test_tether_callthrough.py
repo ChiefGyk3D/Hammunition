@@ -146,3 +146,17 @@ def test_installed_tether_also_looks_in_the_operators_local_bin(
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("PATH", "/nonexistent-dir")
     assert cli.installed_tether() == str(program)
+
+
+def test_a_program_that_cannot_be_run_is_one_error_line_not_a_traceback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def execv(path: str, argv: list[str]) -> NoReturn:
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(os, "execv", execv)
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
+    monkeypatch.setattr(cli, "installed_tether", lambda: PROGRAM)
+    assert cli.main(["maps", "gps-tether"]) == cli.EXIT_FAILED
+    err = capsys.readouterr().err
+    assert "cannot run" in err and PROGRAM in err and "Permission denied" in err

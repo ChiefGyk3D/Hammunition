@@ -384,6 +384,13 @@ class PinReview(Strict):
         return today > self.due
 
 
+#: The digest a manifest carries while the artifact it will pin has not been
+#: published: 64 zeros. pip can never match it, and the planner refuses it by
+#: name before any step runs, so an unfinished pin fails at `--dry-run`, not
+#: at the pip step after the apt work.
+UNPINNED_SHA256 = "0" * 64
+
+
 def _unhashed(lines: Sequence[str]) -> list[str]:
     """Requirement lines that carry no ``--hash=sha256:`` pin."""
     return [
