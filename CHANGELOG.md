@@ -11,6 +11,8 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Books and CoMaps disk checks include the same run's vector tiles and route
+  graph** (#213; **D-071**, **D-076**).
 - **The engine's own GPS tether copy retired; the ACMA Bunker ruling recorded**
   (**D-071** note, **D-074**, 2026-10-02). `gps_tether.py` and its tests are
   deleted: the tether is hammunition-gps-tether, installed by the `gps-tether`
