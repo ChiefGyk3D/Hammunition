@@ -59,11 +59,11 @@ documentation:
     what a person cannot easily install themselves.
   deliberately_excludes: >-
     **`supersdr`, the headline remote-KiwiSDR client**, which Q-007 decided to
-    carry and which cannot be written yet: it runs from the directory it is
-    unpacked into, beside its own frequency database and fonts, and installing
-    a tree with a generated launcher is not something this engine does. See
-    `docs/reference/source-build-gaps.md` #8. Also excludes anything that
-    transmits, and anything aimed at protected communications — those are
+    carry and which now installs: a hash-pinned venv beside the app tree, with
+    a generated launcher (the venv-and-payload route; D-033 has the licence
+    position). It is not a member of this profile, or of any, so
+    `hammunition install supersdr` installs it by name. Also excludes anything
+    that transmits, and anything aimed at protected communications — those are
     `rf-security` and the consent-gated `rf-research`.
   manual_configuration: >-
     **An antenna for the band matters more than the receiver.** A quarter wave
