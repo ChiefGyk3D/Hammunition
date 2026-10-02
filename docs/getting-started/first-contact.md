@@ -42,17 +42,21 @@ After `hammunition install station digital-modes`:
    --callsign … --grid-square …`. WSJT-X asks for them on first run too;
    [Your callsign in each program](../guides/station-settings.md) lists
    where every program wants them.
-3. **Rig control.** Start flrig, select your radio, confirm it reads and sets
-   frequency. WSJT-X then talks to the radio through flrig — no second CAT
-   cable fight.
+3. **Rig control.** Say which radio you have
+   (`hammunition station set --rig …`, then `hammunition install rig-service`)
+   and WSJT-X talks to it as *Hamlib NET rigctl* at `127.0.0.1:4532`; or start
+   flrig, select your radio and choose *FLRig* in WSJT-X. Either way exactly
+   one program holds the serial port and everything else asks it, so there is
+   no second CAT cable fight. [Rig control](../guides/rig-control.md) walks
+   both.
 4. **Audio routing.** In your sound settings, confirm the interface appears as
    both an input and an output device. In WSJT-X's Settings → Audio, select it
    for both. The waterfall should come alive with the band's noise. Finding
    which device is the radio, and keeping it from becoming the desktop's
    default output, is in
    [Radio audio](../guides/audio-routing.md#2-which-device-is-the-radio).
-5. **PTT.** WSJT-X → Settings → Radio: set PTT to CAT (via flrig/hamlib) or a
-   serial line. Test with the **Tune** button — the radio should key and show
+5. **PTT.** WSJT-X → Settings → Radio: set PTT to CAT (through the rig
+   service or flrig) or a serial line. Test with the **Tune** button — the radio should key and show
    output into a dummy load or antenna.
 
 ## The first decode
@@ -78,7 +82,9 @@ Symptom-first, because that is how trouble actually presents:
   about a second; see
   [the time section](../guides/digital-modes.md#3-time-the-clock-must-be-right).
 - **Decodes but Tune does not key the radio** → PTT. Wrong CAT setting or
-  serial line; test flrig can key the radio on its own.
+  serial line; first read the frequency back through the program that owns the
+  port (`rigctl -m 2 -r 127.0.0.1:4532 f`, or flrig's own panel), then see
+  [Rig control](../guides/rig-control.md#when-it-does-not-work).
 - **`dialout` permission errors on the serial device** → you were added to the
   group at install, but group membership needs a fresh login. Log out and back
   in.

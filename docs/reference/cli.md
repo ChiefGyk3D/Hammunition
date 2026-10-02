@@ -2042,7 +2042,9 @@ JSON form, **D-059**), prints a `services` document
 re-rendered, so a front end reads one shape from the engine or from the
 helper. A helper that predates the `services` verb, or is not installed, is
 refused by name: update or install hammunition-tray. Not yet measured on the
-bench: the verbs against the tray's helper, which is not released.
+bench: the verbs against the tray's helper (hammunition-tray 0.5.0, released
+and installed by the tray units), which has been run against fakes only, never
+against a real `systemctl`.
 
 ### `hammunition station show` / `hammunition station set`
 

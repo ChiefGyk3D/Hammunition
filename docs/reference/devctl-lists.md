@@ -19,7 +19,7 @@ directory that is the same, never following a symlink.
 |---|---|---|
 | `/etc/hammunition/devctl-devices.yaml` | `hammunition hardware apply` | the devices the helper may park and wake |
 | `/etc/hammunition/devctl-services.yaml` | `hammunition hardware apply` | the system services the helper may start, stop, enable and disable |
-| `~/.config/hammunition/devctl-services.yaml` | installing a catalog unit with a `user_services` block | the operator's own services (not written by `hardware apply`; its writer is not in this change) |
+| `~/.config/hammunition/devctl-services.yaml` | installing a catalog unit with a `user_services` block | the operator's own services (not written by `hardware apply`: it is written by the install of a unit that runs as one, today `gps-tether` and `rig-service`, and removed by that unit's uninstall) |
 
 Both system files are root-owned, mode `0644`, and open with the header line
 ```
@@ -37,7 +37,7 @@ root could do that.
 ## `devctl-devices.yaml`
 
 Every catalogued class or device whose manifest carries a `power_control`
-block, sorted by name. Today that is `gps-receiver` alone. The shape is
+block, sorted by name. Today that is five entries: the classes `bluetooth-controller`, `camera`, `gps-receiver` and `wwan-modem` (all `usb_deauthorize`), and the field laptop's `dell-dw5930e` (`pci_runtime`, schema-valid and refused). The excerpt below shows `gps-receiver`. The shape is
 hammunition-tray's contract 1 (the contract page in that repository's docs directory); the tray's
 helper reader loaded a file this exporter wrote with no complaint (run once,
 by hand, against its branch).
@@ -147,7 +147,7 @@ of the suite (the tray is not a dependency here): the tray's own reader
 `devctl-helper` branch) loaded a devices file written by this exporter from the
 real catalog and a services file, with no note: eleven identifiers on
 `gps-receiver`, three services. **Not measured:** the tray's helper reading the
-files as installed under `/etc/hammunition` (it is not released), `hardware apply`
+files as installed under `/etc/hammunition` (hammunition-tray 0.5.0 is released and the tray units install its helper, but that has not been run as root on a real machine), `hardware apply`
 on a real machine with the lists, and the check the helper makes on a root-read
 file (a regular file, root-owned, not group- or other-writable, in a directory
 that is the same) against what `install -D -m 0644` leaves: the mode is right by
