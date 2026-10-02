@@ -22,6 +22,7 @@ from threading import Thread
 
 import pytest
 
+from hammunition.listening import LOOPBACK, listening_addresses
 from hammunition.map_page import (
     CREDIT,
     KIT_UNIT,
@@ -31,7 +32,6 @@ from hammunition.map_page import (
     landing_section,
     map_page,
 )
-from hammunition.listening import LOOPBACK, listening_addresses
 from hammunition.reference import byte_range, make_server
 
 BODY = bytes(range(256)) * 40  # 10,240 bytes, every offset distinct enough

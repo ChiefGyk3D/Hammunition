@@ -53,7 +53,7 @@ def test_missing_tables_are_skipped_and_existing_tables_are_merged(tmp_path: Pat
         "00000000000000000000000001000000",
     }
     assert listening_addresses(4532, tables=(str(tmp_path / "missing"),)) == set()
-    assert LOOPBACK >= {"0100007F", "00000000000000000000000001000000"}
+    assert {"0100007F", "00000000000000000000000001000000"} <= LOOPBACK
 
 
 def test_an_unreadable_existing_table_returns_none(
@@ -62,9 +62,7 @@ def test_an_unreadable_existing_table_returns_none(
     table = _table(tmp_path / "tcp", _row("0100007F", 4532))
     original_read_text = Path.read_text
 
-    def read_text(
-        path: Path, encoding: str | None = None, errors: str | None = None
-    ) -> str:
+    def read_text(path: Path, encoding: str | None = None, errors: str | None = None) -> str:
         if str(path) == table:
             raise PermissionError("not readable")
         return original_read_text(path, encoding=encoding, errors=errors)
