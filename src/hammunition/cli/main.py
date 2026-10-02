@@ -1533,6 +1533,49 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
     return EXIT_FAILED
 
 
+#: The program the GPS tether became: its own project, installed by the
+#: `gps-tether` catalog unit (D-071 note, 2026-10-02).
+TETHER_PROGRAM = "hammunition-gps-tether"
+
+
+def installed_tether() -> str | None:
+    """The installed ``hammunition-gps-tether``, or None: on the PATH, else in
+    the operator's ``~/.local/bin`` where the venv's wrapper lands (a menu entry
+    Plasma starts has no ``~/.local/bin`` on its PATH, issue #145)."""
+    found = shutil.which(TETHER_PROGRAM)
+    if found is not None:
+        return found
+    return shutil.which(TETHER_PROGRAM, path=str(user_bin_dir(None)))
+
+
+def _tether_call_through(program: str, args: argparse.Namespace) -> int:
+    """Run the installed tether in this process's place, with the options given."""
+    if os.geteuid() == 0:
+        print(
+            "error: the GPS tether reads gpsd as any user can; run it as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    argv = [program]
+    for flag, value in (
+        ("--gpsd", args.gpsd),
+        ("--port", args.port),
+        ("--position-port", args.position_port),
+        ("--nmea-socket", args.nmea_socket),
+    ):
+        if value is not None:
+            argv += [flag, value]
+    if args.no_nmea_socket:
+        argv.append("--no-nmea-socket")
+    print(
+        f"hammunition: running {program}, installed from hammunition-gps-tether. "
+        f"Run it directly; this verb will go away in a later release.",
+        file=sys.stderr,
+        flush=True,
+    )
+    os.execv(program, argv)  # replaces this process; never returns
+
+
 def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
     """Serve gpsd's position as NMEA on 127.0.0.1 for QMapShack.  D-061.
 
@@ -1552,6 +1595,16 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
     """
     from hammunition import geoclue, gps_tether
 
+    installed = installed_tether()
+    if installed is not None:
+        return _tether_call_through(installed, args)
+    print(
+        "note: running the engine's own copy of the GPS tether. The tether is its own "
+        "project now: `hammunition install gps-tether` installs hammunition-gps-tether, "
+        "and this verb will go away in a later release.",
+        file=sys.stderr,
+        flush=True,
+    )
     try:
         port = gps_tether.PORT if args.port is None else gps_tether.serve_port(args.port)
         gpsd = gps_tether.GPSD if args.gpsd is None else gps_tether.gpsd_address(args.gpsd)
