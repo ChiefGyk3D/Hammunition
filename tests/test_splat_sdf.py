@@ -264,6 +264,26 @@ def test_a_neighbour_gained_rebuilds_the_edge_it_supplies(
     assert _converter(tmp_path, A, B).pending(manifest()) == [A, B]
 
 
+def test_a_missing_or_wrong_signal_server_link_remakes_the_square(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Final review, I1: Signal-Server reads a missing file as sea level, so
+    a link gone or pointing elsewhere is not current."""
+    install_fakes(monkeypatch, tmp_path / "bin", _fakes(A))
+    _install_tiles(tmp_path, A)
+    conv = _converter(tmp_path, A)
+    _run(conv)
+    out = _data(tmp_path, "splat-sdf")
+    link = out / "0_1_359_360-hd.sdf.bz2"
+    link.unlink()
+    assert conv.pending(manifest()) == [A]
+    _run(conv)
+    assert link.is_symlink() and conv.current(manifest())
+    link.unlink()
+    link.symlink_to("0:1:359:0.sdf.bz2")  # the standard file, not the HD one
+    assert conv.pending(manifest()) == [A]
+
+
 def test_a_tool_that_exits_zero_and_writes_nothing_fails_the_tile_by_name(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

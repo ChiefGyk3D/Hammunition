@@ -42,6 +42,7 @@ files, sidecars and links.
 
 from __future__ import annotations
 
+import os
 import shlex
 import subprocess
 from collections.abc import Sequence
@@ -225,8 +226,9 @@ class SplatSdfConverter:
         return render_sidecar(tile, ring(tile, self.resolution.tiles))
 
     def pending(self, manifest: PackageManifest) -> list[str]:
-        """Tiles whose files are made this run: either file missing, or a
-        sidecar naming another tile, ring or converter."""
+        """Tiles whose files are made this run: either file missing, a sidecar
+        naming another tile, ring or converter, or a Signal-Server link
+        missing or naming another file."""
         out = self.data_dir(manifest)
         todo: list[str] = []
         for tile in self.resolution.tiles:
@@ -237,7 +239,14 @@ class SplatSdfConverter:
                     recorded = path.with_name(path.name + SOURCE).read_text()
                 except OSError:
                     recorded = ""
-                if not path.is_file() or path.is_symlink() or recorded != expected:
+                # The link too (final review, I1): Signal-Server reads a
+                # missing file as sea level and says nothing.
+                link = out / signal_server_name(tile, hd=hd)
+                try:
+                    linked = os.readlink(link) == path.name
+                except OSError:
+                    linked = False
+                if not path.is_file() or path.is_symlink() or recorded != expected or not linked:
                     todo.append(tile)
                     break
         return todo
