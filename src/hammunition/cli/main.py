@@ -1559,6 +1559,7 @@ def installed_tether() -> tuple[list[str], str] | None:
             "/usr/bin/env",
             f"PYTHONPATH={TETHER_TREE / 'src'}",
             "/usr/bin/python3",
+            "-P",  # no working directory on sys.path (Python 3.11+, which the tether needs)
             "-m",
             "hammunition_gps_tether",
         ]

@@ -142,6 +142,7 @@ def test_the_catalog_units_tree_is_run_in_place_with_the_archives_python(
             "/usr/bin/env",
             f"PYTHONPATH={tree / 'src'}",
             "/usr/bin/python3",
+            "-P",
             "-m",
             "hammunition_gps_tether",
         ],

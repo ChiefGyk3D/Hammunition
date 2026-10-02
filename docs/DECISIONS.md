@@ -8241,7 +8241,7 @@ assumptions came out and the rig's behaviour and tests did not move.
 The first plain service is the `gps-tether` unit: `hammunition-gps-tether`
 (its own repository) installed as the tag's source tree, a `binary` tarball
 pinned by sha256 and unpacked with `install_tree` beside skid-finder's, run in
-place by the unit with `/usr/bin/env PYTHONPATH=… /usr/bin/python3 -m
+place by the unit with `/usr/bin/env PYTHONPATH=… /usr/bin/python3 -P -m
 hammunition_gps_tether` on 127.0.0.1:10110 and :10111 (D-071 note). Pin: tag
 `v0.1.0`, commit `58d4bb7eab9fbf5c8b6e8ccce2b0f3178b17d44e`, tarball sha256
 `a707794b330b2127d458ff0741f3a9a506689b4e60b25de3926a4c7e9f76b90a` (fetched

@@ -29,7 +29,7 @@ categories: [navigation-maps, gps-gnss]
 #
 # The tree is run in place with the archive's python3 and PYTHONPATH, through
 # `/usr/bin/env` so the unit's ExecStart is one absolute program and plain
-# argv words (no shell). The tether needs Python 3.11 or later, which every
+# argv words (no shell); `-P` keeps the working directory off sys.path. The tether needs Python 3.11 or later, which every
 # target but Ubuntu 22.04 and Pop!_OS 22.04 ships.
 install:
   - install:
@@ -44,7 +44,8 @@ install:
     note: >-
       The tag's source tree, installed to /usr/local/share/hammunition/gps-tether
       and handed to the operator. Nothing is built; nothing runs as root but the
-      copy.
+      copy. The tree is the operator's, so anything running as you can change the
+      program the service runs.
 
 depends: [gpsd, python3]
 
@@ -61,6 +62,7 @@ user_services:
       - /usr/bin/env
       - PYTHONPATH=/usr/local/share/hammunition/gps-tether/src
       - /usr/bin/python3
+      - -P
       - -m
       - hammunition_gps_tether
     listens:
@@ -68,7 +70,11 @@ user_services:
       - {protocol: tcp, address: 127.0.0.1, port: 10111}
     restart: on-failure
     restart_sec: 5
-    # The tether exits 1 when it refuses (a taken port, root): not retried.
+    # The tether exits 1 when it refuses (a taken port, root), so that is not
+    # retried. Exit 1 is also what an uncaught Python exception returns, so a
+    # crash is not retried either; the start limit (5 in 30 s) would have stopped
+    # a taken-port loop anyway. Upstream's own unit makes the same choice. A
+    # distinct refusal code upstream would let this be narrowed.
     restart_prevent_exit_status: [1]
 
 update:

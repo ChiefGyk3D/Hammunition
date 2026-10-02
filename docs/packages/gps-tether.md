@@ -24,7 +24,7 @@ gpsd running with a receiver that has a fix (the `station` profile's gpsd is soc
 ## How it installs
 
 - prebuilt tarball from https://github.com/ChiefGyk3D/hammunition-gps-tether/archive/refs/tags/v0.1.0.tar.gz
-  - The tag's source tree, installed to /usr/local/share/hammunition/gps-tether and handed to the operator. Nothing is built; nothing runs as root but the copy.
+  - The tag's source tree, installed to /usr/local/share/hammunition/gps-tether and handed to the operator. Nothing is built; nothing runs as root but the copy. The tree is the operator's, so anything running as you can change the program the service runs.
 
 ## What it changes on your machine
 

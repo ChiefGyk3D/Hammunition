@@ -65,6 +65,7 @@ def test_the_service_is_the_tethers_two_loopback_ports_with_no_device() -> None:
         "/usr/bin/env",
         "PYTHONPATH=/usr/local/share/hammunition/gps-tether/src",
         "/usr/bin/python3",
+        "-P",
         "-m",
         "hammunition_gps_tether",
     ]
@@ -86,7 +87,7 @@ def test_it_plans_a_user_unit_with_no_station_and_no_hardware_catalog() -> None:
     assert svc.unit_body.startswith(header_for("gps-tether"))
     assert (
         "ExecStart=/usr/bin/env PYTHONPATH=/usr/local/share/hammunition/gps-tether/src "
-        "/usr/bin/python3 -m hammunition_gps_tether\n"
+        "/usr/bin/python3 -P -m hammunition_gps_tether\n"
     ) in svc.unit_body
     assert "RestartPreventExitStatus=1\n" in svc.unit_body
     assert "Restart=on-failure" in svc.unit_body and "RestartSec=5" in svc.unit_body
@@ -158,3 +159,16 @@ def test_the_engine_refuses_the_zero_digest_at_plan_time_by_name() -> None:
 
     pinned = _wheel_unit("ab" * 32)
     assert _check_engine_capability(pinned, pinned.install[0]) == []
+
+
+def test_the_three_places_that_name_the_tree_agree() -> None:
+    """The manifest's PYTHONPATH, the engine's call-through and the backend's
+    destination (<prefix>/share/hammunition/<unit>) are written separately; a
+    change to one must fail here."""
+    from hammunition.backends.source import DEFAULT_PREFIX
+    from hammunition.cli.main import TETHER_TREE
+
+    (svc,) = _unit().user_services
+    installed = DEFAULT_PREFIX / "share" / "hammunition" / _unit().name
+    assert installed == TETHER_TREE
+    assert f"PYTHONPATH={installed}/src" in svc.exec
