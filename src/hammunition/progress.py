@@ -40,7 +40,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import IO, Generic, TypeVar
 
-__all__ = ["CHECK_WORKERS", "Outcome", "Progress", "run_checks"]
+__all__ = ["CHECK_WORKERS", "Outcome", "Progress", "run_checks", "say"]
 
 #: How many plan-time checks are in flight at once. Four: a publisher's bucket
 #: answers four requests from one address without complaint, and the wait for
@@ -54,6 +54,28 @@ LOG_INTERVAL = 5.0
 
 T = TypeVar("T")
 R = TypeVar("R")
+
+_SAY_LOCK = threading.Lock()
+
+
+def say(line: str, stream: IO[str] | None = None) -> None:
+    """One whole line on stderr, under the same rule as :class:`Progress`:
+    spoken at a terminal or when ``HAMMUNITION_PROGRESS=1`` forces it, silent
+    otherwise. Used for a retry (#200), which can happen from any worker, so
+    it takes a lock and clears a same-line counter first on a terminal."""
+    out = stream if stream is not None else sys.stderr
+    if os.environ.get("HAMMUNITION_PROGRESS") != "1":
+        try:
+            if not out.isatty():
+                return
+        except (AttributeError, ValueError):
+            return
+    try:
+        tty = out.isatty()
+    except (AttributeError, ValueError):
+        tty = False
+    with _SAY_LOCK:
+        Progress._write(out, ("\r\033[2K" if tty else "") + line + "\n")
 
 
 class Progress:

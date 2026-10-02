@@ -223,7 +223,7 @@ class SplatSdfConverter:
         return data_root(self.prefix) / manifest.name
 
     def _expected(self, tile: str) -> str:
-        return render_sidecar(tile, ring(tile, self.resolution.tiles))
+        return render_sidecar(tile, ring(tile, self.resolution.available))
 
     def _data_current(self, out: Path, tile: str) -> bool:
         expected = self._expected(tile)
@@ -241,13 +241,13 @@ class SplatSdfConverter:
         """Tiles whose files are made this run: either file missing, a sidecar
         naming another tile, ring or converter."""
         out = self.data_dir(manifest)
-        return [tile for tile in self.resolution.tiles if not self._data_current(out, tile)]
+        return [tile for tile in self.resolution.available if not self._data_current(out, tile)]
 
     def links_to_repair(self, manifest: PackageManifest) -> list[Path]:
         """Signal-Server links missing or naming another file, only for current data."""
         out = self.data_dir(manifest)
         links: list[Path] = []
-        for tile in self.resolution.tiles:
+        for tile in self.resolution.available:
             if not self._data_current(out, tile):
                 continue
             for hd in (True, False):
@@ -331,7 +331,7 @@ class SplatSdfConverter:
                     )
                 )
         links_to_repair = set(self.links_to_repair(manifest))
-        for tile in self.resolution.tiles:
+        for tile in self.resolution.available:
             for hd in (True, False):
                 dest = out / sdf_name(tile, hd=hd)
                 link = out / signal_server_name(tile, hd=hd)
@@ -421,7 +421,7 @@ class SplatSdfConverter:
             return self.ledger.fail(key, f"{tile}: {refusal}")
         work = self.work
         neighbours = [
-            t for t in ring(tile, self.resolution.tiles) if (source / f"{t}{TIF}").is_file()
+            t for t in ring(tile, self.resolution.available) if (source / f"{t}{TIF}").is_file()
         ]
         vrt = work / "window.vrt"
         hgt = hgt_name(tile)
