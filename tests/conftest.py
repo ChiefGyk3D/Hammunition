@@ -428,3 +428,11 @@ def _no_host_dpkg_for_the_helper(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(devctl_helper, "dpkg_owner", lambda _path: None)
     monkeypatch.setattr(devctl_helper, "dpkg_owners", lambda _paths: {})
+    # Nor the permissions of the interpreter running the suite: the hosted
+    # runner's toolcache Python sits in a group-writable tree, the gate rightly
+    # refuses it (rc 2), and plan tests would pass on a dev venv and fail in CI.
+    # The gate itself is tested with injected stat functions
+    # (test_polkit_artifacts) and with explicit findings (test_cli, test_devctl_helper).
+    from hammunition.hardware import polkit
+
+    monkeypatch.setattr(polkit, "writable_including_symlink_target", lambda *a, **k: None)
