@@ -99,7 +99,7 @@ from hammunition.consent import (
     resolve_consent,
     resolve_repo_consent,
 )
-from hammunition.copernicus import CopernicusError, S3Probe
+from hammunition.copernicus import CachingTileProbe, CopernicusError, S3Probe
 from hammunition.country_boundaries import BoundarySource, CountryBoundaryError, boundary_source
 from hammunition.desktop import current_desktop, scan_sessions
 from hammunition.devctl_helper import plan_helper
@@ -3394,6 +3394,7 @@ def cmd_install(args: argparse.Namespace) -> int:
     # prints for the same reason -- each tile's size and how it is verified
     # are the disclosure. The outlines are asked once for both (D-068).
     outlines = MemoProbe(UrllibProbe())
+    terrain_tile_probe = CachingTileProbe(S3Probe(), source.fetcher.cache_dir)
     try:
         dem_resolution = resolve_station_terrain(
             plan,
@@ -3401,15 +3402,18 @@ def cmd_install(args: argparse.Namespace) -> int:
             catalog_root,
             prefix=source.prefix,
             region_probe=outlines,
-            tile_probe=S3Probe(),
+            tile_probe=terrain_tile_probe,
         )
     except CopernicusError as exc:
         print(f"error: {exc}", file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)
         refused("terrain", str(exc))
         return EXIT_UNPLANNABLE
+    finally:
+        terrain_tile_probe.flush()
     # D-068: the US Topo sheets for the same regions, each HEAD-checked
     # against the ETag the carried index lists.
+    usgs_tile_probe = CachingTileProbe(ustopo_probe(), source.fetcher.cache_dir)
     try:
         topo_resolution, topo_notes = resolve_station_topo(
             plan,
@@ -3417,13 +3421,15 @@ def cmd_install(args: argparse.Namespace) -> int:
             catalog_root,
             prefix=source.prefix,
             region_probe=outlines,
-            quad_probe=ustopo_probe(),
+            quad_probe=usgs_tile_probe,
         )
     except UstopoError as exc:
         print(f"error: {exc}", file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)
         refused("US Topo", str(exc))
         return EXIT_UNPLANNABLE
+    finally:
+        usgs_tile_probe.flush()
     # D-068, amended 2026-10-01: USGS 3DEP when the station chose it (the same
     # bucket as US Topo, so the same probe), and the Forest Service's FSTopo
     # sheets, each located through the raster gateway's one redirect.
@@ -3435,13 +3441,15 @@ def cmd_install(args: argparse.Namespace) -> int:
             prefix=source.prefix,
             source=station.elevation,
             region_probe=outlines,
-            tile_probe=ustopo_probe(),
+            tile_probe=usgs_tile_probe,
         )
     except CopernicusError as exc:
         print(f"error: {exc}", file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)
         refused("3DEP", str(exc))
         return EXIT_UNPLANNABLE
+    finally:
+        usgs_tile_probe.flush()
     try:
         fstopo_resolution, fstopo_notes = resolve_station_fstopo(
             plan,

@@ -11,6 +11,7 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Terrain tile HEAD answers are cached for six hours** (#214, **D-061**). A repeated install plan reuses successful publisher answers; failed and non-200 checks are asked again.
 - **The engine's own GPS tether copy retired; the ACMA Bunker ruling recorded**
   (**D-071** note, **D-074**, 2026-10-02). `gps_tether.py` and its tests are
   deleted: the tether is hammunition-gps-tether, installed by the `gps-tether`

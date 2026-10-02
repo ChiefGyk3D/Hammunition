@@ -32,11 +32,17 @@ Pure apart from the injected :class:`TileProbe`.
 
 from __future__ import annotations
 
+import contextlib
+import json
 import math
+import os
 import re
+import tempfile
+import threading
+import time
 import urllib.error
 import urllib.request
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -328,6 +334,119 @@ class TileFile:
 
 class TileProbe(Protocol):
     def head(self, url: str) -> tuple[int, int, str | None]: ...
+
+
+HEAD_CACHE_TTL = 6 * 60 * 60
+_HEAD_CACHE_LIMIT = 20_000
+
+
+class CachingTileProbe:
+    """A thread-safe, persistent cache for successful tile ``HEAD`` answers."""
+
+    def __init__(
+        self,
+        inner: TileProbe,
+        cache_dir: Path,
+        *,
+        now: Callable[[], float] = time.time,
+    ) -> None:
+        self.inner = inner
+        self.cache_dir = cache_dir
+        self.cache_path = cache_dir / "tile-heads.json"
+        self.now = now
+        self._lock = threading.Lock()
+        self._entries = self._read()
+        self._dirty = False
+        if self._trim():
+            self._dirty = True
+
+    def head(self, url: str) -> tuple[int, int, str | None]:
+        current = self.now()
+        with self._lock:
+            cached = self._entries.get(url)
+            if cached is not None and current - cached[3] < HEAD_CACHE_TTL:
+                return cached[0], cached[1], cached[2]
+
+        result = self.inner.head(url)
+        if result[0] == 200:
+            with self._lock:
+                self._entries[url] = (*result, int(self.now()))
+                self._trim()
+                self._dirty = True
+        return result
+
+    def flush(self) -> None:
+        """Atomically write updates once a batch of checks has completed."""
+        with self._lock:
+            if not self._dirty:
+                return
+            entries = self._read()
+            entries.update(self._entries)
+            self._entries = entries
+            self._trim()
+            self.cache_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+            descriptor, temporary = tempfile.mkstemp(prefix=".tile-heads-", dir=self.cache_dir)
+            try:
+                os.fchmod(descriptor, 0o600)
+                with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                    json.dump(
+                        {
+                            url: {
+                                "status": value[0],
+                                "size": value[1],
+                                "etag": value[2],
+                                "at": value[3],
+                            }
+                            for url, value in self._entries.items()
+                        },
+                        stream,
+                        sort_keys=True,
+                    )
+                    stream.write("\n")
+                os.replace(temporary, self.cache_path)
+            except BaseException:
+                with contextlib.suppress(OSError):
+                    os.close(descriptor)
+                with contextlib.suppress(OSError):
+                    os.unlink(temporary)
+                raise
+            self._dirty = False
+
+    def _read(self) -> dict[str, tuple[int, int, str | None, int]]:
+        try:
+            raw = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            return {}
+        if not isinstance(raw, dict):
+            return {}
+        entries: dict[str, tuple[int, int, str | None, int]] = {}
+        for url, record in raw.items():
+            if not isinstance(url, str) or not isinstance(record, dict):
+                continue
+            status, size, etag, at = (
+                record.get("status"),
+                record.get("size"),
+                record.get("etag"),
+                record.get("at"),
+            )
+            if (
+                type(status) is int
+                and status == 200
+                and type(size) is int
+                and size >= 0
+                and (etag is None or isinstance(etag, str))
+                and type(at) is int
+            ):
+                entries[url] = (status, size, etag, at)
+        return entries
+
+    def _trim(self) -> bool:
+        if len(self._entries) <= _HEAD_CACHE_LIMIT:
+            return False
+        oldest = sorted(self._entries, key=lambda url: self._entries[url][3])
+        for url in oldest[: len(oldest) - _HEAD_CACHE_LIMIT]:
+            del self._entries[url]
+        return True
 
 
 class S3Probe:

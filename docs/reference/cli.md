@@ -80,6 +80,9 @@ stdout, so `--json` and a piped plan are byte-identical to before.
 run stays silent. The tile, sheet, book and map checks run four at a time and
 report exactly as they did one at a time (**D-061**, amended 2026-10-02).
 
+Successful tile `HEAD` answers are reused from the artifacts cache for six
+hours. Non-200 answers and failed requests are not cached.
+
 No long option is accepted abbreviated, with or without `--json`:
 `--dry` is `unrecognized arguments`, never `--dry-run` (**D-059**). A CLI
 that guards installs and consent gates behind exact flags does not guess

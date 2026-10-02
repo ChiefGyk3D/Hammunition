@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from hammunition.copernicus import CachingTileProbe, HEAD_CACHE_TTL
+from hammunition.copernicus import HEAD_CACHE_TTL, CachingTileProbe
 
 URL = "https://copernicus-dem-30m.s3.amazonaws.com/test-tile"
 OK = (200, 39_000_000, '"0123456789abcdef0123456789abcdef"')
