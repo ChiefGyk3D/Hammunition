@@ -55,4 +55,24 @@ ledger at the end records each task's result and every ruling.
 
 ## Ledger
 
-Filled in as the tasks land.
+| Task | Commit | Result |
+|---|---|---|
+| Spec and plan | `50f838b` | written from the measurements of 2026-10-01 |
+| 1. Schema | `3de3388` | tests red first (enum), then green |
+| 2. `PrefixWriter.link` | `6ec27c8` | tests red first, both writer paths |
+| 3. CMake `project_file` | `b0458df` | test red first; `project_file` validated inside the tree |
+| 4. Converter | `ba3e5f9` | fakes plus a real-tools test; the real test found gdalwarp refusing the second `.hgt` (fixed by removing it between resolutions) |
+| 5. Plan and disk | `29db5df` | tests written after the wiring and passing; the converter set in `test_terrain_cli.py` updated |
+| 6. `maps splat` | `4b1e02e` | tests isolated from the machine's prefix |
+| 7. Catalog | `41d90c6` | profile plans with `splat-sdf` deferred without regions |
+| 8. Docs | `e2a431a` | link check and docs tests green |
+| 9. Real run | (no commit) | engine code over Death Valley's tile: 16.3 s, 151.2 MB, current after; SPLAT! and Signal-Server read the output |
+| 10. Merge, checks, review | `20b33bc`, `e29374f` | `make check` 0 and the suite under `unshare -r` 0 before review; the review's one Important finding (the link not checked by `pending`) fixed test-first |
+
+**Rulings made on the way** (each in the spec or D-061's amendment):
+SPLAT's own converters, not a writer of ours; `-n -32767 -d /dev/null`;
+compressed files at both resolutions; W3AXL's fork at its head, own-choice
+review; `-DCMAKE_CXX_FLAGS_RELEASE=-O2` rather than a patch; `-nothreads`
+in the guide; `antenna` as the profile, where `splat` is; Xastir recorded
+as a gap with its route, not built; the final review on sonnet (the
+maintainer's ruling of 2026-10-01).
