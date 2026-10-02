@@ -45,6 +45,7 @@ from pathlib import Path
 from ..fetch import Fetcher, MirrorPath, fetch_disclosure, record_fetch
 from ..kiwix import BookFile, KiwixError, load_book_list, load_pin_file, resolve_books
 from ..manifest.schema import KiwixBooksInstall, PackageManifest, RemoteArtifact
+from ..progress import run_checks
 from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
 from .regions import data_root, device_at, free_bytes_at
@@ -259,11 +260,13 @@ def resolve_station_books(
     """
     books = resolve_books(selection, load_book_list(catalog_root), load_pin_file(catalog_root))
     problems: list[str] = []
-    for book in books:
-        if book_current(installed / book.pin.file, book):
-            continue
+    todo = [b for b in books if not book_current(installed / b.pin.file, b)]
+    outcomes = run_checks(
+        todo, lambda book: head(book.pin.url), label="Kiwix books against download.kiwix.org"
+    )
+    for book, outcome in zip(todo, outcomes, strict=True):
         try:
-            status = head(book.pin.url)
+            status = outcome.get()
         except KiwixError as exc:
             problems.append(f"  {book.pin.id}: {exc}")
             continue

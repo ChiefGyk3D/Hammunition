@@ -108,7 +108,10 @@ def test_a_region_s_sheets_come_from_its_outline_and_each_is_located(tmp_path: P
         (BETA, _file(1230001), 22, None),
     ]
     assert notes == ()
-    assert head.asked == [map_url(1230000), _file(1230000), map_url(1230001), _file(1230001)]
+    # Four sheets at a time: the order across sheets is the scheduler's.
+    assert sorted(head.asked) == sorted(
+        [map_url(1230000), _file(1230000), map_url(1230001), _file(1230001)]
+    )
 
 
 def test_a_pin_is_used_and_a_pin_whose_size_changed_is_refused(tmp_path: Path) -> None:

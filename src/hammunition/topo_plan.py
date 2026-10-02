@@ -42,6 +42,7 @@ from .fstopo import load_pins as load_fstopo_pins
 from .geofabrik import BASE, GeofabrikError, Probe
 from .manifest.schema import DerivedDataInstall, TopoQuadsInstall
 from .plan import InstallPlan, PlannedPackage
+from .progress import run_checks
 from .ustopo import QuadIndex, UstopoError, check_quad, load_index
 
 INDEX = Path("data") / "ustopo-quads.txt"
@@ -125,13 +126,21 @@ def resolve_topo(
     wanted = {q.path: q for entry in entries for q in entry.quads}
     fetch = []
     current = []
+    todo = []
     for path in sorted(wanted):
         quad = wanted[path]
         if (installed / f"{quad.name}{TIF}").is_file():
             current.append(quad)
-            continue
+        else:
+            todo.append(quad)
+    outcomes = run_checks(
+        todo,
+        lambda quad: check_quad(quad, quad_probe),
+        label="US Topo sheets against the USGS bucket",
+    )
+    for quad, outcome in zip(todo, outcomes, strict=True):
         try:
-            check_quad(quad, quad_probe)
+            outcome.get()
         except (UstopoError, CopernicusError, OSError) as exc:
             refused.append(f"  {quad.name}: {exc}")
             continue
@@ -239,13 +248,22 @@ def resolve_fstopo(
     wanted = {q.secoord: q for entry in entries for q in entry.quads}
     fetch: list[FsQuadFile] = []
     current = []
+    todo: list[tuple[int, FsQuad]] = []
     for secoord in sorted(wanted):
         quad = wanted[secoord]
         if (installed / f"{quad.name}{TIF}").is_file():
             current.append(quad)
-            continue
+        else:
+            todo.append((secoord, quad))
+    # Each sheet is two requests (the gateway's redirect, then the file's size).
+    outcomes = run_checks(
+        todo,
+        lambda item: gateway.locate(item[0]),
+        label="FSTopo sheets against the Forest Service gateway",
+    )
+    for (secoord, quad), outcome in zip(todo, outcomes, strict=True):
         try:
-            url, size = gateway.locate(secoord)
+            url, size = outcome.get()
         except (FstopoError, OSError) as exc:
             refused.append(f"  {quad.name}: {exc}")
             continue
