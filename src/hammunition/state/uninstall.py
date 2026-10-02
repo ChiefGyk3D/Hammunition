@@ -59,6 +59,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+from hammunition.devctl_helper import (
+    ENTRY_NAME,
+    HELPER_PATH,
+    LIBDIR,
+    POLICY_PATH,
+    under_prefix,
+)
 from hammunition.manifest.schema import (
     AptInstall,
     BinaryInstall,
@@ -264,6 +271,11 @@ class RemovalPlan:
     """Unit name -> present prefix files left in place: the log does not
     attribute them, so they predate us or arrived by another road."""
 
+    kept_shared: dict[str, list[str]] = field(default_factory=dict)
+    """Unit name -> files this engine installed and left, because another
+    installed unit still needs them: the tray's device helper, which both tray
+    units install."""
+
     apt_packages: tuple[str, ...] = field(init=False)
     """The flat, sorted set the single ``apt-get remove`` will name."""
 
@@ -307,6 +319,7 @@ def plan_removal(
     already_absent: dict[str, list[str]] = {}
     artifacts: dict[str, list[ArtifactRemoval]] = {}
     left_unattributed: dict[str, list[str]] = {}
+    kept_shared: dict[str, list[str]] = {}
 
     def add(unit: str, removal: ArtifactRemoval) -> None:
         if removal.path.exists() or removal.path.is_symlink():
@@ -340,6 +353,73 @@ def plan_removal(
                 add(unit, ArtifactRemoval("binary", dest, "log", requires_root=True))
             elif dest.exists():
                 left_unattributed.setdefault(unit, []).append(str(dest))
+
+    def plan_placed(unit: str, install: BinaryInstall) -> None:
+        """What a ``binary`` block spread over the filesystem, on log evidence.
+
+        Files first, so each is un-attributed by its own ``rm -f``; then the
+        directories that held only this unit's files, which go whole.
+        """
+        for placement in install.placements:
+            dest = under_prefix(placement.dest, paths.prefix)
+            if str(dest) in attributed_files:
+                add(unit, ArtifactRemoval("binary", dest, "log", requires_root=True))
+            elif dest.exists():
+                left_unattributed.setdefault(unit, []).append(str(dest))
+        for directory in install.placement_dirs:
+            inside = directory + "/"
+            if any(
+                str(under_prefix(p.dest, paths.prefix)) in attributed_files
+                for p in install.placements
+                if p.dest.startswith(inside)
+            ):
+                add(
+                    unit,
+                    ArtifactRemoval(
+                        "tree", under_prefix(directory, paths.prefix), "log", requires_root=True
+                    ),
+                )
+        if install.devctl_helper is not None:
+            plan_helper_removal(unit)
+
+    def helper_needed_elsewhere() -> bool:
+        """Another unit, one this removal leaves, whose files are still on disk."""
+        for other, other_manifest in catalog.items():
+            if other in units:
+                continue
+            other_block = other_manifest.resolve(target.distro, target.version, target.arch)
+            other_install = other_block.install if other_block is not None else None
+            if (
+                isinstance(other_install, BinaryInstall)
+                and other_install.devctl_helper is not None
+                and any(
+                    under_prefix(p.dest, paths.prefix).is_file() for p in other_install.placements
+                )
+            ):
+                return True
+        return False
+
+    def plan_helper_removal(unit: str) -> None:
+        """The tray's device helper, removed only when this engine put it there
+        and no other tray unit that is still installed calls it."""
+        libdir = under_prefix(LIBDIR, paths.prefix)
+        entry = libdir / ENTRY_NAME
+        wrapper = under_prefix(HELPER_PATH, paths.prefix)
+        policy = Path(POLICY_PATH)
+        if str(entry) not in attributed_files:
+            # Another owner's (a .deb, the tray's own installer), or never ours.
+            if wrapper.exists():
+                left_unattributed.setdefault(unit, []).append(str(wrapper))
+            return
+        if helper_needed_elsewhere():
+            held = [str(p) for p in (wrapper, policy, libdir) if p.exists()]
+            if held:
+                kept_shared.setdefault(unit, []).extend(held)
+            return
+        for path in (wrapper, policy, entry):
+            if str(path) in attributed_files:
+                add(unit, ArtifactRemoval("binary", path, "log", requires_root=True))
+        add(unit, ArtifactRemoval("tree", libdir, "log", requires_root=True))
 
     for unit in dict.fromkeys(units):  # preserve order, drop duplicates
         manifest = catalog[unit]
@@ -429,6 +509,7 @@ def plan_removal(
                             requires_root=True,
                         ),
                     )
+                plan_placed(unit, install)
 
         elif isinstance(
             install,
@@ -515,4 +596,5 @@ def plan_removal(
         already_absent=already_absent,
         artifacts=artifacts,
         left_unattributed=left_unattributed,
+        kept_shared=kept_shared,
     )

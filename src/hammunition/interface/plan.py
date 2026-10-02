@@ -1856,7 +1856,12 @@ def build_removal_view(
         ),
         left_foreign=shown(plan.left_foreign),
         already_absent=shown(plan.already_absent),
-        not_reversed=NOT_REVERSED,
+        not_reversed=NOT_REVERSED
+        + "".join(
+            f"\nLeft in place, because another installed unit still needs it: {unit}: "
+            f"{', '.join(paths)}"
+            for unit, paths in plan.kept_shared.items()
+        ),
         commands=tuple(step_view(c, euid=euid) for c in commands),
     )
 

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: hammunition-tray-qt
-version: "0.4.0"
+version: "0.5.0"
 summary: Tray switches for parking and waking radio devices on Xfce, LXQt, LXDE, MATE and Cinnamon — the Hammunition family's own
 categories: [device-support]
 
@@ -16,56 +16,100 @@ categories: [device-support]
 desktops: [xfce, lxqt, lxde, mate, cinnamon]
 desktop_alternative: hammunition-tray
 
-# ADD. A second binary package from hammunition-tray's repository and
-# release, whose upstream is this project's own maintainer, disclosed here and
-# carried on the same terms as everything else -- a published, digest-pinned
-# artifact, measured before it was written down.
+# ADD. A second package from hammunition-tray's repository and release, whose
+# upstream is this project's own maintainer, disclosed here and carried on the
+# same terms as everything else -- a published, digest-pinned artifact,
+# measured before it was written down.
 #
-# Fetched from the v0.4.0 release on 2026-10-01: the digest below is what
-# sha256sum printed for the downloaded file and what SHA256SUMS lists for it
-# (18198 bytes). `dpkg-deb -f` gave Package hammunition-tray-qt, Version
-# 0.4.0, Architecture all, Depends python3 (>= 3.11), python3-pyqt6,
-# pkexec | policykit-1 -- unchanged from 0.3.0. `pkexec` comes first because
-# policykit-1 has no candidate on Debian 13 (apt-cache policy, 2026-09-28).
-# 0.4.0 adds the Time section (D-058): what the clock follows and the four
-# modes, read without a password and changed through one polkit prompt to
-# hammunition-devctl. The release workflow installed and removed this exact
-# .deb in a docker.io/parrotsec/core container before publishing it. Not yet
-# run on any of the desktops it lists: docs/reference/vm-campaign-desktops.md
-# is that check.
+# Pinned to the v0.5.0 tag's source archive for the reason hammunition-tray
+# gives (no .deb published yet); this unit places what the .deb would have:
+# /usr/local/bin/hammunition-tray-qt, its Python package under
+# /usr/share/hammunition-tray-qt (the script's own path: it puts that
+# directory on the import path, so it cannot move), an application menu entry,
+# an autostart entry in /etc/xdg/autostart (not shown in Plasma), and two icons
+# under /usr/share/icons/hicolor. The archive and its digest are the ones
+# hammunition-tray's comment measured. `depends` is the .deb's Depends line
+# (python3-pyqt6, and pkexec first because policykit-1 has no candidate on
+# Debian 13, apt-cache policy, 2026-09-28). Not yet run on any of the desktops
+# it lists: docs/reference/vm-campaign-desktops.md is that check.
+depends: [python3-pyqt6, pkexec]
+
 install:
   - install:
       method: binary
       artifact:
-        url: https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.4.0/hammunition-tray-qt_0.4.0_all.deb
-        sha256: 21ccc91e2f8a46a5213c9200fc0f33661d2075bfaee360cc50b0158981a46527
-      format: deb
-      deb_package: hammunition-tray-qt
+        url: https://github.com/ChiefGyk3D/hammunition-tray/archive/refs/tags/v0.5.0.tar.gz
+        sha256: 614148fb4241e88ca007885d01ef97d0752c8cd47b6e57337e2ee12ab3bfc438
+      format: tarball
+      placement_dirs:
+        - /usr/share/hammunition-tray-qt
+      placements:
+        - source: qt/hammunition_tray_qt/__init__.py
+          dest: /usr/share/hammunition-tray-qt/hammunition_tray_qt/__init__.py
+        - source: qt/hammunition_tray_qt/__main__.py
+          dest: /usr/share/hammunition-tray-qt/hammunition_tray_qt/__main__.py
+        - source: qt/hammunition_tray_qt/controls.py
+          dest: /usr/share/hammunition-tray-qt/hammunition_tray_qt/controls.py
+        - source: qt/hammunition_tray_qt/logic.py
+          dest: /usr/share/hammunition-tray-qt/hammunition_tray_qt/logic.py
+        - source: qt/hammunition_tray_qt/timelogic.py
+          dest: /usr/share/hammunition-tray-qt/hammunition_tray_qt/timelogic.py
+        - source: qt/hammunition_tray_qt/tray.py
+          dest: /usr/share/hammunition-tray-qt/hammunition_tray_qt/tray.py
+        - source: qt/hammunition-tray-qt
+          dest: /usr/local/bin/hammunition-tray-qt
+          mode: "0755"
+        - source: qt/hammunition-tray-qt.desktop
+          dest: /usr/share/applications/hammunition-tray-qt.desktop
+        - source: qt/hammunition-tray-qt-autostart.desktop
+          dest: /etc/xdg/autostart/hammunition-tray-qt.desktop
+        - source: plasmoid/package/contents/icons/hammunition-devices-awake.svg
+          dest: /usr/share/icons/hicolor/scalable/apps/hammunition-tray-qt-awake.svg
+        - source: plasmoid/package/contents/icons/hammunition-devices-parked.svg
+          dest: /usr/share/icons/hicolor/scalable/apps/hammunition-tray-qt-parked.svg
+      devctl_helper:
+        modules:
+          - __init__.py
+          - __main__.py
+          - bus.py
+          - datafiles.py
+          - devctl.py
+          - devices.py
+          - linger.py
+          - polkit.py
+          - power.py
+          - radio.py
+          - rootfiles.py
+          - run.py
+          - services.py
     note: >-
-      Installs /usr/bin/hammunition-tray-qt, its Python package under
-      /usr/share/hammunition-tray-qt, an application menu entry, an autostart
-      entry in /etc/xdg/autostart (not shown in Plasma) and two icons under
-      /usr/share/icons/hicolor. It runs nothing as root itself; it calls the
-      helper, which `hammunition hardware apply` installs until a tray release
-      carries it (the `hammunition-devctl` .deb, added to this unit at the
-      re-pin; see the comment below), through /usr/bin/pkexec; the helper reads
-      the lists that command writes.
+      Spreads the tray over /usr/share/hammunition-tray-qt, /usr/local/bin,
+      /usr/share/applications, /etc/xdg/autostart (not shown in Plasma) and
+      /usr/share/icons/hicolor (each file printed in the plan), and installs
+      the device helper the menu calls, through /usr/bin/pkexec: the code under
+      /usr/local/lib/hammunition-devctl, the wrapper at
+      /usr/local/libexec/hammunition-devctl and the polkit action (the plan
+      names the interpreter the wrapper runs as root, and says when another
+      installer's helper is already there and is left alone). It runs nothing
+      as root itself.
 
-# D-056, amended 2026-10-02: the privileged helper now lives in hammunition-tray,
-# and its wrapper and polkit action are the tray repository's to install: from a
-# checkout with `install.sh`, or from the `hammunition-devctl` .deb the tray's
-# release is to carry, whose postinst writes the wrapper and which owns the
-# polkit file. THIS UNIT DECLARES NO `config_files` FOR EITHER, and must not:
-#   - the wrapper bakes in an interpreter (the engine's venv, so the helper's
-#     `time` verbs can import the engine), which a catalog file cannot name;
-#   - the polkit file is dpkg-owned in the deb route, and a catalog write over a
-#     package's file is the clash `hardware apply` avoids by its hand-over;
-#   - written against this v0.4.0 pin, which ships no helper, it would replace a
-#     working helper with one that exits 2 (review of this change, Critical).
-# At the re-pin to the tray release that ships the helper, the unit gains the
-# `hammunition-devctl` .deb as an install step (a binary deb, hash-pinned like
-# this one), disclosed in the plan like any other; tests/test_tray_unit_files.py
-# holds the absence until then.
+# THE HELPER (D-056, amended 2026-10-02). The privileged helper lives in this
+# release's archive (`devctl/`, contract 1: `docs/contract.md` at the tag) and
+# the `devctl_helper` block installs it the way the tray's own
+# `install.sh --helper-only --interpreter` does, from the same archive: the
+# code copied to /usr/local/lib/hammunition-devctl (root never runs the unpack),
+# the /bin/sh wrapper at /usr/local/libexec/hammunition-devctl with the
+# engine's own venv interpreter baked in (the helper's `time` verbs import the
+# engine), and the polkit action. All of it is printed in the plan, asked once
+# at the keyboard when the engine's venv belongs to one account (never by
+# `--yes`) and refused when any account can write it, read back with
+# `--version`, and removed by `uninstall` on the log's say-so, and only when no
+# other tray unit still needs it. It is NOT a catalog `config_files` entry:
+# the wrapper bakes in an interpreter a catalog file cannot name, and a file a
+# package owns is never written over. A helper that already answers contract 1
+# (the `hammunition-devctl` .deb, the tray's installer, an earlier tray unit)
+# is left alone and the plan says whose it is. This unit and its Qt sibling
+# carry the same block, so either installs the helper for both.
 
 update:
   probe:
@@ -98,10 +142,14 @@ documentation:
     (Xfce's Status Tray plugin, LXQt's Status Notifier, lxpanel's system
     tray). A polkit authentication agent must be running for the password
     prompt; the tray says so, and names the package, when none is.
-    `hammunition hardware apply` must have been run: it installs the
-    root helper and polkit action the menu entries call (the helper is moving
-    to hammunition-tray, whose own release will install it), and writes the device and service lists it
-    reads.
+    This unit installs the device helper and the polkit action the menu calls
+    (from the same release archive, D-056); the device and service lists it
+    reads are written by `hammunition hardware apply`, which also hands over to
+    this helper rather than writing its own. The helper runs as root through the
+    engine's own Python, so the engine's virtualenv must not be writable by any
+    account but its owner: the install asks one `yes` that `--yes` cannot
+    answer when it belongs to one account, and refuses when any account can
+    write it.
   known_problems: >-
     **Not yet run on any of the desktops it lists**; the Xubuntu and Lubuntu
     VM checklist in docs/reference/vm-campaign-desktops.md is that check.

@@ -32,13 +32,16 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from hammunition.desktop import Desktop
 
 __all__ = [
+    "PLACEMENT_ROOTS",
     "Binary",
     "ConsentGate",
+    "DevctlHelper",
     "InstallBlock",
     "ManifestError",
     "PackageManifest",
     "PinBasis",
     "PinReview",
+    "Placement",
     "ProfileManifest",
     "RiskCategory",
     "Selector",
@@ -666,12 +669,206 @@ class GitInstall(Strict):
         return self
 
 
+PLACEMENT_ROOTS: tuple[str, ...] = (
+    "/usr/local/",
+    "/usr/share/plasma/plasmoids/",
+    "/usr/share/hammunition-tray-qt/",
+    "/usr/share/icons/hicolor/",
+    "/usr/share/applications/",
+    "/etc/xdg/autostart/",
+)
+"""The only places a prebuilt tree's files may be spread to (hammunition-tray
+0.5.0, which publishes no .deb yet). Each is a directory a .deb of the same
+software would have owned, none is a place that runs anything as root, and
+``/usr/local/`` is the engine's own prefix (the planner maps it to the prefix
+it was given). A catalog is data: it names a destination from this list or it
+does not load."""
+
+PLACEMENT_MODES = frozenset({"0644", "0755"})
+
+
+class Placement(Strict):
+    """One file of an unpacked archive, installed at an absolute path.
+
+    The same shape as a ``.deb``'s file list: a source inside the tree, a
+    destination, a mode. Never a command, never a glob -- every file is named,
+    so the plan prints each one and a file upstream adds later is not installed
+    by surprise (a test compares the list with the pinned archive).
+    """
+
+    source: str = Field(description="A file inside the unpacked tree, relative to its root.")
+    dest: str = Field(
+        description=(
+            "Where it is installed: an absolute path under one of PLACEMENT_ROOTS. "
+            "Under /usr/local/ it follows the engine's prefix."
+        )
+    )
+    mode: str = "0644"
+
+    @model_validator(mode="after")
+    def _check(self) -> Placement:
+        parts = PurePosixPath(self.source).parts
+        if not parts or self.source.startswith("/") or ".." in parts:
+            raise ManifestError(
+                f"placement source {self.source!r} must be a relative path inside the "
+                f"archive, with no `..` components"
+            )
+        dest = PurePosixPath(self.dest)
+        if (
+            not self.dest.startswith("/")
+            or ".." in dest.parts
+            or "//" in self.dest
+            or self.dest.endswith("/")
+            or "\n" in self.dest
+            or "\0" in self.dest
+        ):
+            raise ManifestError(
+                f"placement dest {self.dest!r} must be a normal absolute path naming a file"
+            )
+        if not any(self.dest.startswith(root) and self.dest != root for root in PLACEMENT_ROOTS):
+            raise ManifestError(
+                f"placement dest {self.dest!r} is outside the places a prebuilt archive may be "
+                f"spread to ({', '.join(PLACEMENT_ROOTS)})"
+            )
+        if self.mode not in PLACEMENT_MODES:
+            raise ManifestError(
+                f"placement mode {self.mode!r} must be one of {sorted(PLACEMENT_MODES)}: "
+                f"nothing placed here is writable, setuid or private"
+            )
+        return self
+
+
+MODULE_FILE = re.compile(r"^[a-z_][a-z0-9_]*\.py$")
+
+
+class DevctlHelper(Strict):
+    """The privileged device helper that ships inside hammunition-tray's archive.
+
+    **A block that names an interpreter nobody wrote down.** The helper is root
+    code behind one polkit action (D-056); the engine copies it from the unpacked
+    archive to the paths the tray's contract fixes, bakes the engine's own venv
+    interpreter into the wrapper (the helper's ``time`` verbs import the
+    engine), and writes the tray's polkit action. None of those paths or that
+    interpreter is catalog data, so the block carries only what varies by pin:
+    where the code sits in the archive and which modules it has.
+    """
+
+    source: str = Field(
+        default="devctl",
+        description=(
+            "The directory in the archive holding the `hammunition-devctl` entry "
+            "script and the `hammunition_devctl/` package."
+        ),
+    )
+    modules: list[str] = Field(
+        min_length=1,
+        description=(
+            "Every module of the package, by file name. Explicit, so the plan lists "
+            "exactly the files root will run, and a test compares it with the pinned "
+            "archive."
+        ),
+    )
+    min_contract: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "The contract number (`hammunition-devctl --version`) an already-installed "
+            "helper must answer for the engine to leave it alone."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _check(self) -> DevctlHelper:
+        parts = PurePosixPath(self.source).parts
+        if not parts or self.source.startswith("/") or ".." in parts:
+            raise ManifestError(
+                f"devctl_helper source {self.source!r} must be a relative directory inside "
+                f"the archive, with no `..` components"
+            )
+        bad = [m for m in self.modules if not MODULE_FILE.match(m)]
+        if bad:
+            raise ManifestError(f"devctl_helper modules {bad!r} are not plain .py file names")
+        if len(set(self.modules)) != len(self.modules):
+            raise ManifestError("devctl_helper modules lists a file twice")
+        missing = {"__init__.py", "devctl.py"} - set(self.modules)
+        if missing:
+            raise ManifestError(
+                f"devctl_helper modules lacks {sorted(missing)}: the package cannot be "
+                f"imported, and the wrapper would answer nothing"
+            )
+        return self
+
+
 class BinaryInstall(Strict):
     """Vendor .deb, archive, or prebuilt executable."""
 
     method: Literal["binary"] = "binary"
     artifact: RemoteArtifact
     format: Literal["deb", "tarball", "zip", "executable", "appimage"]
+    placements: list[Placement] = Field(
+        default_factory=list,
+        description=(
+            "Files of the unpacked archive installed at absolute paths, as a .deb's "
+            "file list would, for an archive upstream publishes before it publishes "
+            "a package (hammunition-tray 0.5.0). Root-owned, printed one by one in "
+            "the plan, removed on uninstall on the log's attribution."
+        ),
+    )
+    placement_dirs: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Directories under PLACEMENT_ROOTS that hold nothing but this unit's "
+            "placements; uninstall removes them whole, and only when the log "
+            "attributes a placement inside them."
+        ),
+    )
+    devctl_helper: DevctlHelper | None = Field(
+        default=None,
+        description="The tray's privileged device helper, installed from this archive.",
+    )
+
+    @model_validator(mode="after")
+    def _placements_belong_to_an_archive(self) -> BinaryInstall:
+        if not (self.placements or self.placement_dirs or self.devctl_helper):
+            return self
+        if self.format not in ("tarball", "zip"):
+            raise ManifestError(
+                f"placements, placement_dirs and devctl_helper unpack an archive; "
+                f"format: {self.format} has none (a .deb places its own files)"
+            )
+        dests = [p.dest for p in self.placements]
+        twice = sorted({d for d in dests if dests.count(d) > 1})
+        if twice:
+            raise ManifestError(f"placements would install {', '.join(twice)} twice")
+        for directory in self.placement_dirs:
+            inside = directory.rstrip("/") + "/"
+            if (
+                not directory.startswith("/")
+                or ".." in PurePosixPath(directory).parts
+                or directory.endswith("/")
+                or not any(
+                    directory.startswith(root) or directory + "/" == root
+                    for root in PLACEMENT_ROOTS
+                )
+            ):
+                raise ManifestError(
+                    f"placement_dirs {directory!r} must be a directory below one of "
+                    f"{', '.join(PLACEMENT_ROOTS)}"
+                )
+            leaf = PurePosixPath(directory).name
+            if "hammunition" not in leaf and "chiefgyk3d" not in leaf:
+                raise ManifestError(
+                    f"placement_dirs {directory!r} is not named for this project: a directory "
+                    f"removed whole must be one nothing else shares (a hicolor `apps` directory "
+                    f"holds every program's icons)"
+                )
+            if not any(d.startswith(inside) for d in dests):
+                raise ManifestError(
+                    f"placement_dirs {directory!r} holds none of this unit's placements; "
+                    f"uninstall would remove a directory nothing here put there"
+                )
+        return self
+
     deb_package: str | None = Field(
         default=None,
         description=(

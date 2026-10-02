@@ -660,13 +660,15 @@ def _check_engine_capability(
             block.install.format != "deb"
             and not effective_binaries(manifest, block)
             and not block.install.install_tree
+            and not block.install.placements
+            and block.install.devctl_helper is None
         ):
             found.append(
                 Blocker(
                     subject=manifest.name,
                     reason=(
-                        "is a prebuilt archive or executable that names no `binaries` "
-                        "and no `install_tree`"
+                        "is a prebuilt archive or executable that names no `binaries`, "
+                        "no `install_tree`, no `placements` and no `devctl_helper`"
                     ),
                     remedy=(
                         "declare what the artifact contains and what it should be called; "

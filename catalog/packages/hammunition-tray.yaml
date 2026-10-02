@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: hammunition-tray
-version: "0.4.0"
+version: "0.5.0"
 summary: KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own
 categories: [device-support]
 
@@ -20,48 +20,101 @@ desktop_alternative: hammunition-tray-qt
 # else -- a published, digest-pinned artifact, measured before it was written
 # down.
 #
-# Upstream publishes an arch-independent .deb per release beside SHA256SUMS.
-# Fetched from the v0.4.0 release on 2026-10-01: the digest below is what
-# sha256sum printed for the downloaded file and what SHA256SUMS lists for it
-# (15270 bytes). `dpkg-deb -f` gave Package hammunition-tray, Version 0.4.0,
-# Architecture all, Depends plasma-workspace (>= 4:6),
-# qml6-module-org-kde-plasma-plasma5support, qml6-module-org-kde-kirigami,
-# qml6-module-org-kde-notifications -- unchanged from 0.3.0, each measured on
-# Parrot 7.3 as the package shipping a QML module the applet imports. 0.4.0
-# adds the Time section (D-058): what the clock follows and the four modes,
-# read without a password and changed through one polkit prompt to
-# hammunition-devctl. The release workflow installed and removed this exact
-# .deb in a docker.io/parrotsec/core container before publishing it.
+# 0.5.0 is the first release that carries the device helper (D-056), and its
+# release workflow had not published the .deb assets when this was pinned (the
+# Parrot mirror it builds in answered 502), so this pins the tag's source
+# archive instead and places its files the way the .deb would have: the
+# Plasma applet under /usr/share/plasma/plasmoids/ and its icon under
+# /usr/share/icons/hicolor/. Measured 2026-10-02: tag v0.5.0 is the annotated
+# tag whose commit is b49e342b4c6883f6de061c5e6d66946ea53bdf8f
+# (`git ls-remote`); the archive's digest below is what sha256sum printed on
+# two separate downloads and what the engine's fetcher verified on a third;
+# 190444 bytes, one top-level directory. When the release publishes its .deb
+# and SHA256SUMS this unit can go back to the .deb and the `placements` go.
+#
+# `depends` is what the .deb's Depends line was (plasma-workspace (>= 4:6) and
+# the three QML modules the applet imports, each measured on Parrot 7.3 as the
+# package shipping a module the applet loads), because installing from the
+# archive no longer has apt to pull them in.
+depends: [plasma-workspace, qml6-module-org-kde-plasma-plasma5support, qml6-module-org-kde-kirigami, qml6-module-org-kde-notifications, pkexec]
+
 install:
   - install:
       method: binary
       artifact:
-        url: https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.4.0/hammunition-tray_0.4.0_all.deb
-        sha256: 451bea9322376dbb9cd00834834f96e0f5d5ce487735d5fbe2349e2ae41e97bd
-      format: deb
-      deb_package: hammunition-tray
+        url: https://github.com/ChiefGyk3D/hammunition-tray/archive/refs/tags/v0.5.0.tar.gz
+        sha256: 614148fb4241e88ca007885d01ef97d0752c8cd47b6e57337e2ee12ab3bfc438
+      format: tarball
+      placement_dirs:
+        - /usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices
+      placements:
+        - source: plasmoid/package/contents/config/config.qml
+          dest: /usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices/contents/config/config.qml
+        - source: plasmoid/package/contents/config/main.xml
+          dest: /usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices/contents/config/main.xml
+        - source: plasmoid/package/contents/icons/hammunition-devices-awake.svg
+          dest: /usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices/contents/icons/hammunition-devices-awake.svg
+        - source: plasmoid/package/contents/icons/hammunition-devices-parked.svg
+          dest: /usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices/contents/icons/hammunition-devices-parked.svg
+        - source: plasmoid/package/contents/ui/CompactRepresentation.qml
+          dest: /usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices/contents/ui/CompactRepresentation.qml
+        - source: plasmoid/package/contents/ui/FullRepresentation.qml
+          dest: /usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices/contents/ui/FullRepresentation.qml
+        - source: plasmoid/package/contents/ui/configGeneral.qml
+          dest: /usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices/contents/ui/configGeneral.qml
+        - source: plasmoid/package/contents/ui/controlslogic.js
+          dest: /usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices/contents/ui/controlslogic.js
+        - source: plasmoid/package/contents/ui/main.qml
+          dest: /usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices/contents/ui/main.qml
+        - source: plasmoid/package/contents/ui/timelogic.js
+          dest: /usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices/contents/ui/timelogic.js
+        - source: plasmoid/package/metadata.json
+          dest: /usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices/metadata.json
+        - source: plasmoid/package/contents/icons/hammunition-devices-awake.svg
+          dest: /usr/share/icons/hicolor/scalable/apps/hammunition-devices.svg
+      devctl_helper:
+        modules:
+          - __init__.py
+          - __main__.py
+          - bus.py
+          - datafiles.py
+          - devctl.py
+          - devices.py
+          - linger.py
+          - polkit.py
+          - power.py
+          - radio.py
+          - rootfiles.py
+          - run.py
+          - services.py
     note: >-
-      Installs the applet system-wide under /usr/share/plasma/plasmoids and its
-      icon under /usr/share/icons/hicolor. It runs nothing as root itself; it
-      calls the helper, which `hammunition hardware apply` installs until a tray
-      release carries it (the `hammunition-devctl` .deb, added to this unit at the
-      re-pin; see the comment below) and which reads the lists that command writes.
+      Spreads the applet over /usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices
+      and its icon into /usr/share/icons/hicolor (each file printed in the plan),
+      and installs the device helper the switches call: the code under
+      /usr/local/lib/hammunition-devctl, the wrapper at
+      /usr/local/libexec/hammunition-devctl and the polkit action (the plan
+      names the interpreter the wrapper runs as root, and says when another
+      installer's helper is already there and is left alone). The applet runs
+      nothing as root itself. Whether Plasma lists an applet placed this way
+      without a .deb is unmeasured: a bench item, not yet run.
 
-# D-056, amended 2026-10-02: the privileged helper now lives in hammunition-tray,
-# and its wrapper and polkit action are the tray repository's to install: from a
-# checkout with `install.sh`, or from the `hammunition-devctl` .deb the tray's
-# release is to carry, whose postinst writes the wrapper and which owns the
-# polkit file. THIS UNIT DECLARES NO `config_files` FOR EITHER, and must not:
-#   - the wrapper bakes in an interpreter (the engine's venv, so the helper's
-#     `time` verbs can import the engine), which a catalog file cannot name;
-#   - the polkit file is dpkg-owned in the deb route, and a catalog write over a
-#     package's file is the clash `hardware apply` avoids by its hand-over;
-#   - written against this v0.4.0 pin, which ships no helper, it would replace a
-#     working helper with one that exits 2 (review of this change, Critical).
-# At the re-pin to the tray release that ships the helper, the unit gains the
-# `hammunition-devctl` .deb as an install step (a binary deb, hash-pinned like
-# this one), disclosed in the plan like any other; tests/test_tray_unit_files.py
-# holds the absence until then.
+# THE HELPER (D-056, amended 2026-10-02). The privileged helper lives in this
+# release's archive (`devctl/`, contract 1: `docs/contract.md` at the tag) and
+# the `devctl_helper` block installs it the way the tray's own
+# `install.sh --helper-only --interpreter` does, from the same archive: the
+# code copied to /usr/local/lib/hammunition-devctl (root never runs the unpack),
+# the /bin/sh wrapper at /usr/local/libexec/hammunition-devctl with the
+# engine's own venv interpreter baked in (the helper's `time` verbs import the
+# engine), and the polkit action. All of it is printed in the plan, asked once
+# at the keyboard when the engine's venv belongs to one account (never by
+# `--yes`) and refused when any account can write it, read back with
+# `--version`, and removed by `uninstall` on the log's say-so, and only when no
+# other tray unit still needs it. It is NOT a catalog `config_files` entry:
+# the wrapper bakes in an interpreter a catalog file cannot name, and a file a
+# package owns is never written over. A helper that already answers contract 1
+# (the `hammunition-devctl` .deb, the tray's installer, an earlier tray unit)
+# is left alone and the plan says whose it is. This unit and its Qt sibling
+# carry the same block, so either installs the helper for both.
 
 update:
   probe:
@@ -89,12 +142,17 @@ documentation:
     park` and `wake` (D-056), so it does exactly what those do and nothing
     else.
   prerequisites: >-
-    KDE Plasma 6. `hammunition hardware apply` must have been run: it installs the
-    root helper and the polkit action the switches call (the helper is moving
-    to hammunition-tray, whose own release will install it), and writes the device and service lists it reads. Without them the
-    applet says "Device control is not installed" instead of showing
-    switches. A device only gets a switch when its catalog entry carries a
-    power_control block and it is plugged in.
+    KDE Plasma 6. This unit installs the device helper and the polkit action
+    the switches call (from the same release archive, D-056); the device and
+    service lists it reads are written by `hammunition hardware apply`, which
+    also hands over to this helper rather than writing its own. Without the
+    lists the applet shows no switches; without the helper it says "Device
+    control is not installed". A device only gets a switch when its catalog
+    entry carries a power_control block and it is plugged in. The helper runs
+    as root through the engine's own Python, so the engine's virtualenv must not
+    be writable by any account but its owner: the install asks one `yes` that
+    `--yes` cannot answer when it belongs to one account, and refuses when any
+    account can write it.
   known_problems: >-
     **KDE only.** On a machine with no Plasma session, `station` defers it
     by name and installs the rest, and `hammunition install
