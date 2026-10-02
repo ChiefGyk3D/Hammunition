@@ -16,6 +16,7 @@ packages:
   - libiio-utils
   - qttinysa
   - nanovna-saver
+  - librevna
   - gsmc
   - coil64
   - atlc
@@ -26,7 +27,8 @@ documentation:
     ST-LINK and the STM32 serial bootloader; command-line control of the ADALM2000 lab instrument, and
     libiio's tools, which find and talk to it and to a PlutoSDR; desktop
     front ends for the two instruments most likely to be on a ham's bench, the
-    tinySA spectrum analyser and the NanoVNA; and three calculators — a Smith
+    tinySA spectrum analyser and the NanoVNA, and the program for the
+    open-hardware LibreVNA, built from source; and three calculators — a Smith
     chart, a coil designer and an arbitrary transmission-line solver.
   why_together: >-
     This is the half of the hobby that happens at a bench rather than at an
@@ -47,7 +49,13 @@ documentation:
     that is not written yet. Until then, a device that works under `sudo` and
     not otherwise is a permissions problem, not a broken cable. Know your
     tinySA's input power limit before connecting it to anything transmitting —
-    it is the instrument most often destroyed on its first day.
+    it is the instrument most often destroyed on its first day. **LibreVNA-GUI
+    starts a SCPI server on TCP port 19542 on every network address, with no
+    password**, by its own default; turn it off in its Preferences unless
+    another program drives it.
   disk_footprint_hint: >-
-    Around 250 MB. The Qt front ends for the tinySA and NanoVNA are most of it;
+    Around 250 MB, before LibreVNA: its source build adds Qt 6's development
+    packages (218 packages and about 780 MB on a bare Debian 13 image,
+    measured 2026-10-01) and took 14 minutes at the lowest priority. The Qt
+    front ends for the tinySA and NanoVNA are most of the rest;
     the programmers themselves are small.
