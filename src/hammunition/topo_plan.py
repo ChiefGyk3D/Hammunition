@@ -43,7 +43,8 @@ from .geofabrik import BASE, GeofabrikError, Probe
 from .manifest.schema import DerivedDataInstall, TopoQuadsInstall
 from .plan import InstallPlan, PlannedPackage
 from .progress import run_checks
-from .ustopo import QuadIndex, UstopoError, check_quad, load_index
+from .retry import OnOutage, Outages, PublisherUnavailable, hint_for, reporter_for
+from .ustopo import Quad, QuadIndex, UstopoError, check_quad, load_index
 
 INDEX = Path("data") / "ustopo-quads.txt"
 FSTOPO_INDEX = Path("data") / "fstopo-quads.txt"
@@ -59,18 +60,29 @@ class MemoProbe:
     """A :class:`~hammunition.geofabrik.Probe` that asks each URL's text once.
 
     The terrain and the US Topo sheets both follow a region's outline; one
-    plan asks Geofabrik for it once, not once per unit. Failures are not
-    remembered, so each caller sees the error for itself."""
+    plan asks Geofabrik for it once, not once per unit. A publisher that did
+    not answer *after the retries* (:class:`~hammunition.retry.PublisherUnavailable`)
+    is remembered for the rest of the run, so each unit that needs the outline
+    is told at once and the same dead request is not retried per unit (#200);
+    any other failure is not remembered, so each caller sees the error for
+    itself."""
 
     probe: Probe
     texts: dict[str, str] = field(default_factory=dict)
+    outages: dict[str, PublisherUnavailable] = field(default_factory=dict)
 
     def head(self, url: str) -> tuple[int, int, str | None]:
         return self.probe.head(url)
 
     def text(self, url: str) -> str:
+        if url in self.outages:
+            raise self.outages[url]
         if url not in self.texts:
-            self.texts[url] = self.probe.text(url)
+            try:
+                self.texts[url] = self.probe.text(url)
+            except PublisherUnavailable as exc:
+                self.outages[url] = exc
+                raise
         return self.texts[url]
 
 
@@ -104,9 +116,15 @@ def resolve_topo(
     index: QuadIndex,
     region_probe: Probe,
     quad_probe: TileProbe,
+    on_outage: OnOutage | None = None,
 ) -> tuple[TopoResolution, tuple[str, ...]]:
     """*regions* as ``(region, slug)`` pairs resolved to the sheets they
-    need and how each is fetched, and any notes for the plan."""
+    need and how each is fetched, and any notes for the plan.
+
+    A publisher that did not answer after the retries (#200) is passed to
+    *on_outage* with the item it concerned -- a region whose outline is not
+    available, or one sheet -- and that item is left out; with no *on_outage*
+    (a unit the operator typed by name) it is refused like any other."""
     refused: list[str] = []
     notes: list[str] = []
     entries: list[RegionQuads] = []
@@ -121,11 +139,17 @@ def resolve_topo(
                     region, slug, installed=installed, index=index, probe=region_probe, notes=notes
                 )
             )
+        except PublisherUnavailable as exc:
+            if on_outage is None:
+                refused.append(f"  {region}: its outline could not be read: {exc}")
+            else:
+                on_outage(f"{region} (its outline)", exc)
         except (GeofabrikError, CopernicusError, OSError) as exc:
             refused.append(f"  {region}: its outline could not be read: {exc}")
     wanted = {q.path: q for entry in entries for q in entry.quads}
     fetch = []
     current = []
+    deferred: list[Quad] = []
     todo = []
     for path in sorted(wanted):
         quad = wanted[path]
@@ -141,6 +165,13 @@ def resolve_topo(
     for quad, outcome in zip(todo, outcomes, strict=True):
         try:
             outcome.get()
+        except PublisherUnavailable as exc:
+            if on_outage is None:
+                refused.append(f"  {quad.name}: {exc}")
+            else:
+                on_outage(quad.name, exc)
+                deferred.append(quad)
+            continue
         except (UstopoError, CopernicusError, OSError) as exc:
             refused.append(f"  {quad.name}: {exc}")
             continue
@@ -148,9 +179,14 @@ def resolve_topo(
     if refused:
         raise UstopoError(
             f"{len(refused)} US Topo item(s) could not be resolved and are not installed "
-            f"already:\n" + "\n".join(refused)
+            f"already:\n" + "\n".join(refused) + hint_for(refused)
         )
-    resolution = TopoResolution(regions=tuple(entries), fetch=tuple(fetch), current=tuple(current))
+    resolution = TopoResolution(
+        regions=tuple(entries),
+        fetch=tuple(fetch),
+        current=tuple(current),
+        deferred=tuple(deferred),
+    )
     return resolution, tuple(notes)
 
 
@@ -162,9 +198,12 @@ def resolve_station_topo(
     prefix: Path,
     region_probe: Probe,
     quad_probe: TileProbe,
+    outages: Outages | None = None,
 ) -> tuple[TopoResolution, tuple[str, ...]]:
     """The plan's US Topo sheets, or an empty resolution when it holds no
-    ``topo-quads`` unit. A missing or empty index is refused by name."""
+    ``topo-quads`` unit. A missing or empty index is refused by name. With
+    *outages*, a publisher that is not answering defers what it concerned
+    unless the operator typed the unit (#200)."""
     unit = _planned_topo(plan, "usgs-ustopo")
     if unit is None:
         return TopoResolution(), ()
@@ -178,6 +217,7 @@ def resolve_station_topo(
         index=index,
         region_probe=region_probe,
         quad_probe=quad_probe,
+        on_outage=reporter_for(outages, unit),
     )
 
 
@@ -225,10 +265,13 @@ def resolve_fstopo(
     pins: dict[int, FsPin],
     region_probe: Probe,
     gateway: GatewayProbe,
+    on_outage: OnOutage | None = None,
 ) -> tuple[FsTopoResolution, tuple[str, ...]]:
     """*regions* resolved to the FSTopo sheets they need; every sheet not
     installed is located through the gateway and sized, and checked against
-    its pin's size where it has one. Every refusal is named together."""
+    its pin's size where it has one. Every refusal is named together. A
+    publisher that did not answer after the retries goes to *on_outage* and
+    that item is left out (#200); without it, it is refused."""
     refused: list[str] = []
     notes: list[str] = []
     entries: list[RegionSheets] = []
@@ -243,10 +286,16 @@ def resolve_fstopo(
                     region, slug, installed=installed, index=index, probe=region_probe, notes=notes
                 )
             )
+        except PublisherUnavailable as exc:
+            if on_outage is None:
+                refused.append(f"  {region}: its outline could not be read: {exc}")
+            else:
+                on_outage(f"{region} (its outline)", exc)
         except (GeofabrikError, CopernicusError, OSError) as exc:
             refused.append(f"  {region}: its outline could not be read: {exc}")
     wanted = {q.secoord: q for entry in entries for q in entry.quads}
     fetch: list[FsQuadFile] = []
+    deferred: list[FsQuad] = []
     current = []
     todo: list[tuple[int, FsQuad]] = []
     for secoord in sorted(wanted):
@@ -264,6 +313,13 @@ def resolve_fstopo(
     for (secoord, quad), outcome in zip(todo, outcomes, strict=True):
         try:
             url, size = outcome.get()
+        except PublisherUnavailable as exc:
+            if on_outage is None:
+                refused.append(f"  {quad.name}: {exc}")
+            else:
+                on_outage(quad.name, exc)
+                deferred.append(quad)
+            continue
         except (FstopoError, OSError) as exc:
             refused.append(f"  {quad.name}: {exc}")
             continue
@@ -279,10 +335,13 @@ def resolve_fstopo(
     if refused:
         raise FstopoError(
             f"{len(refused)} FSTopo item(s) could not be resolved and are not installed "
-            f"already:\n" + "\n".join(refused)
+            f"already:\n" + "\n".join(refused) + hint_for(refused)
         )
     pinned = frozenset(s for s in wanted if s in pins)
-    return FsTopoResolution(tuple(entries), tuple(fetch), tuple(current), pinned), tuple(notes)
+    return (
+        FsTopoResolution(tuple(entries), tuple(fetch), tuple(current), pinned, tuple(deferred)),
+        tuple(notes),
+    )
 
 
 def installed_sheets(directory: Path) -> FsTopoResolution:
@@ -306,6 +365,7 @@ def resolve_station_fstopo(
     prefix: Path,
     region_probe: Probe,
     gateway: GatewayProbe,
+    outages: Outages | None = None,
 ) -> tuple[FsTopoResolution, tuple[str, ...]]:
     """The plan's FSTopo sheets, or nothing when it holds no ``usfs-fstopo``
     unit. A missing index or a malformed pins file is refused by name."""
@@ -337,4 +397,5 @@ def resolve_station_fstopo(
         pins=pins,
         region_probe=region_probe,
         gateway=gateway,
+        on_outage=reporter_for(outages, unit),
     )

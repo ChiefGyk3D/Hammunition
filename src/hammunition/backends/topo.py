@@ -158,11 +158,23 @@ class TopoResolution:
     """Sheets not installed yet: downloaded this run."""
     current: tuple[Quad, ...] = ()
     """Sheets already installed; nothing happens to them."""
+    deferred: tuple[Quad, ...] = ()
+    """Sheets a region needs that this run does not fetch because their
+    publisher is not answering (#200). Not downloaded and not in :attr:`quads`;
+    named in :attr:`wanted` so that an older edition already installed is
+    neither removed nor dropped from the map for want of its successor."""
 
     @property
     def quads(self) -> tuple[Quad, ...]:
         """Every sheet any region needs, by path."""
         found = {q.path: q for q in (*self.fetch, *self.current)}
+        return tuple(found[path] for path in sorted(found))
+
+    @property
+    def wanted(self) -> tuple[Quad, ...]:
+        """:attr:`quads` and the deferred sheets: what the maps are built over
+        and what removal must not touch."""
+        found = {q.path: q for q in (*self.fetch, *self.current, *self.deferred)}
         return tuple(found[path] for path in sorted(found))
 
 
@@ -265,7 +277,7 @@ class TopoQuadsBackend:
             )
         slugs = {entry.slug for entry in self.resolution.regions} | set(self.keep)
         steps.extend(removal_steps(out, QUADS, slugs, writer))
-        wanted = [q.name for q in self.resolution.quads]
+        wanted = [q.name for q in self.resolution.wanted]
         old, replacing = replaced_steps(out, wanted, writer, "US Topo quad")
         steps.extend(removal_steps(out, TIF, set(wanted) | old, writer))
         steps.extend(replacing)
