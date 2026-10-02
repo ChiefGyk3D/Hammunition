@@ -460,9 +460,15 @@ head.
   scoped PRs; CI's PR-only job (commit claims) runs on every one. **Pin
   reviews and udev rule citations are weekly, not per-PR** — the citation
   check needs a ~264 MB archive sweep and the pin check needs the network —
-  so a PR that changes a hardware citation or a pin has not been checked
-  until `gh workflow run ci.yml --ref <branch>` says so; do that before
-  calling it green. A PR is merged by the maintainer, never by the author of
+  so a PR that changes a hardware citation has not been checked until
+  `gh workflow run ci.yml --ref <branch>` says so; do that before calling it
+  green. **A changed git pin is the exception and is checked per PR:** the
+  `changed git pins resolve upstream` job runs
+  `scripts/check_pin_reviews.py --verify-refs --only <manifests the diff
+  changed>` (network, that job alone), because three correct pins were
+  reported missing after v0.19.0 by a faulty check, found a week late.
+  Locally, run the same command on a manifest you touched before pushing. A PR
+  is merged by the maintainer, never by the author of
   the branch on their own say-so. `main` is tagged at releases; releases are
   annotated tags, and signed once a signing key is configured on the
   maintainer's machine (v0.7.0 is not — no key existed).

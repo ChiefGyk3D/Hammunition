@@ -11,6 +11,19 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Fix: the weekly ref check reported three correct pins as missing; changed
+  pins are now verified per pull request** (**D-024**, **D-031**; affects the
+  report on v0.19.0, not its installs). `check_pin_reviews.py --verify-refs`
+  compared the tag object's id (what `FETCH_HEAD` is after fetching an
+  *annotated* tag) with the pinned commit, so `librevna` v1.6.5, `nrsc5` v3.2.0
+  and `pihpsdr` v3.0 failed it although each pin is exactly the commit the tag
+  peels to. The install checks out `FETCH_HEAD` and compares `rev-parse HEAD`,
+  the commit, so it was never affected; the check now peels with `^{commit}`
+  and a test with an annotated tag proves it (red before, green after). It also
+  now rejects a pin that is the tag object's id. New `--only` flag (needs `--verify-refs`, skips the calendar review) and a
+  pull-request job, `changed git pins resolve upstream`, run the check for the
+  manifests a diff changed. No manifest changed.
+
 - **A publisher outage at plan time retries, then defers by name instead of
   refusing the install** (#200, **D-039** amended 2026-10-02). `install
   navigation --dry-run` refused whole over a Geofabrik outline answering 502, one
