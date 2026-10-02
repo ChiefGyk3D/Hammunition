@@ -54,6 +54,7 @@ from .backends.garmin import MKGMAP_HEAP, SPLITTER_HEAP, GarminConverter
 from .backends.gdal_dem import GdalDemConverter
 from .backends.regions import MapLedger, MapResolution, data_root
 from .backends.routino import RoutinoConverter, Source
+from .backends.splat_sdf import SplatSdfConverter
 from .backends.staging import Staging
 from .backends.terrain import TerrainLedger, TerrainWork, terrain_needs
 from .backends.topo import TopoDisclosure, TopoQuadsBackend, TopoResolution
@@ -333,13 +334,22 @@ def resolve_station_terrain(
     )
 
 
+def _alternative(plan: InstallPlan, converter: str) -> str | None:
+    planned = _planned(plan, DerivedDataInstall, converter)
+    if planned is None or not isinstance(planned.block.install, DerivedDataInstall):
+        return None
+    return planned.block.install.alternative
+
+
 def contour_source(plan: InstallPlan) -> str | None:
     """The ``dem-tiles`` unit the planned ``gdal-dem`` block names as its
     ``alternative`` (D-068, amended 2026-10-01), or None."""
-    gdal = _planned(plan, DerivedDataInstall, "gdal-dem")
-    if gdal is None or not isinstance(gdal.block.install, DerivedDataInstall):
-        return None
-    return gdal.block.install.alternative
+    return _alternative(plan, "gdal-dem")
+
+
+def splat_source(plan: InstallPlan) -> str | None:
+    """The same for the planned ``splat-sdf`` block (D-061, amended 2026-10-02)."""
+    return _alternative(plan, "splat-sdf")
 
 
 def brouter_pins(plan: InstallPlan) -> InputPins:
@@ -373,6 +383,7 @@ class TerrainRun:
     topo: TopoQuadsBackend
     mosaic: UstopoMosaicConverter
     brouter: BRouterConverter
+    splat: SplatSdfConverter
     dem_source: str = "copernicus"
     """The station's ``dem_source`` this run (D-068, amended 2026-10-01)."""
 
@@ -384,6 +395,7 @@ class TerrainRun:
             "gdal-dem": self.gdal,
             "ustopo-mosaic": self.mosaic,
             "brouter-mapcreator": self.brouter,
+            "splat-sdf": self.splat,
         }
 
     def _topo(self, plan: InstallPlan) -> TopoDisclosure | None:
@@ -469,7 +481,10 @@ class TerrainRun:
         fstopo = self._fstopo(plan)
         bare_earth = self._bare_earth(plan)
         brouter = _planned(plan, DerivedDataInstall, "brouter-mapcreator")
-        if not (dem or garmin or routino or gdal or brouter or topo or fstopo or bare_earth):
+        splat = _planned(plan, DerivedDataInstall, "splat-sdf")
+        if not (
+            dem or garmin or routino or gdal or brouter or splat or topo or fstopo or bare_earth
+        ):
             return None
         sources = self._routino_sources(routino)
         rebuilt, tiles, squares = self._brouter_work(brouter)
@@ -496,6 +511,8 @@ class TerrainRun:
             bare_earth=bare_earth,
             fstopo=fstopo,
             elevation=self.gdal.provider,
+            splat_tiles=len(self.splat.pending(splat.manifest)) if splat is not None else 0,
+            splat_building=splat is not None and not self.splat.current(splat.manifest),
         )
 
     def _brouter_work(self, brouter: PlannedPackage | None) -> tuple[list[BRouterSource], int, int]:
@@ -539,6 +556,7 @@ class TerrainRun:
             ),
             convert=disclosed.fstopo.convert if disclosed.fstopo else (),
             elevation=disclosed.elevation,
+            splat_tiles=disclosed.splat_tiles,
         )
         return terrain_needs(
             work,
@@ -549,6 +567,7 @@ class TerrainRun:
             mosaic_staging=self.mosaic.staging.directory,
             prefix=prefix,
             brouter_staging=self.brouter.staging.directory,
+            splat_staging=self.splat.staging.directory,
         )
 
 
@@ -569,6 +588,7 @@ def build_terrain_run(
     dem_source: str = "copernicus",
     contour_source: str | None = None,
     fstopo: FsTopoResolution | None = None,
+    splat_source: str | None = None,
 ) -> TerrainRun:
     """Every piece-2 backend for one run. Each converter stages in its own
     directory under the operator's build tree and runs as the operator."""
@@ -580,6 +600,9 @@ def build_terrain_run(
     # and for regions 3DEP does not cover.
     three = bare_earth or DemResolution()
     drawn_from_3dep = chosen and contour_source is not None
+    # D-061 (amended 2026-10-02): SPLAT's terrain follows the same choice
+    # through its own block's `alternative`.
+    splat_from_3dep = chosen and splat_source is not None
     return TerrainRun(
         ledger=ledger,
         dem_source=dem_source,
@@ -638,6 +661,14 @@ def build_terrain_run(
             ledger=ledger,
             runner=runner,
             pins=pins or InputPins(),
+        ),
+        splat=SplatSdfConverter(
+            prefix=prefix,
+            resolution=three if splat_from_3dep else resolution,
+            staging=Staging(builds / "splat-sdf", owner=owner),
+            ledger=ledger,
+            runner=runner,
+            source_unit=splat_source if splat_from_3dep else None,
         ),
         # D-068: the US Topo sheets and their mosaic share the terrain ledger:
         # a sheet that did not install is named with the tiles that did not.

@@ -6,7 +6,7 @@ Named bundles of software that belong together. Flat tags with overlap, never ne
 
 | Profile | Stage | Packages | Summary |
 |---|---|---:|---|
-| [antenna](antenna.md) | 1.0 | 10 | Antenna modelling, transmission lines and coverage prediction |
+| [antenna](antenna.md) | 1.0 | 12 | Antenna modelling, transmission lines and coverage prediction |
 | [digital-modes](digital-modes.md) | 1.0 | 22 | FT8, JS8, PSK31, SSTV, digital voice and the rest of the keyboard modes |
 | [editors](editors.md) | post-1.0 | 2 | VS Code and VSCodium, opt-in, each behind its publisher's apt repository |
 | [electronics](electronics.md) | 1.0 | 14 | Bench electronics, instruments and device programmers |

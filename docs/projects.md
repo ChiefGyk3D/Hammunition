@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**308 programs and packages** from the catalog, laid out the way the
+**310 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -435,7 +435,9 @@ Satellite passes, satellite imagery and telemetry, HF propagation and the solar 
 |---|---|---|
 | [ibp](packages/ibp.md) | Shows which NCDXF/IARU beacon is transmitting right now, on which band | [pa3fwm.nl/software/ibp](http://www.pa3fwm.nl/software/ibp/) |
 | [pythonprop](packages/pythonprop.md) | Graphical front end that makes VOACAP predictions readable | [qsl.net/hz1jw/pythonprop/index.html](https://www.qsl.net/hz1jw/pythonprop/index.html) |
+| [signal-server](packages/signal-server.md) | Multi-threaded radio coverage prediction from SPLAT! terrain, on the command line | [github.com/W3AXL/Signal-Server](https://github.com/W3AXL/Signal-Server) |
 | [splat](packages/splat.md) | Terrain-aware path analysis for VHF and above, from real elevation data | [qsl.net/kd2bd/splat.html](http://www.qsl.net/kd2bd/splat.html) |
+| [splat-sdf](packages/splat-sdf.md) | SPLAT! and Signal-Server terrain, made from your map regions' elevation | [qsl.net/kd2bd/splat.html](https://www.qsl.net/kd2bd/splat.html) |
 | [voacapl](packages/voacapl.md) | The VOACAP HF propagation prediction engine, ported to Linux | [qsl.net/hz1jw/voacapl/index.html](https://www.qsl.net/hz1jw/voacapl/index.html) |
 
 ## Antennas, Bench & Programming
