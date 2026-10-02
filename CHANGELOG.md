@@ -11,6 +11,16 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **WWAN modem, Bluetooth and camera as controllable devices** (**D-056**,
+  amended 2026-10-02). Three hardware classes, `wwan-modem`,
+  `bluetooth-controller` and `camera`, each `power_control:
+  usb_deauthorize`, and four entries for the field laptop's own hardware read
+  with `lsusb`, `udevadm` and sysfs only: `dell-dw5821e` (`413c:81d7`),
+  `intel-ax210-bluetooth` (`8087:0032`), `sunplus-integrated-webcam-fhd`
+  (`1bcf:2a03`) and `dell-dw5930e`, the PCIe/MHI 5G card, carried as the
+  documented gap (`pci_runtime` stays refused; the radio switch is the
+  route). No park has been run on any of them, so none is
+  maintainer-verified. Catalog is now 31 devices, 9 classes.
 - **Australia's repeaters from the regulator** (D-074, amended
   2026-10-01). `acma-register` installs the ACMA's Register of
   Radiocommunications Licences, one 67.5 MB zip rebuilt daily, through a
