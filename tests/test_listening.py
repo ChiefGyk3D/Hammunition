@@ -62,10 +62,12 @@ def test_an_unreadable_existing_table_returns_none(
     table = _table(tmp_path / "tcp", _row("0100007F", 4532))
     original_read_text = Path.read_text
 
-    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+    def read_text(
+        path: Path, encoding: str | None = None, errors: str | None = None
+    ) -> str:
         if str(path) == table:
             raise PermissionError("not readable")
-        return original_read_text(path, *args, **kwargs)
+        return original_read_text(path, encoding=encoding, errors=errors)
 
     monkeypatch.setattr(Path, "read_text", read_text)
 
