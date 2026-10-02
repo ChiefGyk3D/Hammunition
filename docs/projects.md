@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**320 programs and packages** from the catalog, laid out the way the
+**321 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -395,6 +395,7 @@ SDR receivers and toolkits, device support, and receive-only decoders for aircra
 | [mlat-client-adsbfi](packages/mlat-client-adsbfi.md) | Contributes ADS-B timing data so a network can locate aircraft by multilateration | [github.com/adsbfi/mlat-client-adsbfi](https://github.com/adsbfi/mlat-client-adsbfi) |
 | [readsb](packages/readsb.md) | Efficient Mode S and ADS-B decoder — the maintained dump1090 successor | [github.com/adsbfi/readsb](https://github.com/adsbfi/readsb) |
 | [rtlsdr-airband](packages/rtlsdr-airband.md) | Multi-channel AM/NFM voice receiver with streaming output | [github.com/rtl-airband/RTLSDR-Airband](https://github.com/rtl-airband/RTLSDR-Airband) |
+| [tar1090](packages/tar1090.md) | The ADS-B aircraft map for readsb, served on this machine only, with no outside requests | [github.com/wiedehopf/tar1090](https://github.com/wiedehopf/tar1090) |
 
 ### Ships (AIS)
 

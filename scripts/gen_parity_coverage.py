@@ -91,8 +91,8 @@ ALIASES: dict[str, str] = {
     # SUPERSEDE #3: aa-analyzer -> flaa, both RigExpert analyser front ends.
     "aa-analyzer": "flaa",
     # SUPERSEDE #4: Virtual Radar Server -> readsb + tar1090. readsb is the
-    # decoder half and is what this catalog carries; tar1090 is a web front end
-    # and is in no target's archive.
+    # decoder half and is what this catalog carries; tar1090 is the web front
+    # end, carried as its own unit and served by `reference serve` (D-071).
     "virtual_radar_server": "readsb",
 }
 

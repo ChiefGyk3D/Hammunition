@@ -76,6 +76,7 @@ from .geofabrik import BASE, GeofabrikError, Probe, RegionFile
 from .manifest.schema import BinaryInstall, DemTilesInstall, DerivedDataInstall, TopoQuadsInstall
 from .plan import InstallPlan, PlannedPackage
 from .progress import run_checks
+from .retry import OnOutage, Outages, PublisherUnavailable, hint_for, reporter_for
 from .usgs3dep import TileRow, check_tile, tile_url
 from .usgs3dep import load_tile_list as load_threedep_list
 from .usgs3dep import tile_name as threedep_name
@@ -105,10 +106,13 @@ def resolve_terrain(
     pins: Mapping[str, TilePin],
     region_probe: Probe,
     tile_probe: TileProbe,
+    on_outage: OnOutage | None = None,
 ) -> DemResolution:
     """*regions* as ``(region, slug)`` pairs -- this run's and the kept ones --
     resolved to the tiles they need and how each is fetched. A pair named
-    twice is resolved once, so its outline is never asked for twice."""
+    twice is resolved once, so its outline is never asked for twice. A
+    publisher that did not answer after the retries goes to *on_outage* and
+    that region or tile is left out (#200); without it, it is refused."""
     refused: list[str] = []
     entries: list[RegionTiles] = []
     seen: set[tuple[str, str]] = set()
@@ -122,6 +126,11 @@ def resolve_terrain(
                     region, slug, installed=installed, tile_list=tile_list, probe=region_probe
                 )
             )
+        except PublisherUnavailable as exc:
+            if on_outage is None:
+                refused.append(f"  {region}: its outline could not be read: {exc}")
+            else:
+                on_outage(f"{region} (its outline)", exc)
         except (GeofabrikError, CopernicusError, OSError) as exc:
             refused.append(f"  {region}: its outline could not be read: {exc}")
     wanted = sorted({name for entry in entries for name in entry.tiles})
@@ -138,10 +147,18 @@ def resolve_terrain(
         return tile
 
     fetch: list[TileFile] = []
+    deferred: list[str] = []
     outcomes = run_checks(todo, check, label="terrain tiles against the Copernicus DEM bucket")
     for name, outcome in zip(todo, outcomes, strict=True):
         try:
             tile = outcome.get()
+        except PublisherUnavailable as exc:
+            if on_outage is None:
+                refused.append(f"  {name}: {exc}")
+            else:
+                on_outage(name, exc)
+                deferred.append(name)
+            continue
         except (CopernicusError, OSError) as exc:
             refused.append(f"  {name}: {exc}")
             continue
@@ -149,9 +166,14 @@ def resolve_terrain(
     if refused:
         raise CopernicusError(
             f"{len(refused)} terrain item(s) could not be resolved and are not installed "
-            f"already:\n" + "\n".join(refused)
+            f"already:\n" + "\n".join(refused) + hint_for(refused)
         )
-    return DemResolution(regions=tuple(entries), fetch=tuple(fetch), current=tuple(current))
+    return DemResolution(
+        regions=tuple(entries),
+        fetch=tuple(fetch),
+        current=tuple(current),
+        deferred=tuple(deferred),
+    )
 
 
 def resolve_bare_earth(
@@ -161,6 +183,7 @@ def resolve_bare_earth(
     tiles: Mapping[str, TileRow],
     region_probe: Probe,
     tile_probe: TileProbe,
+    on_outage: OnOutage | None = None,
 ) -> DemResolution:
     """*regions* resolved to their USGS 3DEP tiles (D-068, amended
     2026-10-01): each region's record, else its outline's squares named by
@@ -180,6 +203,12 @@ def resolve_bare_earth(
             continue
         try:
             outer, holes = parse_poly(region_probe.text(poly_url(region)))
+        except PublisherUnavailable as exc:
+            if on_outage is None:
+                refused.append(f"  {region}: its outline could not be read: {exc}")
+            else:
+                on_outage(f"{region} (its outline)", exc)
+            continue
         except (GeofabrikError, CopernicusError, OSError) as exc:
             refused.append(f"  {region}: its outline could not be read: {exc}")
             continue
@@ -191,6 +220,7 @@ def resolve_bare_earth(
     held = set(current)
     todo = [name for name in wanted if name not in held]
     fetch: list[TileFile] = []
+    deferred: list[str] = []
     absent = (
         "recorded for a region but no longer in the carried 3DEP list; "
         "scripts/gen_3dep_tiles.py --fetch regenerates it"
@@ -207,6 +237,13 @@ def resolve_bare_earth(
     for name, outcome in zip(todo, outcomes, strict=True):
         try:
             row = outcome.get()
+        except PublisherUnavailable as exc:
+            if on_outage is None:
+                refused.append(f"  {name}: {exc}")
+            else:
+                on_outage(name, exc)
+                deferred.append(name)
+            continue
         except (CopernicusError, OSError) as exc:
             refused.append(f"  {name}: {exc}")
             continue
@@ -214,9 +251,14 @@ def resolve_bare_earth(
     if refused:
         raise CopernicusError(
             f"{len(refused)} 3DEP item(s) could not be resolved and are not installed "
-            f"already:\n" + "\n".join(refused)
+            f"already:\n" + "\n".join(refused) + hint_for(refused)
         )
-    return DemResolution(regions=tuple(entries), fetch=tuple(fetch), current=tuple(current))
+    return DemResolution(
+        regions=tuple(entries),
+        fetch=tuple(fetch),
+        current=tuple(current),
+        deferred=tuple(deferred),
+    )
 
 
 THREEDEP_LIST = Path("data") / "usgs-3dep-tiles.txt"
@@ -240,6 +282,7 @@ def resolve_station_3dep(
     source: str,
     region_probe: Probe,
     tile_probe: TileProbe,
+    outages: Outages | None = None,
 ) -> tuple[DemResolution, tuple[str, ...]]:
     """The plan's 3DEP tiles and notes (D-068, amended 2026-10-01). Nothing
     unless the plan holds a ``usgs-3dep`` unit; with the station's
@@ -260,6 +303,7 @@ def resolve_station_3dep(
         tiles=tiles,
         region_probe=region_probe,
         tile_probe=tile_probe,
+        on_outage=reporter_for(outages, unit),
     )
     return resolution, ()
 
@@ -307,6 +351,7 @@ def resolve_station_terrain(
     prefix: Path,
     region_probe: Probe,
     tile_probe: TileProbe,
+    outages: Outages | None = None,
 ) -> DemResolution:
     """The plan's terrain, or an empty resolution when it holds no dem-tiles unit.
 
@@ -342,6 +387,7 @@ def resolve_station_terrain(
         pins=pins,
         region_probe=region_probe,
         tile_probe=tile_probe,
+        on_outage=reporter_for(outages, unit),
     )
 
 

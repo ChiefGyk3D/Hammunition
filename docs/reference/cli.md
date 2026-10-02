@@ -80,6 +80,26 @@ stdout, so `--json` and a piped plan are byte-identical to before.
 run stays silent. The tile, sheet, book and map checks run four at a time and
 report exactly as they did one at a time (**D-061**, amended 2026-10-02).
 
+**A publisher that does not answer.** A probe is not final on its first
+failure. On an HTTP 5xx, an HTTP 429, a connection error or a read timeout it
+is tried up to three times, waiting 1 s, 3 s and 9 s, and each retry is one
+line on stderr (under the same rule as the progress lines) naming the host and
+the attempt: `prd-tnm.s3.amazonaws.com: HTTP 503 Service Unavailable; retrying
+(attempt 2 of 3) in 1 s`. Any other 4xx is final at once. If the publisher
+still does not answer:
+
+- for a **profile member** the items it did not answer for are **deferred by
+  name** (a US Topo sheet, a terrain tile, a Kiwix book, a CoMaps map, or all of
+  a region's items in each unit that needs that region's Geofabrik outline) and
+  the rest of the plan goes ahead. They are printed under "Will NOT happen" with
+  the publisher's last answer quoted, appear in `--json` as `deferrals` entries
+  of kind `package`, are written to the transaction log and shown by `status`,
+  and one line at the foot says to run the same command again;
+- for a **unit you typed** the plan refuses, saying the publisher is not
+  answering right now. A 404 on a listed sheet is not an outage: it still
+  refuses, naming `scripts/gen_ustopo_index.py --fetch`, because the carried
+  index is stale (**D-039**, amended 2026-10-02).
+
 No long option is accepted abbreviated, with or without `--json`:
 `--dry` is `unrecognized arguments`, never `--dry-run` (**D-059**). A CLI
 that guards installs and consent gates behind exact flags does not guess
@@ -895,7 +915,7 @@ every book with its id, title, pinned file and size, licence and licence
 URL, and whether it is chosen and installed. Which books somebody reads is
 not where they are, so unlike map regions the ids are named everywhere.
 
-### `hammunition reference serve [--port N] [--position-port N]`
+### `hammunition reference serve [--port N] [--position-port N] [--readsb-json DIR]`
 
 The offline reference on one page, on **127.0.0.1 only** (**D-066**):
 
@@ -926,6 +946,7 @@ you: parsing downloaded files is the reader's business, never root's.
 |---|---|---|
 | `--port N` | `8480` | The page's port, still on 127.0.0.1; kiwix-serve takes N+1. 1024 to 65534; anything else is refused by name. |
 | `--position-port N` | `10111` | Where the map page asks the GPS tether for your position, on 127.0.0.1: the tether's own `--position-port`. 1024 to 65535. |
+| `--readsb-json DIR` | `/run/readsb` | The directory readsb writes `aircraft.json` to, which the aircraft page reads, read-only. An absolute path; a relative one is refused by name. |
 
 **The offline map (D-071).** When `vector-map-kit` is installed, the same
 server also serves the map (with no `osm-pmtiles` region installed, the
@@ -955,6 +976,32 @@ wrote with `hammunition maps infra` is served from your own overlay
 directory as `/map/overlays/infra-<id>.geojson`, listed at
 `/map/overlays.json`, and drawn as a toggled layer with its licence in the
 credit; a layer written while the server runs appears after a restart.
+
+**The aircraft map (D-071, amended 2026-10-02).** When the `tar1090` unit is
+installed, the same server serves tar1090 at `/aircraft/`: the pinned
+archive's `html/` by exact installed name, a `config.js` and an
+`hammunition-layers.js` of the engine's own, and `/aircraft/data/<name>.json`
+read from readsb's directory (a plain `name.json` of letters, digits, `_` and
+`-`, a regular file, never a link, sent `no-store`; nothing else under
+`data/`; `receiver.json` is built from readsb's own, reduced to version,
+refresh and position, so the page reads plain `aircraft.json` and never asks
+for the binary or globe forms). `/aircraft` redirects to `/aircraft/`. The page cannot call out:
+tar1090's settings for photographs, routes and overlays are off, its online
+map layers do not exist, and every response carries a Content-Security-Policy
+naming no host (`default-src 'self'`, `connect-src 'self'`, `img-src 'self'
+data: blob:`, `form-action 'none'`, `frame-ancestors 'none'`). The one base map is your PMTiles regions
+(with `vector-map-kit` and `osm-pmtiles`); without them there is none, the
+aircraft are drawn on a plain background and the page says why. The Host
+check applies. The directory is read when a request arrives, so readsb may
+start after the page. The verb prints the address, the directory and the
+basemap line:
+
+```
+  aircraft: http://127.0.0.1:8480/aircraft/  (tar1090 over readsb's JSON in /run/readsb; the basemap is your offline map)
+```
+
+A tree that is installed but whose `index.html` is not the pinned one is named
+as a warning and not served; the rest of the page goes on.
 
 With no books installed, no kiwix-serve is started and the page says how to
 choose some. With books installed and `kiwix-serve` or `kiwix-manage`

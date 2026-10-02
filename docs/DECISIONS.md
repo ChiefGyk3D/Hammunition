@@ -2591,6 +2591,67 @@ from its own package being absent unless the plan checks which list the
 name came from — so it checks, and defers only when every missing name is
 in the unit's own `packages:`.
 
+### Amendment, 2026-10-02 — a publisher that does not answer is a fourth reason (#200)
+
+D-039 listed three reasons a profile member defers, each a fact about the
+*target*. `hammunition install navigation --dry-run` refused whole with "3 US
+Topo item(s) could not be resolved" over a Geofabrik outline answering 502, a
+second outline timing out and one US Topo sheet answering 503, and the same
+command a minute later was expected to pass. A plan-time probe made one request
+and read any failure as final. One request is not a measurement, and nothing
+about the target, the catalog or the operator's request was wrong.
+
+**The rule.** A plan-time probe (every `HEAD` and outline `GET` the plan makes
+for terrain, 3DEP, US Topo, FSTopo, Kiwix and CoMaps) is tried up to three
+times on an HTTP 5xx, an HTTP 429, a connection error or a read timeout,
+waiting 1 s, 3 s and 9 s, and says so on stderr at each retry (the host and
+the attempt). Any other 4xx is final at once: a 404 on a listed sheet is the
+stale-index case and keeps its remedy (`scripts/gen_ustopo_index.py --fetch`),
+because that remedy is wrong for a 503. After the last try the probe raises
+`PublisherUnavailable` carrying the publisher's last answer. Then:
+
+- **A profile member defers what that publisher did not answer, by name.**
+  The item (one sheet, one tile, one book, one map, or one region's outline)
+  is left out, the rest of the unit and of the plan resolve, and the plan
+  prints one deferral per unit under "Will NOT happen" with the answer quoted
+  ("prd-tnm.s3.amazonaws.com answered HTTP 503"), writes it to the transaction
+  log (`kind: package`, as D-039's other deferrals), `status` shows it, and a
+  note at the foot says to run the same command again. An outline that does
+  not answer defers that region's items in **every** unit that needs it and no
+  other region's.
+- **A unit the operator typed still refuses**, in full, with the publisher's
+  answer and "the publisher is not answering right now" in place of the
+  stale-index remedy, exactly as D-039 treats a typed name for a unit the
+  target lacks.
+- **Nothing installed is lost to a deferral.** A deferred sheet whose older
+  edition is installed keeps that edition (raw and warped) and the VRT still
+  draws it; a deferred terrain tile (Copernicus or 3DEP) stays in its
+  region's record and in every keep set but is left out of what contours,
+  SPLAT terrain and BRouter's elevation are drawn or built over (it is not
+  there to read); a deferred book or map suspends **all** of that unit's
+  removal of unlisted files for the run, a coarse guard that also holds back a
+  book you really did deselect until the next complete run. Without this an
+  outage would have deleted what it could not replace.
+
+**Why D-039 and not D-049.** D-049 shaped the data unit; this changes which
+failures a *profile member* defers on, which is D-039's classification and
+D-035's principle (one part of the plan does not happen, named, and the rest
+does). D-061, D-066, D-068 and D-069 keep owning what each probe checks.
+
+**Two choices recorded.** A failure is remembered for the rest of the run only
+once the retries are spent (`MemoProbe`), so three units needing one dead
+outline ask it three times in all, not nine. And a host whose probes have
+exhausted its retries three times running (an offline host, a bucket answering
+503 for everything) is asked once each, with no backoff, for the rest of the
+run, so a dead publisher costs seconds where retrying every item would cost
+minutes; a success resets it. A certificate that does not verify is final at
+once, never an outage. **Not done:** a
+deferred item is not retried later in the same run, and the Geofabrik region
+index (`resolve_map_regions`) is not under the policy, because it already keeps
+a region that is installed rather than deferring. Code `src/hammunition/retry.py`,
+`topo_plan.py`, `terrain_plan.py`; tests `tests/test_retry.py`,
+`tests/test_plan_retry.py`.
+
 ---
 
 ## D-040 — A third-party apt repository is added only against a key the manifest pins by fingerprint, only when the target's own archive offers nothing, only after the operator affirms that fingerprint, and it comes out whole on uninstall
@@ -8403,6 +8464,147 @@ with the tether (the two ports and the four GeoClue constants), and
 installed). `reference serve` validates `--position-port` with
 `reference.position_port`. The service and a foreground run cannot share
 port 10110. Not yet run as a service on a machine.
+
+---
+
+### Amendment (2026-10-02): tar1090 is a page on this server, at `/aircraft/`
+
+**Status:** accepted (the route chosen by the D.10b report, 2026-10-01; the
+maintainer asked for it to be built). **Depends on:** D-024, D-032, D-049
+(a `data` unit), D-066 (the Host check), D-039 (a missing `depends` defers
+the unit by name).
+
+tar1090, the ADS-B aircraft map for readsb, is carried as the `tar1090` data
+unit and served by `hammunition reference serve` at `/aircraft/`. Its own
+installer is not run: a root script piped from `wget` that clones `master`
+and the aircraft database, writes a lighttpd stanza (port 80, every address)
+and a systemd unit. What the page needs is its `html/` directory.
+
+**The pin (D-024).** No target's archive offers tar1090 (the seven-target
+sweep, 2026-10-01; the AUR builds `master`), and upstream publishes no tags
+and bumps its version file in every commit, so D-024's first rule has nothing
+to pin and the second applies: our own pin, the commit the page was measured
+at, `e784ee5ae82948f41efe3ef5c235ade0943ab8ff` (default branch head on
+2026-09-29, D-032; version 3.14.1823), as GitHub's archive of that commit
+(2,812,358 bytes, sha256 `aad8017d…`, downloaded twice on 2026-10-02 with
+the same digest both times). GitHub does not promise the bytes of a
+generated archive for ever; a change makes the fetch refuse on the hash, and
+the pin is then moved by hand. Licence: GPL-2.0-or-later, from its LICENSE
+("the GPL, v2 or later"); its flag icons are MIT. Only `html/` and the
+licence are kept.
+
+**The page may not call out, in three layers.** tar1090 reaches the internet
+in many places (its online tile, weather and airspace layers; aircraft
+photographs; a route service; FAA, weather and airspace overlays; a
+heywhatsthat range file): `layers.js` alone names more than thirty hosts in
+its text (attribution links included; the number depends on how the
+`{a-d}.` sub-domain templates are counted). So (1) the served `config.js` (ours; upstream's is
+all comments) sets tar1090's own switches off (`planespottersAPI`,
+`planespottingAPI`, `showPictures`, `useRouteAPI`, `routeApiUrl`, `tfrs`,
+the picture links); (2) `hammunition-layers.js`, loaded after tar1090's
+`layers.js`, replaces `createBaseLayers` so that no remote layer exists;
+(3) every response under `/aircraft/` carries a Content-Security-Policy that
+names no host (and `frame-ancestors 'none'`, so no other site can frame it),
+so the browser refuses a request to anywhere else. The tests
+show each half: the page served as upstream ships it asks `openfreemap`,
+`arcgis`, `carto` and `api.planespotters.net` for things, and that same page
+with only the policy asks nobody and the console says it was refused
+(`tests/test_aircraft_render.py`). What none of it stops is the operator
+clicking one of tar1090's outbound links (FlightAware, planespotters) in an
+aircraft's detail panel: that is a navigation they chose. Chromium's own
+form-autofill lookup to Google, started by the browser because the page has
+inputs, is the browser's and not the page's; the test turns it off, and the
+page has no way to.
+
+**The basemap.** tar1090's base map is replaced, not configured: the one base
+layer is a vector-tile layer over the station's PMTiles regions
+(`/map/tiles/*.pmtiles`, read with pmtiles.js from the `vector-map-kit`, the
+same files and the same byte-range reads as `/map/`), decoded by the
+`ol.format.MVT` already in tar1090's bundled OpenLayers and styled by a small
+style of the page's own (water, green land, boundaries, roads, place names),
+plainer than OSM Bright. Every region whose header box meets a tile
+contributes to it. The credit "© OpenMapTiles © OpenStreetMap contributors"
+is the layer's attribution. When `osm-pmtiles` is not installed there is
+**no basemap**: the base layer is an empty one, the aircraft are drawn on a
+plain background, and the page says why, in words that name the command
+(`vector-map-kit` missing, no region built, or no map installed). Nothing is
+ever fetched in its place. The map shelf's `ready` test is the one the map
+page uses, so the two pages cannot disagree about whether the kit is there.
+OpenLayers' base-layer choice is by name from browser storage, so the page
+sets `MapType_tar1090` itself.
+
+**Where the data comes from.** `/aircraft/data/<name>.json` is read from
+readsb's output directory: `/run/readsb` (Debian's service writes it there,
+measured in a `debian:13` container on 2026-10-01; `/var/run/readsb` is the
+same directory), or the directory `--readsb-json DIR` names (absolute). One
+plain name of letters, digits, `_` and `-` ending `.json`, a regular file and
+never a link (opened without following one, and checked on the descriptor),
+read-only and sent `no-store`; nothing joins a path. No `chunks/` or
+`traces/`: tar1090's history service is not run, so a track is what the page
+saw since it opened.
+
+**`receiver.json` is rewritten, to five keys.** tar1090 reads it first and
+chooses from it how to read everything else, and measured on the installed
+Debian readsb 3.14.1630 (run with no SDR, 2026-10-02) the decoder writes
+`aircraft.json` *and* `aircraft.binCraft.zst`, and the binary's own strings
+show `binCraft`, `zstd` and `globeIndexGrid` keys in the file it writes:
+tar1090 asks for `aircraft.binCraft.zst` when it sees the first two, for
+globe files on the third, and for history chunks when `history` is above one.
+None of those is served, and a page that asked would get 404s and show
+nothing (and a page with no receiver.json at all reloads itself every ten
+seconds and never draws: measured). So `/aircraft/data/receiver.json` is
+built, not relayed: `version`, `refresh` and `lat`/`lon` from readsb's file
+when it parses (validated, at most 1 MiB, never a link), `readsb` when it
+says so, `history: 0`, and nothing else; the page then reads
+`aircraft.json`, which readsb always writes. When readsb's file is missing
+or unusable but `aircraft.json` is there, defaults stand in (a dump978-fa
+JSON directory gets a page too); with no `aircraft.json` the answer is 404
+and the page asks again. The render test gives the page a receiver.json that
+says `binCraft`, `zstd` and `history: 120`, and a junk
+`aircraft.binCraft.zst`; the mutation that passes those keys through turns
+it red. The directory is read on each request:
+readsb may start after the page does.
+
+**Not carried.** `wiedehopf/tar1090-db`, the aircraft database. Upstream
+replaces its single commit regularly, so it cannot be pinned (D-024, D-032),
+and no stable hashed source was found. With no database the type, operator
+and registration columns hold only what readsb itself decoded, and the
+page's requests for `db2/` answer 404 (measured; the aircraft draw
+regardless). A published pin would add it without any engine change.
+
+**Safeguards.** The Host check of D-066 applies to every path here as to
+`/map/`; the data directory is the operator's receiver's, and a page on
+another site whose name points at 127.0.0.1 must not read what is overhead.
+The unit's `depends: [readsb]` makes it defer by name wherever readsb does
+(Ubuntu 24.04, Mint 22.3). `find_aircraft` refuses, naming the file, an
+installed tree whose `index.html` does not load `layers.js` where the pinned
+page does, because serving it unrewritten would let it ask for tiles online
+(`hammunition reference serve` then says so and serves the rest).
+
+**Measured:** in headless Chromium 154 with every host but 127.0.0.1
+unresolvable and its network log read back: with a synthetic `aircraft.json`
+and a synthetic one-tile region, both aircraft appear in the table and the
+selected one in the panel; the tile is decoded (features counted by the
+page); no request left loopback; the policy never fired; without the map the
+page says why. **Not measured:** a live readsb with an SDR (the data is
+synthetic; the installed readsb writes no `receiver.json` without a
+receiver, so the real file's contents were read only as strings in the
+binary; the earlier spike drew 21 real decoded aircraft through a static
+server); the page in Firefox; a
+real region at street zoom (the fixture has one tile at zoom 0, and the tile
+loader's zoom, header-box and several-region paths are exercised only by
+reading); the page on a phone.
+
+**Consequences.** `src/hammunition/aircraft_page.py`; the `/aircraft/`
+handler, the per-response header hook and the landing section in
+`src/hammunition/reference.py`; `--readsb-json` in `cmd_reference_serve`;
+`catalog/packages/tar1090.yaml` and its line in
+`catalog/profiles/listening.yaml`. The operator's page is
+`docs/guides/sdr.md` section 3; the CLI's is `docs/reference/cli.md`.
+Tests: `tests/test_aircraft_page.py`, `tests/test_aircraft_catalog.py`,
+`tests/test_aircraft_render.py` (local: needs Chromium and the pinned
+files, `HAMMUNITION_TAR1090_DIR` and `HAMMUNITION_MAP_KIT_DIR`, and is
+skipped by name without them).
 
 ---
 

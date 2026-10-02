@@ -16,6 +16,7 @@ packages:
   - multimon
   - dsdcc
   - readsb
+  - tar1090
   - dump978-fa
   - mlat-client-adsbfi
   - gr-air-modes

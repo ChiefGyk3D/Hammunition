@@ -11,6 +11,24 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **A publisher outage at plan time retries, then defers by name instead of
+  refusing the install** (#200, **D-039** amended 2026-10-02). `install
+  navigation --dry-run` refused whole over a Geofabrik outline answering 502, one
+  timing out and one US Topo sheet answering 503, none of which was a fault in
+  the plan. Every plan-time probe (terrain, 3DEP, US Topo, FSTopo, Kiwix, CoMaps
+  and the outlines they share) now retries an HTTP 5xx or 429, a connection
+  error and a read timeout three times, waiting 1 s, 3 s, 9 s, one stderr line
+  per retry; any other 4xx is final. A profile member's items a publisher still
+  does not answer for are deferred by name with its last answer quoted (printed
+  under "Will NOT happen", in `--json` `deferrals`, in the log and `status`), a
+  dead outline defers that region in every unit that needs it and no other, and
+  a line at the foot says to run the command again; a unit you typed refuses,
+  saying the publisher is not answering rather than naming the stale-index
+  remedy, which a 404 keeps. A deferred sheet leaves its older edition
+  installed, and a deferred book or map suspends the unit's removals for the
+  run. New `hammunition.retry`; tests `tests/test_retry.py`,
+  `tests/test_plan_retry.py`.
+
 - **The engine's own GPS tether copy retired; the ACMA Bunker ruling recorded**
   (**D-071** note, **D-074**, 2026-10-02). `gps_tether.py` and its tests are
   deleted: the tether is hammunition-gps-tether, installed by the `gps-tether`
@@ -53,6 +71,26 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   debian/copyright reading "licensed exclusively for HydraSDR products"); the
   unit's page says so and the catalog follows the LICENSE.md files (D-033).
 
+- **tar1090, the ADS-B aircraft map, as a page in `reference serve`**
+  (**D-071** amended 2026-10-02; D.10b's route). A new `tar1090` unit
+  (`listening`, depends on `readsb`, so deferred by name where readsb is) is a
+  `data` unit: GitHub's archive of upstream's commit `e784ee5` (no tags, no
+  distribution packages it: own-choice pin, D-024), sha256 pinned, `html/` and
+  the GPL-2.0-or-later licence kept. Its root `wget | bash` installer and
+  lighttpd on port 80 are not used. `hammunition reference serve` serves the
+  page at `/aircraft/` on 127.0.0.1, with `data/` read from readsb's directory
+  (`/run/readsb`, or `--readsb-json DIR`), read-only. The page cannot call
+  out: tar1090's settings for photographs, routes and overlays are switched
+  off, its online layers are replaced by the station's PMTiles map (a blank
+  background, with the reason on the page, when `osm-pmtiles` is absent), and
+  every response carries a Content-Security-Policy that names no host. The
+  page is given a reduced `receiver.json` so it reads plain `aircraft.json`
+  (readsb 3.14.1630 also writes `aircraft.binCraft.zst`, which tar1090 would
+  otherwise ask for). The aircraft database is not carried (upstream's one commit cannot be pinned).
+  Tested in headless Chromium: the aircraft appear, no request leaves
+  loopback, the same page as upstream ships it does ask other hosts, and the
+  policy alone refuses them. Not measured: a live receiver, Firefox, a real
+  region at street zoom.
 - **Docs sweep after the 2026-10-02 batch** (documentation only, no code). A
   guide for the tray's Controls panel and `hammunition services`
   (`docs/guides/tray-controls.md`); contradictions between pages resolved in

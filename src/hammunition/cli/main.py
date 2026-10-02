@@ -173,6 +173,13 @@ from hammunition.paths import (
 from hammunition.phone_plan import build_phone_run
 from hammunition.plan import NO_MAP_REGIONS, Blocker, InstallPlan, PlanError, resolve
 from hammunition.progress import Progress
+from hammunition.retry import (
+    POLICY,
+    Outages,
+    RetryingProbe,
+    reporter_for,
+    retrying_head,
+)
 from hammunition.routing_plan import build_graph_run, graphhopper_jar
 from hammunition.state import (
     RemovalError,
@@ -2829,11 +2836,19 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
     import subprocess
 
     from hammunition import reference
+    from hammunition.aircraft_page import find_aircraft
     from hammunition.backends.source import tree_destination
     from hammunition.graphhopper import GRAPH_UNIT, PROGRAM_UNIT, RouterSpec, plan_router
     from hammunition.map_page import find_map
     from hammunition.paths import owner_aware_dir
 
+    if args.readsb_json is not None and not Path(args.readsb_json).is_absolute():
+        print(
+            f"error: --readsb-json {args.readsb_json}: give an absolute directory "
+            f"(readsb's usual one is /run/readsb).",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
     try:
         port = reference.PORT if args.port is None else reference.serve_port(args.port)
         position_port = (
@@ -2860,6 +2875,17 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
 
     # D-071; the operator's infrastructure layers as overlays, D-075.
     map_shelf = find_map(data_root(DEFAULT_PREFIX), overlays=infra.overlay_dir())
+    # tar1090 (D-071, amended 2026-10-02): its page from the installed tree,
+    # reading readsb's JSON, with the offline map behind it when there is one.
+    aircraft = None
+    try:
+        aircraft = find_aircraft(
+            data_root(DEFAULT_PREFIX),
+            map_shelf,
+            json_dir=Path(args.readsb_json) if args.readsb_json else None,
+        )
+    except ValueError as exc:
+        print(f"warning: the aircraft page is not served: {exc}", file=sys.stderr)
     if shelf.books:
         missing = [t for t in ("kiwix-serve", "kiwix-manage") if shutil.which(t) is None]
         if missing:
@@ -2925,6 +2951,7 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
             router=router,
             start_router=start_router,
             routes_note=routes_note,
+            aircraft=aircraft,
         )
     except OSError as exc:
         print(
@@ -3393,7 +3420,14 @@ def cmd_install(args: argparse.Namespace) -> int:
     # D-061: terrain tiles for the same regions, resolved before the plan
     # prints for the same reason -- each tile's size and how it is verified
     # are the disclosure. The outlines are asked once for both (D-068).
-    outlines = MemoProbe(UrllibProbe())
+    #
+    # Every probe below is retried on a 5xx, a connection error or a read
+    # timeout (#200), and what a publisher still does not answer after that
+    # is deferred by name for a profile member (`outages`), refused only for
+    # a unit the operator typed.
+    outlines = MemoProbe(RetryingProbe(UrllibProbe()))
+    outages = Outages()
+    POLICY.reset()
     try:
         dem_resolution = resolve_station_terrain(
             plan,
@@ -3401,7 +3435,8 @@ def cmd_install(args: argparse.Namespace) -> int:
             catalog_root,
             prefix=source.prefix,
             region_probe=outlines,
-            tile_probe=S3Probe(),
+            tile_probe=RetryingProbe(S3Probe()),
+            outages=outages,
         )
     except CopernicusError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3417,7 +3452,8 @@ def cmd_install(args: argparse.Namespace) -> int:
             catalog_root,
             prefix=source.prefix,
             region_probe=outlines,
-            quad_probe=ustopo_probe(),
+            quad_probe=RetryingProbe(ustopo_probe()),
+            outages=outages,
         )
     except UstopoError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3435,7 +3471,8 @@ def cmd_install(args: argparse.Namespace) -> int:
             prefix=source.prefix,
             source=station.elevation,
             region_probe=outlines,
-            tile_probe=ustopo_probe(),
+            tile_probe=RetryingProbe(ustopo_probe()),
+            outages=outages,
         )
     except CopernicusError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3450,6 +3487,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             prefix=source.prefix,
             region_probe=outlines,
             gateway=GatewayProbe(),
+            outages=outages,
         )
     except FstopoError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3468,7 +3506,8 @@ def cmd_install(args: argparse.Namespace) -> int:
                 station.reference_books,
                 catalog_root,
                 installed=data_root(source.prefix) / book_units[0].name,
-                head=KiwixProbe().head,
+                head=retrying_head(KiwixProbe().head),
+                on_outage=reporter_for(outages, book_units[0]),
             )
         except KiwixError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -3476,7 +3515,13 @@ def cmd_install(args: argparse.Namespace) -> int:
             refused("reference books", str(exc))
             return EXIT_UNPLANNABLE
     books = KiwixBooksBackend(
-        fetcher=source.fetcher, prefix=source.prefix, files=book_files, runner=runner
+        fetcher=source.fetcher,
+        prefix=source.prefix,
+        files=book_files,
+        runner=runner,
+        keep_unlisted=any(o.unit == book_units[0].name for o in outages.items)
+        if book_units
+        else False,
     )
     region_notes = list(resolution.notes)
     region_notes.extend(topo_notes)
@@ -3494,7 +3539,8 @@ def cmd_install(args: argparse.Namespace) -> int:
                 station.map_regions,
                 catalog_root,
                 installed=data_root(source.prefix) / mwm_units[0].name,
-                head=CdnProbe().head,
+                head=retrying_head(CdnProbe().head),
+                on_outage=reporter_for(outages, mwm_units[0]),
             )
         except ComapsError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -3503,8 +3549,23 @@ def cmd_install(args: argparse.Namespace) -> int:
             return EXIT_UNPLANNABLE
         region_notes.extend(mwm_notes)
     mwm = ComapsMapsBackend(
-        fetcher=source.fetcher, prefix=source.prefix, files=mwm_files, runner=runner
+        fetcher=source.fetcher,
+        prefix=source.prefix,
+        files=mwm_files,
+        runner=runner,
+        keep_unlisted=any(o.unit == mwm_units[0].name for o in outages.items)
+        if mwm_units
+        else False,
     )
+    # #200: what a publisher did not answer for becomes a deferral by name in the
+    # plan (printed under "Will NOT happen", written to the transaction log, shown
+    # by `status`), and one line saying how to try again.
+    if outages:
+        plan = dataclasses.replace(plan, deferrals=(*plan.deferrals, *outages.deferrals()))
+        footer = outages.footer()
+        if footer is not None:
+            region_notes.append(footer)
+
     try:
         border, countries, border_notes = map_borders(plan, packages, catalog_root, source.prefix)
     except CountryBoundaryError as exc:
@@ -6728,6 +6789,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="where the map page asks the GPS tether for your position: 127.0.0.1 port N "
         "(default 10111, the tether's own default, D-071)",
+    )
+    p_ref_serve.add_argument(
+        "--readsb-json",
+        metavar="DIR",
+        default=None,
+        help="the directory readsb writes aircraft.json to, which the aircraft page (tar1090) "
+        "reads, read-only (default /run/readsb)",
     )
     p_ref_serve.set_defaults(func=cmd_reference_serve)
 
