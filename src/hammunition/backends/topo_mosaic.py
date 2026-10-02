@@ -233,7 +233,7 @@ class UstopoMosaicConverter:
             recorded = (out / RECORD).read_text()
         except OSError:
             return False
-        names = [q.name for q in self.resolution.quads]
+        names = [q.name for q in self.resolution.wanted]
         return recorded == render_record(names) and (out / VRT).is_file()
 
     def steps(self, manifest: PackageManifest, block: DerivedDataInstall) -> list[Action | Command]:
@@ -249,7 +249,7 @@ class UstopoMosaicConverter:
         work = self.work
         steps: list[Action | Command] = []
         pending = self.pending(manifest)
-        keep = {q.name for q in self.resolution.quads}
+        keep = {q.name for q in self.resolution.wanted}
         old, replacing = replaced_steps(out / QUADS_DIR, sorted(keep), writer, "warped quad")
         removals = [*removal_steps(out / QUADS_DIR, TIF, keep | old, writer), *replacing]
         if not keep:
@@ -400,7 +400,7 @@ class UstopoMosaicConverter:
         return f"installed {dest}; cleared {self.work}"
 
     def _vrt(self, out: Path, writer: PrefixWriter) -> str:
-        wanted = [q.name for q in self.resolution.quads]
+        wanted = [q.name for q in self.resolution.wanted]
         quads = out / QUADS_DIR
         warped: list[Path] = []
         exact = 0
@@ -505,7 +505,7 @@ class UstopoMosaicConverter:
         source = data_root(self.prefix) / block.fstopo
         writer = self.writer
         work = self.fstopo_work
-        keep = {q.name for q in self.fstopo.quads}
+        keep = {q.name for q in self.fstopo.wanted}
         old, replacing = replaced_steps(
             out / FSTOPO_DIR, sorted(keep), writer, "converted FSTopo quad"
         )
@@ -526,7 +526,7 @@ class UstopoMosaicConverter:
                 )
             return removals
         pending = self.fstopo_pending(manifest)
-        names = [q.name for q in self.fstopo.quads]
+        names = [q.name for q in self.fstopo.wanted]
         if not pending and not removals and self._fstopo_current(out, names):
             return []
         steps: list[Action | Command] = []
@@ -638,7 +638,7 @@ class UstopoMosaicConverter:
 
     def _fstopo_vrt(self, out: Path, writer: PrefixWriter) -> str:
         assert self.fstopo is not None
-        wanted = [q.name for q in self.fstopo.quads]
+        wanted = [q.name for q in self.fstopo.wanted]
         done = out / FSTOPO_DIR
         work = self.fstopo_work
         inputs: list[Path] = []

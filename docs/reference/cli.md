@@ -80,6 +80,26 @@ stdout, so `--json` and a piped plan are byte-identical to before.
 run stays silent. The tile, sheet, book and map checks run four at a time and
 report exactly as they did one at a time (**D-061**, amended 2026-10-02).
 
+**A publisher that does not answer.** A probe is not final on its first
+failure. On an HTTP 5xx, an HTTP 429, a connection error or a read timeout it
+is tried up to three times, waiting 1 s, 3 s and 9 s, and each retry is one
+line on stderr (under the same rule as the progress lines) naming the host and
+the attempt: `prd-tnm.s3.amazonaws.com: HTTP 503 Service Unavailable; retrying
+(attempt 2 of 3) in 1 s`. Any other 4xx is final at once. If the publisher
+still does not answer:
+
+- for a **profile member** the items it did not answer for are **deferred by
+  name** (a US Topo sheet, a terrain tile, a Kiwix book, a CoMaps map, or all of
+  a region's items in each unit that needs that region's Geofabrik outline) and
+  the rest of the plan goes ahead. They are printed under "Will NOT happen" with
+  the publisher's last answer quoted, appear in `--json` as `deferrals` entries
+  of kind `package`, are written to the transaction log and shown by `status`,
+  and one line at the foot says to run the same command again;
+- for a **unit you typed** the plan refuses, saying the publisher is not
+  answering right now. A 404 on a listed sheet is not an outage: it still
+  refuses, naming `scripts/gen_ustopo_index.py --fetch`, because the carried
+  index is stale (**D-039**, amended 2026-10-02).
+
 No long option is accepted abbreviated, with or without `--json`:
 `--dry` is `unrecognized arguments`, never `--dry-run` (**D-059**). A CLI
 that guards installs and consent gates behind exact flags does not guess
