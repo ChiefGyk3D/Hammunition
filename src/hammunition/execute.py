@@ -32,6 +32,7 @@ from functools import partial
 from pathlib import Path
 from typing import Protocol
 
+from hammunition import devctl_services
 from hammunition.backends import (
     Action,
     AptBackend,
@@ -77,6 +78,7 @@ from hammunition.manifest.schema import (
 from hammunition.paths import OperatorDirError, open_operator_dir, operator_for
 from hammunition.plan import InstallPlan, PlannedPackage
 from hammunition.state import RemovalPlan, TransactionLog
+from hammunition.userservice import PlannedUserService
 from hammunition.userservice import is_ours as is_user_service_ours
 
 #: One entry in a plan: a process to run, or something the engine does itself.
@@ -563,6 +565,22 @@ def user_service_steps(
                     ),
                 )
             )
+    # One row per catalog unit in the tray's list of user services, after the
+    # unit files exist (the helper reads it; nothing here runs as root).
+    by_unit: dict[str, list[PlannedUserService]] = {}
+    for svc in plan.user_services:
+        by_unit.setdefault(svc.unit, []).append(svc)
+    list_path = home / "hammunition" / devctl_services.FILE_NAME
+    for services in by_unit.values():
+        row = devctl_services.row_for(services)
+        steps.append(
+            Action(
+                kind="devctl_row",
+                description=f"List {row.name} for the tray's Services group",
+                detail=f"{list_path}, mode 0600, row {row.name!r} -> {row.unit}",
+                perform=partial(devctl_services.update_file, list_path, add=row),
+            )
+        )
     return steps
 
 
@@ -580,7 +598,11 @@ def _remove_user_unit_if_ours(path: Path) -> str:
 
 
 def user_service_removal_steps(
-    names: Sequence[str], *, home: Path, machine: str | None = None
+    names: Sequence[str],
+    *,
+    home: Path,
+    machine: str | None = None,
+    units: Sequence[str] = (),
 ) -> list[Step]:
     """Disable each named user service whose unit file exists, remove it if it
     is ours, then reload.  D-073 §6d.
@@ -615,6 +637,17 @@ def user_service_removal_steps(
             Command(
                 argv=_systemctl(machine, "daemon-reload"),
                 description="Have systemd forget the removed user service",
+            )
+        )
+    list_path = home / "hammunition" / devctl_services.FILE_NAME
+    for unit in units:
+        row_name = devctl_services.service_name(unit)
+        steps.append(
+            Action(
+                kind="devctl_row",
+                description=f"Take {row_name} out of the tray's Services group",
+                detail=f"{list_path}, its row only; the file goes when no row is left",
+                perform=partial(devctl_services.update_file, list_path, remove_name=row_name),
             )
         )
     return steps

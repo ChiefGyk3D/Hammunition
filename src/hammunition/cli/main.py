@@ -3791,11 +3791,19 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
             for svc in unit_manifest.user_services
         )
     )
+    user_service_units = list(
+        dict.fromkeys(
+            unit
+            for unit in uninstall_units
+            if (unit_manifest := packages.get(unit)) is not None and unit_manifest.user_services
+        )
+    )
     if user_service_names:
         uninstall_user = operator(args)
         commands.extend(
             user_service_removal_steps(
                 user_service_names,
+                units=user_service_units,
                 home=user_config_base(uninstall_user or None),
                 machine=(
                     uninstall_user if euid == 0 and uninstall_user not in ("", "root") else None

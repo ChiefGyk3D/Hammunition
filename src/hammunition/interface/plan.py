@@ -1524,6 +1524,7 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
 
     if view.user_services:
         lines.append("User services (D-073), run as you, not root:")
+        listed: set[str] = set()
         for svc in view.user_services:
             lines.append(f"  {svc.unit}: {svc.name}")
             lines.append(f"    writes   {svc.path}")
@@ -1554,6 +1555,12 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
                 )
                 lines.append(
                     f"             ({svc.name} is not started now: it starts at your next login)"
+                )
+            if svc.unit not in listed:
+                listed.add(svc.unit)
+                lines.append(
+                    f"    lists    ~/.config/hammunition/devctl-services.yaml, mode 0600: one row, "
+                    f"{svc.unit.removesuffix('-service')!r}, for the tray's Services group"
                 )
             lines.append(f"    reverse  hammunition uninstall {svc.unit}")
         lines.append("")

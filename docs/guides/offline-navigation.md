@@ -608,6 +608,10 @@ runs and the two ports it binds (127.0.0.1 port 10110 for NMEA and port 10111
 for the browser map), and `hammunition uninstall gps-tether` stops and removes
 it, but only a unit file that still starts with Hammunition's header.
 
+The install also lists the service for the tray's Services group, one row in
+`~/.config/hammunition/devctl-services.yaml` (mode 0600), which uninstall takes
+back out.
+
 The install enables the service and does not start it: it starts at your next
 login. (Installing again, at a newer release, restarts it if it is running and
 leaves it stopped if it is not.) To start it now:

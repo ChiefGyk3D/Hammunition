@@ -63,6 +63,7 @@ User services (D-073), run as you, not root:
     then     systemctl --user daemon-reload
              systemctl --user enable hammunition-rigctld.service
              (restart deferred: hammunition-rigctld starts when the radio's port appears)
+    lists    ~/.config/hammunition/devctl-services.yaml, mode 0600: one row, 'rig', for the tray's Services group
     reverse  hammunition uninstall rig-service
 
 Desktops read from session files (/usr/share/xsessions, /usr/share/wayland-sessions and the same under /usr/local/share):

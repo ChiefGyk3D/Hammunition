@@ -8360,6 +8360,18 @@ assumptions came out and the rig's behaviour and tests did not move.
    exit codes 1 to 255), defaulting to what every unit already had; a unit
    carries `RestartPreventExitStatus=` only when asked.
 
+5. **The tray's list.** Installing a unit with `user_services` also writes one
+   row for it, `{name, unit, scope: user, description}` (the name is the
+   catalog unit without a `-service` suffix: `gps-tether`, `rig`; the unit is
+   its first service), to `~/.config/hammunition/devctl-services.yaml`, which
+   hammunition-tray's helper reads (contract v1) to know which user services
+   it may switch. Mode 0600, written atomically through a temporary file
+   renamed over the name, header `# Written by `hammunition install` (D-073,
+   amended 2026-10-02).`, through the operator-home walk when root acts for an
+   operator; a file it cannot parse is left alone and said so. The plan
+   discloses it and uninstall removes the row, deleting the file when none is
+   left. Not yet read by the helper on a machine.
+
 The first plain service is the `gps-tether` unit: `hammunition-gps-tether`
 (its own repository) installed as the tag's source tree, a `binary` tarball
 pinned by sha256 and unpacked with `install_tree` beside skid-finder's, run in

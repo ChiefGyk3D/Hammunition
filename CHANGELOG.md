@@ -27,7 +27,10 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   with the all-zero placeholder digest is refused by name at plan time. `hammunition maps gps-tether` runs
   the installed tether when there is one (and says so) and its own copy, with a
   deprecation note, otherwise. The service and a foreground run cannot share
-  port 10110. Not yet run on a machine.
+  port 10110. Installing any `user_services` unit also writes its row to
+  `~/.config/hammunition/devctl-services.yaml` (0600), the list the tray's
+  helper reads for its Services group; uninstall removes it. Not yet run on a
+  machine.
 
 - **Australia's repeaters from the regulator** (D-074, amended
   2026-10-01). `acma-register` installs the ACMA's Register of

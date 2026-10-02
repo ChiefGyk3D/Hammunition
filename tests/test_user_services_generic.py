@@ -369,3 +369,14 @@ def test_an_interpreter_path_the_unit_file_cannot_carry_defers_instead_of_crashi
     assert deferral.subject == "gps-tether"
     assert deferral.what == "will not run hammunition-gps-tether"
     assert "whitespace" in deferral.why or "shell character" in deferral.why
+
+
+def test_the_plan_discloses_the_row_it_writes_for_the_tray_once_per_unit() -> None:
+    planned, _d, _n = plan_user_services(
+        _manifest("pair", [_PLAIN, {**_PLAIN, "name": "hammunition-other", "listens": []}]),
+        Station(),
+        None,
+    )
+    _view, text = _view_text(*planned)
+    assert text.count("devctl-services.yaml, mode 0600") == 1
+    assert "one row, 'pair'" in text
