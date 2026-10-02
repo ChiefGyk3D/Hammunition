@@ -8381,6 +8381,121 @@ machine.
 
 ---
 
+### Amendment (2026-10-02): tar1090 is a page on this server, at `/aircraft/`
+
+**Status:** accepted (the route chosen by the D.10b report, 2026-10-01; the
+maintainer asked for it to be built). **Depends on:** D-024, D-032, D-049
+(a `data` unit), D-066 (the Host check), D-039 (a missing `depends` defers
+the unit by name).
+
+tar1090, the ADS-B aircraft map for readsb, is carried as the `tar1090` data
+unit and served by `hammunition reference serve` at `/aircraft/`. Its own
+installer is not run: a root script piped from `wget` that clones `master`
+and the aircraft database, writes a lighttpd stanza (port 80, every address)
+and a systemd unit. What the page needs is its `html/` directory.
+
+**The pin (D-024).** No target's archive offers tar1090 (the seven-target
+sweep, 2026-10-01; the AUR builds `master`), and upstream publishes no tags
+and bumps its version file in every commit, so D-024's first rule has nothing
+to pin and the second applies: our own pin, the commit the page was measured
+at, `e784ee5ae82948f41efe3ef5c235ade0943ab8ff` (default branch head on
+2026-09-29, D-032; version 3.14.1823), as GitHub's archive of that commit
+(2,812,358 bytes, sha256 `aad8017d…`, downloaded twice on 2026-10-02 with
+the same digest both times). GitHub does not promise the bytes of a
+generated archive for ever; a change makes the fetch refuse on the hash, and
+the pin is then moved by hand. Licence: GPL-2.0-or-later, from its LICENSE
+("the GPL, v2 or later"); its flag icons are MIT. Only `html/` and the
+licence are kept.
+
+**The page may not call out, in three layers.** tar1090 reaches the internet
+in many places (its online tile, weather and airspace layers; aircraft
+photographs; a route service; FAA, weather and airspace overlays; a
+heywhatsthat range file): `layers.js` alone names 31 distinct hosts in its
+text (counted on the pinned tree, attribution links included). So (1) the served `config.js` (ours; upstream's is
+all comments) sets tar1090's own switches off (`planespottersAPI`,
+`planespottingAPI`, `showPictures`, `useRouteAPI`, `routeApiUrl`, `tfrs`,
+the picture links); (2) `hammunition-layers.js`, loaded after tar1090's
+`layers.js`, replaces `createBaseLayers` so that no remote layer exists;
+(3) every response under `/aircraft/` carries a Content-Security-Policy that
+names no host, so the browser refuses a request to anywhere else. The tests
+show each half: the page served as upstream ships it asks `openfreemap`,
+`arcgis`, `carto` and `api.planespotters.net` for things, and that same page
+with only the policy asks nobody and the console says it was refused
+(`tests/test_aircraft_render.py`). What none of it stops is the operator
+clicking one of tar1090's outbound links (FlightAware, planespotters) in an
+aircraft's detail panel: that is a navigation they chose. Chromium's own
+form-autofill lookup to Google, started by the browser because the page has
+inputs, is the browser's and not the page's; the test turns it off, and the
+page has no way to.
+
+**The basemap.** tar1090's base map is replaced, not configured: the one base
+layer is a vector-tile layer over the station's PMTiles regions
+(`/map/tiles/*.pmtiles`, read with pmtiles.js from the `vector-map-kit`, the
+same files and the same byte-range reads as `/map/`), decoded by the
+`ol.format.MVT` already in tar1090's bundled OpenLayers and styled by a small
+style of the page's own (water, green land, boundaries, roads, place names),
+plainer than OSM Bright. Every region whose header box meets a tile
+contributes to it. The credit "© OpenMapTiles © OpenStreetMap contributors"
+is the layer's attribution. When `osm-pmtiles` is not installed there is
+**no basemap**: the base layer is an empty one, the aircraft are drawn on a
+plain background, and the page says why, in words that name the command
+(`vector-map-kit` missing, no region built, or no map installed). Nothing is
+ever fetched in its place. The map shelf's `ready` test is the one the map
+page uses, so the two pages cannot disagree about whether the kit is there.
+OpenLayers' base-layer choice is by name from browser storage, so the page
+sets `MapType_tar1090` itself.
+
+**Where the data comes from.** `/aircraft/data/<name>.json` is read from
+readsb's output directory: `/run/readsb` (Debian's service writes it there,
+measured in a `debian:13` container on 2026-10-01; `/var/run/readsb` is the
+same directory), or the directory `--readsb-json DIR` names (absolute). One
+plain name of letters, digits, `_` and `-` ending `.json`, a regular file and
+never a link, read-only and sent `no-store`; nothing joins a path. No
+`chunks/` or `traces/`: tar1090's history service is not run, so a track is
+what the page saw since it opened. The directory is read on each request:
+readsb may start after the page does.
+
+**Not carried.** `wiedehopf/tar1090-db`, the aircraft database. Upstream
+replaces its single commit regularly, so it cannot be pinned (D-024, D-032),
+and no stable hashed source was found. With no database the type, operator
+and registration columns hold only what readsb itself decoded, and the
+page's requests for `db2/` answer 404 (measured; the aircraft draw
+regardless). A published pin would add it without any engine change.
+
+**Safeguards.** The Host check of D-066 applies to every path here as to
+`/map/`; the data directory is the operator's receiver's, and a page on
+another site whose name points at 127.0.0.1 must not read what is overhead.
+The unit's `depends: [readsb]` makes it defer by name wherever readsb does
+(Ubuntu 24.04, Mint 22.3). `find_aircraft` refuses, naming the file, an
+installed tree whose `index.html` does not load `layers.js` where the pinned
+page does, because serving it unrewritten would let it ask for tiles online
+(`hammunition reference serve` then says so and serves the rest).
+
+**Measured:** in headless Chromium 154 with every host but 127.0.0.1
+unresolvable and its network log read back: with a synthetic `aircraft.json`
+and a synthetic one-tile region, both aircraft appear in the table and the
+selected one in the panel; the tile is decoded (features counted by the
+page); no request left loopback; the policy never fired; without the map the
+page says why. **Not measured:** a live readsb (the data is synthetic; the
+shape of `aircraft.json` is what readsb writes, and the earlier spike drew
+21 real decoded aircraft through a static server); the page in Firefox; a
+real region at street zoom (the fixture has one tile at zoom 0, and the tile
+loader's zoom, header-box and several-region paths are exercised only by
+reading); the page on a phone.
+
+**Consequences.** `src/hammunition/aircraft_page.py`; the `/aircraft/`
+handler, the per-response header hook and the landing section in
+`src/hammunition/reference.py`; `--readsb-json` in `cmd_reference_serve`;
+`catalog/packages/tar1090.yaml` and its line in
+`catalog/profiles/listening.yaml`. The operator's page is
+`docs/guides/sdr.md` section 3; the CLI's is `docs/reference/cli.md`.
+Tests: `tests/test_aircraft_page.py`, `tests/test_aircraft_catalog.py`,
+`tests/test_aircraft_render.py` (local: needs Chromium and the pinned
+files, `HAMMUNITION_TAR1090_DIR` and `HAMMUNITION_MAP_KIT_DIR`, and is
+skipped by name without them).
+
+---
+
 ## D-072 — GPS time where the daemon is not ntpsec: a `chrony` unit, installed by name and never in a profile; the time daemon a machine has is the operator's to replace
 
 **Date:** 2026-09-30. **Status:** proposed (branch `gap-03-gps-time`),

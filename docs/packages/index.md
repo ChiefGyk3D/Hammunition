@@ -4,11 +4,11 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**315 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**316 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
-### `aircraft` — 11
+### `aircraft` — 12
 
 Transponder and datalink decoders, multilateration feeders, airband voice.
 
@@ -23,6 +23,7 @@ Transponder and datalink decoders, multilateration feeders, airband voice.
 - [mlat-client-adsbfi](mlat-client-adsbfi.md) — Contributes ADS-B timing data so a network can locate aircraft by multilateration
 - [readsb](readsb.md) — Efficient Mode S and ADS-B decoder — the maintained dump1090 successor
 - [rtlsdr-airband](rtlsdr-airband.md) — Multi-channel AM/NFM voice receiver with streaming output
+- [tar1090](tar1090.md) — The ADS-B aircraft map for readsb, served on this machine only, with no outside requests
 
 ### `antenna` — 11
 
@@ -1000,6 +1001,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [svxlink-gpio](svxlink-gpio.md) | Lets SvxLink key a radio and read squelch through GPIO pins | apt |
 | [svxlink-server](svxlink-server.md) | Repeater controller and EchoLink node in software | apt |
 | [svxreflector](svxreflector.md) | Conference server that links many SvxLink nodes into one talk group | apt |
+| [tar1090](tar1090.md) | The ADS-B aircraft map for readsb, served on this machine only, with no outside requests | data |
 | [tcpdump](tcpdump.md) | Command-line packet capture — the tool that works when nothing else does | apt |
 | [tempest-for-eliza](tempest-for-eliza.md) | Makes a monitor radiate music on an AM radio — a TEMPEST demonstration | apt |
 | [thunderbird](thunderbird.md) | Mozilla's full-featured mail client — the household name | apt |
