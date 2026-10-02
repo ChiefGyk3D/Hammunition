@@ -72,6 +72,14 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
+      # A change to src/, catalog/ or docs/guides/ carries a changelog.d/
+      # fragment (D-031's neighbour: the test, not a script, holds the rule).
+      # Here, with the history, an unfetched base fails instead of skipping.
+      - name: A fragment for a change that needs one
+        run: |
+          pip install pytest
+          git fetch --no-tags origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+          HAMMUNITION_REQUIRE_PR_RANGE=1 python -m pytest tests/test_changelog.py -q -p no:cacheprovider
       - name: Every commit in the pull request
         run: |
           set -euo pipefail

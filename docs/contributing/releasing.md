@@ -300,8 +300,21 @@ are unsigned; the first signed tag is 1.0.
 
 ## Before the tag
 
-`CHANGELOG.md` gets the release's entry first, written from the merged pull
-requests since the last tag (`gh pr list --state merged`), each line naming
-the PR and the decision it rests on; the version in `pyproject.toml` moves
-in the same commit. A tag that the changelog does not describe is a tag
-nobody can review.
+Every pull request carries its own entry as a fragment under `changelog.d/`
+(`changelog.d/README.md`), already naming the PR and the decision it rests
+on; nobody edits `CHANGELOG.md` between releases. The release commit
+assembles them and moves the version in `pyproject.toml` in the same commit:
+
+```sh
+python3 scripts/changelog.py preview        # read what the section will say
+python3 scripts/changelog.py assemble --version v0.20.0 --date 2026-10-09 \
+    --summary "what the release is about"   # new section, fragments deleted
+```
+
+`assemble` puts the release section under a `## Unreleased` that reads
+`Nothing yet.`, orders entries by kind and then by fragment name, and refuses
+to run with no fragments or over a version that already has a section, so a
+second run changes nothing. Compare the section with
+`gh pr list --state merged` since the last tag: a merged pull request with no
+fragment is a gap to fill by adding the missing fragment before assembling.
+A tag that the changelog does not describe is a tag nobody can review.
