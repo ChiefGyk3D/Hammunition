@@ -277,6 +277,22 @@ def test_no_router_without_the_map_without_java_or_with_a_stale_graph(tmp_path: 
 # -- the child dies with reference serve -------------------------------------------------
 
 
+def _is_gone(pid: int) -> bool:
+    """True when ``pid`` is dead. A dead child whose new parent never reaps it is
+    a zombie, and ``kill(pid, 0)`` still succeeds on one: in a container whose
+    pid 1 is pytest (no init), the orphan is reparented to a process that does
+    not ``wait``. Measured with ``unshare -r -p -f --mount-proc``: state ``Z``."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+    except OSError:
+        return True
+    return stat.rsplit(")", 1)[1].split()[0] == "Z"
+
+
 def test_the_router_child_is_asked_to_die_with_its_parent(tmp_path: Path) -> None:
     """GraphHopper has no ``-a PID`` as kiwix-serve does, so the child is given
     PR_SET_PDEATHSIG: a parent killed without the chance to stop it does not
@@ -303,9 +319,7 @@ def test_the_router_child_is_asked_to_die_with_its_parent(tmp_path: Path) -> Non
         os.kill(parent.pid, signal.SIGKILL)
         parent.wait(timeout=5)
         for _ in range(100):
-            try:
-                os.kill(child, 0)
-            except ProcessLookupError:
+            if _is_gone(child):
                 break
             time.sleep(0.05)
         else:
