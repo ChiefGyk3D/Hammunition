@@ -117,6 +117,7 @@ nav:
       - Install the engine: getting-started/install.md
       - Your first profile: getting-started/first-profile.md
       - First contact: getting-started/first-contact.md
+      - What works on which desktop: desktops.md
   - Guides:
       - guides/index.md
       - Operating:
@@ -125,6 +126,7 @@ nav:
           - Time and position: guides/time-and-gps.md
           - GPS time on ntpsec: guides/gps-time.md
           - Your callsign in each program: guides/station-settings.md
+          - The tray's Controls panel: guides/tray-controls.md
       - Modes:
           - FT8 and the digital modes: guides/digital-modes.md
           - Packet and Winlink: guides/packet-winlink.md
@@ -223,7 +225,6 @@ nav:
           - Manifest schema: reference/schema.md
           - Transaction log: reference/transaction-log.md
           - The helper's lists: reference/devctl-lists.md
-          - Desktops: desktops.md
       - Coverage:
           - Capability matrix: reference/capability-matrix.md
           - Coverage matrix: reference/coverage-matrix.md
@@ -272,3 +273,4 @@ nav:
       - Sending hardware identifiers: contributing/hardware.md
       - Testing in VMs: contributing/vm-testing.md
       - Releasing: contributing/releasing.md
+      - The docs sweep: contributing/docs-sweep.md
