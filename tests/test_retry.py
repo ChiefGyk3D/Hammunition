@@ -222,3 +222,60 @@ def test_outages_defer_by_unit_naming_items_and_the_answer() -> None:
     assert "again" in deferral.remedy
     footer = outages.footer()
     assert footer is not None and "run the same command again" in footer
+
+
+def test_a_certificate_that_does_not_verify_is_final_not_an_outage() -> None:
+    import ssl
+
+    rec = Recorder()
+    cert = ssl.SSLCertVerificationError("certificate verify failed")
+    err = GeofabrikError(f"{URL} could not be fetched: {cert}")
+    err.__cause__ = urllib.error.URLError(cert)
+    inner = Scripted(err)
+    with pytest.raises(GeofabrikError, match="certificate verify failed"):
+        RetryingProbe(inner, rec.policy()).text(URL)
+    assert inner.calls == 1 and rec.said == []
+    assert transient_answer(cert) is None
+
+
+def test_repeated_503s_trip_the_breaker_too() -> None:
+    rec = Recorder()
+    policy = rec.policy()
+    for _ in range(3):
+        with pytest.raises(PublisherUnavailable):
+            RetryingProbe(Scripted((503, 0, None)), policy).head(URL)
+    inner = Scripted((503, 0, None))
+    with pytest.raises(PublisherUnavailable) as caught:
+        RetryingProbe(inner, policy).head(URL)
+    assert inner.calls == 1 and caught.value.attempts == 1
+
+
+def test_the_policy_is_safe_under_the_check_runners_workers() -> None:
+    from hammunition.progress import run_checks
+
+    rec = Recorder()
+    policy = rec.policy()
+    probe = RetryingProbe(Scripted((503, 0, None)), policy)
+    outcomes = run_checks(list(range(24)), lambda _i: probe.head(URL), label="fake probes")
+    assert all(isinstance(o.error, PublisherUnavailable) for o in outcomes)
+    probe = RetryingProbe(Scripted((200, 1, None)), policy)
+    assert [
+        o.get()[0] for o in run_checks(list(range(8)), lambda _i: probe.head(URL), label="x")
+    ] == [200] * 8
+
+
+def test_a_probe_with_no_inner_probe_does_not_recurse() -> None:
+    import copy
+
+    probe = RetryingProbe(Scripted((200, 1, None)), RetryPolicy())
+    assert copy.copy(probe).probe is probe.probe
+
+
+def test_the_deferral_states_the_attempts_it_really_made() -> None:
+    outages = Outages()
+    report = outages.reporter("u", requested=False)
+    assert report is not None
+    report("a", PublisherUnavailable("https://h.example/a", "HTTP 503", 3))
+    report("b", PublisherUnavailable("https://h.example/b", "HTTP 503", 1))
+    (deferral,) = outages.deferrals()
+    assert "1 to 3 attempts each" in deferral.why

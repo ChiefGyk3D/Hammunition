@@ -147,6 +147,7 @@ def resolve_terrain(
         return tile
 
     fetch: list[TileFile] = []
+    deferred: list[str] = []
     outcomes = run_checks(todo, check, label="terrain tiles against the Copernicus DEM bucket")
     for name, outcome in zip(todo, outcomes, strict=True):
         try:
@@ -156,6 +157,7 @@ def resolve_terrain(
                 refused.append(f"  {name}: {exc}")
             else:
                 on_outage(name, exc)
+                deferred.append(name)
             continue
         except (CopernicusError, OSError) as exc:
             refused.append(f"  {name}: {exc}")
@@ -166,7 +168,12 @@ def resolve_terrain(
             f"{len(refused)} terrain item(s) could not be resolved and are not installed "
             f"already:\n" + "\n".join(refused) + hint_for(refused)
         )
-    return DemResolution(regions=tuple(entries), fetch=tuple(fetch), current=tuple(current))
+    return DemResolution(
+        regions=tuple(entries),
+        fetch=tuple(fetch),
+        current=tuple(current),
+        deferred=tuple(deferred),
+    )
 
 
 def resolve_bare_earth(
@@ -213,6 +220,7 @@ def resolve_bare_earth(
     held = set(current)
     todo = [name for name in wanted if name not in held]
     fetch: list[TileFile] = []
+    deferred: list[str] = []
     absent = (
         "recorded for a region but no longer in the carried 3DEP list; "
         "scripts/gen_3dep_tiles.py --fetch regenerates it"
@@ -234,6 +242,7 @@ def resolve_bare_earth(
                 refused.append(f"  {name}: {exc}")
             else:
                 on_outage(name, exc)
+                deferred.append(name)
             continue
         except (CopernicusError, OSError) as exc:
             refused.append(f"  {name}: {exc}")
@@ -244,7 +253,12 @@ def resolve_bare_earth(
             f"{len(refused)} 3DEP item(s) could not be resolved and are not installed "
             f"already:\n" + "\n".join(refused) + hint_for(refused)
         )
-    return DemResolution(regions=tuple(entries), fetch=tuple(fetch), current=tuple(current))
+    return DemResolution(
+        regions=tuple(entries),
+        fetch=tuple(fetch),
+        current=tuple(current),
+        deferred=tuple(deferred),
+    )
 
 
 THREEDEP_LIST = Path("data") / "usgs-3dep-tiles.txt"

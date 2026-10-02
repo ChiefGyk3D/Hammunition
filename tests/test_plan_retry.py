@@ -442,3 +442,47 @@ def test_a_deferred_book_stops_the_unit_removing_what_is_installed(tmp_path: Pat
 
     assert kinds(False) == ["remove-data"]
     assert kinds(True) == []
+
+
+def test_a_deferred_terrain_tile_is_not_drawn_converted_or_built_over(tmp_path: Path) -> None:
+    from hammunition.backends.dem import DemResolution, RegionTiles
+    from test_gdal_dem import _converter as gdal_converter
+    from test_gdal_dem import manifest as gdal_manifest
+    from test_splat_sdf import _converter as splat_converter
+    from test_splat_sdf import manifest as splat_manifest
+
+    other = "Copernicus_DSM_COG_10_N01_00_E000_00_DEM"
+    region = RegionTiles("atlantis/oceania", "atlantis-oceania", (A, other), 0)
+    resolution = DemResolution(regions=(region,), deferred=(other,))
+    assert resolution.tiles == (A, other) and resolution.available == (A,)
+    gdal = gdal_converter(tmp_path, resolution=resolution)
+    assert gdal.pending(gdal_manifest()) == [A]
+    splat = splat_converter(tmp_path)
+    object.__setattr__(splat, "resolution", resolution)
+    assert splat.pending(splat_manifest()) == [A]
+
+
+def test_a_deferred_map_stops_the_comaps_unit_removing_what_is_installed(tmp_path: Path) -> None:
+    from hammunition.backends.comaps_maps import MWM, ComapsMapsBackend
+    from hammunition.backends.regions import data_root
+    from hammunition.fetch import Fetcher
+    from test_comaps_maps import _block as comaps_block
+    from test_comaps_maps import _unit as comaps_unit
+
+    m = comaps_unit()
+    out = data_root(tmp_path) / m.name / "250101"
+    out.mkdir(parents=True)
+    (out / f"US_Old{MWM}").write_bytes(b"old")
+
+    def kinds(keep: bool) -> list[str]:
+        backend = ComapsMapsBackend(
+            fetcher=Fetcher(cache_dir=tmp_path / "cache"),
+            prefix=tmp_path,
+            files=(),
+            keep_unlisted=keep,
+        )
+        steps: list[Any] = backend.steps(m, comaps_block(m))
+        return [s.kind for s in steps]
+
+    assert kinds(False) == ["remove-data"]
+    assert kinds(True) == []

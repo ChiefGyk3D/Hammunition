@@ -2625,9 +2625,13 @@ because that remedy is wrong for a 503. After the last try the probe raises
   target lacks.
 - **Nothing installed is lost to a deferral.** A deferred sheet whose older
   edition is installed keeps that edition (raw and warped) and the VRT still
-  draws it; a deferred book or map suspends the unit's removal of unlisted
-  files for the run. Without this an outage would have deleted what it could
-  not replace.
+  draws it; a deferred terrain tile (Copernicus or 3DEP) stays in its
+  region's record and in every keep set but is left out of what contours,
+  SPLAT terrain and BRouter's elevation are drawn or built over (it is not
+  there to read); a deferred book or map suspends **all** of that unit's
+  removal of unlisted files for the run, a coarse guard that also holds back a
+  book you really did deselect until the next complete run. Without this an
+  outage would have deleted what it could not replace.
 
 **Why D-039 and not D-049.** D-049 shaped the data unit; this changes which
 failures a *profile member* defers on, which is D-039's classification and
@@ -2637,9 +2641,11 @@ does). D-061, D-066, D-068 and D-069 keep owning what each probe checks.
 **Two choices recorded.** A failure is remembered for the rest of the run only
 once the retries are spent (`MemoProbe`), so three units needing one dead
 outline ask it three times in all, not nine. And a host whose probes have
-failed three times running at the connection level is asked once each, with no
-backoff, for the rest of the run, so an offline plan costs seconds where
-retrying every item would cost minutes; a success resets it. **Not done:** a
+exhausted its retries three times running (an offline host, a bucket answering
+503 for everything) is asked once each, with no backoff, for the rest of the
+run, so a dead publisher costs seconds where retrying every item would cost
+minutes; a success resets it. A certificate that does not verify is final at
+once, never an outage. **Not done:** a
 deferred item is not retried later in the same run, and the Geofabrik region
 index (`resolve_map_regions`) is not under the policy, because it already keeps
 a region that is installed rather than deferring. Code `src/hammunition/retry.py`,

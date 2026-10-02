@@ -20,7 +20,8 @@ count. If you see nothing at all, stderr is not a terminal; run it with
 `HAMMUNITION_PROGRESS=1` in front, or in a terminal rather than through a pipe
 or a log. A tile already installed is not asked about. With the network down
 a request that cannot connect is retried, then the host is given up on after
-three such failures and each remaining request is asked once; a blackholed
+three such failures in a row and each remaining request is asked once (a
+publisher answering 503 for everything is treated the same); a blackholed
 connection still waits out its own 30 s timeout, four at a time, so a few
 hundred tiles can take a long while to refuse. Interrupt with Ctrl-C, fix the
 connection and run again.
@@ -39,7 +40,10 @@ outline, the USGS bucket, Kiwix, a CDN) answered a 5xx, dropped the connection
 or timed out three times running for those items, and the plan left them out
 rather than refuse everything else. Run the same command again in a few
 minutes: the items are asked again and, once the publisher is back, planned as
-usual. Anything of theirs already on disk was kept.
+usual. Anything of theirs already on disk was kept; when the deferred item is a
+Kiwix book or a CoMaps map, the unit removes no unlisted file in that run, so a
+book you deselected goes at the next complete one. A certificate that does not
+verify is never treated as an outage: it refuses by name.
 
 - `hammunition install <unit>` (the unit named in the line) asks again for just
   that unit and, if the publisher still does not answer, refuses with its last

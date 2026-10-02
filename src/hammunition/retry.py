@@ -33,6 +33,7 @@ Plan-time probes are shared across the workers of
 from __future__ import annotations
 
 import socket
+import ssl
 import threading
 import time
 import urllib.error
@@ -125,10 +126,14 @@ def transient_answer(exc: BaseException) -> str | None:
             if cur.code >= 500 or cur.code == 429:
                 return f"HTTP {cur.code} {cur.reason}".strip()
             return None
+        if isinstance(cur, ssl.SSLCertVerificationError | ssl.CertificateError):
+            return None  # a certificate that does not verify is not an outage
         if isinstance(cur, TimeoutError | socket.timeout):
             return "timed out"
         if isinstance(cur, urllib.error.URLError):
             reason = cur.reason
+            if isinstance(reason, ssl.SSLCertVerificationError | ssl.CertificateError):
+                return None
             if isinstance(reason, TimeoutError | socket.timeout):
                 return "timed out"
             return f"connection failed: {reason}"
@@ -201,8 +206,7 @@ class RetryPolicy:
                 self.sleep(delay)
                 continue
             with self._lock:
-                if error is not None:
-                    self._failures[host] = self._failures.get(host, 0) + 1
+                self._failures[host] = self._failures.get(host, 0) + 1
             raise PublisherUnavailable(url, answer, attempts) from error
         raise AssertionError("unreachable")  # pragma: no cover
 
@@ -234,7 +238,10 @@ class RetryingProbe:
         return text
 
     def __getattr__(self, name: str) -> Any:
-        # Whatever else the real probe carries (a bucket, a timeout).
+        # Whatever else the real probe carries (a bucket, a timeout). Never
+        # `probe` itself: before __init__ has run (copy, pickle) that would recurse.
+        if name == "probe":
+            raise AttributeError(name)
         return getattr(self.probe, name)
 
 
@@ -263,6 +270,7 @@ class Outage:
     item: str
     answer: str
     host: str
+    attempts: int = ATTEMPTS
 
 
 @dataclass
@@ -282,7 +290,7 @@ class Outages:
             return None
 
         def report(item: str, exc: PublisherUnavailable) -> None:
-            self.items.append(Outage(unit, item, exc.answer, exc.host))
+            self.items.append(Outage(unit, item, exc.answer, exc.host, exc.attempts))
 
         return report
 
@@ -303,13 +311,19 @@ class Outages:
             names = list(dict.fromkeys(o.item for o in mine))
             shown = ", ".join(names[:6]) + (f" and {len(names) - 6} more" if len(names) > 6 else "")
             answers = "; ".join(dict.fromkeys(f"{o.host} answered {o.answer}" for o in mine))
+            tries = sorted({o.attempts for o in mine})
+            each = (
+                f"{tries[0]} attempt{'s' if tries[0] != 1 else ''} each"
+                if len(tries) == 1
+                else f"{tries[0]} to {tries[-1]} attempts each"
+            )
             out.append(
                 Deferral(
                     subject=unit,
                     what=f"will not fetch {len(names)} item(s) this run: {shown}",
                     why=(
                         f"the publisher is not answering right now ({answers}); "
-                        f"{ATTEMPTS} attempts each, then given up"
+                        f"{each}, then given up"
                     ),
                     remedy=RETRY_REMEDY.format(unit=unit),
                     kind="package",
