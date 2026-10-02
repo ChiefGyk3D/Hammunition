@@ -304,7 +304,7 @@ class BRouterConverter:
 
     def wanted_tiles(self, block: DerivedDataInstall) -> tuple[str, ...]:
         """Every tile the regions need, when the block folds in elevation."""
-        return self.resolution.tiles if block.elevation is not None else ()
+        return self.resolution.available if block.elevation is not None else ()
 
     def squares(self, block: DerivedDataInstall) -> list[tuple[int, int]]:
         return sorted({square_of_tile(t) for t in self.wanted_tiles(block)})

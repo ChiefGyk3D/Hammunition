@@ -11,6 +11,23 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **A publisher outage at plan time retries, then defers by name instead of
+  refusing the install** (#200, **D-039** amended 2026-10-02). `install
+  navigation --dry-run` refused whole over a Geofabrik outline answering 502, one
+  timing out and one US Topo sheet answering 503, none of which was a fault in
+  the plan. Every plan-time probe (terrain, 3DEP, US Topo, FSTopo, Kiwix, CoMaps
+  and the outlines they share) now retries an HTTP 5xx or 429, a connection
+  error and a read timeout three times, waiting 1 s, 3 s, 9 s, one stderr line
+  per retry; any other 4xx is final. A profile member's items a publisher still
+  does not answer for are deferred by name with its last answer quoted (printed
+  under "Will NOT happen", in `--json` `deferrals`, in the log and `status`), a
+  dead outline defers that region in every unit that needs it and no other, and
+  a line at the foot says to run the command again; a unit you typed refuses,
+  saying the publisher is not answering rather than naming the stale-index
+  remedy, which a 404 keeps. A deferred sheet leaves its older edition
+  installed, and a deferred book or map suspends the unit's removals for the
+  run. New `hammunition.retry`; tests `tests/test_retry.py`,
+  `tests/test_plan_retry.py`.
 - **Boxless map-region extract notes reach text and JSON imports** (**D-075**,
   issue #212). NASR imports keep using extracts with bounding boxes and report
   by extract number when another installed extract is left out.

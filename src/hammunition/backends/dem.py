@@ -136,11 +136,22 @@ class DemResolution:
     """Tiles not installed yet: downloaded this run."""
     current: tuple[str, ...] = ()
     """Tiles already installed; nothing happens to them."""
+    deferred: tuple[str, ...] = ()
+    """Tiles a region needs that this run does not fetch because their
+    publisher is not answering (#200). Still in :attr:`tiles`, so a region's
+    record and every removal keep them; not in :attr:`available`, so nothing
+    is drawn, converted or built over a file that will not exist."""
 
     @property
     def tiles(self) -> tuple[str, ...]:
         """Every tile any region needs, sorted."""
         return tuple(sorted({name for entry in self.regions for name in entry.tiles}))
+
+    @property
+    def available(self) -> tuple[str, ...]:
+        """:attr:`tiles` less the deferred ones: what the derived data is made from."""
+        held = set(self.deferred)
+        return tuple(t for t in self.tiles if t not in held)
 
 
 @dataclass(frozen=True)
