@@ -9,6 +9,20 @@ Every failure the engine reports names what it was doing and stops there —
 resolution finishes before installation, so a failure is a report, not a
 half-installed machine. What you do next depends on which of these it is.
 
+## <a name="slow-plan"></a>The dry run seems to hang
+
+`hammunition install navigation --dry-run` can take minutes before it prints a
+line. It has not hung: the plan checks every terrain tile, map sheet, book and
+map it would download against the publisher, one request each, because each
+answer (size, checksum) is part of what the plan tells you. On a terminal it
+says so on stderr (`checking 412 terrain tiles … (needs the network)…`) with a
+count. If you see nothing at all, stderr is not a terminal; run it with
+`HAMMUNITION_PROGRESS=1` in front, or in a terminal rather than through a pipe
+or a log. A tile already installed is not asked about. An offline machine
+refuses by name once each request times out (30 s), so a long wait with the
+network down is that timeout, four requests at a time; fix the connection and
+run again.
+
 ## <a name="dead-url"></a>A source build fails to fetch — HTTP 404
 
 ```

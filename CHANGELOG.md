@@ -11,6 +11,17 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **The plan says what it is waiting on, and asks four things at a time**
+  (#197, **D-061** amended 2026-10-02). A dry run that checks hundreds of terrain
+  tiles against a publisher printed nothing for minutes. Terrain and 3DEP
+  tiles, US Topo and FSTopo sheets, Kiwix books, CoMaps maps and the map
+  regions now announce the check on stderr (`checking N … (needs the network)…`),
+  count on one line and close with the elapsed time, only on a terminal or with
+  `HAMMUNITION_PROGRESS=1`; stdout and `--json` are unchanged. The tile, sheet,
+  book and map checks run four at a time (`hammunition.progress`), results in
+  order, errors per item as before (50 fake tiles at 0.2 s: 10.0 s down to
+  2.6 s). Not done: consulting the log's attribution for an installed tile (one on
+  disk was never asked about), and an ETag cache.
 - **The tray units re-pinned to hammunition-tray v0.5.0, and they install its
   device helper** (**D-056** amended 2026-10-02, later). The release publishes
   no `.deb` yet, so both units pin the tag's archive (sha256 `614148fb…`,
