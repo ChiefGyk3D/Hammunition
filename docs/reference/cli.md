@@ -61,6 +61,25 @@ unchanged. Every document, and which commands have one, is in
 never driven through JSON. A command with no JSON form refuses it and runs
 nothing.
 
+**Progress for slow plans.** A plan asks publishers questions before it prints
+anything: one `HEAD` per terrain tile, US Topo or FSTopo sheet, Kiwix book and
+CoMaps map the plan would fetch, and a Geofabrik answer per map region (those
+are asked one at a time). When
+stderr is a terminal the engine says so, on stderr only:
+
+```text
+checking 412 terrain tiles against the Copernicus DEM bucket (needs the network)…
+  137/412
+checked 412 terrain tiles against the Copernicus DEM bucket in 31.2 s
+```
+
+The counter rewrites one line, at most twice a second. Nothing is written to
+stdout, so `--json` and a piped plan are byte-identical to before.
+`HAMMUNITION_PROGRESS=1` forces the lines on when stderr is not a terminal
+(a log file gets a counter line every five seconds); otherwise a pipe or CI
+run stays silent. The tile, sheet, book and map checks run four at a time and
+report exactly as they did one at a time (**D-061**, amended 2026-10-02).
+
 No long option is accepted abbreviated, with or without `--json`:
 `--dry` is `unrecognized arguments`, never `--dry-run` (**D-059**). A CLI
 that guards installs and consent gates behind exact flags does not guess

@@ -144,6 +144,33 @@ Twenty pull requests since v0.18.0 (#176, #178-#196), 20 entries.
   `project_file` as the source subdirectory, as the schema always said.
   Measured on one Copernicus tile and in a container; not yet run through
   an install on a real region.
+- **The plan says what it is waiting on, and asks four things at a time**
+  (#197, **D-061** amended 2026-10-02). A dry run that checks hundreds of terrain
+  tiles against a publisher printed nothing for minutes. Terrain and 3DEP
+  tiles, US Topo and FSTopo sheets, Kiwix books, CoMaps maps and the map
+  regions now announce the check on stderr (`checking N … (needs the network)…`),
+  count on one line and close with the elapsed time, only on a terminal or with
+  `HAMMUNITION_PROGRESS=1`; stdout and `--json` are unchanged. The tile, sheet,
+  book and map checks run four at a time (`hammunition.progress`), results in
+  order, errors per item as before (50 fake tiles at 0.2 s: 10.0 s down to
+  2.6 s). Not done: consulting the log's attribution for an installed tile (one on
+  disk was never asked about), and an ETag cache.
+- **The tray units re-pinned to hammunition-tray v0.5.0, and they install its
+  device helper** (**D-056** amended 2026-10-02, later). The release publishes
+  no `.deb` yet, so both units pin the tag's archive (sha256 `614148fb…`,
+  measured twice) and the engine places its files: the Plasma applet, the Qt
+  tray, and the helper (`devctl_helper`: code copied to
+  `/usr/local/lib/hammunition-devctl`, the tray's wrapper with the engine's venv
+  interpreter, the polkit action), all printed in the plan, read back with
+  `--version`, removed by `uninstall` on the log's say-so and only when no other
+  tray unit still needs the helper. A helper another installer owns (a `.deb`,
+  the tray's `install.sh`) is left alone and the plan names the owner, an earlier
+  run of this engine's is refreshed, and a file a package owns is never written
+  over or removed; an interpreter tree any account can write refuses, one only its
+  owner can write asks a `yes` that `--yes` does not answer. New manifest
+  fields `placements`, `placement_dirs` and `devctl_helper` on a `binary`
+  archive, with an allow-list of destinations; `depends` carries what the
+  `.deb`'s Depends line did.
 
 - **User services generalised; the GPS tether installed from its own project
   as one** (**D-073** amended 2026-10-02, **D-071** note). A `user_services`

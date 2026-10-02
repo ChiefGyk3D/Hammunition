@@ -6323,6 +6323,28 @@ member in `src/hammunition/manifest/schema.py`; `TerrainRun.splat` and
 `tests/test_splat_path.py`, and additions to
 `tests/test_verified_install.py` and `tests/test_source_backend.py`.
 
+### Amendment, 2026-10-02 — the plan reports its network work (#197)
+
+D-061's plan-time checks (and D-066's, D-068's, D-069's, which follow the same
+shape: a `HEAD` per item the plan discloses) ran one request at a time before
+a single line was printed. `hammunition install navigation --dry-run` sat
+silent for over two minutes on one request per Copernicus tile; the operator
+could not tell that from a hang. Now: each batch of checks (terrain tiles,
+3DEP tiles, US Topo sheets, FSTopo sheets, Kiwix books, CoMaps maps, and the
+map regions' Geofabrik answers) announces itself on **stderr** (`checking N
+<kind> against <publisher> (needs the network)…`), counts on one line, and
+closes with the elapsed time. It speaks only when stderr is a terminal or
+`HAMMUNITION_PROGRESS=1` forces it, so `--json`, pipes, logs and CI are
+byte-identical to before. The tile, sheet, book and map checks run four at a
+time (`hammunition.progress.CHECK_WORKERS`), results taken in input order and
+errors reported per item as before; the probes hold no state, so no lock. On a
+synthetic 50-tile list with a 0.2 s fake server: 10.0 s sequential, 2.6 s with
+four. **Not done:** a tile already on disk was never asked about (it is
+"current"), so the issue's third bullet could only mean consulting the log's
+D-053 attribution as well, which is the maintainer's call; a per-tile ETag
+cache is not built either. Code `src/hammunition/progress.py`; tests
+`tests/test_progress.py`.
+
 ---
 
 ## D-062 — An install run as a user asks sudo once and keeps its ticket valid until the run ends, and no longer
