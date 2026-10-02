@@ -225,31 +225,41 @@ class SplatSdfConverter:
     def _expected(self, tile: str) -> str:
         return render_sidecar(tile, ring(tile, self.resolution.tiles))
 
+    def _data_current(self, out: Path, tile: str) -> bool:
+        expected = self._expected(tile)
+        for hd in (True, False):
+            path = out / sdf_name(tile, hd=hd)
+            try:
+                recorded = path.with_name(path.name + SOURCE).read_text()
+            except OSError:
+                return False
+            if not path.is_file() or path.is_symlink() or recorded != expected:
+                return False
+        return True
+
     def pending(self, manifest: PackageManifest) -> list[str]:
         """Tiles whose files are made this run: either file missing, a sidecar
-        naming another tile, ring or converter, or a Signal-Server link
-        missing or naming another file."""
+        naming another tile, ring or converter."""
         out = self.data_dir(manifest)
-        todo: list[str] = []
+        return [tile for tile in self.resolution.tiles if not self._data_current(out, tile)]
+
+    def links_to_repair(self, manifest: PackageManifest) -> list[Path]:
+        """Signal-Server links missing or naming another file, only for current data."""
+        out = self.data_dir(manifest)
+        links: list[Path] = []
         for tile in self.resolution.tiles:
-            expected = self._expected(tile)
+            if not self._data_current(out, tile):
+                continue
             for hd in (True, False):
-                path = out / sdf_name(tile, hd=hd)
-                try:
-                    recorded = path.with_name(path.name + SOURCE).read_text()
-                except OSError:
-                    recorded = ""
-                # The link too (final review, I1): Signal-Server reads a
-                # missing file as sea level and says nothing.
+                dest = out / sdf_name(tile, hd=hd)
                 link = out / signal_server_name(tile, hd=hd)
                 try:
-                    linked = os.readlink(link) == path.name
+                    linked = os.readlink(link) == dest.name
                 except OSError:
                     linked = False
-                if not path.is_file() or path.is_symlink() or recorded != expected or not linked:
-                    todo.append(tile)
-                    break
-        return todo
+                if not linked:
+                    links.append(link)
+        return links
 
     def _wanted_names(self) -> set[str]:
         return {
@@ -272,7 +282,11 @@ class SplatSdfConverter:
         )
 
     def current(self, manifest: PackageManifest) -> bool:
-        return not self.pending(manifest) and not self.stale(manifest)
+        return (
+            not self.pending(manifest)
+            and not self.links_to_repair(manifest)
+            and not self.stale(manifest)
+        )
 
     def steps(self, manifest: PackageManifest, block: DerivedDataInstall) -> list[Action | Command]:
         out = self.data_dir(manifest)
@@ -316,6 +330,22 @@ class SplatSdfConverter:
                         requires_root=writer.privileged,
                     )
                 )
+        links_to_repair = set(self.links_to_repair(manifest))
+        for tile in self.resolution.tiles:
+            for hd in (True, False):
+                dest = out / sdf_name(tile, hd=hd)
+                link = out / signal_server_name(tile, hd=hd)
+                if link not in links_to_repair:
+                    continue
+                steps.append(
+                    Action(
+                        kind="install-data",
+                        description=f"Relink {link.name} for Signal-Server",
+                        detail=str(link),
+                        perform=partial(self._repair_link, tile, link, dest, writer),
+                        requires_root=writer.privileged,
+                    )
+                )
         for path in self.stale(manifest):
             steps.append(
                 Action(
@@ -329,6 +359,13 @@ class SplatSdfConverter:
         return steps
 
     # -- running ------------------------------------------------------------
+
+    def _repair_link(self, tile: str, link: Path, dest: Path, writer: PrefixWriter) -> str:
+        try:
+            writer.link(link, dest.name)
+        except (BackendError, OSError) as exc:
+            return self.ledger.fail(f"{KEY}:{tile}", f"{tile}: {exc}")
+        return f"relinked {link.name} for Signal-Server"
 
     def _clear(self, lead: str) -> str:
         cleared = self.staging.clear(self.work, lock=self.lock)

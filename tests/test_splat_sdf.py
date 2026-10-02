@@ -281,9 +281,10 @@ def test_a_missing_or_wrong_signal_server_link_repairs_only_the_link(
     assert conv.links_to_repair(manifest()) == [link]
     steps = _actions(conv.steps(manifest(), _block(manifest())))
     assert len(steps) == 1
-    assert f"relink {link.name} for Signal-Server" in steps[0].description
+    assert steps[0].kind == "install-data"
+    assert f"Relink {link.name} for Signal-Server" in steps[0].description
     assert steps[0].detail == str(link)
-    assert steps[0].perform()
+    assert any("relinked" in outcome for outcome in _run(conv))
     assert calls(log) == []
     assert link.is_symlink() and conv.current(manifest())
 
@@ -291,7 +292,7 @@ def test_a_missing_or_wrong_signal_server_link_repairs_only_the_link(
     link.symlink_to("0:1:359:0.sdf.bz2")
     assert conv.pending(manifest()) == []
     assert conv.links_to_repair(manifest()) == [link]
-    _run(conv)
+    assert any("relinked" in outcome for outcome in _run(conv))
     assert calls(log) == []
     assert link.is_symlink() and link.readlink() == Path(sdf_name(A, hd=True))
     assert conv.current(manifest())
