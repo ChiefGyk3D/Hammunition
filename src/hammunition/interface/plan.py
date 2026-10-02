@@ -53,6 +53,7 @@ from hammunition.desktop import Desktop, describe_set
 from hammunition.execute import Step
 from hammunition.geofabrik import PINNED, RegionFile
 from hammunition.interface.envelope import Strict, TargetView, described
+from hammunition.interface.plan_group import render_steps
 from hammunition.interface.text import wrap
 from hammunition.manifest.schema import (
     AptInstall,
@@ -1329,8 +1330,13 @@ def build_install_view(
     )
 
 
-def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
-    """The complete account of what will happen, as the terminal shows it."""
+def render_plan_view(view: InstallPlanView, *, target: TargetView, full: bool = False) -> list[str]:
+    """The complete account of what will happen, as the terminal shows it.
+
+    A run of steps that repeat one template for many items is collapsed to the
+    template, one example, every item and the totals, unless *full* (D-016,
+    amended 2026-10-02). The JSON document is never collapsed.
+    """
     lines = [f"Target: {target.description}", ""]
 
     if view.packages:
@@ -1614,9 +1620,7 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
     lines.append(f"Commands ({len(view.commands)}):")
     if not view.commands:
         lines.append("  (none — everything this plan asks for is already in place)")
-    for command in view.commands:
-        lines.append(f"  # {command.description}")
-        lines.append(f"  $ {command.display}")
+    lines.extend(render_steps(view.commands, full=full))
     return lines
 
 

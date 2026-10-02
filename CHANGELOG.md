@@ -24,6 +24,14 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   pull-request job, `changed git pins resolve upstream`, run the check for the
   manifests a diff changed. No manifest changed.
 
+- **The plan groups repeated same-shape steps; `--dry-run --full` expands them**
+  (**D-016** amendment, 2026-10-02). A unit that repeats one step per sheet,
+  tile or book (`ustopo-qmapshack`, contours, SPLAT, terrain tiles, FSTopo,
+  Kiwix, the vector-tile builds) printed hundreds of near-identical blocks. The
+  text now prints the template once with `<placeholders>`, the first item in
+  full, every item's own values and the totals; a group is kept only if it
+  rebuilds every step exactly. `--full` prints every step as before; the JSON
+  document, the transaction log and the real run are unchanged.
 - **A publisher outage at plan time retries, then defers by name instead of
   refusing the install** (#200, **D-039** amended 2026-10-02). `install
   navigation --dry-run` refused whole over a Geofabrik outline answering 502, one

@@ -134,6 +134,13 @@ prints every command, every group you will join, every config file that will
 be written, and every consent gate you will meet — the same text the real run
 shows, so nothing about the real run is a surprise.
 
+A unit that does one thing for each of hundreds of items (a US Topo sheet, a
+terrain tile, a Kiwix book) would fill the plan with near-identical blocks, so
+the plan prints such a run once: the step with `<placeholders>`, the first item
+written out in full, every item's own values on a line, and the total. Nothing
+is left out of it. `hammunition install <profile> --dry-run --full` prints every
+step expanded, and `--dry-run --json` always carries every step.
+
 The first command of any run that installs from apt is `apt-get update`.
 Stale package lists are the commonest way a correct plan fails — apt asks
 the mirror for a file the pool has replaced — so the refresh is on by
