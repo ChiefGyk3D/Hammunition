@@ -223,7 +223,7 @@ class SplatSdfConverter:
         return data_root(self.prefix) / manifest.name
 
     def _expected(self, tile: str) -> str:
-        return render_sidecar(tile, ring(tile, self.resolution.tiles))
+        return render_sidecar(tile, ring(tile, self.resolution.available))
 
     def pending(self, manifest: PackageManifest) -> list[str]:
         """Tiles whose files are made this run: either file missing, a sidecar
@@ -231,7 +231,7 @@ class SplatSdfConverter:
         missing or naming another file."""
         out = self.data_dir(manifest)
         todo: list[str] = []
-        for tile in self.resolution.tiles:
+        for tile in self.resolution.available:
             expected = self._expected(tile)
             for hd in (True, False):
                 path = out / sdf_name(tile, hd=hd)
@@ -384,7 +384,7 @@ class SplatSdfConverter:
             return self.ledger.fail(key, f"{tile}: {refusal}")
         work = self.work
         neighbours = [
-            t for t in ring(tile, self.resolution.tiles) if (source / f"{t}{TIF}").is_file()
+            t for t in ring(tile, self.resolution.available) if (source / f"{t}{TIF}").is_file()
         ]
         vrt = work / "window.vrt"
         hgt = hgt_name(tile)
