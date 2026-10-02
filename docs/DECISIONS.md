@@ -8434,3 +8434,136 @@ and its weekly CI step; tests `tests/test_repeater_sources.py`,
 `tests/test_repeater_sources_cli.py`, `tests/test_repeater_layers.py`,
 `tests/test_gen_open_repeater_pin.py`; the offline-navigation guide's
 section 13, `docs/guides/lan-mirror.md` and `docs/reference/cli.md`.
+
+### Amendment, 2026-10-01 — the ACMA register is built: a `register` unit, unverified because nothing else is possible, and a layer filtered to the installed regions
+
+**Status:** proposed (the task named the route; implemented on branch
+`acma-register`; the maintainer decides it at review). **Supersedes** the
+"Not carried" sentence above that named the ACMA register as a route not
+built, and rule 6's precedence list, which gains the regulator.
+
+**What was measured** on 2026-10-01, with two requests to
+`https://cdn.acma.gov.au/rrl/spectra_rrl.zip` (a `HEAD`, then one `GET`
+asking for a current Azure storage API version):
+
+- 67,513,955 bytes, `Last-Modified` 21:31:17 GMT, served from Azure Blob
+  storage behind Front Door. **The ETag, `0x8DF200353F0B4AF`, is Azure's
+  version stamp, not an MD5**, and no `Content-MD5` is stored, even when
+  the 2021-08-06 storage API is asked for. The ACMA publishes no checksum
+  anywhere the file names. The spike's "a dated, hashable file" was true of
+  the bytes and not of any check the publisher offers, so the Copernicus
+  route ("from the publisher's object metadata; not pinned by Hammunition")
+  does not exist here, and a sha256 pin dies with the next day's rebuild.
+- 31 members. `LICENCE.TXT`, "LICENCE TO USE THE REGISTER OF
+  RADIOCOMMUNICATIONS LICENCES": clause 5 licenses use, reproduction,
+  adaptation, derivatives and their distribution; clause 8 forbids a
+  natural person's Client Information in a derivative; clause 9 requires
+  "Based on Australian Communications and Media Authority information" on
+  anything derived. The manifest quotes clauses 5, 8 and 9 verbatim.
+- `licence.csv`: sub-service 602, *Amateur Repeater*: 501 granted, 12
+  expired, 1 not granted. `device_details.csv` (386 MB uncompressed): 3,939
+  devices on those licences, 1,981 transmitters and 1,958 receivers; a
+  transmitter pairs with the receiver of the same licence and `EFL_SYSTEM`
+  in 1,853 cases. 1,784 granted transmitters have a site, 473 callsigns.
+  `site.csv`: 506 sites, every one with a position; 347 "Within 10
+  metres", 94 "Within 100 metres", 65 "Unknown". The member timestamps
+  (2026-10-02 07:31, the ACMA's local time) are the register's own date.
+- Read through the new reader on this machine: every Australian
+  transmitter in one box kept 1,768 rows, 1,696 after D-064's merge, in
+  about 16 seconds; a Tasmanian box kept 109 (106 merged).
+- A third request, a `HEAD` for a licence page on `www.acma.gov.au`, was
+  reset by the server; the licence is stated only inside the file, which
+  is why the manifest's `licence_url` is the file itself.
+
+**The rule.**
+
+1. **A new install method, `register`**, `provider: acma-rrl`, with the
+   URL, the file name and the check in the engine (`src/hammunition/acma.py`),
+   never the catalog: the `dem-tiles` shape. `data`'s rule that every
+   artifact carries a sha256 is left exactly as it was.
+2. **The check is the file's own structure**: the members the import reads
+   and their header columns, a cap on what the members declare
+   uncompressed, and every member's CRC-32. It catches a damaged, cut-off
+   or substituted-by-a-web-page download, never a file altered at the
+   source. `Fetcher.fetch_checked` runs it on what arrived, from a LAN
+   mirror first and the publisher second, and never reuses a cached copy.
+   The plan prints "about 67.5 MB" (the size measured here; the file moves
+   daily) and "unverified" with what is checked.
+3. **In no profile, installed by name only**: the FSTopo ruling of
+   2026-10-01 (D-068, amended) applies as written, and unlike FSTopo there
+   is no condition under which it can rejoin one, since nothing can be
+   pinned.
+4. **`artifacts` lists it** as `acma-register/spectra_rrl.zip`, check
+   `unverified-zip`, digest null, the size from one `HEAD` to the ACMA per
+   listing (deferred, with the reason, when that fails).
+5. **`maps repeaters import --from-acma [FILE]`** writes the `acma` layer,
+   *Repeaters (ACMA, YYYY-MM-DD)*, dated by the register: transmitters on
+   granted 602 licences with a site, a callsign and a frequency from 1 to
+   10,000 MHz, whose site lies in the bounding box of an installed region
+   extract (each box read from the extract's PBF header, as Navit's centre
+   is, D-057). A row outside every box is counted, never numbered.
+   No region, an extract with no readable box (named by its number), or no
+   row inside any box is refused and nothing is written, the last saying
+   the register covers Australia only. The emission designator is kept
+   with plain words for the classes the 2026-10-01 file uses (`FM
+   (16K0F3E)`); there are no tones in the register.
+6. **`client.csv` is never opened**, which a test proves; the layer carries
+   the site's name and state, the licence number and the site precision.
+   The installed file still holds licensees' names and addresses, and the
+   guide and the Bunker page say to keep it to the operator's own machines.
+7. **Precedence, best first:** the operator's export or list; the
+   regulator (the ACMA); the ETCC; Open Repeater; hearham; Brandmeister;
+   OSM. The ACMA and the ETCC never cover the same place, so their order
+   decides nothing today.
+
+**Rulings made on the way.**
+
+- **The task's `check: etag-md5` was measured away**, not adopted: an
+  Azure ETag is not a digest, and carrying it as one would print a check
+  the engine never makes.
+- **No plan-time network.** The plan prints the measured size as "about";
+  a dry run stays offline. Only `artifacts`, which already asks Geofabrik
+  and the Copernicus bucket, asks the ACMA for the day's size.
+- **Bounding boxes from the installed extracts**, not station config: the
+  same source `--from-osm` reads, offline, and what the station actually
+  has. A box is a rectangle, so it can take in sites over a state border;
+  the guide says so.
+- **An empty layer is refused, not written**, the existing rule for an
+  import that keeps nothing; an older `acma` layer is left as it was.
+- **The import does not re-run the CRC pass** over 600 MB the install
+  already checked; it checks the tables and columns, then reads.
+- **From the final review.** A table stored in a compression `zipfile`
+  cannot read (or encrypted) raised `NotImplementedError` (or
+  `RuntimeError`) past the check and the import, a traceback rather than a
+  named refusal; both are now the check's "damaged" error, and a test
+  crafts such a member.
+
+**What has run.** The test suite: the check against a synthetic register
+in the real file's column layout, falsified by a flipped byte in a member
+nothing else reads (caught only by the CRC pass, which the test proves by
+passing the same file without it), a truncated zip, a web page, a missing
+table, a renamed column and the inflation cap; the reader's every skip and
+its pairing, the antimeridian, `client.csv` never opened; the backend from
+the publisher and from a mirror, a damaged mirror copy passed over; the
+plan's text and document; `artifacts` with a fake `HEAD`; the CLI end to
+end with real PBF headers around Tasmania and Victoria. On the
+maintainer's laptop, from a scratch directory in the worktree: the reader
+over the real 2026-10-01 file (about 16 seconds a pass), the file deleted
+after. Nothing was installed through the engine and no GUI started.
+
+**Owed to the bench:** `install acma-register` through the engine, from
+the ACMA and from a Bunker; `--from-acma` over a real Australian extract's
+header (only synthetic headers have been read); QMapShack and Navit drawing
+the layer; and the maintainer's decision whether a Bunker may hold a file
+that carries licensees' client information.
+
+**Consequences.** `src/hammunition/acma.py`; `RegisterInstall` in
+`src/hammunition/manifest/schema.py`; `Fetcher.fetch_checked`;
+`DataBackend.register_steps`; the plan's `data` lines gain `verified_by`
+and `approximate`; `unverified-zip` in the `artifacts` contract;
+`read_acma` in `src/hammunition/repeater_sources.py`; `--from-acma` and
+`remove --layer acma` in `src/hammunition/cli/main.py`;
+`catalog/packages/acma-register.yaml`; tests `tests/test_acma.py`,
+`tests/test_acma_backend.py`, `tests/test_acma_cli.py`, with
+`tests/acma_support.py`; the guide's section 13, `docs/guides/lan-mirror.md`,
+`docs/reference/cli.md`.

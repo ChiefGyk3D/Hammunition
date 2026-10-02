@@ -73,6 +73,7 @@ from hammunition.manifest.schema import (
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
+    RegisterInstall,
     SourceInstall,
     TopoQuadsInstall,
     VenvInstall,
@@ -435,6 +436,7 @@ def plan_removal(
             | RegionalDataInstall
             | DemTilesInstall
             | TopoQuadsInstall
+            | RegisterInstall
             | DerivedDataInstall
             | KiwixBooksInstall
             | MwmRegionsInstall,

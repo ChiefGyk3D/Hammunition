@@ -68,6 +68,7 @@ from hammunition.manifest.schema import (
     MwmRegionsInstall,
     NodeInstall,
     RegionalDataInstall,
+    RegisterInstall,
     SourceInstall,
     TopoQuadsInstall,
     VenvInstall,
@@ -850,6 +851,14 @@ def commands_for(
                     f"installed nothing."
                 )
             builds.extend(data.steps(planned.manifest, block))
+        elif isinstance(block, RegisterInstall):
+            if data is None:
+                raise BackendError(
+                    f"{planned.name} is an offline dataset and no data backend was "
+                    f"supplied. Skipping it would report a successful run that "
+                    f"installed nothing."
+                )
+            builds.extend(data.register_steps(planned.manifest, block))
         elif isinstance(block, RegionalDataInstall):
             if regions is None:
                 raise BackendError(

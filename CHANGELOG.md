@@ -28,6 +28,20 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   its own copy, with a deprecation note, otherwise. The service and a
   foreground run cannot share port 10110. Not yet run on a machine.
 
+- **Australia's repeaters from the regulator** (D-074, amended
+  2026-10-01). `acma-register` installs the ACMA's Register of
+  Radiocommunications Licences, one 67.5 MB zip rebuilt daily, through a
+  new `register` install method. The ACMA publishes no checksum (its ETag
+  is a storage version stamp, not a digest), so nothing is pinned: the
+  zip's own CRC-32s and the tables the import reads are checked, the plan
+  says **unverified**, and the unit is in no profile. `hammunition maps
+  repeaters import --from-acma` writes the `acma` layer, *Repeaters (ACMA,
+  YYYY-MM-DD)*, from the granted amateur repeater licences whose site lies
+  inside an installed map region's bounding box, with the attribution the
+  licence requires; it never opens the licensees' table. The regulator
+  comes second in the all-sources precedence, after your own export.
+  `hammunition artifacts` lists it for a Bunker as `unverified-zip`, with
+  the day's size and no digest.
 - **The rig is station data: one shared `rigctld` for every program**
   (**D-073**, status proposed, bench owed). A `rig` hardware class and a
   `rig` block on a radio's manifest describe the radio — a hamlib model and

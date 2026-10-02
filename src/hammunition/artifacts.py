@@ -26,7 +26,9 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import date
 from pathlib import Path
+from typing import Protocol
 
+from . import acma
 from .backends.data import data_name
 from .backends.kiwix import book_mirror_path
 from .comaps import ComapsError, load_pins, resolve_regions, sha1_hex
@@ -52,6 +54,7 @@ from .manifest.schema import (
     MwmRegionsInstall,
     PackageManifest,
     RegionalDataInstall,
+    RegisterInstall,
 )
 from .terrain_plan import PINS as TILE_PINS
 from .terrain_plan import TILE_LIST
@@ -64,8 +67,16 @@ FETCHING = (
     DemTilesInstall,
     MwmRegionsInstall,
     KiwixBooksInstall,
+    RegisterInstall,
 )
-Block = DataInstall | RegionalDataInstall | DemTilesInstall | MwmRegionsInstall | KiwixBooksInstall
+Block = (
+    DataInstall
+    | RegionalDataInstall
+    | DemTilesInstall
+    | MwmRegionsInstall
+    | KiwixBooksInstall
+    | RegisterInstall
+)
 REGION_PINS = Path("data") / "geofabrik-pins.yaml"
 NO_REGIONS = (
     "no map regions given: pass --map-regions with Geofabrik region paths "
@@ -80,6 +91,12 @@ NO_BOOKS = (
 BOOKS_LICENCE = "each book's own, from catalog/data/kiwix-books.yaml"
 
 
+class RegisterProbe(Protocol):
+    """The day's size of a ``register`` file (:class:`hammunition.acma.AcmaProbe`)."""
+
+    def size(self, url: str) -> int: ...
+
+
 class SelectionError(Exception):
     """The selection names something that cannot be listed."""
 
@@ -89,8 +106,8 @@ def _blocks(manifest: PackageManifest) -> list[Block]:
 
 
 def fetching_units(catalog: Mapping[str, PackageManifest]) -> tuple[str, ...]:
-    """Every unit with a ``data``, ``osm-regions``, ``dem-tiles``, ``mwm-regions``
-    or ``kiwix-books`` block, sorted."""
+    """Every unit with a ``data``, ``osm-regions``, ``dem-tiles``, ``mwm-regions``,
+    ``kiwix-books`` or ``register`` block, sorted."""
     return tuple(sorted(name for name, m in catalog.items() if _blocks(m)))
 
 
@@ -110,7 +127,7 @@ def select_units(
     if idle:
         problems.append(
             f"fetches no remote data artifact (not a data, osm-regions, dem-tiles, "
-            f"mwm-regions or kiwix-books unit): "
+            f"mwm-regions, kiwix-books or register unit): "
             f"{', '.join(idle)}"
         )
     if problems:
@@ -201,6 +218,31 @@ def _regions(
             )
         )
     return out
+
+
+def _register(unit: str, block: RegisterInstall, probe: RegisterProbe | None) -> ArtifactEntry:
+    """The ACMA register (D-074, amended 2026-10-01): its URL, its day's size
+    from a ``HEAD``, and no digest, because none is published. A mirror
+    serves it at ``acma-register/spectra_rrl.zip`` and the engine checks the
+    mirror's copy as it checks the publisher's: by the zip's own structure."""
+    licence = _licence(block.licence)
+    if probe is None:
+        return _deferred(unit, acma.FILE_NAME, licence, "the day's size was not asked for")
+    try:
+        size = probe.size(acma.URL)
+    except (acma.AcmaError, OSError) as exc:
+        return _deferred(unit, acma.FILE_NAME, licence, f"its size could not be read: {exc}")
+    return ArtifactEntry(
+        unit=unit,
+        name=acma.FILE_NAME,
+        url=acma.URL,
+        check=acma.CHECK,
+        digest=None,
+        checksum_url=None,
+        size=size,
+        licence=licence,
+        deferred=None,
+    )
 
 
 def _tiles(
@@ -332,6 +374,7 @@ def list_artifacts(
     today: date,
     region_probe: Probe,
     tile_probe: TileProbe,
+    register_probe: RegisterProbe | None = None,
 ) -> tuple[ArtifactEntry, ...]:
     """Every artifact of *units* for *regions* at *freshness* and the
     reference *books*, in unit order."""
@@ -343,6 +386,9 @@ def list_artifacts(
             out.extend(_data(unit, data))
             continue
         block = blocks[0]
+        if isinstance(block, RegisterInstall):
+            out.append(_register(unit, block, register_probe))
+            continue
         if isinstance(block, KiwixBooksInstall):
             out.extend(_books(unit, books, catalog_root=catalog_root))
             continue
