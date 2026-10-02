@@ -90,6 +90,21 @@ def test_flushed_entries_survive_a_new_probe(tmp_path: Path) -> None:
     assert second_inner.asked == []
 
 
+def test_an_unwritable_cache_does_not_break_head_or_flush(tmp_path: Path) -> None:
+    not_a_directory = tmp_path / "not-a-directory"
+    not_a_directory.write_text("file")
+    inner = FakeProbe()
+    probe = CachingTileProbe(inner, not_a_directory / "cache", now=lambda: 100)
+
+    assert probe.head(URL) == OK
+    probe.flush()
+    assert probe.head(URL) == OK
+    assert inner.asked == [URL]
+    not_a_directory.unlink()
+    probe.flush()
+    assert (not_a_directory / "cache" / "tile-heads.json").is_file()
+
+
 def test_many_threads_can_ask_and_flush_a_valid_private_cache(tmp_path: Path) -> None:
     probe = CachingTileProbe(FakeProbe(), tmp_path, now=lambda: 100)
 

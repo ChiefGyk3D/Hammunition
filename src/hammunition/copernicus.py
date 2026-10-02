@@ -384,11 +384,21 @@ class CachingTileProbe:
             entries.update(self._entries)
             self._entries = entries
             self._trim()
-            self.cache_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-            descriptor, temporary = tempfile.mkstemp(prefix=".tile-heads-", dir=self.cache_dir)
+            descriptor: int | None = None
+            temporary: str | None = None
             try:
+                self.cache_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+                descriptor, temporary = tempfile.mkstemp(prefix=".tile-heads-", dir=self.cache_dir)
                 os.fchmod(descriptor, 0o600)
-                with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                try:
+                    stream = os.fdopen(descriptor, "w", encoding="utf-8")
+                except BaseException:
+                    with contextlib.suppress(OSError):
+                        os.close(descriptor)
+                    descriptor = None
+                    raise
+                descriptor = None
+                with stream:
                     json.dump(
                         {
                             url: {
@@ -404,11 +414,15 @@ class CachingTileProbe:
                     )
                     stream.write("\n")
                 os.replace(temporary, self.cache_path)
-            except BaseException:
-                with contextlib.suppress(OSError):
-                    os.close(descriptor)
-                with contextlib.suppress(OSError):
-                    os.unlink(temporary)
+            except BaseException as exc:
+                if descriptor is not None:
+                    with contextlib.suppress(OSError):
+                        os.close(descriptor)
+                if temporary is not None:
+                    with contextlib.suppress(OSError):
+                        os.unlink(temporary)
+                if isinstance(exc, OSError):
+                    return
                 raise
             self._dirty = False
 
