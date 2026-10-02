@@ -11,6 +11,9 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Boxless map-region extract notes reach text and JSON imports** (**D-075**,
+  issue #212). NASR imports keep using extracts with bounding boxes and report
+  by extract number when another installed extract is left out.
 - **The engine's own GPS tether copy retired; the ACMA Bunker ruling recorded**
   (**D-071** note, **D-074**, 2026-10-02). `gps_tether.py` and its tests are
   deleted: the tether is hammunition-gps-tether, installed by the `gps-tether`
