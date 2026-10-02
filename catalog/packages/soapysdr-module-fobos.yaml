@@ -1,0 +1,110 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: soapysdr-module-fobos
+version: "1.1.0"
+summary: SoapySDR driver module for the RigExpert Fobos SDR
+categories: [sdr-hardware]
+
+# ADD, "hardware without hardware" (see libfobos). Measured 2026-10-02:
+#   - D-032: github.com/rigexpert/SoapyFobosSDR, default branch `main`, head
+#     aa8d486 committed 2026-06-15 ("CMake min ver"). Twelve commits in all,
+#     six of them since 2026-01-01. No tags and no releases; versions.txt in
+#     the tree names v.1.1.0 as the newest entry ("added support for
+#     fobos-sdr-agile") and v.1.0.1 before it.
+#   - Licence: LICENSE is the GNU Lesser General Public Licence 2.1; the
+#     source headers say "LGPL-2.1 or above".
+#   - Archives (apt-cache policy on Debian 13, Kali, Parrot, Ubuntu 24.04 and
+#     26.04; sources.debian.org; Launchpad): no package, so nothing a
+#     distribution reviewed, and the pin is our own choice (D-024).
+install:
+  - install:
+      method: git
+      repo: https://github.com/rigexpert/SoapyFobosSDR
+      ref: aa8d486cf03c5bc35fd7929e90e9a36c7f61ad8d
+      build_system: cmake
+      # CMAKE_INSTALL_RPATH: the module links libfobos and libfobos_sdr in
+      # /usr/local/lib and nothing runs ldconfig; see hydrasdr-host.
+      configure_args: [-DCMAKE_INSTALL_RPATH=/usr/local/lib]
+      pin_review:
+        last_reviewed: 2026-10-02
+        reviewed_by: hammunition-maintainers
+        basis: own_choice
+        rationale: >-
+          The default branch's head (D-032), aa8d486, 2026-06-15. Upstream has
+          never tagged, so the head is the only revision that carries the
+          2026-04-01 commit adding libfobos-sdr-agile support, which this
+          tree's CMakeLists now requires outright (find_package of both
+          libraries ends in FATAL_ERROR if either is absent); the commits
+          before it add open-by-serial and clock-source selection. Built on
+          debian:13, ubuntu:24.04, ubuntu:26.04 and kali-rolling on 2026-10-02
+          against the libfobos and libfobos-sdr-agile pins of this catalog.
+          Checked for a distribution to follow and found none: no archive
+          here, Debian or Ubuntu packages it.
+        cadence_days: 180
+    build_depends:
+      - build-essential
+      - cmake
+      - pkg-config
+      - libsoapysdr-dev
+      - libusb-1.0-0-dev
+    note: >-
+      Built on 2026-10-02 in rootless containers the way this block runs it
+      (cmake configure, `cmake --build --parallel 2`, `cmake --install` into
+      /usr/local) after the two Fobos libraries were installed there:
+      debian:13, ubuntu:24.04 and ubuntu:26.04 exit 0 in about 3 s with no
+      warnings; kali-rolling (gcc 16) also exits 0 with four warnings. The
+      module installs once, to /usr/local/lib/SoapySDR/modules0.8/
+      libFobosSDRSupport.so, and `SoapySDRUtil --info` then lists it
+      (aa8d486) and `fobos` among the factories, with no ldconfig run.
+      `--find="driver=fobos"` reports no devices, there being none. Built
+      on x86_64 only; arm64 is unmeasured. Not measured: a board, streaming, or a client application.
+
+depends: [libfobos, libfobos-sdr-agile]
+
+after:
+  - libfobos
+  - libfobos-sdr-agile
+
+installed_files:
+  - lib/SoapySDR/modules0.8/libFobosSDRSupport.so
+
+update:
+  probe:
+    method: none
+  strategy: rebuild
+  cadence_hint: >-
+    No tags. Read the default branch's head (D-032) at each review: six of
+    its twelve commits are from 2026. Move it together with the two library
+    pins, since this tree is written against both.
+
+documentation:
+  what_it_does: >-
+    A plugin for SoapySDR, the vendor-neutral SDR abstraction layer, that
+    makes the RigExpert Fobos SDR usable through the generic SoapySDR
+    interface, for a board running either firmware family.
+  why_you_want_it: >-
+    It is what lets one program drive many different radios. SDR++, GQRX,
+    CubicSDR, GNU Radio's Soapy source and a great deal else reach the Fobos
+    through this module, so installing it is usually the difference between an
+    application listing the radio and showing an empty device list. The
+    module takes a `driver=fobos` argument and, per upstream's versions.txt,
+    `index=` to choose between several boards.
+  prerequisites: >-
+    Both Fobos libraries (`libfobos` and `libfobos-sdr-agile`, which this unit
+    depends on), the udev rule and group from the `fobos-sdr` hardware entry,
+    and SoapySDR itself, which the build pulls in.
+  known_problems: >-
+    **Both libraries are needed to build it, whichever firmware the board
+    runs.** A board on original firmware and one on the agile firmware show the
+    same USB identifier and differ in bcdDevice only (see the libfobos unit);
+    whether this module lists both kinds is upstream's code and not measured
+    here. A module and its libraries must match or the radio is not listed
+    rather than reported as broken: `SoapySDRUtil --info` shows what loaded and
+    any dlopen error. The module is built into /usr/local/lib/SoapySDR/
+    modules0.8, which SoapySDR 0.8 searches. This is an untagged pin. **Not
+    measured:** any board.
+  upstream_url: https://github.com/rigexpert/SoapyFobosSDR
+  upstream_support: >-
+    Issues on the repository above and rigexpert.com, who make the hardware.
+    SoapySDR questions go to the SoapySDR project. Licence: LGPL-2.1.

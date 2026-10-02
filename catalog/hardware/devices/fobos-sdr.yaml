@@ -1,0 +1,115 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: fobos-sdr
+summary: RigExpert Fobos SDR -- a USB wideband receive-only SDR
+vendor: RigExpert
+status: untested
+
+# HARDWARE WITHOUT HARDWARE, 2026-10-02. The maintainer does not own a Fobos
+# SDR; nothing here was captured from one. The identifier is mined from the
+# vendor's own published files and cited by commit:
+#   - rigexpert/libfobos at 1e0fab3 (2026-06-18): its udev rules file names
+#     idVendor 16d0, idProduct 132e, and fobos/fobos.c defines
+#     FOBOS_VENDOR_ID 0x16d0 and FOBOS_PRODUCT_ID 0x132e and opens only a
+#     device whose bcdDevice is FOBOS_DEV_ID 0x0000.
+#   - rigexpert/libfobos-sdr-agile at v.3.3.0 (2753965): a second library for
+#     the same board on different firmware, in a second repository, with its
+#     own rules file and fobos/fobos_sdr.c defining the same 0x16d0 and 0x132e
+#     and a FOBOS_DEV_ID of 0x0101.
+#   `status: untested` and not `supported` is deliberate, and differs from the
+#   HydraSDR entry: no distribution packages anything Fobos (checked on Debian
+#   13, Kali, Parrot, Ubuntu 24.04 and 26.04, in sources.debian.org and on
+#   Launchpad, 2026-10-02), so the identifier has no independent reader
+#   beyond the vendor's two repositories. Nothing was run against a board; the
+#   units were built on four targets and run without one.
+#   usb.ids (the 2025-07 copy on a Parrot host) names vendor 16d0 "MCS" and
+#   lists 33 products under it from unrelated makers, none of them 132e, so
+#   the vendor id alone identifies nothing and the pair is the identifier. No
+#   source read here says another product uses 16d0:132e, and none was looked
+#   for beyond that list, so the pair has not been flagged ambiguous.
+#   D-028: no symlink is emitted: a libusb device with nothing to name, serial
+#   unread. The binding below names one only because the schema requires it;
+#   serial_suffix is unset, so rules_for() writes permissions only (and
+#   docs/reference/device-naming.md counts the binding as a symlink anyway).
+
+identification_gap: >-
+  Not owned, so no descriptor has been read. Unknown: the manufacturer and
+  product strings and whether the board reports a per-unit serial; whether the
+  agile firmware's bcdDevice (0x0101) and the original's (0x0000) are the only
+  two a unit shows; and every behaviour past enumeration. The firmware
+  difference is visible only in bcdDevice, which this catalog's udev binding
+  cannot match on, so one rule serves both. Closing it needs a Fobos attached
+  from an owner, once on each firmware if they have both;
+  `scripts/identify-device.sh fobos-sdr` does it read-only, no root.
+gap_closure: unverified_by_maintainer
+
+usb_ids:
+  - vendor: "16d0"
+    product: "132e"
+    description: Fobos SDR on original or agile firmware, told apart only by bcdDevice
+    evidence: >-
+      Vendor source, not a capture. The udev rules file at
+      https://github.com/rigexpert/libfobos/blob/1e0fab3d361ee553faa88f67d2ef0ae502483151/73-fobos-sdr.rules
+      matches idVendor 16d0 and idProduct 132e ("original Fobos SDR"), and the
+      library's own constants at
+      https://github.com/rigexpert/libfobos/blob/1e0fab3d361ee553faa88f67d2ef0ae502483151/fobos/fobos.c
+      (lines 47-49) define FOBOS_VENDOR_ID 0x16d0, FOBOS_PRODUCT_ID 0x132e and
+      FOBOS_DEV_ID 0x0000, which it requires of bcdDevice. The agile library,
+      in another repository, matches the same pair and bcdDevice 0x0101:
+      https://github.com/rigexpert/libfobos-sdr-agile/blob/2753965dee361267df86e4a713b8278ad9ae46bb/fobos/fobos_sdr.c
+      (lines 42-44), with its own rules file at
+      https://github.com/rigexpert/libfobos-sdr-agile/blob/2753965dee361267df86e4a713b8278ad9ae46bb/fobos-sdr.rules
+      for the same pair.
+    confirmed: true
+    node_kind: libusb
+
+udev: {symlink: fobos-sdr, group: plugdev}
+
+firmware:
+  - kind: vendor_tool
+    packages: [libfobos]
+    note: >-
+      The identifier does not change between firmware families; the descriptor's
+      bcdDevice does (0x0000 original, 0x0101 agile), and libfobos and
+      libfobos-sdr-agile each open only their own. `fobos_fwloader` from the
+      libfobos unit writes firmware (its API is fobos_rx_write_firmware and
+      fobos_rx_read_firmware, added in libfobos v.2.3.2). No separate
+      bootloader or DFU identifier is recorded: none appears in either
+      library's source, and whether one exists is part of the gap. Firmware
+      writes were not run, and the firmware files are RigExpert's to
+      download, not carried.
+
+groups: [plugdev]
+packages: [libfobos, soapysdr-module-fobos]
+
+documentation:
+  what_it_is: >-
+    A USB software defined radio receiver from RigExpert, the Ukrainian maker
+    of antenna analysers, with two families of firmware: the original, driven
+    through libfobos, and an "agile" one with a fast frequency-scan mode,
+    driven through libfobos-sdr-agile. Both libraries are receive-only: they
+    set a frequency, gain and sample rate and read samples, and have no
+    transmit call.
+  what_you_can_do_with_it: >-
+    General wideband listening through any program that speaks SoapySDR (SDR++,
+    GQRX, CubicSDR, GNU Radio) or the vendor's own tools. RigExpert's
+    published figures are not repeated: coverage, sensitivity and dynamic range
+    are unmeasured here, and D-027 keeps "the identifier is right" and "it was
+    run here" apart.
+  setup_steps: >-
+    Install the `libfobos` and `soapysdr-module-fobos` units (the second pulls
+    `libfobos-sdr-agile`, which it needs to build), run `hammunition hardware
+    apply` to write the udev rule and add yourself to `plugdev`, and log out
+    and back in. `fobos_devinfo` then lists boards on the original firmware and
+    `SoapySDRUtil --find="driver=fobos"` should list the board. All three
+    build into /usr/local on every target: no distribution packages them.
+  known_problems: >-
+    **Nothing was run against a board.** A board on one firmware is invisible
+    to the other library: the same USB identifier, a different bcdDevice,
+    and no error. The agile library's own four example programs are not
+    installed. The units are builds from upstream commits (two are untagged
+    pins), not packages. Hardware revision 3 and earlier need particular
+    firmware per upstream's versions.txt and README; this is not measured.
+  upstream_url: https://rigexpert.com/

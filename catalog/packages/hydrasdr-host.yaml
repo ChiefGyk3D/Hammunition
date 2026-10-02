@@ -1,0 +1,190 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: hydrasdr-host
+version: "1.1.1"
+summary: Host library and command-line tools for the HydraSDR RFOne receiver
+categories: [sdr-hardware]
+
+# ADD, "hardware without hardware": the maintainer does not own an RFOne, so
+# this unit and its hardware entry are built from upstream's own published
+# files and from the archives. Measured 2026-10-02:
+#   - D-032: github.com/hydrasdr/hydrasdr-host, default branch `main`, head
+#     16942cb committed 2026-09-11 ("v1.1.3"), which is the newest tag;
+#     v1.1.2 and v1.1.1 (2026-05-02) before it. Active. The project is the
+#     successor to the old rfone_host name and an AirSpy-derived design.
+#   - Licence, from the LICENSE.md in each part and not from GitHub (whose
+#     licence field is empty for the repository): libhydrasdr is MIT for most
+#     files and BSD-3-Clause for hydrasdr.c and hydrasdr.h
+#     (libhydrasdr/LICENSE.md); hydrasdr-tools is GPL-2.0, from its HackRF
+#     heritage (hydrasdr-tools/LICENSE.md). The same tree also ships a
+#     debian/copyright (upstream's own file, at v1.1.1 and at the head) whose
+#     stanza "License: Custom-HydraSDR" says the software "is licensed
+#     exclusively for HydraSDR products and related development ... All
+#     rights reserved", which contradicts both LICENSE.md files and the README.
+#     This catalog follows the per-directory LICENSE.md files, which say what
+#     each file is licensed under, builds from source at the operator's
+#     direction and redistributes nothing (D-033), and says so on the page.
+#   - Archives, from apt-cache policy in containers on 2026-10-02: Debian 13
+#     and Ubuntu 24.04 have nothing named hydrasdr; Parrot's core image has
+#     nothing; Kali rolling carries hydrasdr-tools 1.1.1+dfsg-1; Ubuntu 26.04
+#     carries hydrasdr-tools 1.0.3-1 (libhydrasdr0). Debian forky and sid have
+#     hydrasdr-host 1.1.1+dfsg-1 (sources.debian.org), maintained by the
+#     Debian Hamradio Team. So Kali and Ubuntu 26.04 take apt and everything
+#     else builds the tag Debian packages (D-024's distribution case, and a
+#     tag, so no pin_review).
+#   - D-026: hydrasdr_spiflash, hydrasdr_reset and the other low-level tools
+#     are the means of talking to the device and are installed whole.
+#   - Receive only: the library's public header has hydrasdr_start_rx and no
+#     transmit call, so there is no consent gate to carry (D-021, D-034).
+install:
+  - when:
+      distro: [kali]
+    install:
+      method: apt
+      packages: [hydrasdr-tools]
+    note: >-
+      Kali rolling carries hydrasdr-tools 1.1.1+dfsg-1 and libhydrasdr1, the
+      same revision as the build below. Installed and run in a kali-rolling
+      container on 2026-10-02: hydrasdr_info prints the library version
+      (1.1.1) and reports no devices found, exit 0. The package also ships
+      the vendor's udev rule (the same file the hardware entry cites), which
+      carries a second, looser rule for systems without a plugdev group
+      (GROUP users, MODE 0664) and whose own header says that second rule
+      overrides the plugdev one. So on this target the package's rule, not
+      the catalog's 0660 plugdev rule, may decide the node's group and mode;
+      which one wins depends on the order udev reads the two files, and that
+      was not measured.
+
+  - when:
+      distro: [ubuntu]
+      distro_version: ["26.04"]
+    install:
+      method: apt
+      packages: [hydrasdr-tools]
+    note: >-
+      Ubuntu 26.04 carries hydrasdr-tools 1.0.3-1, older than the pinned
+      1.1.1 below, with libhydrasdr0. Installed in an ubuntu:26.04 container
+      on 2026-10-02: hydrasdr_info runs and reports no board found. This
+      package ships the same vendor udev rule with the same looser GROUP
+      users, MODE 0664 fallback as Kali's (see there for what that means).
+      Debian 13 and Ubuntu 24.04 have no package and take the build.
+
+  - install:
+      method: git
+      repo: https://github.com/hydrasdr/hydrasdr-host
+      # The revision Debian sid and Kali package (1.1.1+dfsg). A tag, so no
+      # pin_review: upstream named it. Newer tags exist (v1.1.3 is the head);
+      # D-024 prefers the revision a distribution already reviewed, so a
+      # source build and an apt install are the same code.
+      ref: v1.1.1
+      # D-069: the tag must still resolve to this commit.
+      commit: d2812bd001f55ebee4c5d629fe47744cdd64aeec
+      build_system: cmake
+      # CMAKE_INSTALL_RPATH: this tag's tools find libhydrasdr.so.1 only
+      # through the ld.so cache, and nothing in a build into /usr/local runs
+      # ldconfig, so without it hydrasdr_info stops with "error while loading
+      # shared libraries" (measured on debian:13). v1.1.3's own notes mention
+      # "Linux tools rpath". The path is the engine's default prefix.
+      configure_args: [-DCMAKE_INSTALL_RPATH=/usr/local/lib]
+    build_depends:
+      - build-essential
+      - cmake
+      - pkg-config
+      - libusb-1.0-0-dev
+    note: >-
+      Built on 2026-10-02 in rootless containers the way this block runs it
+      -- cmake configure, `cmake --build --parallel 2`, `cmake --install`
+      into /usr/local, with the build_depends above, and nothing run as root
+      but the install. debian:13 (cmake 3.31, gcc 14), ubuntu:24.04 (cmake
+      3.28, gcc 13), ubuntu:26.04 and kali-rolling (cmake 4.3, gcc 16): exit
+      0 on all four, about 7 s on a warm machine, ten -Wdeprecated warnings
+      from the tools' own use of gain calls the library has deprecated. The
+      install leaves the library, its pkg-config and CMake files, the
+      headers and seventeen tools under the prefix and writes no udev rule
+      (the CMake option for one, INSTALL_UDEV_RULES, defaults off and would
+      write /etc/udev/rules.d; the hardware entry owns the rule). Run without
+      a device: hydrasdr_info prints the library version and "Total HydraSDR
+      devices found: 0", exit 0. Built on x86_64 only; arm64 is unmeasured. Not measured: any
+      RFOne, streaming, or firmware access.
+
+binaries:
+  - produced: hydrasdr_info
+    install_as: hydrasdr_info
+  - produced: hydrasdr_rx
+    install_as: hydrasdr_rx
+  - produced: hydrasdr_list_devices
+    install_as: hydrasdr_list_devices
+  - produced: hydrasdr_lib_version
+    install_as: hydrasdr_lib_version
+
+# What the install rule leaves under the prefix, from the debian:13 build
+# above. The library has no executable to declare, and the tools' other
+# thirteen programs are not each checked.
+installed_files:
+  - lib/libhydrasdr.so
+  - lib/libhydrasdr.so.1
+  - lib/pkgconfig/libhydrasdr.pc
+  - include/libhydrasdr/hydrasdr.h
+
+update:
+  probe:
+    method: github_tags
+    repo: hydrasdr/hydrasdr-host
+  strategy: rebuild
+  cadence_hint: >-
+    Tagged releases, several a year (v1.0.2 2025-07, v1.1.0 2026-02, v1.1.1
+    2026-05-02, v1.1.3 2026-09-11). Debian sid and Kali package v1.1.1; move
+    the pin when a distribution does, or when a release fixes something this
+    catalog has been told about. The tag and its commit move together. A
+    moving tag called `nightly` sits at the head commit beside v1.1.3; a
+    probe that reads the tag list must not take it for a release.
+
+documentation:
+  what_it_does: >-
+    The host side of the HydraSDR RFOne, a USB software defined radio receiver:
+    a shared library (libhydrasdr) that opens the board, configures it and
+    streams samples, and seventeen command-line programs on top of it.
+    `hydrasdr_info` reports the board, `hydrasdr_list_devices` lists what is
+    attached, `hydrasdr_rx` records samples to a file, `hydrasdr_calibrate`
+    stores a frequency correction in the board, and the rest reach the tuner,
+    the clock generator, the GPIO pins and the SPI flash directly. Upstream's
+    README gives the RFOne a range of 24 MHz to 1.8 GHz at up to 10 MSPS and
+    three RF ports; this project has run none of that.
+  why_you_want_it: >-
+    It is the layer every other program reaches the RFOne through. The
+    SoapySDR module (`soapysdr-module-hydrasdr`), and through it SDR++, GQRX,
+    CubicSDR and GNU Radio, are built on this library, and `hydrasdr_info` is
+    the first check that the board and its permissions are right before any
+    application is involved. It is the successor to the Airspy host code, so
+    an operator coming from an Airspy R2 will find the same shape of tools.
+  prerequisites: >-
+    A HydraSDR RFOne, which the maintainer does not own, and the udev rule
+    and `plugdev` membership from the `hydrasdr-rfone` hardware entry
+    (`hammunition hardware apply`). Without the rule the tools see the board
+    only as root. Nothing to configure before the first run.
+  known_problems: >-
+    **Builds on Debian 13, Parrot and Ubuntu 24.04 install into /usr/local**,
+    and the library is found through an embedded run path rather than the
+    system library cache; a program of your own that links libhydrasdr needs
+    `-L/usr/local/lib -Wl,-rpath,/usr/local/lib` or a run of `ldconfig` as
+    root. **The RFOne shares a USB identifier with the Airspy R2 and Mini**
+    (1d50:60a1, in firmware that predates the board's own identifier), so a
+    tool written for one can open the other; see the hardware entries.
+    `hydrasdr_spiflash`, `hydrasdr_reset` and `hydrasdr_calibrate` write the
+    board's flash: run them knowing which board is attached. Kali's and
+    Ubuntu 26.04's packages are named hydrasdr-tools and differ in version
+    (1.1.1 and 1.0.3) from the 1.1.1 build the other targets get, and both
+    ship the vendor's udev rule with a looser fallback for `users` (group
+    users, mode 0664; see the install notes). **Licence:** upstream's tree states two things, the
+    per-directory LICENSE.md files (MIT and BSD-3-Clause for the library,
+    GPL-2.0 for the tools) and a debian/copyright reading "Custom-HydraSDR,
+    licensed exclusively for HydraSDR products ... All rights reserved". This
+    catalog follows the LICENSE.md files and builds on your machine from
+    upstream's tag, redistributing nothing; read both before depending on it.
+    **Not measured:** everything that needs a board.
+  upstream_url: https://github.com/hydrasdr/hydrasdr-host
+  upstream_support: >-
+    Issues on the repository above and hydrasdr.com. Licences, per the
+    LICENSE.md files: libhydrasdr is MIT with two BSD-3-Clause files, the
+    tools are GPL-2.0; see the licence note under known problems.

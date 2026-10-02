@@ -508,11 +508,11 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 315
+  packages/        # one YAML per piece of software          ✅ 320
   profiles/        # named bundles referencing packages      ✅ 19
   hardware/
     classes/       # device families with shared Linux needs ✅ 9
-    devices/       # one YAML per device                     ✅ 31
+    devices/       # one YAML per device                     ✅ 33
 src/hammunition/
   cli/             # install/uninstall/update/list/status/show/doctor/hardware/menus/station/maps/reference/artifacts/services/time ✅
     devctl.py      # the engine's own root helper (D-056); hammunition-tray's now, this copy goes in a later release ✅ GPS parked and woken on the field laptop

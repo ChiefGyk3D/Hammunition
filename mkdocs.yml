@@ -170,6 +170,8 @@ nav:
       - SDR receivers and transceivers:
           - RTL-SDR: hardware/rtl-sdr.md
           - Airspy: hardware/airspy.md
+          - HydraSDR RFOne: hardware/hydrasdr-rfone.md
+          - Fobos SDR: hardware/fobos-sdr.md
           - FUNcube Dongle: hardware/funcube-dongle.md
           - SDRplay RSP: hardware/sdrplay-rsp.md
           - HackRF One: hardware/hackrf-one.md

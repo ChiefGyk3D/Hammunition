@@ -24,7 +24,7 @@ Install the packages and add yourself to plugdev. Note R2/Mini and HF+ use diffe
 
 ## Known problems
 
-The HF+ is a different product line despite the shared brand — SoapySDR needs the `airspyhf` package (native tools and the gqrx backend), which this entry already carries — the SoapySDR module for the HF+ is not packaged here, and is not the same module as the R2's `soapysdr-module-airspy`.
+The HF+ is a different product line despite the shared brand — SoapySDR needs the `airspyhf` package (native tools and the gqrx backend), which this entry already carries — the SoapySDR module for the HF+ is not packaged here, and is not the same module as the R2's `soapysdr-module-airspy`. **1d50:60a1 is not the R2's alone**: HydraSDR's own device table and rules file list it for the HydraSDR RFOne on legacy firmware (see the `hydrasdr-rfone` entry), so a program selecting by that VID:PID can open either, and this entry's rule gives both the same group.
 
 ## How it identifies itself
 
