@@ -107,7 +107,7 @@ begins so a failure is a report rather than a half-installed machine, and a
 package this engine cannot handle is **refused by name with the reason**, never
 skipped. See [`docs/reference/cli.md`](docs/reference/cli.md). The
 commands a front end reads (`status`, `list`, `show`, `update`, `doctor`,
-`station show`, `hardware state`, `maps regions`, `services`, `artifacts`, and the `install` and
+`station show`, `hardware state`, `maps regions`, `services` (the list), `artifacts`, and the `install` and
 `uninstall` plans under `--dry-run`) also print JSON with `--json`; see
 [`docs/reference/json-interface.md`](docs/reference/json-interface.md)
 (D-059).

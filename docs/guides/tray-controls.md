@@ -165,9 +165,10 @@ The full flag list is in the [command line reference](../reference/cli.md#hammun
   `hammunition install gps-tether` or `rig-service`, or, for `time` on a
   machine whose daemon is `systemd-timesyncd`, see [Time and
   position](time-and-gps.md).
-- **The clock modes are greyed.** The clock is not ntpsec (Debian, Ubuntu and
-  Kali default to `systemd-timesyncd`, which cannot read a GPS); the panel
-  says why.
+- **The clock modes are greyed.** The machine's clock daemon is not ntpsec
+  (Debian 13, Ubuntu 24.04 and Mint ship `systemd-timesyncd`, which cannot
+  read a GPS; Ubuntu 26.04 ships chrony, which the `chrony` unit configures,
+  [Time and position](time-and-gps.md)); the panel says why.
 
 ## What was measured, and what was not
 
@@ -176,7 +177,8 @@ a USB GPS receiver from the Plasma applet: one KDE password prompt for the
 park, none for the wake inside the `auth_self_keep` window, gpsd releasing
 the device and taking it back within a second, a 3D fix again 74 seconds after
 the wake ([bench record](../reference/bench-verification-5430.md)). That run
-used the engine's own helper and the applet before the Controls panel existed.
+used the engine's own copy of the helper and the applet before the Controls
+panel and hammunition-tray 0.5.0's helper existed.
 
 **Not measured.** The Controls panel itself, and everything under it: the
 tray's helper with the `services` and `radio` verbs has been exercised
