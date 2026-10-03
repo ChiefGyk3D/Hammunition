@@ -140,6 +140,7 @@ from hammunition.hardware.apply import HardwarePlan
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.interface import envelope
 from hammunition.interface.services import ServicesDocument, ServiceView
+from hammunition.java import JavaProbe
 from hammunition.kernel import KernelProbe
 from hammunition.kiwix import (
     BookFile,
@@ -916,6 +917,7 @@ def cmd_update(args: argparse.Namespace) -> int:
             station=station,
             repos=repos,
             kernel=KernelProbe.detect(),
+            java=JavaProbe.detect(),
             desktops=scan_sessions(),
             log=read_log,
         )
@@ -3492,6 +3494,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             # The running kernel is a fact about this machine, not the target
             # (one Pop!_OS 24.04 VM has AX.25 under 7.0.11 and not under 7.1.5).
             kernel=KernelProbe.detect(),
+            java=JavaProbe.detect(),
             # Which desktops the session files offer (D-060): files on disk,
             # so the answer under sudo is the answer outside it.
             desktops=scan_sessions(),

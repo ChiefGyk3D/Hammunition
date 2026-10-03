@@ -2404,6 +2404,36 @@ exists to refuse — so the engine names the gap and stops.
 (upstream's `prebuild` fetches it from a moving tag, skipped here) is carried
 as a pinned artefact. The built-in model serves until an operator asks.
 
+**Amendment, 2026-10-02 — the Java floor beside the Node floor.** `graphhopper`
+and `brouter` depend on `default-jre-headless`, a metapackage whose version says
+nothing about the Java major it brings: Ubuntu 22.04 and Pop!_OS 22.04 resolve it
+to Java 11, GraphHopper's classes are major 61 (Java 17), and both units planned
+cleanly and failed at run time (the deferred minor from PRs #176 and #191). The
+rule is D-037's, with a probe in place of a package version. A manifest names
+`requires_java: <major>` (a positive integer); the plan runs `java -version`
+once, only if some unit in the transaction declares the field, on the `java` on
+PATH or else `/usr/lib/jvm/default-java/bin/java`, and parses the major from the
+first line (`"17.0.12"` is 17, `"21"` is 21, `"1.8.0_392"` is 8). Below the
+floor, or no `java` at all: a profile member is deferred by name, a unit the
+operator typed is refused with the same text (D-039), either one stating the
+measured version, the floor, and the archive's `openjdk-N-jre-headless` that
+would meet it where the plan's own `apt-cache policy` sweep knows one. Nothing is
+fetched or installed to meet a floor. Two cases are not deferrals. A concrete
+`openjdk-N-jre*` in the unit's own `depends` with N at or above the floor and an
+archive candidate meets it in this very transaction, and the plan says so. And a
+machine with *no* Java whose unit depends only on a JRE metapackage cannot be
+measured before the install (refusing would defer both units on every clean
+Debian 13), so the plan discloses that and says to check `java -version`
+afterwards; a metapackage with a too-old Java already installed is the reported
+case and still defers. The floors are measured, per D-037's last sentence:
+GraphHopper 17 (its pom's `<release>17</release>` and the jar's class-file
+major 61); BRouter **11** (its build sets `options.release = 11`, the jar is
+major 55; upstream's Docker image uses 17, which is an image choice, not a
+floor); the Mapsforge writer (target 8) and the archive's osmosis carry their
+own JRE dependency, so they declare none. The capability matrix has no column
+for floors (it records archive candidates, and Node's floor is not there either),
+so nothing changes in it.
+
 **Amendment, 2026-09-02 — what the loopback bind is and is not.** Written
 while carrying the first unit. The engine's wrapper sets `HOST=127.0.0.1`
 and the schema refuses a manifest that sets `HOST` at all, so the *engine's*
