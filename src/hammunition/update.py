@@ -63,6 +63,7 @@ NOT_INSTALLED = "not installed"
 UNKNOWN = "unknown"
 ON_INSTALL = "re-checked on install"
 MANUAL = "manual"
+RETIRED = "retired"
 
 UPSTREAM_PROBES = frozenset(
     {
@@ -411,8 +412,9 @@ def report(
     quads: Mapping[str, tuple[int, int]] | None = None,
     books: Mapping[str, tuple[str, str]] | None = None,
     mwm: Mapping[str, tuple[str, str]] | None = None,
+    retired: Sequence[PackageManifest] = (),
 ) -> UpdateReport:
-    """One row per planned unit. Pure: every fact arrives as an argument.
+    """One row per planned or retired unit. Pure: every fact arrives as an argument.
 
     ``apt_states`` is the policy probe for every apt package the plan names;
     ``present`` is :func:`hammunition.execute.build_effects_present` per built
@@ -432,6 +434,18 @@ def report(
     region_report = regions or {}
     rows: list[UpdateRow] = []
     upstream: list[str] = []
+    for manifest in retired:
+        reason = manifest.retire_reason
+        if reason is None:
+            raise ValueError(f"{manifest.name}: retired manifest has no retirement reason")
+        rows.append(
+            UpdateRow(
+                manifest.name,
+                RETIRED,
+                f"{reason.value}: {manifest.status_reason}",
+                manifest.update.strategy,
+            )
+        )
     for planned in plan.packages:
         manifest = planned.manifest
         method = planned.block.install
@@ -619,7 +633,8 @@ def render(report: UpdateReport, *, lists_note: str, upstream_asked: bool = Fals
         f"{report.count(UP_TO_DATE)} up to date, {report.count(CANDIDATE_DIFFERS)} with a "
         f"different apt candidate, {report.count(BEHIND_PIN)} behind the catalog's pin, "
         f"{report.count(NOT_INSTALLED)} not installed, {report.count(UNKNOWN)} unknown, "
-        f"{report.count(ON_INSTALL)} re-checked on install, {report.count(MANUAL)} manual."
+        f"{report.count(ON_INSTALL)} re-checked on install, {report.count(MANUAL)} manual, "
+        f"{report.count(RETIRED)} retired."
     )
     out.append(f"apt lists: {lists_note}")
     upgrade = upgrade_command(report)

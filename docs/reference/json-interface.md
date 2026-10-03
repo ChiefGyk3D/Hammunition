@@ -6131,7 +6131,7 @@ One unit: installed versus the catalog.
 | field | type | meaning |
 |---|---|---|
 | `unit` | string | the catalog unit |
-| `state` | string | `up to date`, `candidate differs`, `behind the pin`, `not installed`, `unknown`, `re-checked on install` or `manual` |
+| `state` | string | `up to date`, `candidate differs`, `behind the pin`, `not installed`, `unknown`, `re-checked on install`, `manual` or `retired` |
 | `detail` | string | what was compared, as the text prints it |
 | `strategy` | string | the manifest's update strategy |
 | `upgradable` | list of string | apt packages whose candidate differs |
@@ -6149,6 +6149,7 @@ How many rows are in each state.
 | `unknown` | integer | nothing on disk can be checked |
 | `on_install` | integer | resolved again on every install |
 | `manual` | integer | re-pinned by hand |
+| `retired` | integer | catalog units retained as retired |
 
 #### `UpstreamRowView`
 
@@ -6254,6 +6255,10 @@ The catalog's pin against what upstream publishes (`--upstream` only).
         "manual": {
           "title": "Manual",
           "type": "integer"
+        },
+        "retired": {
+          "title": "Retired",
+          "type": "integer"
         }
       },
       "required": [
@@ -6263,7 +6268,8 @@ The catalog's pin against what upstream publishes (`--upstream` only).
         "not_installed",
         "unknown",
         "on_install",
-        "manual"
+        "manual",
+        "retired"
       ],
       "title": "UpdateCounts",
       "type": "object"
