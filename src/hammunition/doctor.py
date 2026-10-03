@@ -46,7 +46,11 @@ ROUTINO_TRANSLATIONS = "/usr/share/routino/translations.xml"
 # What scripts/path-link.sh links to: a link ending here is ours (D-059).
 ENGINE_LINK_SUFFIX = "/.venv/bin/hammunition"
 
+# Executables used as the first argv element of doctor command fixes.
+FIX_PROGRAMS = frozenset({"hammunition", "journalctl", "ln", "sudo", "systemctl"})
+
 __all__ = [
+    "FIX_PROGRAMS",
     "Check",
     "RigStatus",
     "Status",

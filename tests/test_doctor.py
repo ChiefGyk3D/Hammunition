@@ -11,7 +11,6 @@ value of the command.
 from __future__ import annotations
 
 import os
-import shutil
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -20,6 +19,7 @@ from typing import Any
 import pytest
 
 from hammunition.doctor import (
+    FIX_PROGRAMS,
     Check,
     RigStatus,
     rig_checks,
@@ -105,7 +105,7 @@ def test_unapplied_udev_is_info_not_warn() -> None:
     assert summarize(checks)[:2] == (0, 0)
 
 
-def test_every_single_command_fix_starts_with_a_program_available_on_path() -> None:
+def _checks_with_single_command_fixes() -> list[Check]:
     checks = run_checks(
         **{  # type: ignore[arg-type]
             **HEALTHY,
@@ -132,14 +132,21 @@ def test_every_single_command_fix_starts_with_a_program_available_on_path() -> N
             }
         )
     )
+    return checks
 
-    for check in checks:
+
+def test_every_single_command_fix_starts_with_an_allowed_program() -> None:
+    for check in _checks_with_single_command_fixes():
         if check.fix_argv is not None:
-            program = check.fix_argv[0]
-            assert program in {"hammunition", "sudo"} or shutil.which(program), (
-                check.name,
-                check.fix_argv,
-            )
+            assert check.fix_argv[0] in FIX_PROGRAMS, (check.name, check.fix_argv)
+
+
+def test_fix_program_allowlist_matches_doctor_fixes() -> None:
+    programs = set()
+    for check in _checks_with_single_command_fixes():
+        if check.fix_argv is not None:
+            programs.add(check.fix_argv[0])
+    assert programs == FIX_PROGRAMS
 
 
 def test_a_readonly_state_dir_warns() -> None:
