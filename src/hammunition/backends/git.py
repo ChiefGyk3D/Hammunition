@@ -263,6 +263,7 @@ class GitBackend:
                     f"Check out {manifest.name}'s submodules at the commits the pinned "
                     f"revision records (shallow, recursive)"
                 ),
+                long_running=True,
             ),
             Action(
                 kind="verify-submodules",
@@ -355,6 +356,7 @@ class GitBackend:
                     f"Install {manifest.name}'s build Python packages, each verified against "
                     f"the manifest's sha256 pins (build-only; discarded with the build)"
                 ),
+                long_running=True,
             ),
         ]
 

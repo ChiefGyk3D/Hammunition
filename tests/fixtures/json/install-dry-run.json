@@ -69,7 +69,8 @@
         ],
         "action": null,
         "requires_root": true,
-        "sources": []
+        "sources": [],
+        "long_running": false
       },
       {
         "description": "Install 1 package(s) with apt",
@@ -89,7 +90,8 @@
         ],
         "action": null,
         "requires_root": true,
-        "sources": []
+        "sources": [],
+        "long_running": false
       }
     ],
     "suggestion_notes": [],

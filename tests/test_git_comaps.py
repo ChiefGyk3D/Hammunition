@@ -528,3 +528,29 @@ def test_verify_only_checks_changed_manifests(
     monkeypatch.setattr(module, "verify_ref", lambda repo, ref, commit=None: "boom")
     assert module.verify_only(catalog, [git_unit]) == 1
     assert "MISSING" in capsys.readouterr().out
+
+
+# -- known-long steps say so (#270) -------------------------------------------
+
+
+def test_the_submodule_fetch_and_the_compile_are_marked_long(tmp_path: Path) -> None:
+    backend, _ = _backend(tmp_path)
+    commands = [s for s in _steps(backend, _manifest(submodules=True)) if isinstance(s, Command)]
+    submodule = next(c for c in commands if "submodule" in c.argv)
+    compile_ = next(c for c in commands if c.argv[:2] == ("cmake", "--build"))
+    install = next(c for c in commands if c.argv[:2] == ("cmake", "--install"))
+    assert submodule.long_running and compile_.long_running
+    assert not install.long_running
+
+
+def test_the_plan_and_the_run_print_the_long_step_note(tmp_path: Path) -> None:
+    from hammunition.interface.plan import step_view
+    from hammunition.interface.plan_group import LONG_STEP_NOTE, render_steps
+
+    backend, _ = _backend(tmp_path)
+    commands = [s for s in _steps(backend, _manifest(submodules=True)) if isinstance(s, Command)]
+    views = [step_view(c, euid=1000) for c in commands]
+    text = render_steps(views)
+    notes = [i for i, line in enumerate(text) if line.strip() == LONG_STEP_NOTE]
+    assert len(notes) == sum(c.long_running for c in commands) >= 2
+    assert all(text[i - 1].startswith("  $ ") for i in notes)

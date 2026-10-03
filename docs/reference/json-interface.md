@@ -2243,6 +2243,7 @@ One step, exactly as the real run performs it.
 | `action` | string or null | the in-process step's kind (`fetch`, `extract`, ...); null for a command |
 | `requires_root` | boolean | whether it runs as root |
 | `sources` | list of string | for a data download (a `data` artifact, a map region, a terrain tile), the URLs it is fetched from in the order tried: the LAN mirror, then the publisher (D-070); the publisher alone with no mirror; empty for any other step |
+| `long_running` | boolean | true when the backend knows the step can take several minutes (a submodule fetch, a compile, a venv install, a node build); the text prints one fixed note under it and claims no duration (#270) |
 
 #### `PublisherCheckLine`
 
@@ -3732,6 +3733,11 @@ A unit and files.
           },
           "title": "Sources",
           "type": "array"
+        },
+        "long_running": {
+          "default": false,
+          "title": "Long Running",
+          "type": "boolean"
         }
       },
       "required": [
