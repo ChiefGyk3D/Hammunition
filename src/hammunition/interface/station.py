@@ -65,6 +65,17 @@ class StationDocument(Strict):
         "where QMapShack's elevation is drawn from: `copernicus` (the default, also when "
         "unset) or `3dep`, USGS bare earth (D-068, amended 2026-10-01)"
     )
+    topo_radius_km: int = described(
+        "how far from the grid square's centre US Topo sheets, FSTopo sheets and 3DEP "
+        "tiles are selected, in km: 100 when unset, 0 for none (D-068, amended 2026-10-02)"
+    )
+    topo_regions: tuple[str, ...] = described(
+        "the map regions the topographic selection is narrowed to, a subset of "
+        "map_regions; empty when it is not narrowed"
+    )
+    topo_all: bool = described(
+        "whether every sheet of every region is selected, as before the bound; false when unset"
+    )
 
 
 def build_station(path: Path, station: Station) -> StationDocument:
@@ -84,12 +95,18 @@ def build_station(path: Path, station: Station) -> StationDocument:
         rig_ptt_line=station.rig_ptt_line,
         rig_owner=station.rig_owner,
         dem_source=station.elevation,
+        topo_radius_km=station.topo_radius,
+        topo_regions=station.topo_regions,
+        topo_all=bool(station.topo_all),
     )
 
 
 def render_station(doc: StationDocument) -> list[str]:
     """``station show`` as the terminal shows it."""
     lines = [f"Station configuration: {doc.path}"]
+    radius = "none" if doc.topo_radius_km == 0 else f"{doc.topo_radius_km} km"
+    if doc.topo_radius_km == 100:
+        radius += " (the default)"
     if not doc.file_exists:
         lines.append("  (no file yet)")
     values = {name: getattr(doc, name) for name in sorted(STATION_FIELDS)}
@@ -100,6 +117,9 @@ def render_station(doc: StationDocument) -> list[str]:
         and not doc.reference_books
         and doc.mirror is None
         and doc.dem_source == "copernicus"
+        and doc.topo_radius_km == 100
+        and not doc.topo_regions
+        and not doc.topo_all
     ):
         return [
             *lines,
@@ -107,6 +127,10 @@ def render_station(doc: StationDocument) -> list[str]:
             "Nothing set. `hammunition station set --callsign <yours>` starts it off.",
             "Nothing is invented on your behalf: a configuration file needing a value",
             "you have not given is reported as not written, and the package still installs.",
+            "",
+            f"  {'topo radius':<14} {radius}",
+            f"  {'topo regions':<14} (not set)",
+            f"  {'topo all':<14} no",
         ]
     lines.append("")
     lines += [f"  {name:<14} {value if value else '(not set)'}" for name, value in values.items()]
@@ -120,6 +144,12 @@ def render_station(doc: StationDocument) -> list[str]:
     lines.append(f"  {'map freshness':<14} {doc.map_freshness or 'yearly'}")
     lines.append(f"  {'mirror':<14} {doc.mirror or '(not set)'}")
     lines.append(f"  {'dem_source':<14} {doc.dem_source}")
+    lines.append(f"  {'topo radius':<14} {radius}")
+    # A count, like the map regions: the names say where the station is.
+    lines.append(
+        f"  {'topo regions':<14} {f'{len(doc.topo_regions)} set' if doc.topo_regions else '(not set)'}"
+    )
+    lines.append(f"  {'topo all':<14} {'yes' if doc.topo_all else 'no'}")
     # Which books somebody reads is not where they are: named, not counted
     # (D-066). Shown only when chosen, so a station without them reads as
     # it always has.

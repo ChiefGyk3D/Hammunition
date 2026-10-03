@@ -19,6 +19,16 @@ categories: [navigation-maps]
 # 127.0.0.1, only while its Routing dock uses it; `hammunition maps
 # qmapshack` points it at this tree. The map creator in the same jar builds
 # the routing files (`brouter-segments`).
+#
+# requires_java (D-037, amended 2026-10-02): 11, measured, not 17. The v1.7.10
+# tag's buildSrc/.../brouter.java-conventions.gradle sets
+# `compileJava { options.release = 11 }` and the jar's classes are major 55.
+# Upstream's Dockerfile builds and runs on JDK 17, which is a choice of image
+# and not a floor; the maintainer's ruling named 17 for both routers, and this
+# is the one place the measurement disagrees (raise it here if 17 is wanted).
+# `default-jre-headless` is a metapackage whose version says nothing about the
+# Java major, so the plan reads `java -version` rather than the archive.
+requires_java: 11
 depends: [default-jre-headless]
 
 install:

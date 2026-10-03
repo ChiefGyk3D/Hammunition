@@ -118,3 +118,6 @@ audio](../guides/audio-routing.md) and [the clock](../guides/time-and-gps.md)
 first, then [FT8](../guides/digital-modes.md),
 [Winlink](../guides/packet-winlink.md), [APRS](../guides/aprs.md), [SDR
 listening](../guides/sdr.md) or [satellites](../guides/satellite.md).
+
+Back: [How much disk you need](disk-space.md). Next: [First
+contact](first-contact.md).
