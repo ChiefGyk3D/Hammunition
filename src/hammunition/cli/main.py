@@ -3775,7 +3775,13 @@ def cmd_install(args: argparse.Namespace) -> int:
     # The same run's map data per file system, which the books' and CoMaps'
     # maps' own checks count beside their own.
     others: dict[Path, int] = {}
-    if pending or conversions or any(terrain_disk.values()):
+    if (
+        pending
+        or conversions
+        or any(terrain_disk.values())
+        or any(tiles_disk.values())
+        or any(graph_disk.values())
+    ):
         others = dict(
             disk_needs(
                 pending,
@@ -3785,8 +3791,9 @@ def cmd_install(args: argparse.Namespace) -> int:
                 prefix=source.prefix,
             )
         )
-        for path, amount in terrain_disk.items():
-            others[path] = others.get(path, 0) + amount
+        for extra in (terrain_disk, tiles_disk, graph_disk):
+            for path, amount in extra.items():
+                others[path] = others.get(path, 0) + amount
     # The books' own room, with any map data of the same run on the same disk.
     book_pending = [f for p in book_units for f in books.pending(p.manifest)]
     book_disk = books_disk_needs(book_pending, cache=source.fetcher.cache_dir, prefix=source.prefix)
