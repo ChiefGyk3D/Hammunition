@@ -1047,6 +1047,8 @@ def test_install_dry_run_prints_the_plan_and_executes_nothing(
 def test_linbpq_capability_grant_and_consent_are_shown_in_every_plan(
     monkeypatch: pytest.MonkeyPatch, capsys: Any
 ) -> None:
+    monkeypatch.setenv("USER", "root")
+    monkeypatch.delenv("SUDO_USER", raising=False)
     _mock_apt(monkeypatch, populated=True)
     assert main(["--catalog", str(CATALOG), "install", "--dry-run", "linbpq"]) == EXIT_OK
     output = capsys.readouterr().out
@@ -1060,6 +1062,8 @@ def test_linbpq_capability_grant_and_consent_are_shown_in_every_plan(
 def test_linbpq_json_plan_carries_capability_and_consent_gate(
     monkeypatch: pytest.MonkeyPatch, capsys: Any
 ) -> None:
+    monkeypatch.setenv("USER", "root")
+    monkeypatch.delenv("SUDO_USER", raising=False)
     _mock_apt(monkeypatch, populated=True)
     assert main(["--json", "--catalog", str(CATALOG), "install", "--dry-run", "linbpq"]) == EXIT_OK
     install = json.loads(capsys.readouterr().out)["install"]
@@ -1096,8 +1100,20 @@ def _capture_linbpq_install(
         lambda _commands, *, run, **_kwargs: run(),
     )
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    monkeypatch.setenv("USER", "root")
+    monkeypatch.delenv("SUDO_USER", raising=False)
     _mock_apt(monkeypatch, populated=True)
     return captured
+
+
+def _file_capability_consents(tmp_path: Path) -> list[dict[str, Any]]:
+    log = TransactionLog(tmp_path / "state" / "hammunition" / "transactions.jsonl")
+    return [
+        entry
+        for entry in log.read()
+        if entry.get("event") == "consent_affirmed"
+        and entry.get("profile") == "file-capabilities:linbpq"
+    ]
 
 
 def test_file_capability_prompt_requires_typed_yes(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1123,6 +1139,33 @@ def test_linbpq_exact_environment_grant_applies_capabilities(
         for command in captured["commands"]
     )
     assert len(captured["plan"].file_capabilities) == 1
+    (record,) = _file_capability_consents(tmp_path)
+    assert record["decision"] == "environment"
+    assert record["extra"] == {
+        "kind": "file_capability",
+        "unit": "linbpq",
+        "binary": "/usr/local/bin/linbpq",
+        "grant": grant,
+    }
+
+
+@pytest.mark.parametrize("given", ["1", "CAP_NET_ADMIN=ep"])
+def test_linbpq_rejects_inexact_environment_capability_grants(
+    given: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: Any
+) -> None:
+    captured = _capture_linbpq_install(monkeypatch, tmp_path=tmp_path)
+    monkeypatch.setenv("HAMMUNITION_ACCEPT_CAPABILITIES_LINBPQ", given)
+    grant = "CAP_NET_ADMIN=ep CAP_NET_RAW=ep CAP_NET_BIND_SERVICE=ep"
+
+    assert (
+        main(["--catalog", str(CATALOG), "install", "--yes", "--no-refresh", "linbpq"]) == EXIT_OK
+    )
+
+    assert not any(
+        isinstance(command, Command) and command.argv[0] == "setcap"
+        for command in captured.get("commands", ())
+    )
+    assert grant in capsys.readouterr().err
 
 
 def test_linbpq_typed_yes_applies_capabilities(
@@ -1142,6 +1185,14 @@ def test_linbpq_typed_yes_applies_capabilities(
         for command in captured["commands"]
     )
     assert len(captured["plan"].file_capabilities) == 1
+    (record,) = _file_capability_consents(tmp_path)
+    assert record["decision"] == "interactive"
+    assert record["extra"] == {
+        "kind": "file_capability",
+        "unit": "linbpq",
+        "binary": "/usr/local/bin/linbpq",
+        "grant": "CAP_NET_ADMIN=ep CAP_NET_RAW=ep CAP_NET_BIND_SERVICE=ep",
+    }
 
 
 def test_yes_alone_does_not_apply_linbpq_capabilities(
@@ -1149,6 +1200,8 @@ def test_yes_alone_does_not_apply_linbpq_capabilities(
 ) -> None:
     captured = _capture_linbpq_install(monkeypatch, tmp_path=tmp_path)
     monkeypatch.delenv("HAMMUNITION_ACCEPT_CAPABILITIES_LINBPQ", raising=False)
+    monkeypatch.setattr(CLI_MODULE.sys, "stdin", type("TTY", (), {"isatty": lambda _self: True})())
+    monkeypatch.setattr("builtins.input", lambda _prompt: "no")
 
     assert (
         main(["--catalog", str(CATALOG), "install", "--yes", "--no-refresh", "linbpq"]) == EXIT_OK
