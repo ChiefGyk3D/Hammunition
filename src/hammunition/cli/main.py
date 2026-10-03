@@ -185,6 +185,7 @@ from hammunition.state import (
     RemovalError,
     RemovalPaths,
     TransactionLog,
+    file_capabilities_installed_by_hammunition,
     files_installed_by_hammunition,
     installed_by_hammunition,
     log_path,
@@ -3380,6 +3381,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             apt=apt,
             user=user,
             refresh=args.refresh,
+            apply_capabilities=args.apply_capabilities,
             station=station,
             # The hardware catalog, so a rig-carrying unit's user service can be
             # resolved against the station's rig (D-073); loaded here, not read
@@ -4228,6 +4230,7 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
 
     attributed = installed_by_hammunition(log)
     attributed_files = files_installed_by_hammunition(log)
+    attributed_capabilities = file_capabilities_installed_by_hammunition(log)
     removal_paths = RemovalPaths(
         prefix=DEFAULT_PREFIX,
         venv_root=venv_root(user or None),
@@ -4261,6 +4264,7 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
             states=states,
             paths=removal_paths,
             attributed_files=attributed_files,
+            attributed_capabilities=attributed_capabilities,
             log=log,
         )
     except RemovalError as exc:
@@ -6914,6 +6918,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--yes",
         action="store_true",
         help="skip the confirmation. Does NOT satisfy a consent gate (D-021)",
+    )
+    p_install.add_argument(
+        "--apply-capabilities",
+        action="store_true",
+        help=(
+            "apply declared file capabilities with setcap after installation; "
+            "without this flag, binaries receive none"
+        ),
     )
     p_install.add_argument(
         "--refresh",

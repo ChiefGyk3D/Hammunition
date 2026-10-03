@@ -22,7 +22,14 @@ from hammunition.country_boundaries import BoundarySource
 from hammunition.desktop import Desktop
 from hammunition.distro import Target
 from hammunition.manifest.schema import AptRepo, ConfigFile, ConsentGate, PackageManifest
-from hammunition.plan import Deferral, GroupMembership, InstallPlan, PlannedPackage, RepoAddition
+from hammunition.plan import (
+    Deferral,
+    FileCapability,
+    GroupMembership,
+    InstallPlan,
+    PlannedPackage,
+    RepoAddition,
+)
 from hammunition.userservice import HEADER, PlannedUserService
 from json_support import assert_golden_text
 
@@ -193,6 +200,14 @@ def rich_plan() -> tuple[InstallPlan, list[Any]]:
                 sources="/etc/apt/sources.list.d/fixture-repo.sources",
                 keyring="/etc/apt/keyrings/fixture-repo.gpg",
                 packages=("fixture-repo-tool",),
+            ),
+        ),
+        file_capabilities=(
+            FileCapability(
+                path=Path("/usr/local/bin/fixture-radio"),
+                capabilities=("CAP_NET_RAW",),
+                package="fixture-source",
+                detail="Fixture radio network access",
             ),
         ),
     )

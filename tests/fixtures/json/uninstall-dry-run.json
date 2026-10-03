@@ -57,7 +57,7 @@
         "packages": []
       }
     ],
-    "not_reversed": "Not reversed, by design: dependencies apt pulled in (run `sudo apt autoremove` to clear orphans), group memberships, and any config files written — all recorded in the transaction log (D-004).",
+    "not_reversed": "Not reversed, by design: dependencies apt pulled in (run `sudo apt autoremove` to clear orphans), group memberships, and any config files written — all recorded in the transaction log (D-004). File capabilities set by Hammunition are cleared before their binaries are removed.",
     "commands": [
       {
         "description": "Remove 1 package(s) with apt",

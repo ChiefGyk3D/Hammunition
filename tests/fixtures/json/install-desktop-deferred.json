@@ -43,6 +43,7 @@
     "data": [],
     "maps": null,
     "memberships": [],
+    "file_capabilities": [],
     "consent_gates": [],
     "config_files": [],
     "user_services": [],

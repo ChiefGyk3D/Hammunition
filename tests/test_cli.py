@@ -56,7 +56,12 @@ from hammunition.distro import Target  # noqa: E402
 from hammunition.execute import commands_for, execute, verify_effects  # noqa: E402
 from hammunition.fetch import Fetcher  # noqa: E402
 from hammunition.manifest.schema import PackageManifest  # noqa: E402
-from hammunition.plan import GroupMembership, InstallPlan, PlannedPackage  # noqa: E402
+from hammunition.plan import (  # noqa: E402
+    FileCapability,
+    GroupMembership,
+    InstallPlan,
+    PlannedPackage,
+)
 from hammunition.state import TransactionLog, log_path  # noqa: E402
 
 TARGET = Target(distro="debian", version="13", arch="x86_64")
@@ -141,6 +146,90 @@ def test_group_membership_is_planned_after_installation() -> None:
     commands = commands_for(plan, AptBackend(RecordingRunner()), current_groups=frozenset())
     assert _argv(commands[0])[0] == "apt-get"
     assert _argv(commands[-1])[:2] == ("gpasswd", "--add")
+
+
+def test_file_capabilities_are_a_root_step_and_follow_installation() -> None:
+    plan = _plan(
+        file_capabilities=(
+            FileCapability(
+                path=Path("/usr/local/bin/radio-node"),
+                capabilities=("CAP_NET_ADMIN", "CAP_NET_RAW"),
+                package="radio-node",
+                detail="Optional Ethernet ports need these privileges.",
+            ),
+        )
+    )
+
+    commands = commands_for(plan, AptBackend(RecordingRunner()), current_groups=frozenset())
+    capability_step = next(command for command in commands if _argv(command)[0] == "setcap")
+
+    assert capability_step.requires_root
+    assert _argv(capability_step) == (
+        "setcap",
+        "CAP_NET_ADMIN=ep CAP_NET_RAW=ep",
+        "/usr/local/bin/radio-node",
+    )
+    assert commands.index(capability_step) > 0
+
+
+def test_capability_verification_reads_back_the_declared_effect() -> None:
+    path = Path("/usr/local/bin/radio-node")
+    plan = _plan(
+        file_capabilities=(
+            FileCapability(
+                path=path,
+                capabilities=("CAP_NET_RAW",),
+                package="radio-node",
+                detail="Optional Ethernet ports need this privilege.",
+            ),
+        )
+    )
+
+    confirmed = verify_effects(plan, None, capability_lookup=lambda _path: f"{path} cap_net_raw=ep")
+    missing = verify_effects(plan, None, capability_lookup=lambda _path: "")
+
+    assert confirmed.ok
+    assert confirmed.checks[0].kind == "file_capability"
+    assert not missing.ok
+
+
+def test_file_capability_command_is_logged_and_verified(tmp_path: Path) -> None:
+    path = Path("/usr/local/bin/radio-node")
+    plan = _plan(
+        file_capabilities=(
+            FileCapability(
+                path=path,
+                capabilities=("CAP_NET_RAW",),
+                package="radio-node",
+                detail="Optional Ethernet ports need this privilege.",
+            ),
+        )
+    )
+    command = next(
+        step
+        for step in commands_for(plan, AptBackend(RecordingRunner()))
+        if _argv(step)[0] == "setcap"
+    )
+    log = TransactionLog(tmp_path / "transaction.jsonl")
+
+    report = execute(
+        [command],
+        RecordingRunner(),
+        log=log,
+        plan=plan,
+        capability_lookup=lambda _path: f"{path} cap_net_raw=ep",
+    )
+
+    events = log.read()
+    assert report.verified
+    assert any(
+        entry.get("event") == "command_end"
+        and entry.get("argv") == ["setcap", "CAP_NET_RAW=ep", str(path)]
+        and entry.get("returncode") == 0
+        for entry in events
+    )
+    end = next(entry for entry in events if entry.get("event") == "transaction_end")
+    assert end["verified"] is True
 
 
 def test_an_operator_already_in_the_group_is_not_added_again() -> None:
@@ -861,6 +950,35 @@ def test_install_dry_run_prints_the_plan_and_executes_nothing(
     # after the fact (#3).
     assert "Records:" in out
     assert "transaction log written to" in out
+
+
+def test_linbpq_capabilities_are_only_shown_when_explicitly_requested(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    _mock_apt(monkeypatch, populated=True)
+    assert main(["--catalog", str(CATALOG), "install", "--dry-run", "linbpq"]) == EXIT_OK
+    ordinary = capsys.readouterr().out
+    assert "File capabilities (opt-in; cleared on uninstall):" not in ordinary
+    assert "\n  $ sudo setcap " not in ordinary
+
+    assert (
+        main(
+            [
+                "--catalog",
+                str(CATALOG),
+                "install",
+                "--dry-run",
+                "--apply-capabilities",
+                "linbpq",
+            ]
+        )
+        == EXIT_OK
+    )
+    opted_in = capsys.readouterr().out
+    assert "File capabilities (opt-in; cleared on uninstall):" in opted_in
+    assert "CAP_NET_ADMIN=ep CAP_NET_RAW=ep CAP_NET_BIND_SERVICE=ep" in opted_in
+    assert "  $ sudo setcap " in opted_in
+    assert opted_in.index("&& make -j") < opted_in.index("  $ sudo setcap ")
 
 
 def test_install_refreshes_the_lists_by_default_and_no_refresh_turns_it_off(

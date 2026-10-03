@@ -99,6 +99,7 @@ def _resolve(tmp_path: Path, names: list[str], **kwargs: Any) -> Any:
         target=kwargs.pop("target", TARGET),
         apt=kwargs.pop("apt", None) or _apt(tmp_path, known),
         user=kwargs.pop("user", "operator"),
+        apply_capabilities=kwargs.pop("apply_capabilities", False),
         kernel=kwargs.pop("kernel", None),
         desktops=kwargs.pop("desktops", None),
         log=kwargs.pop("log", None),
@@ -115,6 +116,80 @@ def test_a_plain_package_resolves(tmp_path: Path) -> None:
     plan = _resolve(tmp_path, ["example"])
     assert [p.name for p in plan.packages] == ["example"]
     assert plan.apt_to_install == ("example",)
+
+
+def test_file_capabilities_are_planned_only_when_explicitly_requested(tmp_path: Path) -> None:
+    unit = _manifest(
+        install=[
+            {
+                "install": {
+                    "method": "git",
+                    "repo": "https://example.invalid/radio-node",
+                    "ref": "v1.0",
+                    "build_system": "make",
+                    "provides_install_target": False,
+                }
+            }
+        ],
+        binaries=[{"produced": "radio-node", "install_as": "radio-node"}],
+        system_modifications=[
+            {
+                "kind": "file_capability",
+                "binary": "radio-node",
+                "capabilities": ["CAP_NET_RAW"],
+                "description": "Allow Ethernet packet ports",
+                "detail": "KISS ports do not need this privilege.",
+                "reversible": True,
+            }
+        ],
+    )
+    catalog = {"example": unit}
+
+    known = {"example": None, "build-essential": None, "git": None}
+    ordinary = _resolve(tmp_path, ["example"], catalog=catalog, known=known)
+    requested = _resolve(
+        tmp_path, ["example"], catalog=catalog, known=known, apply_capabilities=True
+    )
+
+    assert ordinary.file_capabilities == ()
+    assert len(requested.file_capabilities) == 1
+    assert requested.file_capabilities[0].path == Path("/usr/local/bin/radio-node")
+    assert requested.file_capabilities[0].capabilities == ("CAP_NET_RAW",)
+
+
+def test_file_capability_must_name_a_prefix_binary_even_without_opt_in(tmp_path: Path) -> None:
+    unit = _manifest(
+        install=[
+            {
+                "install": {
+                    "method": "git",
+                    "repo": "https://example.invalid/radio-node",
+                    "ref": "v1.0",
+                    "build_system": "make",
+                    "provides_install_target": False,
+                }
+            }
+        ],
+        binaries=[{"produced": "radio-node", "install_as": "radio-node"}],
+        system_modifications=[
+            {
+                "kind": "file_capability",
+                "binary": "missing",
+                "capabilities": ["CAP_NET_RAW"],
+                "description": "Allow Ethernet packet ports",
+                "detail": "KISS ports do not need this privilege.",
+                "reversible": True,
+            }
+        ],
+    )
+
+    with pytest.raises(PlanError, match="not a binary copied into the Hammunition prefix"):
+        _resolve(
+            tmp_path,
+            ["example"],
+            catalog={"example": unit},
+            known={"example": None, "build-essential": None, "git": None},
+        )
 
 
 def test_an_already_installed_package_produces_no_work(tmp_path: Path) -> None:

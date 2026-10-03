@@ -49,7 +49,7 @@ from hammunition.backends import (
 from hammunition.backends.apt import downgrades_refused
 from hammunition.backends.apt_repo import AptRepoBackend, RepoState
 from hammunition.backends.pmtiles import TILEMAKER_FLOOR
-from hammunition.backends.source import IMPLEMENTED_BUILD_SYSTEMS
+from hammunition.backends.source import DEFAULT_PREFIX, IMPLEMENTED_BUILD_SYSTEMS
 from hammunition.desktop import Desktop, SessionScan, describe_set
 from hammunition.distro import Target
 from hammunition.kernel import (
@@ -184,6 +184,16 @@ class GroupMembership:
 
 
 @dataclass(frozen=True)
+class FileCapability:
+    """Capabilities explicitly opted in for one installed prefix binary."""
+
+    path: Path
+    capabilities: tuple[str, ...]
+    package: str
+    detail: str
+
+
+@dataclass(frozen=True)
 class PlannedPackage:
     """One catalog package, resolved against this target."""
 
@@ -304,6 +314,7 @@ class InstallPlan:
     target: Target
     packages: tuple[PlannedPackage, ...]
     group_memberships: tuple[GroupMembership, ...] = ()
+    file_capabilities: tuple[FileCapability, ...] = ()
     consent_gates: tuple[tuple[str, ConsentGate], ...] = ()
     notes: tuple[str, ...] = field(default_factory=tuple)
     deferrals: tuple[Deferral, ...] = ()
@@ -414,7 +425,12 @@ class InstallPlan:
     @property
     def is_empty(self) -> bool:
         """Nothing to install and nothing to change — a legitimate outcome."""
-        return not self.apt_packages_all and not self.group_memberships and not self.apt_repos
+        return (
+            not self.apt_packages_all
+            and not self.group_memberships
+            and not self.file_capabilities
+            and not self.apt_repos
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1211,6 +1227,7 @@ def resolve(
     apt: AptBackend,
     user: str,
     refresh: bool = False,
+    apply_capabilities: bool = False,
     station: Station | None = None,
     devices: Mapping[str, DeviceManifest | DeviceClass] | None = None,
     repos: AptRepoBackend | None = None,
@@ -2064,11 +2081,73 @@ def resolve(
         if modification.kind == "group_membership" and modification.group is not None
     )
 
+    file_capabilities: list[FileCapability] = []
+    capability_paths: dict[Path, str] = {}
+    for item in planned:
+        for modification in item.manifest.system_modifications:
+            if modification.kind != "file_capability":
+                continue
+            install = item.block.install
+            copies_binary = isinstance(install, SourceInstall | GitInstall) and (
+                not install.provides_install_target
+            )
+            copies_binary = copies_binary or (
+                isinstance(install, BinaryInstall) and install.format != "deb"
+            )
+            binary = next(
+                (
+                    binary
+                    for binary in effective_binaries(item.manifest, item.block)
+                    if binary.install_as == modification.binary
+                ),
+                None,
+            )
+            if binary is None or not copies_binary:
+                blockers.append(
+                    Blocker(
+                        subject=item.name,
+                        reason=(
+                            f"file_capability names {modification.binary!r}, which is not "
+                            "a binary copied into the Hammunition prefix for this target"
+                        ),
+                        remedy=(
+                            "name a binary installed into the prefix by this target's "
+                            "source, git or non-deb binary block"
+                        ),
+                    )
+                )
+                continue
+            path = DEFAULT_PREFIX / "bin" / binary.install_as
+            owner = capability_paths.get(path)
+            if owner is not None:
+                blockers.append(
+                    Blocker(
+                        subject=item.name,
+                        reason=f"file capabilities target {path}, also declared by {owner}",
+                        remedy="declare a capability grant for this binary in only one unit",
+                    )
+                )
+                continue
+            capability_paths[path] = item.name
+            if apply_capabilities:
+                file_capabilities.append(
+                    FileCapability(
+                        path=path,
+                        capabilities=tuple(modification.capabilities),
+                        package=item.name,
+                        detail=modification.detail.strip(),
+                    )
+                )
+
+    if blockers:
+        raise PlanError(blockers)
+
     decided_desktops = any(catalog[n].desktops is not None for n in ordered if n in catalog)
     return InstallPlan(
         target=target,
         packages=planned,
         group_memberships=memberships,
+        file_capabilities=tuple(file_capabilities),
         consent_gates=tuple(gates),
         notes=tuple(notes),
         desktops_read=scan.desktops if decided_desktops and scan is not None else None,

@@ -1742,6 +1742,7 @@ Everything an install will do, section by section as the text prints it.
 | `data` | list of [`DataLine`](#dataline) | offline data downloaded |
 | `maps` | [`MapSectionView`](#mapsectionview) or null | the station's map regions (D-057); null when no map unit or nothing to disclose |
 | `memberships` | list of [`MembershipLine`](#membershipline) | group membership changes |
+| `file_capabilities` | list of [`FileCapabilityLine`](#filecapabilityline) | opt-in file capabilities applied to installed binaries |
 | `consent_gates` | list of [`GateLine`](#gateline) | gates the real run presents |
 | `config_files` | list of [`ConfigLine`](#configline) | configuration written |
 | `user_services` | list of [`UserServiceLine`](#userserviceline) | systemd user services written and enabled (D-073); empty when none |
@@ -2102,6 +2103,17 @@ A group the operator is added to, and what it grants.
 | `package` | string | the unit that needs it |
 | `detail` | string | what membership grants |
 | `reverse_hint` | string or null | how to undo it by hand, when the manifest says |
+
+#### `FileCapabilityLine`
+
+A capability grant to one installed binary.
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the catalog unit |
+| `path` | string | the installed binary receiving capabilities |
+| `capabilities` | list of string | Linux capabilities set with permitted/effective flags |
+| `detail` | string | why the capability grant is available |
 
 #### `GateLine`
 
@@ -2684,6 +2696,39 @@ A unit and files.
       "title": "DisplacedLine",
       "type": "object"
     },
+    "FileCapabilityLine": {
+      "additionalProperties": false,
+      "description": "A capability grant to one installed binary.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "unit",
+        "path",
+        "capabilities",
+        "detail"
+      ],
+      "title": "FileCapabilityLine",
+      "type": "object"
+    },
     "FsTopoSectionView": {
       "additionalProperties": false,
       "description": "Forest Service FSTopo sheets and QMapShack's FSTopo map (D-068,\namended 2026-10-01). Local only.",
@@ -2915,6 +2960,13 @@ A unit and files.
           "title": "Memberships",
           "type": "array"
         },
+        "file_capabilities": {
+          "items": {
+            "$ref": "#/$defs/FileCapabilityLine"
+          },
+          "title": "File Capabilities",
+          "type": "array"
+        },
         "consent_gates": {
           "items": {
             "$ref": "#/$defs/GateLine"
@@ -3012,6 +3064,7 @@ A unit and files.
         "data",
         "maps",
         "memberships",
+        "file_capabilities",
         "consent_gates",
         "config_files",
         "user_services",
