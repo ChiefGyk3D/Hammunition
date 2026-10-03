@@ -1,0 +1,4 @@
+- **A publisher outage at plan time retries, then defers by name instead of
+- **Terrain tile HEAD answers are cached for six hours** (#214, **D-061**). A repeated install plan reuses successful publisher answers; failed and non-200 checks are asked again.
+- **The engine's own GPS tether copy retired; the ACMA Bunker ruling recorded**
+- **HydraSDR RFOne and RigExpert Fobos SDR: host software and device entries,

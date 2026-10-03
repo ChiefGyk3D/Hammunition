@@ -27,6 +27,14 @@ hospitals, responders, fuel, airfields, the grid and Weather Radio on them
 
 The examples below use Vermont and New Hampshire. Use your own regions.
 
+**Where things are in this page.** Maps and Navit: sections 1 to 8. Trails,
+terrain and routing in QMapShack: 9, and its BRouter router. Your position in
+QMapShack (the GPS tether, as a login service): 11 and 12. Repeaters on the
+map: 13. Phone maps: 14. Official US topo: 15. The map in a browser, with
+GraphHopper routes: 16. CoMaps: 17. Infrastructure and EMCOMM points: 18. Disk
+planning, the LAN mirror, troubleshooting and removal are after 18, and the
+page ends with what has and has not been measured.
+
 ---
 
 ## What you need first
@@ -569,8 +577,11 @@ QMapShack.
 
 QMapShack does not talk to gpsd. Its Realtime source *GPS TCP/IP* reads NMEA, the sentence
 format GPS receivers speak, from a network port. The tether makes that NMEA
-from gpsd's position and serves it on this machine only. Run the *GPS
-position for QMapShack* launcher, or in a terminal:
+from gpsd's position and serves it on this machine only. It is the
+`gps-tether` unit of the `navigation` profile (or `hammunition install
+gps-tether` by itself), which also sets it up to run as a login service
+([below](#run-it-as-a-service)); the commands here need it installed. Run the
+*GPS position for QMapShack* launcher, or in a terminal:
 
 ```
 hammunition maps gps-tether
@@ -612,7 +623,10 @@ it, but only a unit file that still starts with Hammunition's header.
 
 The install also lists the service for the tray's Services group, one row in
 `~/.config/hammunition/devctl-services.yaml` (mode 0600), which uninstall takes
-back out.
+back out. In the tray's [Controls panel](tray-controls.md) the tether is then
+a *running* switch and a *Start at login* box, with no password prompt (it is
+a user service); `hammunition services stop gps-tether` is the terminal
+equivalent.
 
 The install enables the service and does not start it: it starts at your next
 login. (Installing again, at a newer release, restarts it if it is running and
@@ -653,8 +667,9 @@ How it works, so you know what you are running:
   one connection to gpsd open while any of them is connected, and closes it
   when the last one goes. A program that stops reading is disconnected on
   its own, and the others carry on.
-- It runs while that terminal stays open. Ctrl-C stops it. Nothing is
-  installed as a service, and it does not run as root.
+- Run by hand with `hammunition maps gps-tether`, it runs while that terminal
+  stays open and Ctrl-C stops it; the service above is the same program run
+  by systemd. Either way it does not run as root.
 - The terminal shows a line when a program connects or goes, with how many
   are connected. If gpsd has sent no position with a fix within 10 seconds,
   it says that too.
@@ -2529,8 +2544,11 @@ laptop and been recorded in `docs/reference/bench-verification-5430.md`:
 - `UrllibProbe.text` has run live against Geofabrik's region index
   (2026-09-28: `index-v1-nogeom.json`, 555 regions parsed by `region_ids`).
   `UrllibProbe.head` — the reachability check a fetch, and now a plan-time
-  region check, both depend on — remains unmeasured against the live
-  server; the tests stand in for it.
+  region check, both depend on — was exercised live by the whole-profile dry
+  run of bench session 13 (2026-10-02): the plan-time checks of the station's
+  regions, the CoMaps maps and the US Topo sheets against their servers all
+  ran, and nothing was deferred. That is a plan, not an install: no fetch of a
+  region has been measured through it.
 
 For the QMapShack units (**D-061**), the converters and their sizes were
 measured on one region on the development host. None of the following has
