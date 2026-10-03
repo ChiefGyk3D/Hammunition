@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**322 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**323 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -301,11 +301,12 @@ Contact logging, awards tracking, Logbook of the World and the lookups a log nee
 - [tucnak](tucnak.md) — VHF and above contest logger, built around locator scoring and networking
 - [xlog](xlog.md) — Small GTK station log that opens instantly and does the basics well
 
-### `mesh` — 3
+### `mesh` — 4
 
 Meshtastic, MeshCore and Reticulum: off-grid text over LoRa.
 
 - [gtk-meshtastic-client](gtk-meshtastic-client.md) — Desktop GUI for Meshtastic nodes
+- [lxmf](lxmf.md) — LXMF, Reticulum's message layer, and lxmd, its store-and-forward propagation daemon
 - [python3-meshtastic](python3-meshtastic.md) — Meshtastic command-line client and Python API
 - [rns](rns.md) — Reticulum, encrypted networking over any medium, with its shared instance and the RNode flasher
 
@@ -895,6 +896,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [linbpq](linbpq.md) | BPQ32 packet-radio node, BBS and Winlink gateway | git |
 | [linpac](linpac.md) | Terminal for AX.25 packet with a built-in mail client and macros | apt |
 | [linrad](linrad.md) | SM5BSZ's DSP receiver — the deep-toolbox SDR for weak-signal work | source |
+| [lxmf](lxmf.md) | LXMF, Reticulum's message layer, and lxmd, its store-and-forward propagation daemon | venv |
 | [m2kcli](m2kcli.md) | Command-line control of the ADALM2000 lab instrument | apt |
 | [mapsforge-map](mapsforge-map.md) | Mapsforge vector maps of your OpenStreetMap regions, for phone map apps | derived |
 | [mapsforge-poi](mapsforge-poi.md) | Mapsforge points-of-interest files of your regions, for searching on a phone | derived |

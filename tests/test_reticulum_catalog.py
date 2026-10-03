@@ -187,3 +187,60 @@ def test_the_unit_is_a_mesh_unit_and_updates_from_pypi(unit: str) -> None:
     assert manifest.categories == ["mesh"]
     assert manifest.update.probe.method == "pypi"
     assert manifest.depends == ["python3-venv"]
+
+
+# -- lxmf --------------------------------------------------------------------
+
+
+def test_lxmf_is_a_complete_hash_pinned_venv_exposing_lxmd() -> None:
+    block = _venv("lxmf")
+    assert block.python == ">=3.11" and block.expose == ["lxmd"]
+    assert pinned_projects("lxmf") == {
+        "cffi",
+        "cryptography",
+        "lxmf",
+        "pycparser",
+        "pyserial",
+        "rns",
+    }
+    assert pinned("lxmf", "lxmf") == "1.2.0" and _unit("lxmf").version == "1.2.0"
+    assert hash_count("lxmf") == 167
+    assert block.licence is not None and block.licence.startswith("Reticulum License")
+    assert block.licence_url == "https://github.com/markqvist/LXMF/blob/master/LICENSE"
+
+
+def test_lxmd_is_not_a_service() -> None:
+    """A propagation node stores other people's messages; running one is the
+    operator's decision, made in the guide, never an install default."""
+    unit = _unit("lxmf")
+    assert unit.user_services == [] and unit.launchers == []
+    assert unit.config_files == [] and unit.system_modifications == []
+
+
+def test_the_lxmf_page_says_where_the_identity_lives_and_that_uninstall_keeps_it() -> None:
+    docs = _unit("lxmf").documentation
+    assert docs.known_problems is not None
+    assert "~/.lxmd" in docs.known_problems and "leaves in place" in docs.known_problems
+    assert "propagation node" in docs.known_problems
+
+
+INVENTORY = ROOT / "docs" / "reference" / "mesh-venv-closures.txt"
+
+
+def inventory_rns() -> str:
+    """The `rns` version the closures inventory resolved every unit against."""
+    match = re.search(r"^######## rns==(\S+)$", INVENTORY.read_text(), re.MULTILINE)
+    assert match, "the inventory has no `rns==` section"
+    return match.group(1)
+
+
+@pytest.mark.parametrize("unit", ["lxmf"])
+def test_every_reticulum_venv_pins_the_same_rns(unit: str) -> None:
+    """Each unit is its own venv with its own copy of `rns`, and the one that runs
+    the shared instance must be the version every client was built against.
+    Bump all three units in one commit (`rns`'s cadence_hint says how)."""
+    assert pinned("rns", "rns") == inventory_rns()
+    assert pinned(unit, "rns") == inventory_rns(), (
+        f"{unit} pins rns {pinned(unit, 'rns')} but the inventory pins "
+        f"{inventory_rns()}: resolve the three closures again together"
+    )

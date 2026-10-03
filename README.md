@@ -113,7 +113,7 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 **322**, up from 71 |
+| Package manifests | 🟡 **323**, up from 71 |
 | …Debian Blend coverage | ✅ **152 of 152** — SCOPE.md's first 1.0 stage, complete |
 | …parity coverage | 🟡 **111 of the 125 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
 | Hardware catalog | 🟡 33 devices, 9 classes, 302 confirmed USB identifiers |
@@ -129,7 +129,7 @@ exactly where things stand:
 | Builds from a pinned git revision, with the pin verified after checkout | ✅ working |
 | Prebuilt binaries: `.deb`, tarball, zip, executable | ✅ working — `.deb` through apt, never `dpkg -i` |
 | Per-user venv installs, hash-pinned end to end (`--require-hashes`) | ✅ working — not1mm and NanoVNASaver run from them |
-| Launcher + desktop-entry generation from manifests (D-036) | ✅ working — 33 units carry launchers; terminal launchers hold their window; a wrapper never shadows its own tool (found and fixed 2026-09-12) |
+| Launcher + desktop-entry generation from manifests (D-036) | ✅ working — 36 units carry launchers; terminal launchers hold their window; a wrapper never shadows its own tool (found and fixed 2026-09-12) |
 | Idempotent re-runs for builds (D-051) | ✅ a source, git or prebuilt unit already installed at its pin is skipped; measured on the field laptop: 143 of 165 units plan nothing on a re-run |
 | AppImage backend | ❌ post-1.0 (SCOPE.md) — refused by name |
 | pipx / CPAN backends | ⚪ re-measured to **zero users** and dropped from 1.0 (D-014 amendment) |

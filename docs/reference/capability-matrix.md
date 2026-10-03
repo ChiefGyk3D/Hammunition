@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 106 | 2 | 214 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 104 | 2 | 216 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 103 | 3 | 216 |
-| kali-rolling *(unswept)* | 0 | 0 | 97 | 1 | 224 |
-| parrot *(unswept)* | 0 | 0 | 104 | 2 | 216 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 103 | 3 | 216 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 101 | 7 | 214 |
+| debian-13 *(unswept)* | 0 | 0 | 107 | 2 | 214 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 105 | 2 | 216 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 104 | 3 | 216 |
+| kali-rolling *(unswept)* | 0 | 0 | 98 | 1 | 224 |
+| parrot *(unswept)* | 0 | 0 | 105 | 2 | 216 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 104 | 3 | 216 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 102 | 7 | 214 |
 
-**322 manifests** against **7 targets**.
+**323 manifests** against **7 targets**.
 
 ---
 
@@ -213,6 +213,7 @@ build HAS been run in a container say so in their own install notes.
 | `linbpq` | git | git | git | git | git | git | git |
 | `linpac` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `linrad` | source | source | source | source | source | source | — |
+| `lxmf` | venv | venv | venv | venv | venv | venv | venv |
 | `m2kcli` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `mapsforge-map` | derived | derived | derived | derived | derived | derived | derived |
 | `mapsforge-poi` | derived | derived | derived | derived | derived | derived | derived |
