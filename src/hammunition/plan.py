@@ -1676,6 +1676,7 @@ def resolve(
     # Java it brings, and Ubuntu 22.04 / Pop!_OS 22.04 resolve it to 11 while
     # GraphHopper's classes are major 61. So the version that counts is the
     # one `java` reports. Measured once per plan, never fetched.
+    java_caused: set[str] = set()
     for manifest, _, _, _ in resolved:
         floor_java = manifest.requires_java
         if floor_java is None or manifest.name in deferred:
@@ -1690,6 +1691,7 @@ def resolve(
                 f"{manifest.name} {outcome_java.reason}",
                 outcome_java.remedy,
             )
+            java_caused.add(manifest.name)
         else:
             blockers.append(outcome_java)
 
@@ -1794,7 +1796,7 @@ def resolve(
             gone = sorted(d for d in manifest.depends if d in deferred)
             if not gone:
                 continue
-            by_desktop = [d for d in gone if d in desktop_caused]
+            by_desktop = [d for d in gone if d in desktop_caused or d in java_caused]
             if by_desktop:
                 # D-060: the dependency is missing because of the machine's
                 # desktop, so the dependent's reason and remedy are its.
@@ -1812,7 +1814,10 @@ def resolve(
                         remedy=deferred[by_desktop[0]].remedy,
                         kind="package",
                     )
-                    desktop_caused.add(manifest.name)
+                    if by_desktop[0] in java_caused:
+                        java_caused.add(manifest.name)
+                    else:
+                        desktop_caused.add(manifest.name)
                 else:
                     deferred[manifest.name] = _target_deferral(manifest.name, wanted, why)
                 changed = True

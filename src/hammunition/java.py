@@ -45,10 +45,9 @@ def parse_java_major(output: str) -> int | None:
     ``"1.8.0_392"`` -> 8 (Java 8 and earlier said ``1.N``); an early-access
     ``"25-ea"`` -> 25. Anything unrecognised is ``None``, never a guess.
     """
-    lines = output.strip().splitlines()
-    if not lines:
-        return None
-    match = _QUOTED.search(lines[0])
+    # Not always the first line: with JAVA_TOOL_OPTIONS set, java prints a
+    # `Picked up ...` line before the version line.
+    match = next((m for line in output.splitlines() if (m := _QUOTED.search(line))), None)
     if match is None:
         return None
     parts = re.split(r"[._+-]", match.group(1))
@@ -106,7 +105,8 @@ class JavaProbe:
         except (OSError, subprocess.SubprocessError) as exc:
             self._reason = f"`{exe} -version` failed: {exc}"
             return
-        self._line = out.strip().splitlines()[0] if out.strip() else ""
+        lines = [ln for ln in out.splitlines() if ln.strip()]
+        self._line = next((ln for ln in lines if _QUOTED.search(ln)), lines[0] if lines else "")
         self._major = parse_java_major(out)
         if self._major is None:
             self._reason = f"`{exe} -version` printed no version line ({self._line!r})"

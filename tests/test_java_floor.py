@@ -42,6 +42,19 @@ def test_the_parser_reads_the_three_version_line_shapes(line: str, major: int) -
     assert parse_java_major(line) == major
 
 
+def test_the_parser_skips_a_picked_up_preamble() -> None:
+    """With JAVA_TOOL_OPTIONS set, java prints a `Picked up` line first."""
+    text = 'Picked up JAVA_TOOL_OPTIONS: -Xmx2g\nopenjdk version "21.0.4" 2024-07-16'
+    assert parse_java_major(text) == 21
+
+
+def test_the_probe_reports_the_version_line_not_the_preamble() -> None:
+    out = 'Picked up _JAVA_OPTIONS: -Xmx2g\nopenjdk version "17.0.12" 2024-07-16'
+    probe = JavaProbe(path_lookup=lambda _n: "/usr/bin/java", run=lambda _a: out)
+    assert probe.major == 17
+    assert probe.version_line.startswith("openjdk version")
+
+
 @pytest.mark.parametrize("text", ["", "command not found", 'version "abc"'])
 def test_the_parser_never_guesses(text: str) -> None:
     assert parse_java_major(text) is None
@@ -304,3 +317,34 @@ def test_the_json_plan_carries_the_deferral_in_the_existing_shape(tmp_path: Path
     (entry,) = [d for d in view.deferrals if d.subject == "graphhopper"]
     assert "Java 17" in entry.why and "11.0.24" in entry.why
     assert entry.remedy and entry.what
+
+
+def test_a_dependent_of_a_java_deferred_unit_carries_the_java_cause(tmp_path: Path) -> None:
+    catalog = {
+        u.name: u
+        for u in (
+            _unit("graphhopper", requires_java=17),
+            _unit("graphhopper-graph", depends=["graphhopper"]),
+            _unit("direwolf"),
+        )
+    }
+    plan = _resolve(
+        tmp_path,
+        ["nav"],
+        catalog=catalog,
+        profiles={
+            "nav": _profile(name="nav", packages=["graphhopper", "graphhopper-graph", "direwolf"])
+        },
+        known={
+            "direwolf": None,
+            "graphhopper": None,
+            "graphhopper-graph": None,
+            "openjdk-17-jre-headless": None,
+        },
+        java=_java(tmp_path, 'openjdk version "11.0.24" 2024-07-16'),
+    )
+    by_name = {d.subject: d for d in plan.deferrals if d.kind == "package"}
+    assert set(by_name) == {"graphhopper", "graphhopper-graph"}
+    dependent = by_name["graphhopper-graph"]
+    assert "Java 17" in dependent.why
+    assert "openjdk-17-jre-headless" in dependent.remedy
