@@ -1112,7 +1112,7 @@ its manifest. Names are resolved against profiles first, then units, so a
 profile wins if the same name exists in both. The text form still describes
 profiles only.
 
-### `hammunition install NAME... [--dry-run] [--yes] [--apply-capabilities] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--recheck] [--full] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
+### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--recheck] [--full] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
 **A re-run rebuilds nothing it has already built** (**D-051**): a source, git
 or prebuilt-archive unit whose binaries are on the machine *and* whose build
@@ -1127,7 +1127,6 @@ Names may be packages or profiles, mixed freely.
 |---|---|
 | `--dry-run` | Resolve everything, print exactly what would run, change nothing |
 | `--yes` | Skip the confirmation. **Does not satisfy a consent gate** (D-021). Also suppresses the station prompt |
-| `--apply-capabilities` | Apply the file capabilities declared by selected units with `setcap` after installation. The plan shows the exact binary and capabilities; without this flag, none are granted. Uninstall clears only capabilities attributed to this engine before removing the binary |
 | `--no-refresh` | Skip the `apt-get update` that otherwise opens every transaction with apt work (**D-044**). For a local mirror, or a station with no uplink. `--refresh` is the default and still parses |
 | `--no-sudo-keepalive` | Do not hold sudo's ticket for the run (**D-062**). By default a run as a user that mixes root steps with steps that are not asks the password once, by `sudo -v`, before the first step, and keeps the ticket valid with `sudo -n -v` every 4 minutes until the run ends. With this flag each root step asks for itself, and one that follows a long step may prompt again. `--sudo-keepalive` is the default and still parses |
 | `--recheck` | Ask every data item's publisher at plan time, including installed items the transaction log attributes. Without it those are trusted for 7 days (`attributed.RECHECK_AFTER_DAYS`): the plan prints `N installed data item(s) were not re-checked against their publishers` with the oldest attribution date, `--json` carries a `publisher_checks` line per item with `checked: false` and the reason, and an item attributed 7 or more days ago, or whose file is not the one the log recorded, is asked again. A re-check that fails is a `note:`, never a refusal; the real run verifies everything it fetches either way (**D-049**, #197) |
@@ -1137,6 +1136,18 @@ Names may be packages or profiles, mixed freely.
 | `--callsign CALL` | Station callsign for this run. Overrides the saved value |
 | `--grid-square LOC` | Maidenhead locator, four or six characters |
 | `--node-alias NAME` | Short packet node alias, up to six characters |
+
+**File capabilities (D-079).** When a selected unit declares optional Linux
+capabilities, the plan shows the target binary and exact `CAPABILITY=ep` grant.
+Before the ordinary confirmation, the installer asks you to type `yes` for
+that specific grant. `--yes` does not answer it. Declining (or having no
+interactive terminal) skips only the capability step and installs the rest of
+the transaction without granting it. For scripts, set
+`HAMMUNITION_ACCEPT_CAPABILITIES_<UNIT>` to the exact grant string shown in the
+plan, for LinBPQ `CAP_NET_ADMIN=ep CAP_NET_RAW=ep CAP_NET_BIND_SERVICE=ep`; a
+value of `1` is refused. Successful
+grants are verified with `getcap`, logged, and cleared on uninstall before the
+attributed binary is removed.
 
 **sudo's ticket, for the length of the run (D-062).** Run as a user, the
 engine puts `sudo` in front of each root step and nothing else, and sudo

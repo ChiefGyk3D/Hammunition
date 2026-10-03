@@ -2151,7 +2151,7 @@ A consent gate the real run will present (D-021). Never answered through JSON.
 
 | field | type | meaning |
 |---|---|---|
-| `profile` | string | the gated profile |
+| `profile` | string | the gated profile or optional system change |
 | `env_var` | string | the scripted-consent variable the gate reads |
 | `risk_lines` | list of string | one line per disclosed capability |
 

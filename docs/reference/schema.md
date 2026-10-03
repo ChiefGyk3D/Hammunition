@@ -302,7 +302,7 @@ upstream must be repointable by editing the catalog, not the launchers.
 | `reverse_hint` | `str \| None` | no |  |
 | `group` | `str \| None` | no | For `group_membership`: the group to add the operator to. Required there, and forbidden elsewhere. |
 | `binary` | `str \| None` | no | For `file_capability`: an installed binary's `install_as` name. |
-| `capabilities` | `list[Literal[CAP_NET_ADMIN, CAP_NET_RAW, CAP_NET_BIND_SERVICE]]` | no | For `file_capability`: the Linux capabilities set with permitted and effective flags, applied only with `install --apply-capabilities`. |
+| `capabilities` | `list[Literal[CAP_NET_ADMIN, CAP_NET_RAW, CAP_NET_BIND_SERVICE]]` | no | For `file_capability`: the Linux capabilities set with permitted and effective flags, applied only after typed consent; `--yes` cannot satisfy it. |
 
 ### `ConfigFile`
 

@@ -622,7 +622,7 @@ class FileCapabilityLine(Strict):
 class GateLine(Strict):
     """A consent gate the real run will present (D-021). Never answered through JSON."""
 
-    profile: str = described("the gated profile")
+    profile: str = described("the gated profile or optional system change")
     env_var: str = described("the scripted-consent variable the gate reads")
     risk_lines: tuple[str, ...] = described("one line per disclosed capability")
 

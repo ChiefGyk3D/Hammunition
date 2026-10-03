@@ -78,6 +78,7 @@ from hammunition.manifest.schema import (
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
+    RiskCategory,
     SourceInstall,
     Status,
     TopoQuadsInstall,
@@ -1315,7 +1316,6 @@ def resolve(
     apt: AptBackend,
     user: str,
     refresh: bool = False,
-    apply_capabilities: bool = False,
     station: Station | None = None,
     devices: Mapping[str, DeviceManifest | DeviceClass] | None = None,
     repos: AptRepoBackend | None = None,
@@ -2256,15 +2256,36 @@ def resolve(
                 )
                 continue
             capability_paths[path] = item.name
-            if apply_capabilities:
-                file_capabilities.append(
-                    FileCapability(
-                        path=path,
-                        capabilities=tuple(modification.capabilities),
-                        package=item.name,
-                        detail=modification.detail.strip(),
-                    )
+            capabilities = tuple(modification.capabilities)
+            file_capabilities.append(
+                FileCapability(
+                    path=path,
+                    capabilities=capabilities,
+                    package=item.name,
+                    detail=modification.detail.strip(),
                 )
+            )
+            grant = " ".join(f"{name}=ep" for name in capabilities)
+            unit_env = "".join(
+                character if character.isalnum() else "_" for character in item.name.upper()
+            )
+            gates.append(
+                (
+                    f"file-capabilities:{item.name}",
+                    ConsentGate(
+                        risk_categories=[RiskCategory.privileged_execution],
+                        env_var=f"HAMMUNITION_ACCEPT_CAPABILITIES_{unit_env}",
+                        disclosure=(
+                            f"Granting {grant} to {path} gives {item.name} additional Linux "
+                            f"privileges. The grant is optional and is applied only after "
+                            f"affirmative consent."
+                        ),
+                        affirmation=(
+                            f"Do you authorize Hammunition to grant exactly {grant} to {path}?"
+                        ),
+                    ),
+                )
+            )
 
     if blockers:
         raise PlanError(blockers)

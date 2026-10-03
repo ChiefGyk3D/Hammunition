@@ -38,7 +38,7 @@ Binaries this produces:
   - adds the operating user to the `dialout` group
   - undo: gpasswd -d <user> dialout
 - **file_capability** — Optional privileges for LinBPQ Ethernet and tun ports
-  - These file capabilities are not needed for AX.25 over KISS or the default web port. Hammunition applies them only when install is explicitly run with --apply-capabilities.
+  - These file capabilities are not needed for AX.25 over KISS or the default web port. Hammunition applies them only after the separate typed consent gate; --yes cannot answer it.
   - undo: sudo setcap -r /usr/local/bin/linbpq
 
 ## Configuration it writes
@@ -47,7 +47,7 @@ Binaries this produces:
 
 ## Known problems
 
-Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it carries its own AX.25 implementation and drives Direwolf over KISS or AGW, so no AF_AX25 socket is involved. See `docs/reference/kernel-ax25.md`. Upstream publishes prebuilt binaries in a directory named Beta with no versioning or checksums; we ignore those and build from a tagged source revision instead. The generated configuration is a minimum viable node and is meant to be edited — read it before transmitting. The build does not grant the binary any capabilities: upstream's makefile would run `sudo setcap` inside the build, and the engine removes that line (#96). A node on AX.25 over KISS with the web interface on 8008 needs none of them. For BPQ Ethernet or tun ports, or to bind below 1024, explicitly run `hammunition install linbpq --apply-capabilities`; the plan shows the exact grant, which is cleared by `uninstall` before the binary is removed.
+Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it carries its own AX.25 implementation and drives Direwolf over KISS or AGW, so no AF_AX25 socket is involved. See `docs/reference/kernel-ax25.md`. Upstream publishes prebuilt binaries in a directory named Beta with no versioning or checksums; we ignore those and build from a tagged source revision instead. The generated configuration is a minimum viable node and is meant to be edited — read it before transmitting. The build does not grant the binary any capabilities: upstream's makefile would run `sudo setcap` inside the build, and the engine removes that line (#96). A node on AX.25 over KISS with the web interface on 8008 needs none of them. For BPQ Ethernet or tun ports, or to bind below 1024, approve the typed capability prompt or set `HAMMUNITION_ACCEPT_CAPABILITIES_LINBPQ` to the exact grant printed in the plan (for example, `CAP_NET_ADMIN=ep CAP_NET_RAW=ep CAP_NET_BIND_SERVICE=ep`). `--yes` cannot answer the prompt. A declined grant skips only `setcap`; the rest installs and the binary remains unprivileged. An accepted grant is cleared by `uninstall` before the binary is removed.
 
 ## Keeping it current
 

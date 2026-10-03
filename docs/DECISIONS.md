@@ -10006,7 +10006,7 @@ Tests: `tests/test_artifacts.py`, `tests/test_repeater_sources_cli.py`.
 
 ---
 
-## D-079 — File capabilities are an explicit, reversible install choice
+## D-079 — File capabilities require typed consent and are reversible
 
 **Date:** 2026-10-03. **Status:** decided. **Depends on:** D-004 (transaction
 log and uninstall), D-016 (complete plan before changes), D-031 (verify the
@@ -10014,14 +10014,18 @@ effect rather than trusting an exit code).
 
 **Decision.** A `file_capability` system modification names an installed
 `binaries[].install_as` and a non-empty list from the engine's supported Linux
-capability vocabulary. `install --apply-capabilities` is required to apply
-those capabilities. Without that flag the binary receives none. The plan shows
-the exact binary and grants before confirmation; after installation the engine
-runs `setcap` as root and verifies the result with `getcap`. The command and
-outcome use the transaction log's ordinary command events. `uninstall` clears a
-capability only when the log attributes its grant to Hammunition and the
-corresponding binary is itself an attributed file; `setcap -r` runs before the
-binary is removed.
+capability vocabulary. The plan always shows the exact binary and grants as an
+optional, consent-gated step. Before the ordinary transaction confirmation, the
+operator must type `yes` specifically for that grant; `--yes` never answers this
+gate. A script may set
+`HAMMUNITION_ACCEPT_CAPABILITIES_<UNIT>` to the exact grant string printed in
+the plan, never to `1`. A declined or unavailable gate skips only the `setcap`
+step and the rest of the install proceeds with the binary unprivileged. After
+affirmation, the engine runs `setcap` as root and verifies the result with
+`getcap`. The command and outcome use the transaction log's ordinary command
+events. `uninstall` clears a capability only when the log attributes its grant
+to Hammunition and the corresponding binary is itself an attributed file;
+`setcap -r` runs before the binary is removed.
 
 **Evidence.** Upstream LinBPQ runs `sudo setcap` inside its build, which is
 neither disclosed nor reliable with a cold sudo ticket (#96). Its default KISS
@@ -10029,13 +10033,15 @@ and web-interface configuration does not need these capabilities. Applying
 them unconditionally would grant network privileges that the selected station
 does not use. The opt-in keeps the ordinary packet profile unprivileged while
 providing a planned, logged and reversible route for Ethernet, tun and
-privileged-port configurations.
+privileged-port configurations. Following D-021 and D-040, the consent gate is
+typed and binds scripted acceptance to the exact grant rather than a separate
+flag or generic affirmative value.
 
 **Constraints.** Capability targets are engine-installed binaries under the
 shared prefix, not arbitrary paths or commands. The manifest declares
 `libcap2-bin`; the engine does not guess an apt package name. Only permitted
-and effective flags are applied. Capability grants are not part of `--yes`:
-the operator must separately request them with `--apply-capabilities`.
+and effective flags are applied. The plan's existing consent-gate shape carries
+the capability step in text and JSON.
 
 **Closes:** #96 route 2, without restoring `sudo setcap` to the build.
 

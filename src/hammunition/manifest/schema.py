@@ -1928,7 +1928,7 @@ class SystemModification(Strict):
         default_factory=list,
         description=(
             "For `file_capability`: the Linux capabilities set with permitted and "
-            "effective flags, applied only with `install --apply-capabilities`."
+            "effective flags, applied only after typed consent; `--yes` cannot satisfy it."
         ),
     )
 
@@ -2950,6 +2950,7 @@ class RiskCategory(StrEnum):
     third_party_systems = "third_party_systems"
     spectrum_disruption = "spectrum_disruption"
     credential_recovery = "credential_recovery"
+    privileged_execution = "privileged_execution"
 
 
 RISK_DISCLOSURES: dict[RiskCategory, str] = {
@@ -2976,6 +2977,10 @@ RISK_DISCLOSURES: dict[RiskCategory, str] = {
     RiskCategory.credential_recovery: (
         "Can recover, crack or replay authentication material such as keys, "
         "passphrases or handshakes."
+    ),
+    RiskCategory.privileged_execution: (
+        "Can exercise additional Linux privileges beyond the program owner's ordinary "
+        "permissions, including network administration, raw packets, or privileged ports."
     ),
 }
 
@@ -3037,7 +3042,8 @@ class ConsentGate(Strict):
                         f"do not adjudicate. Offending text: {text[:80]!r}"
                     )
         if (
-            "authoriz" not in self.affirmation.lower()
+            RiskCategory.privileged_execution not in self.risk_categories
+            and "authoriz" not in self.affirmation.lower()
             and "authoris" not in self.affirmation.lower()
         ):
             raise ManifestError(

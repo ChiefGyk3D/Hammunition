@@ -99,7 +99,6 @@ def _resolve(tmp_path: Path, names: list[str], **kwargs: Any) -> Any:
         target=kwargs.pop("target", TARGET),
         apt=kwargs.pop("apt", None) or _apt(tmp_path, known),
         user=kwargs.pop("user", "operator"),
-        apply_capabilities=kwargs.pop("apply_capabilities", False),
         kernel=kwargs.pop("kernel", None),
         java=kwargs.pop("java", None),
         desktops=kwargs.pop("desktops", None),
@@ -119,7 +118,7 @@ def test_a_plain_package_resolves(tmp_path: Path) -> None:
     assert plan.apt_to_install == ("example",)
 
 
-def test_file_capabilities_are_planned_only_when_explicitly_requested(tmp_path: Path) -> None:
+def test_file_capabilities_and_typed_consent_are_always_in_the_plan(tmp_path: Path) -> None:
     unit = _manifest(
         install=[
             {
@@ -147,15 +146,16 @@ def test_file_capabilities_are_planned_only_when_explicitly_requested(tmp_path: 
     catalog = {"example": unit}
 
     known = {"example": None, "build-essential": None, "git": None}
-    ordinary = _resolve(tmp_path, ["example"], catalog=catalog, known=known)
-    requested = _resolve(
-        tmp_path, ["example"], catalog=catalog, known=known, apply_capabilities=True
-    )
+    plan = _resolve(tmp_path, ["example"], catalog=catalog, known=known)
 
-    assert ordinary.file_capabilities == ()
-    assert len(requested.file_capabilities) == 1
-    assert requested.file_capabilities[0].path == Path("/usr/local/bin/radio-node")
-    assert requested.file_capabilities[0].capabilities == ("CAP_NET_RAW",)
+    assert len(plan.file_capabilities) == 1
+    assert plan.file_capabilities[0].path == Path("/usr/local/bin/radio-node")
+    assert plan.file_capabilities[0].capabilities == ("CAP_NET_RAW",)
+    gate_name, gate = plan.consent_gates[0]
+    assert gate_name == "file-capabilities:example"
+    assert gate.env_var == "HAMMUNITION_ACCEPT_CAPABILITIES_EXAMPLE"
+    assert "CAP_NET_RAW=ep" in gate.disclosure
+    assert "CAP_NET_RAW=ep" in gate.affirmation
 
 
 def test_file_capability_must_name_a_prefix_binary_even_without_opt_in(tmp_path: Path) -> None:
