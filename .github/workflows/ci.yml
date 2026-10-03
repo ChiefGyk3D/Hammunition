@@ -32,6 +32,12 @@ jobs:
     uses: ChiefGyk3D/git-your-ship-together/.github/workflows/python-ci.yml@8d6d940f143b97b6d521f5dfe38b11573a916ef4 # v1.7.1
     permissions:
       contents: read
+      # python-ci's coverage job declares id-token: write (Codecov and Doppler
+      # OIDC). GitHub validates a called workflow's declared permissions at
+      # startup, before any `if`, so a caller that grants less fails the whole
+      # file with "Invalid workflow file" and no check appears. No Doppler or
+      # Codecov is configured here; the grant only satisfies the declaration.
+      id-token: write
     with:
       # 3.14 is what Ubuntu 26.04 -- a supported target -- ships (3.14.4,
       # measured on its VM 2026-09-02, suite green). Test the matrix, not the
