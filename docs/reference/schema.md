@@ -429,6 +429,12 @@ Required by CLAUDE.md for every profile.
 | `deliberately_excludes` | `str` | **yes** |  |
 | `manual_configuration` | `str` | **yes** |  |
 | `disk_footprint_hint` | `str \| None` | no |  |
+| `who_for` | `str \| None` | no | Who installs this, in a sentence or two. |
+| `hardware_assumed` | `str \| None` | no | What hardware the profile assumes, or says it needs none. |
+| `footprint_short` | `str \| None` | no | Disk footprint in a few words, for the index table. |
+| `excludes_short` | `str \| None` | no | What it leaves out, in a phrase, for the index table. |
+| `goals` | `list[str]` | no | Goals in an operator's words ('Make FT8 contacts'). The profiles index inverts these into its 'which profile do I want' table, so the same wording on two profiles puts both on one row. |
+| `first_ten_minutes` | `list[str]` | no | Ordered steps for the ten minutes after install, Markdown. |
 
 ### `SuggestionGroup`
 

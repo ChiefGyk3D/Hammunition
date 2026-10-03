@@ -87,3 +87,19 @@ documentation:
     aeronautical cluster plus kalibrate-rtl — and dump978-fa and nrsc5 are
     two more, so the install takes longer than
     the size suggests.
+  who_for: "Someone who wants to receive and decode what is on the air without a licence and without transmitting: aircraft, ships, DAB and HD Radio, utility signals, weather satellites. It is the best on-ramp the catalog has."
+  hardware_assumed: "An SDR and an antenna for the band you want. One dongle hears one band at a time, so ADS-B on 1090 MHz and UAT on 978 MHz together need two."
+  footprint_short: "about 400 MB; eight source or pinned-git builds"
+  excludes_short: "anything that transmits, anything aimed at protected communications"
+  goals:
+    - "Listen with a cheap SDR dongle"
+    - "Decode aircraft, ships, DAB or other signals with an SDR"
+    - "Receive weather satellite images"
+  first_ten_minutes:
+    - "Install `sdr` first, run `hammunition hardware apply`, log out and back in, and confirm the dongle with `rtl_test`. [The SDR profile](sdr.md) has the steps."
+    - "Read the plan: `hammunition install listening --dry-run`. Several members build from source; on Ubuntu 24.04 a handful are deferred by name because the archive lacks them."
+    - "Install: `hammunition install listening`."
+    - "Start with the aircraft map: [SDR first steps](../guides/sdr.md) runs `readsb` and serves the map in a browser."
+    - "Put an antenna for the band outside. A quarter wave for 1090 MHz is about 7 cm; height matters more than the receiver."
+    - "Nothing here feeds an aggregator until you configure it. Decide that deliberately: feeding publishes what your receiver hears, and where it is."
+    - "When you see something on the waterfall you cannot name, open `artemis`, the offline signal-identification reference."

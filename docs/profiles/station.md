@@ -6,6 +6,21 @@
 
 **Stage:** 1.0
 
+## Who it is for
+
+Everyone who will operate from this machine. Install it first, before any mode profile, because every other profile quietly assumes rig control, a correct clock and a position source are already there.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | 1.0 |
+| Units | 14 |
+| Disk | about 125 MB |
+| Hardware | None to install it. It is for a radio with a CAT or serial cable (rig control) and a USB GPS receiver (position and time); both are optional until you want those features. |
+| Consent | none |
+| Install | `hammunition install station` |
+
 ## What it installs
 
 Hamlib's command-line tools, a rig control panel that other programs can share, and `rig-service`, which runs one shared `rigctld` for the radio you name with `station set --rig` (deferred by name until you do), the one radio programmer that covers hundreds of models, GPS for position and time with the converter that gets tracks off a handheld, two clocks, pipx, Hammunition Hill -- the family's own local-first dashboard, installed from its release .deb and served to your browser on 127.0.0.1:8073 -- and the tray switches for the desktop you run (KDE's applet, or the Qt tray for Xfce, LXQt, LXDE, MATE and Cinnamon), which park and wake devices and start and stop services.
@@ -25,6 +40,48 @@ Two pieces earn their place beyond the obvious. **One program owns the CAT port 
 
 Per-manufacturer radio tools. `wfview` is Icom, `kappanhang` is Icom network radios, `qdmr` and `dmrconfig` are DMR, `icom` is CI-V, `tmd710-tncsetup` is two Kenwood models. All are in the catalog and all belong to whoever owns that radio; putting them in the floor would install six manufacturers' software on every machine. CHIRP is the exception because it covers hundreds of models across most manufacturers, which makes it a general tool rather than a specific one. Also excludes loggers, propagation tools and anything mode-specific — those are their own profiles, which is the whole point of the split.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show station
+hammunition install station --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install station
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 **Serial access needs the `dialout` group, and adding you to it does not affect a session that is already open** — log out and back in. Rig control needs your radio's hamlib model number, which `rigctl -l` lists and which is the thing most often set wrong; a mismatched backend gives partial control, where frequency works and mode does not, which reads as a broken cable. Icom radios additionally need the CI-V address matched to the radio's own menu. **Decide who owns the serial port**: say which radio you have with `hammunition station set --rig ... --rig-device ... --rig-baud ...`, run `hammunition install rig-service`, and point every program at `127.0.0.1:4532` (the guide, docs/guides/rig-control.md, has the table), or choose flrig and point everything at it. Two programs opening the port directly is the classic failure and its symptom is erratic behaviour rather than an error. The tray switches need `hammunition hardware apply` run once, to write the lists they read (docs/guides/tray-controls.md). `pipx ensurepath` needs a new shell before it takes effect. **Hammunition Hill is running from the moment its package lands**: the .deb enables and starts `hammunition-hill.service` as its own `hamhill` user, bound to loopback. Give it your callsign and an ADIF log in `/etc/hammunition-hill/config.toml` and restart the service; leave the host at 127.0.0.1.
+
+## Your first ten minutes
+
+1. Read what will happen: `hammunition install station --dry-run`. Expect two entries under *Will NOT happen*: `rig-service` (it waits until you name your radio) and, on a desktop that is not Xfce, LXQt, LXDE, MATE or Cinnamon, `hammunition-tray-qt`. Neither is a failure.
+2. Tell the engine who you are: `hammunition station set --callsign N0CALL --grid-square FN31pr`, with your own values in place of the placeholders. Nothing is invented for you; a missing value defers one file, not the install.
+3. Install: `hammunition install station`. It asks for your `sudo` password once, near the start.
+4. Write the udev rules and join the device groups: `hammunition hardware apply --dry-run`, read it, then `hammunition hardware apply`. **Log out and back in afterward**; a group you were just added to does not reach a session that is already open.
+5. If you have a radio with CAT: find its model with `rigctl -l | grep -i <your radio>` and its port with `ls -l /dev/serial/by-id/`, then `hammunition station set --rig <device-or-hamlib:MODEL> --rig-device <port> --rig-baud <rate>` and `hammunition install rig-service`.
+6. Check that the shared rig service answers: `systemctl --user status hammunition-rigctld`, then `rigctl -m 2 -r 127.0.0.1:4532 f`, which prints the radio's frequency. [Rig control (CAT)](../guides/rig-control.md) has every step and the symptom list.
+7. Check the clock and the GPS with `hammunition doctor` (the `time` and `station` lines). [Time and position](../guides/time-and-gps.md) explains what each state means.
+8. Next: a mode profile. [Digital modes](digital-modes.md) is the usual one.
+
+## Take it off again
+
+```sh
+hammunition uninstall station --dry-run
+hammunition uninstall station
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

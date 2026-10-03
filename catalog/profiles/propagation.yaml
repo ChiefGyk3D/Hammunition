@@ -72,3 +72,18 @@ documentation:
     largest piece, openhamclock's pruned Node tree is about 140 MB (measured;
     the build copy under ~/.cache is the same again), and hamclock-next is a
     source build against SDL2.
+  who_for: "An operator who wants to know when a band is open, where the grey line is, what the beacons are doing and what the DX cluster has spotted."
+  hardware_assumed: "None. It reads public data and runs on your clock. A radio is useful only to act on what it tells you."
+  footprint_short: "about 450 MB"
+  excludes_short: "nothing Q-006 chose to drop; Ubuntu 24.04 lacks openhamclock's Node"
+  goals:
+    - "Know when a band is open"
+    - "Watch the grey line and DX spots on a live map"
+  first_ten_minutes:
+    - "Check your Node.js version if you run Ubuntu 24.04. `openhamclock` needs 20.19 or newer and the plan defers it by name where the archive's Node is older."
+    - "Read the plan: `hammunition install propagation --dry-run`."
+    - "Install: `hammunition install propagation`. `hamclock-next` builds from source."
+    - "Open `openhamclock`'s `.env` (its package page gives the path) and replace the `N0CALL` and `FN31` defaults with your callsign and grid, then start it and open the page in a browser."
+    - "Check your clock: the beacon monitor is a schedule computation, and a clock a minute out names the wrong beacon. `hammunition doctor` shows it."
+    - "Give your DX cluster client a node address and your callsign. Neither is chosen for you."
+    - "For band predictions, read [Propagation and solar conditions](../guides/propagation.md) before you trust a VOACAP answer; it needs a smoothed sunspot number and your own antenna."

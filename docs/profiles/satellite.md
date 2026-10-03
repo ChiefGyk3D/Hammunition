@@ -6,6 +6,21 @@
 
 **Stage:** 1.0
 
+## Who it is for
+
+An operator who wants to predict passes, follow them with Doppler correction, or decode a weather satellite.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | 1.0 |
+| Units | 4 |
+| Disk | about 400 MB, double without GNU Radio |
+| Hardware | An SDR and an antenna for receiving, or a transceiver for working amateur satellites. Pass prediction needs no hardware. |
+| Consent | none |
+| Install | `hammunition install satellite` |
+
 ## What it installs
 
 A tracker that predicts passes and drives a rotator and radio through hamlib, a large collection of telemetry decoders as GNU Radio blocks, and SatDump for turning a weather-satellite pass into an image. Hamlib's command-line tools come along because Doppler correction is what makes the difference between chasing a signal across the band and staying on it, and that runs through `rigctld`.
@@ -24,6 +39,46 @@ A satellite pass is one activity with three parts: know when it is, follow it wh
 
 The APT weather-satellite decoders. `noaa-apt` and `xwxapt` are in this catalog and in the AHRL inventory, and both are RETIRE'd for the same reason: every NOAA APT satellite went out of service on 2025-11-09. SatDump covers what is still transmitting, and the retired entries stay in the catalog with their provenance rather than vanishing. FoxTelem is also absent — decoding AMSAT Fox telemetry is only worth it if enough of that constellation is still alive, which nobody here has checked.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show satellite
+hammunition install satellite --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install satellite
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 **Keplerian elements go stale in days, not months**, and gpredict computes from whatever it last downloaded without warning you. Update them before relying on a prediction; that is the single most common cause of a pass that does not happen when predicted. Set your own location accurately — every prediction is relative to it. Rotator and radio control need hamlib reaching the hardware and `rigctld` running, which is a step that is easy to miss.
+
+## Your first ten minutes
+
+1. Set your grid square: `hammunition station set --callsign N0CALL --grid-square FN31pr`. The plan writes gpredict's ground-station file from it, and says so under *Configuration that will be written*.
+2. Read the plan: `hammunition install satellite --dry-run`. If you have not named a radio, gpredict's rig file is listed under *Will NOT happen*; that is expected.
+3. Install: `hammunition install satellite`.
+4. Open gpredict and update the orbital elements (Edit, Update TLE, From network) before you trust a single prediction. Elements go stale in days.
+5. Confirm your location in gpredict's preferences. Every pass time is relative to it.
+6. Pick a bright pass and watch it in the polar view. [Satellites](../guides/satellite.md) covers Doppler through `rigctld`, weather pictures with SatDump and telemetry with gr-satellites.
+
+## Take it off again
+
+```sh
+hammunition uninstall satellite --dry-run
+hammunition uninstall satellite
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

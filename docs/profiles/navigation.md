@@ -6,6 +6,21 @@
 
 **Stage:** post-1.0
 
+## Who it is for
+
+An operator who needs maps and routing with no network: a field laptop, a vehicle, a hike, an EMCOMM deployment. It builds everything from regions you choose, on your machine.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | post-1.0 |
+| Units | 27 |
+| Disk | per region: the download plus roughly 3 to 4 times it; Navit alone is small |
+| Hardware | A USB GPS receiver for position (the `station` profile carries gpsd). Maps and routing work without one; they just do not follow you. |
+| Consent | none |
+| Install | `hammunition install navigation` |
+
 ## What it installs
 
 gpsd and its clients to read the GPS receiver; Navit, an offline turn-by-turn navigator with spoken directions through espeak-ng; the OpenStreetMap regions you choose, downloaded from Geofabrik and verified (`osm-regions`); Natural Earth's country borders (`country-boundaries`), which let address search find towns on a part-of-a-country map; and those regions converted into Navit's format with a Navit configuration that loads all of them and follows the GPS (`osm-navit`, opened by the `navit-offline` launcher). For trails and terrain: QMapShack, with Garmin maps built from the same regions (`osm-garmin`), one Routino database over all of them for routes on foot (`osm-routino`), Copernicus elevation tiles for the regions (`dem-copernicus`) and the hillshade, slope and contours drawn from them (`dem-qmapshack`), and for US regions the official USGS US Topo map sheets (`usgs-ustopo`) made into one seamless QMapShack map (`ustopo-qmapshack`, which also maps the Forest Service's FSTopo sheets when you have installed `usfs-fstopo` by name), and USGS 3DEP bare-earth elevation (`dem-3dep`) for when you choose it over Copernicus with `--dem-source 3dep`, opened by the `qmapshack-offline` launcher; BRouter (`brouter`), QMapShack's second offline router, which weighs trail difficulty and climbs, over routing files built on the machine from the same regions and elevation (`brouter-segments`, with the two map-creator filters in `brouter-mapcreator-profiles`); vector-tile maps of the same regions (`osm-pmtiles`, built with the archive's tilemaker and the fixed files in `vector-map-kit`), which `hammunition reference serve` draws in a browser at http://127.0.0.1:8480/map/ (D-071); and `gps-tether`, which serves gpsd's position to QMapShack as NMEA, and to that browser map, on this machine only, as a systemd user service from your next login. And CoMaps (`comaps`), a phone-style map with offline address search and car, bike and foot routing, built from source, over CoMaps' own map files for the same regions (`comaps-maps`), opened by the `comaps-offline` launcher; it reads its position from GeoClue only, which the tether feeds once `hammunition hardware apply` has set GeoClue up (D-069). For the water, OpenCPN (`opencpn`), a marine chart plotter that shows the position and the AIS ships an SDR decodes on nautical charts downloaded while online.
@@ -24,6 +39,47 @@ A navigator is only useful with a position and a map, and offline it needs both 
 
 Maps for phones are their own profile, `phone-maps` (D-067), because each is built for every region and a team's phones are not every operator's. Kiwix and the rest of the offline reference are the `reference` profile (D-066). No tile server program is carried (martin, go-pmtiles, mbtileserver, tileserver-gl, D-071): the browser map is served by the engine's own loopback page. Raster tiles for Xastir and QMapShack's tile layers need PostGIS, osm2pgsql, renderd and a style; that stack is documented and not built. Official trail lines from the Park Service, the Forest Service and the states are not carried as a second layer, because OpenStreetMap already has nearly all of them and a duplicate draws every trail twice; US Topo shows their official names. The Forest Service's FSTopo sheets (`usfs-fstopo`, trail numbers over National Forest land) are left out of the profile and installed only by name: the Forest Service publishes no checksum, so until the maintainer pins every sheet a region needs, a sheet is fetched unverified, and the plan says so sheet by sheet (D-068). USGS 1 m lidar, the PDF editions of the sheets and the historical topographic maps are not carried. Viking, Marble, GPSPrune and JOSM were measured and left out: Debian's Viking renders nothing offline, Marble's offline place index has no packaged builder, and GPSPrune and JOSM use online tiles. BRouter's published routing files (brouter.de) are left out because they are regenerated weekly with no checksum; BRouter itself is carried, over files built here (D-063). GraphHopper is carried for routes on the browser map, but installed by name only (`hammunition install graphhopper-graph`, D-076): its graph is about 3.7 times the downloads and took 1.2 GB of memory to build on Delaware, and this profile already carries three offline routers. OSRM, Valhalla and OpenRouteService were measured and are not carried: none has an offline desktop consumer, and Valhalla has no archive package or clean binary. Navit's GTK interface (`navit-gui-gtk`) is left out in favour of the internal one, which suits a touch screen and a small panel. Grid-square readouts belong to the station and dashboard tools. Organic Maps is left out: it is the same program family as CoMaps, built the same way, and one of the two is enough; Flathub's builds of either are not used, because Flatpak is not a backend here.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show navigation
+hammunition install navigation --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install navigation
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 Choose your map regions first, with Geofabrik's region paths, for example `hammunition station set --map-regions north-america/us/vermont,north-america/us/new-hampshire`; without them the map units are deferred and only Navit and gpsd install. Set your grid square too (`hammunition station set --grid-square <yours>`): the US Topo sheets, and the 3DEP tiles if you choose them, are bounded to a 100 km radius around it by default; without one `usgs-ustopo` is deferred by name and says how to fix it. `--topo-radius-km N`, `--topo-regions a,b` and `--topo-all` change the bound, and an install that would fetch every sheet (`--topo-all`) or more than 10 GB of them prints the count and size and asks you to type `yes`, which `--yes` does not answer. Optionally `hammunition station set --map-freshness yearly|monthly|latest` (yearly is the default and, for the 50 US states and DC, is checked against a sha256 Hammunition measured; other regions and modes are checked against Geofabrik's MD5, and the plan says which for every region). A GPS receiver must be attached and seen by gpsd; `xgps`, from gpsd-clients, shows whether it has a fix. For QMapShack: start it from the `qmapshack-offline` launcher, which writes the map, elevation and Routino directories into QMapShack's configuration; its Routino router is then expected to offer the `hammunition` database, used with the `foot` profile; for your position, `gps-tether` runs as a user service from your next login (start it now with `systemctl --user start hammunition-gps-tether.service`), making NMEA from gpsd's position and serving it on 127.0.0.1 port 10110, the host and port QMapShack's GPS Tether dialog is expected to take. For BRouter, choose it in QMapShack's Routing dock (Routino stays the default); the launcher has already pointed it at Hammunition's BRouter on 127.0.0.1, and QMapShack's own BRouter setup wizard, which downloads from brouter.de, is not needed. QMapShack's first run on the field laptop (2026-09-29) found the settings group wrong and the first tether silent, and both are rewritten (D-061's amendment); the new versions have not yet been run on a desktop, and bench session 12 (docs/reference/bench-verification-5430.md) is that check. For CoMaps: start it from the `comaps-offline` launcher, which records the licence answer CoMaps asks for and links your maps where it looks; for "you are here", run `hammunition hardware apply` once (it tells GeoClue, the only position source CoMaps reads, to take the tether's NMEA from a socket), log out and back in so GeoClue's demo agent is running, and keep `gps-tether` running while CoMaps is open. That route was measured with Debian's GeoClue in a private namespace, not yet on a desktop. For OpenCPN: download charts with its chart downloader while online, and add a network connection for the position (gpsd, or `gps-tether` on 127.0.0.1 port 10110) and one for AIS from `rtl-ais` or `ais-catcher`; none of these has been set up and tried by this project (2026-09-30). Optional layers, each its own command and none of them installed by this profile: repeaters on the maps from your own export or an open list (`hammunition maps repeaters import`, D-064 and D-074), infrastructure and EMCOMM points such as airfields, hospitals and the grid (`hammunition maps infra import`, D-075), and routes in the browser map (`hammunition install graphhopper-graph`, D-076); docs/guides/offline-navigation.md sections 13, 18 and 16. None of them has been drawn on a desktop yet. The tray's Services group can start and stop `gps-tether` once it is installed (docs/guides/tray-controls.md).
+
+## Your first ten minutes
+
+1. Install `station` first so gpsd and the GPS tooling are present. See [the station profile](station.md).
+2. Find a region path with `hammunition maps regions vermont` (a case-insensitive filter; it asks Geofabrik, so it needs the network), then choose yours: `hammunition station set --map-regions <region-path>[,<region-path>]` and `hammunition station set --grid-square FN31pr` (your own locator). The sheets and terrain are bounded to 100 km around the grid square by default.
+3. Read the plan: `hammunition install navigation --dry-run`. It prints the size of every download before it asks. Read those numbers; a region and its derived maps are several times the download.
+4. Install: `hammunition install navigation`. It holds your `sudo` ticket open for the length of the run (see the install guide), because conversions can take hours.
+5. Start the GPS bridge the maps read: `hammunition maps gps-tether`, and check `hammunition doctor` for the `geoclue` line.
+6. Open `navit-offline` for turn-by-turn directions, or run `hammunition maps qmapshack` to set up QMapShack for trails, terrain and routing on foot.
+7. Read [Offline navigation](../guides/offline-navigation.md) next. It says what was measured on the field laptop and what is still owed to the bench.
+
+## Take it off again
+
+```sh
+hammunition uninstall navigation --dry-run
+hammunition uninstall navigation
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).
