@@ -457,3 +457,15 @@ def test_install_has_a_recheck_flag() -> None:
     parser = build_parser()
     assert parser.parse_args(["install", "station", "--recheck"]).recheck is True
     assert parser.parse_args(["install", "station"]).recheck is False
+
+
+def test_exactly_seven_days_is_asked_and_a_future_date_is_not_trusted(tmp_path: Path) -> None:
+    edge, future = tmp_path / "e.tif", tmp_path / "f.tif"
+    checks = checks_for(
+        [
+            installed(edge, NOW - timedelta(days=RECHECK_AFTER_DAYS)),
+            installed(future, NOW + timedelta(days=3)),
+        ]
+    )
+    assert checks.due("u", "e", edge) is True
+    assert checks.due("u", "f", future) is True

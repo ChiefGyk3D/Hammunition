@@ -104,6 +104,7 @@ class CheckLine:
     checked: bool
     reason: str
     attributed: str | None = None
+    failed: bool = False
 
 
 class PublisherChecks:
@@ -141,7 +142,9 @@ class PublisherChecks:
         problem = self._mismatch(attribution, path, digest)
         if problem is not None:
             return self._note(unit, item, True, f"re-checked: {problem}", stamp)
-        if self.now - attribution.when > timedelta(days=RECHECK_AFTER_DAYS):
+        age = self.now - attribution.when
+        # A future-dated attribution (a clock that was wrong) is not trusted either.
+        if age >= timedelta(days=RECHECK_AFTER_DAYS) or age < timedelta(0):
             reason = f"re-checked: attributed {stamp}, more than {RECHECK_AFTER_DAYS} days ago"
             return self._note(unit, item, True, reason, stamp)
         return self._note(
@@ -177,6 +180,7 @@ class PublisherChecks:
             if line.unit == unit and line.item == item and line.checked:
                 self.lines[index] = replace(
                     line,
+                    failed=True,
                     reason=f"{line.reason}; the publisher check failed: {error}; "
                     f"the installed copy is kept",
                 )
@@ -199,7 +203,7 @@ class PublisherChecks:
                 f"attribution is trusted for {RECHECK_AFTER_DAYS} days. `hammunition install "
                 f"--recheck` asks every publisher; the real run verifies whatever it fetches."
             )
-        failed = [line for line in self.lines if line.checked and "check failed" in line.reason]
+        failed = [line for line in self.lines if line.failed]
         out.extend(f"{line.unit}: {line.item}: {line.reason}" for line in failed)
         return out
 

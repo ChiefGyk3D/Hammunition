@@ -3589,7 +3589,6 @@ def cmd_install(args: argparse.Namespace) -> int:
         else False,
     )
     region_notes = list(resolution.notes)
-    region_notes.extend(checks.notes())
     region_notes.extend(topo_notes)
     region_notes.extend(bare_notes)
     region_notes.extend(fstopo_notes)
@@ -3615,6 +3614,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             refused("CoMaps maps", str(exc))
             return EXIT_UNPLANNABLE
         region_notes.extend(mwm_notes)
+    region_notes.extend(checks.notes())
     mwm = ComapsMapsBackend(
         fetcher=source.fetcher,
         prefix=source.prefix,
