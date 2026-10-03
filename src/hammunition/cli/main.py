@@ -369,7 +369,17 @@ def cmd_list(args: argparse.Namespace) -> int:
 
     catalog_root = find_catalog(args.catalog)
     packages, profiles = load_all(catalog_root)
-    doc = build_catalog(args.what, packages, profiles, detect_target())
+    from hammunition.interface.status import installed_units
+
+    log = TransactionLog(owner=operator(args) or None)
+    doc = build_catalog(
+        args.what,
+        packages,
+        profiles,
+        detect_target(),
+        installed=installed_units(list(log.read())),
+        runner=SubprocessRunner(),
+    )
     if envelope.wanted(args):
         envelope.emit(doc)
         return EXIT_OK
