@@ -998,6 +998,31 @@ class VenvInstall(Strict):
             "nothing while reporting success."
         ),
     )
+    licence: str | None = Field(
+        default=None,
+        min_length=2,
+        description=(
+            "The terms the installed software is under, when they are not a "
+            "licence the operator would assume (SPDX where one exists, else the "
+            "publisher's own words). Printed on the plan line that installs the "
+            "venv, before the confirmation, and stated, never adjudicated (D-021, "
+            "D-033). Requires licence_url."
+        ),
+    )
+    licence_url: str | None = Field(
+        default=None,
+        description="Where those terms are stated, on the publisher's site. Requires licence.",
+    )
+
+    @model_validator(mode="after")
+    def _licence_has_its_url(self) -> VenvInstall:
+        if (self.licence is None) != (self.licence_url is None):
+            raise ManifestError(
+                "a venv block's licence and licence_url are set together or not at all"
+            )
+        if self.licence_url is not None and not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        return self
 
     @model_validator(mode="after")
     def _payload_script_needs_payload(self) -> VenvInstall:
