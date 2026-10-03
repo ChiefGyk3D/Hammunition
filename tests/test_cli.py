@@ -863,6 +863,16 @@ def test_install_dry_run_prints_the_plan_and_executes_nothing(
     assert "transaction log written to" in out
 
 
+def test_listening_dry_run_plans_supersdr(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    _mock_apt(monkeypatch, populated=True)
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "listening"])
+    out = capsys.readouterr().out
+    assert rc == EXIT_OK
+    assert "supersdr" in out
+
+
 def test_install_refreshes_the_lists_by_default_and_no_refresh_turns_it_off(
     monkeypatch: pytest.MonkeyPatch, capsys: Any
 ) -> None:
