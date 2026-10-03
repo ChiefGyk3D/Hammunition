@@ -102,3 +102,6 @@ Deeper symptom-first help lives in the [troubleshooting
 section](../troubleshooting/index.md); each program's [package
 page](../packages/index.md) carries its own known problems and where to get
 real support for it.
+
+Back: [Your first profile](first-profile.md). Next: [the
+guides](../guides/index.md), one task each.

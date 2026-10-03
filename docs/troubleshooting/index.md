@@ -17,6 +17,10 @@ here. Where a fix is distribution-specific it says so.
 
 ## Installing
 
+- **[An install stops because the disk is full, or the plan quotes more than
+  you have](../getting-started/disk-space.md)** — what each profile, the
+  build cache and each data layer cost, and what you can delete to get space
+  back (`~/.cache/hammunition/build`, `sudo apt clean`).
 - **[The dry run seems to hang, or an install sits silent](install-failures.md#slow-plan)** —
   the plan is checking publishers over the network; on a terminal it says
   what it is waiting on, and `HAMMUNITION_PROGRESS=1` makes it say so when
