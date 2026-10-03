@@ -2,62 +2,32 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # Publishes the documentation site, Hacker's Ham Shack, from main (D-065).
+# A caller of GYST's docs-pages.yml: it builds with the same --strict build
+# tests/test_site.py runs on every pull request, and deploys only from main.
 #
 # The site is https://chiefgyk3d.github.io/Hammunition/. It needs one setting
 # the repository owner makes once: Settings -> Pages -> Build and deployment
 # -> Source: "GitHub Actions". Until then the deploy job fails with a message
 # naming that setting, and nothing else in CI is affected.
-#
-# Action majors resolved with `git ls-remote --tags` on 2026-09-30 (CLAUDE.md:
-# never pin an action from memory): configure-pages v6, upload-pages-artifact
-# v5, deploy-pages v5, checkout v7, setup-python v7.
 
 name: Pages
 
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# One deployment at a time; a newer push supersedes a queued one, but a
-# deployment already running is allowed to finish.
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
-  build:
-    name: build the site
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.11"
-      - run: pip install -e ".[docs]"
-      # The same --strict build tests/test_site.py runs: a broken link fails
-      # here rather than publishing a 404.
-      - run: mkdocs build --strict
-      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
-      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
-        with:
-          path: site
-
-  deploy:
-    name: deploy
-    needs: build
-    runs-on: ubuntu-latest
+  docs:
+    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/docs-pages.yml@8d6d940f143b97b6d521f5dfe38b11573a916ef4 # v1.7.1
     permissions:
+      contents: read
       pages: write
       id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+    with:
+      install-command: pip install -e ".[docs]"
+      build-command: mkdocs build --strict

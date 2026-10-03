@@ -6,6 +6,21 @@
 
 **Stage:** post-1.0
 
+## Who it is for
+
+Anyone who wants Wikipedia, ham Q&A, dictionaries and FEMA's ICS forms to work with no network, on one local page.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | post-1.0 |
+| Units | 6 |
+| Disk | readers and dictionaries about 50 MB; each book from 27 MB up |
+| Hardware | None. The books are the disk cost. |
+| Consent | none |
+| Install | `hammunition install reference` |
+
 ## What it installs
 
 kiwix-tools, the Kiwix reader and server `hammunition reference serve` runs, and `kiwix`, the desktop reader; the Kiwix books you choose, pinned and checked (`kiwix-library`); dictd with GCIDE, WordNet, FOLDOC and VERA acronyms on 127.0.0.1 (`dictionaries`) and goldendict-ng to look words up on the desktop; and FEMA's 39 ICS forms (`ics-forms`).
@@ -24,6 +39,47 @@ They are the questions that do not stop when the network does: what a word or an
 
 wikiHow (no current Kiwix file, CC BY-NC-SA), the zimgit prepper collections (no licence stated anywhere), energypedia (licence not verified), the whole of Project Gutenberg (221 GB; one class of it is offered), video-channel ZIMs and MedlinePlus (mixed licences), ARRL and ARES material (ARRL copyright), a sigidwiki ZIM (none exists; `artemis` carries the signal database), and Debian's Direwolf manual (Debian's package strips the PDFs; upstream's direwolf-doc repository is the route, not yet measured). Translation dictionaries (`dict-freedict-*`) are left for you to choose by language.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show reference
+hammunition install reference --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install reference
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 Choose books first, by id, for example `hammunition station set --reference-books ham.stackexchange.com_en_all,wikipedia_en_medicine_nopic` (`hammunition reference books` lists the 27 with sizes and licences); with none chosen, `kiwix-library` is deferred and everything else installs. Then `hammunition reference serve` and open http://127.0.0.1:8480/. goldendict-ng needs the local dictd added once as a DICT server (127.0.0.1).
+
+## Your first ten minutes
+
+1. See the books and their sizes and licences: `hammunition reference books`.
+2. Choose by id: `hammunition station set --reference-books ham.stackexchange.com_en_all,wikipedia_en_medicine_nopic`, or your own selection. With none chosen the book unit is deferred and the rest installs.
+3. Read the plan: `hammunition install reference --dry-run`. Each book's size and licence is printed before the confirmation.
+4. Install: `hammunition install reference`.
+5. Serve it: `hammunition reference serve`, then open `http://127.0.0.1:8480/`. It binds loopback only.
+6. In goldendict-ng, add the local dictd once as a DICT server on `127.0.0.1`.
+7. [Offline reference](../guides/offline-reference.md) covers the page, the books and what was measured.
+
+## Take it off again
+
+```sh
+hammunition uninstall reference --dry-run
+hammunition uninstall reference
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

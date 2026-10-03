@@ -2245,6 +2245,7 @@ One step, exactly as the real run performs it.
 | `requires_root` | boolean | whether it runs as root |
 | `sources` | list of string | for a data download (a `data` artifact, a map region, a terrain tile), the URLs it is fetched from in the order tried: the LAN mirror, then the publisher (D-070); the publisher alone with no mirror; empty for any other step |
 | `index` | integer | this step's 1-based position in execution order |
+| `long_running` | boolean | true when the backend knows the step can take several minutes (a submodule fetch, a compile, a venv install, a node build); the text prints one fixed note under it and claims no duration (#270) |
 
 #### `PublisherCheckLine`
 
@@ -3738,6 +3739,11 @@ A unit and files.
         "index": {
           "title": "Index",
           "type": "integer"
+        },
+        "long_running": {
+          "default": false,
+          "title": "Long Running",
+          "type": "boolean"
         }
       },
       "required": [
@@ -5607,6 +5613,7 @@ machine. A unit the catalog no longer carries has null method and pin.
 | `name` | string | the catalog unit |
 | `last_named` | string or null | when the latest install or uninstall naming it began |
 | `last_outcome` | string | an install's `completed`, `failed` or `interrupted`; an uninstall's `removed`, `removal failed` or `removal interrupted` |
+| `completed_in_failed_run` | string or null | when the install that completed this unit began, if that install then failed or was killed after the unit's last step (`unit_end`); null otherwise |
 | `catalog_version` | string or null | the manifest's version today |
 | `method` | string or null | the install method that resolves on this target |
 | `pin` | string or null | the catalog's pin for a built unit; null for apt |
@@ -5799,6 +5806,17 @@ machine. A unit the catalog no longer carries has null method and pin.
           "title": "Last Outcome",
           "type": "string"
         },
+        "completed_in_failed_run": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Completed In Failed Run"
+        },
         "catalog_version": {
           "anyOf": [
             {
@@ -5837,6 +5855,7 @@ machine. A unit the catalog no longer carries has null method and pin.
         "name",
         "last_named",
         "last_outcome",
+        "completed_in_failed_run",
         "catalog_version",
         "method",
         "pin"

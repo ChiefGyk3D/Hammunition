@@ -31,16 +31,29 @@ keep to that.
 
 from __future__ import annotations
 
+import contextlib
 import os
+import re
+import shutil
 import sys
 import threading
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import IO, Generic, TypeVar
 
-__all__ = ["CHECK_WORKERS", "Outcome", "Progress", "run_checks", "say"]
+__all__ = [
+    "CHECK_WORKERS",
+    "LiveStatus",
+    "Outcome",
+    "Progress",
+    "activate_live",
+    "current_live",
+    "elapsed_text",
+    "run_checks",
+    "say",
+]
 
 #: How many plan-time checks are in flight at once. Four: a publisher's bucket
 #: answers four requests from one address without complaint, and the wait for
@@ -209,3 +222,199 @@ def run_checks(
             return list(pool.map(one, items))
     finally:
         bar.done()
+
+
+# ---------------------------------------------------------------------------
+# Live feedback while a command runs (#270)
+# ---------------------------------------------------------------------------
+
+#: Seconds a command runs before the status line first appears.
+LIVE_AFTER = 2.0
+#: Seconds between status-line refreshes.
+LIVE_INTERVAL = 1.0
+
+_ESCAPES = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b[@-Z\\-_]")
+_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
+
+
+def elapsed_text(seconds: float) -> str:
+    """``42s``, ``1m 42s``, ``2h 05m``: what the status line says it has waited."""
+    whole = int(seconds)
+    if whole < 60:
+        return f"{whole}s"
+    if whole < 3600:
+        return f"{whole // 60}m {whole % 60:02d}s"
+    return f"{whole // 3600}h {whole % 3600 // 60:02d}m"
+
+
+def _plain(line: str) -> str:
+    """One output line with escapes and controls gone, and only what follows
+    the last carriage return (a progress meter rewriting itself); indentation
+    is kept."""
+    text = line.rstrip("\r\n").rsplit("\r", 1)[-1]
+    return _CONTROL.sub("", _ESCAPES.sub("", text)).rstrip()
+
+
+def _clean_line(line: str) -> str:
+    """:func:`_plain` for a status line, where leading space is wasted room."""
+    return _plain(line).strip()
+
+
+class LiveStatus:
+    """The one writer that owns the terminal line while a command runs.
+
+    While a command runs longer than :data:`LIVE_AFTER` seconds on a terminal,
+    one status line -- ``  … 1m 42s  <last output line>`` -- is rewritten in
+    place every :data:`LIVE_INTERVAL` seconds under the ``$`` line, and erased
+    when the command ends. With *verbose* every output line is written as it
+    arrives instead. Anything else the run prints while a command is running
+    (the sudo keepalive's warning, D-062) goes through :meth:`print`, which
+    erases the status line first, so two writers never interleave.
+
+    Everything written here goes to the *terminal itself*, not through the run
+    log's tee (D-077): the log already receives every output line from the
+    runner, so what the operator sees live can never change what is logged.
+    When stdout is not a terminal and *verbose* is off, nothing is written and
+    :attr:`active` is false, so the runner behaves exactly as before.
+    """
+
+    def __init__(
+        self,
+        stream: IO[str] | None = None,
+        *,
+        verbose: bool = False,
+        after: float = LIVE_AFTER,
+        interval: float = LIVE_INTERVAL,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._stream = stream
+        self.verbose = verbose
+        self._after = after
+        self._interval = interval
+        self._clock = clock
+        self._lock = threading.RLock()
+        self._began = 0.0
+        self._last = ""
+        self._shown = False
+        self._running = False
+        self._hold = False
+        self._seen = False
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def _out(self) -> IO[str]:
+        stream = self._stream if self._stream is not None else sys.stdout
+        return getattr(stream, "_real", stream)  # the terminal, never the log's tee
+
+    def _tty(self) -> bool:
+        try:
+            return bool(self._out().isatty())
+        except (AttributeError, ValueError):
+            return False
+
+    @property
+    def active(self) -> bool:
+        """Whether the runner needs to read output as it arrives for this."""
+        return self.verbose or self._tty()
+
+    def _width(self) -> int:
+        try:
+            columns = os.get_terminal_size(self._out().fileno()).columns
+        except (OSError, ValueError, AttributeError):
+            columns = 0
+        return columns if columns > 0 else shutil.get_terminal_size().columns
+
+    def _erase(self) -> None:
+        if self._shown:
+            Progress._write(self._out(), "\r\033[2K")
+            self._shown = False
+
+    def _draw(self) -> None:
+        if self.verbose or not self._tty():
+            return
+        elapsed = self._clock() - self._began
+        if elapsed < self._after or (self._hold and not self._seen):
+            return
+        head = f"  … {elapsed_text(elapsed)}  "
+        room = max(0, self._width() - len(head) - 1)
+        tail = self._last
+        if len(tail) > room:
+            tail = tail[: max(0, room - 1)] + "…" if room > 1 else ""
+        Progress._write(self._out(), "\r\033[2K" + head + tail)
+        self._shown = True
+
+    # -- a command's life --------------------------------------------------
+
+    @contextlib.contextmanager
+    def command(self, *, hold: bool = False) -> Iterator[None]:
+        """Wrap one running command: start the refresh, erase it afterwards.
+
+        With *hold* (a command run through ``sudo``) no status line is drawn
+        until the command has printed its first line: sudo's password prompt
+        goes to the terminal and is not output, and the line must not erase it.
+        """
+        with self._lock:
+            self._hold = hold
+            self._seen = False
+            self._began = self._clock()
+            self._last = ""
+            self._running = True
+        self._stop = threading.Event()
+        stop = self._stop
+        if not self.verbose and self._tty():
+            self._thread = threading.Thread(target=self._tick, args=(stop,), daemon=True)
+            self._thread.start()
+        try:
+            yield
+        finally:
+            stop.set()
+            if self._thread is not None:
+                self._thread.join()
+                self._thread = None
+            with self._lock:
+                self._running = False
+                self._erase()
+
+    def _tick(self, stop: threading.Event) -> None:
+        while not stop.wait(self._interval):
+            with self._lock:
+                if stop.is_set():
+                    return
+                self._draw()
+
+    def output(self, line: str) -> None:
+        """One line the command wrote, from either pipe."""
+        with self._lock:
+            self._seen = True
+            if self.verbose:
+                Progress._write(self._out(), "    " + _plain(line) + "\n")
+                return
+            cleaned = _clean_line(line)
+            if cleaned:
+                self._last = cleaned
+
+    def print(self, text: str, *, err: bool = False) -> None:
+        """A line of the run's own, written through the same lock: the status
+        line is erased first, and redrawn by the next refresh."""
+        with self._lock:
+            self._erase()
+            stream = sys.stderr if err else sys.stdout
+            print(text, file=stream, flush=True)
+
+
+_live: LiveStatus | None = None
+
+
+def current_live() -> LiveStatus | None:
+    """The status writer of the command in progress, or None."""
+    return _live
+
+
+@contextlib.contextmanager
+def activate_live(live: LiveStatus) -> Iterator[LiveStatus]:
+    global _live
+    previous, _live = _live, live
+    try:
+        yield live
+    finally:
+        _live = previous

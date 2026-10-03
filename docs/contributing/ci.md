@@ -5,7 +5,7 @@ workflows in
 [ChiefGyk3D/git-your-ship-together](https://github.com/ChiefGyk3D/git-your-ship-together)
 (GYST), and the checks only this engine has, which stay in
 `.github/workflows/ci.yml`. The GYST calls are pinned by commit
-(`# v1.6.3` in the file); Dependabot re-pins them weekly, with a seven-day
+(`# v1.7.1` in the file); Dependabot re-pins them weekly, with a seven-day
 cooldown, through `.github/dependabot.yml`.
 
 ## What runs where
@@ -26,7 +26,13 @@ command per interpreter on its own runner. It has no notion of a distribution
 container matrix, a pull-request-only commit check, a job that needs the
 network to resolve upstream refs, or a weekly sweep. Those are this repository's
 checks, and they stay in its workflow where the people who change them can
-read them. `pages.yml` and `wiki.yml` publish and stay local.
+read them.
+
+The two publishing workflows are GYST callers too: `pages.yml` calls
+`docs-pages.yml` (`pip install -e ".[docs]"`, then `mkdocs build --strict`,
+built on every pull request and deployed only from `main`) and `wiki.yml` calls
+`wiki-publish.yml` (`scripts/gen_wiki.py --out wiki-out`, published only from
+`main`, the wiki's write token held by a job that runs none of our commands).
 
 The pytest command is `scripts/ci-test.sh`: it checks out
 `hammunition-gps-tether` at the tag the catalog pins (the contract test reads

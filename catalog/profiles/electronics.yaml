@@ -59,3 +59,16 @@ documentation:
     measured 2026-10-01) and took 14 minutes at the lowest priority. The Qt
     front ends for the tinySA and NanoVNA are most of the rest;
     the programmers themselves are small.
+  who_for: "Someone who builds or repairs equipment: flashes microcontrollers and firmware, probes boards, or measures with a NanoVNA, tinySA, LibreVNA or ADALM2000."
+  hardware_assumed: "The programmers and instruments themselves. Nothing here needs any of them to install."
+  footprint_short: "about 250 MB; LibreVNA's build adds about 780 MB of Qt development packages"
+  excludes_short: "KiCad, Fritzing, ngspice (reserved to the maintainer), udev rules (applied separately)"
+  goals:
+    - "Work at a bench: flash devices, measure with a NanoVNA or tinySA"
+  first_ten_minutes:
+    - "Read the plan: `hammunition install electronics --dry-run`. LibreVNA is a source build of about 14 minutes with a large set of Qt 6 development packages."
+    - "Install: `hammunition install electronics`."
+    - "Apply device permissions: `hammunition hardware apply`, then log out and back in. A programmer that works under `sudo` and not otherwise is a permissions problem."
+    - "Plug a tinySA or NanoVNA in and open its front end (`qttinysa` or `nanovna-saver`). Know the instrument's input power limit before you connect it to anything transmitting."
+    - "If you installed `librevna`, open its Preferences and turn off the SCPI server on TCP port 19542 unless another program drives it; it listens on every address with no password."
+    - "For an AVR, run `avrdude -c <programmer> -p <part> -v` first to read the chip's signature before you write anything."

@@ -100,3 +100,22 @@ documentation:
     Around 125 MB. CHIRP and its wxPython dependency are most of it;
     Hammunition Hill's .deb is under half a megabyte plus two Python
     libraries.
+  who_for: "Everyone who will operate from this machine. Install it first, before any mode profile, because every other profile quietly assumes rig control, a correct clock and a position source are already there."
+  hardware_assumed: "None to install it. It is for a radio with a CAT or serial cable (rig control) and a USB GPS receiver (position and time); both are optional until you want those features."
+  footprint_short: "about 125 MB"
+  excludes_short: "per-manufacturer radio tools, loggers, anything mode-specific"
+  goals:
+    - "Control my radio from the computer (CAT) and share it between programs"
+    - "Keep the clock right with no network (GPS time)"
+    - "Make FT8, JS8Call or PSK31 contacts"
+    - "Send email by radio (Winlink) or run packet"
+    - "Program a handheld radio"
+  first_ten_minutes:
+    - "Read what will happen: `hammunition install station --dry-run`. Expect two entries under *Will NOT happen*: `rig-service` (it waits until you name your radio) and, on a desktop that is not Xfce, LXQt, LXDE, MATE or Cinnamon, `hammunition-tray-qt`. Neither is a failure."
+    - "Tell the engine who you are: `hammunition station set --callsign N0CALL --grid-square FN31pr`, with your own values in place of the placeholders. Nothing is invented for you; a missing value defers one file, not the install."
+    - "Install: `hammunition install station`. It asks for your `sudo` password once, near the start."
+    - "Write the udev rules and join the device groups: `hammunition hardware apply --dry-run`, read it, then `hammunition hardware apply`. **Log out and back in afterward**; a group you were just added to does not reach a session that is already open."
+    - "If you have a radio with CAT: find its model with `rigctl -l | grep -i <your radio>` and its port with `ls -l /dev/serial/by-id/`, then `hammunition station set --rig <device-or-hamlib:MODEL> --rig-device <port> --rig-baud <rate>` and `hammunition install rig-service`."
+    - "Check that the shared rig service answers: `systemctl --user status hammunition-rigctld`, then `rigctl -m 2 -r 127.0.0.1:4532 f`, which prints the radio's frequency. [Rig control (CAT)](../guides/rig-control.md) has every step and the symptom list."
+    - "Check the clock and the GPS with `hammunition doctor` (the `time` and `station` lines). [Time and position](../guides/time-and-gps.md) explains what each state means."
+    - "Next: a mode profile. [Digital modes](digital-modes.md) is the usual one."

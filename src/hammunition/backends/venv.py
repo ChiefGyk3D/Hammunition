@@ -149,6 +149,7 @@ class VenvBackend:
                 ),
                 requires_root=False,
                 env=dict(block.env),
+                long_running=True,
             ),
         ]
         if block.payload is not None:

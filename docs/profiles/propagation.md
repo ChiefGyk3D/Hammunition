@@ -6,6 +6,21 @@
 
 **Stage:** 1.0
 
+## Who it is for
+
+An operator who wants to know when a band is open, where the grey line is, what the beacons are doing and what the DX cluster has spotted.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | 1.0 |
+| Units | 12 |
+| Disk | about 450 MB |
+| Hardware | None. It reads public data and runs on your clock. A radio is useful only to act on what it tells you. |
+| Consent | none |
+| Install | `hammunition install propagation` |
+
 ## What it installs
 
 Two HamClock successors — a browser dashboard and a desktop program — each a live map showing the grey line and solar indices; two DX cluster clients, a sun clock, the VOACAP propagation engine with a graphical front end that makes its output readable, a monitor for the international beacon network, and grid-square tools in command-line and graphical form.
@@ -25,6 +40,47 @@ Every one of these answers the same question from a different angle: is the band
 
 Nothing that Q-006 chose. **Both HamClock continuations ship**: `openhamclock`, the default, is a Node and Vite web application built by the `node` backend (D-037) and needs Node.js 20.19 or newer from the distribution — Debian 13, Parrot and Ubuntu 26.04 offer it; **Ubuntu 24.04's 18.19 does not, and there the plan refuses `openhamclock` by name** (it builds on 18 and its server dies at first start, measured). A refused unit refuses the transaction (D-016), so on 24.04 this profile does not install as a whole — `voacapl` and `pythonprop` have no candidate there either — and the operator installs the units that do resolve by name, `hamclock-next` among them. `hamclock-next` is the SDL2 rewrite that runs as an ordinary desktop program with no Node involved; an operator who wants the original's look, or no web server on the machine, uses that one. Excludes SPLAT!, which answers "what does the terrain do to this specific path" and lives in `antenna`.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show propagation
+hammunition install propagation --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install propagation
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 **A DX cluster client needs a node address and your callsign**, and neither is chosen for you. **VOACAP needs a smoothed sunspot number** for the month you are asking about, which is itself a prediction you supply, and antenna descriptions if you want the answer to be about your station rather than about a default dipole — treating that default as your station is the commonest way to get a confidently wrong answer. **`openhamclock` needs your callsign and grid in its `.env`** (the path is in its package page); it starts with `N0CALL` at `FN31` until you edit it. `hamclock-next`'s data backend defaults to `ohb.works`, a community-run service, and is user-configurable; nobody has yet run a client end to end against it, so confirm before relying on it. The beacon monitor is a schedule computation, so a system clock a minute out tells you confidently about the wrong beacon.
+
+## Your first ten minutes
+
+1. Check your Node.js version if you run Ubuntu 24.04. `openhamclock` needs 20.19 or newer and the plan defers it by name where the archive's Node is older.
+2. Read the plan: `hammunition install propagation --dry-run`.
+3. Install: `hammunition install propagation`. `hamclock-next` builds from source.
+4. Open `openhamclock`'s `.env` (its package page gives the path) and replace the `N0CALL` and `FN31` defaults with your callsign and grid, then start it and open the page in a browser.
+5. Check your clock: the beacon monitor is a schedule computation, and a clock a minute out names the wrong beacon. `hammunition doctor` shows it.
+6. Give your DX cluster client a node address and your callsign. Neither is chosen for you.
+7. For band predictions, read [Propagation and solar conditions](../guides/propagation.md) before you trust a VOACAP answer; it needs a smoothed sunspot number and your own antenna.
+
+## Take it off again
+
+```sh
+hammunition uninstall propagation --dry-run
+hammunition uninstall propagation
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

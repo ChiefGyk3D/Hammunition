@@ -242,6 +242,7 @@ class NodeBackend:
                 ),
                 cwd=src,
                 env=NPM_ENV,
+                long_running=True,
             ),
         ]
         if block.build_script is not None:
@@ -254,6 +255,7 @@ class NodeBackend:
                     ),
                     cwd=src,
                     env=NPM_ENV,
+                    long_running=True,
                 )
             )
         steps.extend(

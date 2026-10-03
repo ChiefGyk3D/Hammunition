@@ -3028,6 +3028,36 @@ class ProfileDocumentation(Strict):
     deliberately_excludes: str = Field(min_length=10)
     manual_configuration: str = Field(min_length=10)
     disk_footprint_hint: str | None = None
+    # The fields below feed the generated profile pages and the profiles index
+    # (scripts/gen_profile_reference.py). They are optional in the schema so a
+    # community profile is not refused for lacking them, and
+    # tests/test_profile_docs.py requires every profile this repository ships
+    # to carry all of them.
+    who_for: str | None = Field(
+        default=None, description="Who installs this, in a sentence or two."
+    )
+    hardware_assumed: str | None = Field(
+        default=None,
+        description="What hardware the profile assumes, or says it needs none.",
+    )
+    footprint_short: str | None = Field(
+        default=None, description="Disk footprint in a few words, for the index table."
+    )
+    excludes_short: str | None = Field(
+        default=None, description="What it leaves out, in a phrase, for the index table."
+    )
+    goals: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Goals in an operator's words ('Make FT8 contacts'). The profiles "
+            "index inverts these into its 'which profile do I want' table, so "
+            "the same wording on two profiles puts both on one row."
+        ),
+    )
+    first_ten_minutes: list[str] = Field(
+        default_factory=list,
+        description="Ordered steps for the ten minutes after install, Markdown.",
+    )
 
 
 class SuggestionGroup(Strict):

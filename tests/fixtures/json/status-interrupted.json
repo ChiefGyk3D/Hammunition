@@ -44,6 +44,7 @@
       "name": "fixture-apt",
       "last_named": "2026-09-28T12:00:00+00:00",
       "last_outcome": "interrupted",
+      "completed_in_failed_run": null,
       "catalog_version": "1.0",
       "method": "apt",
       "pin": null
@@ -52,6 +53,7 @@
       "name": "fixture-source",
       "last_named": "2026-09-28T12:00:00+00:00",
       "last_outcome": "interrupted",
+      "completed_in_failed_run": null,
       "catalog_version": "2.1",
       "method": "source",
       "pin": "sha256 30cf6db1a2b4…"
@@ -60,6 +62,7 @@
       "name": "gone-unit",
       "last_named": "2026-09-28T12:00:00+00:00",
       "last_outcome": "interrupted",
+      "completed_in_failed_run": null,
       "catalog_version": null,
       "method": null,
       "pin": null
