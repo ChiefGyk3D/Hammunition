@@ -59,9 +59,11 @@ their text follows.
 - `hammunition maps repeaters remove`
 - `hammunition reference books`
 - `hammunition services`
-- `hammunition show`
+- `hammunition show PROFILE` (profile document); `hammunition show UNIT --json` (unit document)
+- `hammunition station set`
 - `hammunition station show`
 - `hammunition status`
+- `hammunition transactions`
 - `hammunition uninstall` (with `--dry-run` only)
 - `hammunition update`
 
@@ -88,7 +90,9 @@ their text follows.
 | `repeaters-removed` | [`RepeatersRemovedDocument`](#repeaters-removed) |
 | `services` | [`ServicesDocument`](#services) |
 | `station` | [`StationDocument`](#station) |
+| `station-set` | [`StationSetDocument`](#station-set) |
 | `status` | [`StatusDocument`](#status) |
+| `transactions` | [`TransactionsDocument`](#transactions) |
 | `unit` | [`UnitDocument`](#unit) |
 | `update` | [`UpdateDocument`](#update) |
 
@@ -770,6 +774,7 @@ One thing looked at, its verdict, and how to fix it.
 | `status` | string | `ok`, `info`, `warn` (limits what installs) or `fail` (blocking) |
 | `detail` | string | what was found |
 | `fix` | string or null | the one command or step that fixes it |
+| `fix_argv` | list[str] or null | argv for a single command fix; null when the fix is advice rather than a command |
 
 <details><summary>JSON Schema</summary>
 
@@ -802,13 +807,28 @@ One thing looked at, its verdict, and how to fix it.
             }
           ],
           "title": "Fix"
+        },
+        "fix_argv": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Fix Argv"
         }
       },
       "required": [
         "name",
         "status",
         "detail",
-        "fix"
+        "fix",
+        "fix_argv"
       ],
       "title": "CheckView",
       "type": "object"
@@ -1737,6 +1757,7 @@ operator; for local programs, not for pasting.
 | `action` | string | `install` or `uninstall` |
 | `requested` | list of string | the names given on the command line |
 | `outcome` | string | `planned`, or `refused` with the blockers |
+| `step_count` | integer | the number of steps in this transaction; zero when refused |
 | `target` | [`TargetView`](#targetview) | the system planned against |
 | `blockers` | list of [`BlockerLine`](#blockerline) | empty unless refused |
 | `install` | [`InstallPlanView`](#installplanview) or null | the install plan; null for an uninstall or a refusal |
@@ -1778,6 +1799,7 @@ Everything an install will do, section by section as the text prints it.
 | `commands` | list of [`StepView`](#stepview) | every step, in order |
 | `suggestion_notes` | list of string | what happened to the profiles' suggestion groups; the text prints these as `note:` lines |
 | `region_notes` | list of string | notes from resolving the map regions; the text prints these as `note:` lines |
+| `publisher_checks` | list of [`PublisherCheckLine`](#publishercheckline) | one line per data item already on disk: whether its publisher was asked at plan time (#197); empty when the plan holds no data unit with installed items |
 
 #### `PackageLine`
 
@@ -2224,6 +2246,20 @@ One step, exactly as the real run performs it.
 | `action` | string or null | the in-process step's kind (`fetch`, `extract`, ...); null for a command |
 | `requires_root` | boolean | whether it runs as root |
 | `sources` | list of string | for a data download (a `data` artifact, a map region, a terrain tile), the URLs it is fetched from in the order tried: the LAN mirror, then the publisher (D-070); the publisher alone with no mirror; empty for any other step |
+| `index` | integer | this step's 1-based position in execution order |
+| `long_running` | boolean | true when the backend knows the step can take several minutes (a submodule fetch, a compile, a venv install, a node build); the text prints one fixed note under it and claims no duration (#270) |
+
+#### `PublisherCheckLine`
+
+What the plan did about one installed data item's publisher (#197).
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the data unit the item belongs to |
+| `item` | string | the tile, sheet, book or map |
+| `checked` | boolean | whether the plan asked the item's publisher; false for an item the log attributes as installed less than seven days ago, and for one on disk the log does not attribute |
+| `reason` | string | why, in a sentence; a failed re-check says so and that the copy is kept |
+| `attributed` | string or null | the date of the attribution in the log (YYYY-MM-DD); null when the log has none |
 
 #### `RemovalPlanView`
 
@@ -3027,6 +3063,13 @@ A unit and files.
           },
           "title": "Region Notes",
           "type": "array"
+        },
+        "publisher_checks": {
+          "items": {
+            "$ref": "#/$defs/PublisherCheckLine"
+          },
+          "title": "Publisher Checks",
+          "type": "array"
         }
       },
       "required": [
@@ -3049,7 +3092,8 @@ A unit and files.
         "sudo",
         "commands",
         "suggestion_notes",
-        "region_notes"
+        "region_notes",
+        "publisher_checks"
       ],
       "title": "InstallPlanView",
       "type": "object"
@@ -3322,6 +3366,48 @@ A unit and files.
         "apt"
       ],
       "title": "PackageLine",
+      "type": "object"
+    },
+    "PublisherCheckLine": {
+      "additionalProperties": false,
+      "description": "What the plan did about one installed data item's publisher (#197).",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "item": {
+          "title": "Item",
+          "type": "string"
+        },
+        "checked": {
+          "title": "Checked",
+          "type": "boolean"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "attributed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Attributed"
+        }
+      },
+      "required": [
+        "unit",
+        "item",
+        "checked",
+        "reason",
+        "attributed"
+      ],
+      "title": "PublisherCheckLine",
       "type": "object"
     },
     "QuadLine": {
@@ -3651,6 +3737,15 @@ A unit and files.
           },
           "title": "Sources",
           "type": "array"
+        },
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "long_running": {
+          "default": false,
+          "title": "Long Running",
+          "type": "boolean"
         }
       },
       "required": [
@@ -3659,7 +3754,8 @@ A unit and files.
         "argv",
         "action",
         "requires_root",
-        "sources"
+        "sources",
+        "index"
       ],
       "title": "StepView",
       "type": "object"
@@ -4250,6 +4346,10 @@ A unit and files.
       "title": "Outcome",
       "type": "string"
     },
+    "step_count": {
+      "title": "Step Count",
+      "type": "integer"
+    },
     "target": {
       "$ref": "#/$defs/TargetView"
     },
@@ -4285,6 +4385,7 @@ A unit and files.
     "action",
     "requested",
     "outcome",
+    "step_count",
     "target",
     "blockers",
     "install",
@@ -5443,6 +5544,154 @@ and a grid square or a map region says where the station is.
 
 </details>
 
+### station-set
+
+What station set saved, left as-is, or refused for a local front end.
+
+This contains station values and is for local programs, not for pasting
+into an issue, forum or chat.
+
+| field | type | meaning |
+|---|---|---|
+| `saved` | object | station keys written and their new values |
+| `unchanged` | object | given station keys already equal to their stored values |
+| `refused` | list of [`StationSetRefusal`](#stationsetrefusal) | given flags the CLI refused |
+| `file` | string | the station configuration file path |
+
+#### `StationSetRefusal`
+
+One station-set flag the CLI refused, including its original value.
+
+| field | type | meaning |
+|---|---|---|
+| `key` | string | the station setting named by the flag |
+| `value` | string or integer or boolean or null | the value given to the flag |
+| `reason` | string | the CLI's reason for refusing this flag |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "StationSetRefusal": {
+      "additionalProperties": false,
+      "description": "One station-set flag the CLI refused, including its original value.",
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "value",
+        "reason"
+      ],
+      "title": "StationSetRefusal",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "What station set saved, left as-is, or refused for a local front end.\n\nThis contains station values and is for local programs, not for pasting\ninto an issue, forum or chat.",
+  "properties": {
+    "saved": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Saved",
+      "type": "object"
+    },
+    "unchanged": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Unchanged",
+      "type": "object"
+    },
+    "refused": {
+      "items": {
+        "$ref": "#/$defs/StationSetRefusal"
+      },
+      "title": "Refused",
+      "type": "array"
+    },
+    "file": {
+      "title": "File",
+      "type": "string"
+    }
+  },
+  "required": [
+    "saved",
+    "unchanged",
+    "refused",
+    "file"
+  ],
+  "title": "StationSetDocument",
+  "type": "object"
+}
+```
+
+</details>
+
 ### status
 
 What this machine is, what the catalog holds, and what has been done here.
@@ -5514,6 +5763,7 @@ machine. A unit the catalog no longer carries has null method and pin.
 | `name` | string | the catalog unit |
 | `last_named` | string or null | when the latest install or uninstall naming it began |
 | `last_outcome` | string | an install's `completed`, `failed` or `interrupted`; an uninstall's `removed`, `removal failed` or `removal interrupted` |
+| `completed_in_failed_run` | string or null | when the install that completed this unit began, if that install then failed or was killed after the unit's last step (`unit_end`); null otherwise |
 | `catalog_version` | string or null | the manifest's version today |
 | `method` | string or null | the install method that resolves on this target |
 | `pin` | string or null | the catalog's pin for a built unit; null for apt |
@@ -5706,6 +5956,17 @@ machine. A unit the catalog no longer carries has null method and pin.
           "title": "Last Outcome",
           "type": "string"
         },
+        "completed_in_failed_run": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Completed In Failed Run"
+        },
         "catalog_version": {
           "anyOf": [
             {
@@ -5744,6 +6005,7 @@ machine. A unit the catalog no longer carries has null method and pin.
         "name",
         "last_named",
         "last_outcome",
+        "completed_in_failed_run",
         "catalog_version",
         "method",
         "pin"
@@ -5857,6 +6119,126 @@ machine. A unit the catalog no longer carries has null method and pin.
 
 </details>
 
+### transactions
+
+The transaction history, oldest first, across archives and the live log.
+
+| field | type | meaning |
+|---|---|---|
+| `transactions` | list of [`TransactionEntry`](#transactionentry) | transaction rows in chronological order, oldest first |
+
+#### `TransactionEntry`
+
+One install or uninstall recorded in the transaction log.
+
+| field | type | meaning |
+|---|---|---|
+| `id` | integer | its one-based position in chronological transaction history |
+| `began` | string | the begin event's ISO 8601 timestamp |
+| `ended` | string or null | the matching end event's timestamp, or null without one |
+| `command` | string | the command that began the transaction, such as `install` |
+| `units` | list of string | unit names recorded by the begin event |
+| `deferred` | list of string | unit names deferred by the begin event (D-039) |
+| `result` | string | `ok`, `failed`, `aborted` or `in-progress` |
+| `log` | string or null | the D-077 run-log path recorded at transaction start, or null |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "TransactionEntry": {
+      "additionalProperties": false,
+      "description": "One install or uninstall recorded in the transaction log.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "began": {
+          "title": "Began",
+          "type": "string"
+        },
+        "ended": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ended"
+        },
+        "command": {
+          "title": "Command",
+          "type": "string"
+        },
+        "units": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Units",
+          "type": "array"
+        },
+        "deferred": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Deferred",
+          "type": "array"
+        },
+        "result": {
+          "title": "Result",
+          "type": "string"
+        },
+        "log": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Log"
+        }
+      },
+      "required": [
+        "id",
+        "began",
+        "ended",
+        "command",
+        "units",
+        "deferred",
+        "result",
+        "log"
+      ],
+      "title": "TransactionEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The transaction history, oldest first, across archives and the live log.",
+  "properties": {
+    "transactions": {
+      "items": {
+        "$ref": "#/$defs/TransactionEntry"
+      },
+      "title": "Transactions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "transactions"
+  ],
+  "title": "TransactionsDocument",
+  "type": "object"
+}
+```
+
+</details>
+
 ### unit
 
 One unit's manifest. JSON only: the text `show` describes profiles.
@@ -5930,7 +6312,7 @@ One unit: installed versus the catalog.
 | field | type | meaning |
 |---|---|---|
 | `unit` | string | the catalog unit |
-| `state` | string | `up to date`, `candidate differs`, `behind the pin`, `not installed`, `unknown`, `re-checked on install` or `manual` |
+| `state` | string | `up to date`, `candidate differs`, `behind the pin`, `not installed`, `unknown`, `re-checked on install`, `manual` or `retired` |
 | `detail` | string | what was compared, as the text prints it |
 | `strategy` | string | the manifest's update strategy |
 | `upgradable` | list of string | apt packages whose candidate differs |
@@ -5948,6 +6330,7 @@ How many rows are in each state.
 | `unknown` | integer | nothing on disk can be checked |
 | `on_install` | integer | resolved again on every install |
 | `manual` | integer | re-pinned by hand |
+| `retired` | integer | catalog units retained as retired |
 
 #### `UpstreamRowView`
 
@@ -6053,6 +6436,10 @@ The catalog's pin against what upstream publishes (`--upstream` only).
         "manual": {
           "title": "Manual",
           "type": "integer"
+        },
+        "retired": {
+          "title": "Retired",
+          "type": "integer"
         }
       },
       "required": [
@@ -6062,7 +6449,8 @@ The catalog's pin against what upstream publishes (`--upstream` only).
         "not_installed",
         "unknown",
         "on_install",
-        "manual"
+        "manual",
+        "retired"
       ],
       "title": "UpdateCounts",
       "type": "object"

@@ -32,12 +32,13 @@ import os
 import shlex
 import subprocess
 import threading
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO, Protocol, runtime_checkable
 
-from hammunition import runlog
+from hammunition import progress, runlog
 
 __all__ = [
     "Action",
@@ -80,6 +81,11 @@ class Command:
     ``debconf-set-selections``, which reads preseed answers from stdin — a plain
     argv with no file to leave behind. Never a secret; the plan prints that
     input is supplied but not its bytes."""
+
+    long_running: bool = False
+    """The backend knows this step can take several minutes (a submodule fetch,
+    a compile, a venv install, a node build). The plan and the run say so with
+    one fixed line; no duration is claimed (#270)."""
 
     def argv_for(self, *, euid: int, sudo: Sequence[str] = ("sudo",)) -> tuple[str, ...]:
         """The argv actually executed, with escalation applied if it is needed.
@@ -204,7 +210,11 @@ class CommandRunner(Protocol):
 
 
 def _run_logged(
-    argv: Sequence[str], env: Mapping[str, str], command: Command, run_log: runlog.RunLog
+    argv: Sequence[str],
+    env: Mapping[str, str],
+    command: Command,
+    run_log: runlog.RunLog | None,
+    live: progress.LiveStatus | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """``subprocess.run(capture_output=True, text=True)``, with each line of the
     child's output written to the run log as it arrives (D-077), so a command
@@ -213,8 +223,12 @@ def _run_logged(
     Same contract as the plain call: stdin is inherited unless the command
     supplies input, the output is returned whole, and a child still running
     when this is interrupted is killed.
+
+    With *live* (#270) each line is also handed to the terminal writer, which
+    shows the latest one in an in-place status line or, under ``--verbose``,
+    the whole line; the run log receives exactly the lines it did without it.
     """
-    began = run_log.command_start(argv)
+    began = run_log.command_start(argv) if run_log is not None else time.monotonic()
     try:
         proc = subprocess.Popen(
             argv,
@@ -230,7 +244,8 @@ def _run_logged(
             cwd=command.cwd,
         )
     except OSError as exc:
-        run_log.write("cmd-end", f"not run: {exc}")
+        if run_log is not None:
+            run_log.write("cmd-end", f"not run: {exc}")
         raise
     captured: dict[str, list[str]] = {"out": [], "err": []}
 
@@ -238,7 +253,10 @@ def _run_logged(
         try:
             for line in handle:
                 captured[stream].append(line)
-                run_log.command_output(stream, line)
+                if run_log is not None:
+                    run_log.command_output(stream, line)
+                if live is not None:
+                    live.output(line)
         except (OSError, ValueError):
             pass  # a closed pipe; the child's exit is what wait() reports
         finally:
@@ -265,14 +283,20 @@ def _run_logged(
     for thread in threads:
         thread.start()
     try:
-        proc.wait()
-        for thread in threads:
-            thread.join()
+        with (
+            live.command(hold=tuple(argv) != tuple(command.argv))
+            if live is not None
+            else contextlib.nullcontext()
+        ):
+            proc.wait()
+            for thread in threads:
+                thread.join()
     except BaseException:
         proc.kill()
         proc.wait()
         raise
-    run_log.command_end(argv, proc.returncode, began)
+    if run_log is not None:
+        run_log.command_end(argv, proc.returncode, began)
     return subprocess.CompletedProcess(
         list(argv), proc.returncode, "".join(captured["out"]), "".join(captured["err"])
     )
@@ -290,8 +314,11 @@ class SubprocessRunner:
         env = {**os.environ, **command.env}
         try:
             run_log = runlog.current()
-            if run_log is not None:
-                completed = _run_logged(argv, env, command, run_log)
+            live = progress.current_live()
+            if live is not None and not live.active:
+                live = None
+            if run_log is not None or live is not None:
+                completed = _run_logged(argv, env, command, run_log, live)
             else:
                 completed = subprocess.run(
                     argv,

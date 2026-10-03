@@ -314,6 +314,9 @@ class DemTilesBackend:
                     detail=str(dest),
                     perform=partial(self._install, tile, fetched, dest, writer),
                     requires_root=writer.privileged,
+                    # What the log attributes (#197): the size a later plan
+                    # compares with the file before it trusts the attribution.
+                    facts={"size": str(tile.size)},
                 )
             )
         for entry in self.resolution.regions:

@@ -2385,6 +2385,23 @@ class PackageManifest(Strict):
         ),
     )
 
+    requires_java: int | None = Field(
+        default=None,
+        gt=0,
+        strict=True,
+        description=(
+            "The lowest Java major version the software runs on, checked at plan "
+            "time with `java -version` (D-037, amended 2026-10-02). "
+            "`default-jre-headless` is a metapackage whose version says nothing "
+            "about the Java major, so the floor is read from the `java` on this "
+            "machine, never from the archive. A machine below it (or with no "
+            "java, when this unit's `depends` would not install one that meets "
+            "it) defers the unit in a profile and refuses it by name; nothing "
+            "is fetched to meet it. Measured from the upstream's build file or "
+            "its jar's class-file major, never copied from a README."
+        ),
+    )
+
     desktops: list[Desktop] | None = Field(
         default=None,
         description=(
@@ -3011,6 +3028,36 @@ class ProfileDocumentation(Strict):
     deliberately_excludes: str = Field(min_length=10)
     manual_configuration: str = Field(min_length=10)
     disk_footprint_hint: str | None = None
+    # The fields below feed the generated profile pages and the profiles index
+    # (scripts/gen_profile_reference.py). They are optional in the schema so a
+    # community profile is not refused for lacking them, and
+    # tests/test_profile_docs.py requires every profile this repository ships
+    # to carry all of them.
+    who_for: str | None = Field(
+        default=None, description="Who installs this, in a sentence or two."
+    )
+    hardware_assumed: str | None = Field(
+        default=None,
+        description="What hardware the profile assumes, or says it needs none.",
+    )
+    footprint_short: str | None = Field(
+        default=None, description="Disk footprint in a few words, for the index table."
+    )
+    excludes_short: str | None = Field(
+        default=None, description="What it leaves out, in a phrase, for the index table."
+    )
+    goals: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Goals in an operator's words ('Make FT8 contacts'). The profiles "
+            "index inverts these into its 'which profile do I want' table, so "
+            "the same wording on two profiles puts both on one row."
+        ),
+    )
+    first_ten_minutes: list[str] = Field(
+        default_factory=list,
+        description="Ordered steps for the ten minutes after install, Markdown.",
+    )
 
 
 class SuggestionGroup(Strict):

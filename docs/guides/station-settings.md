@@ -25,7 +25,7 @@ into a forum or an issue: a callsign leads to a name and an address.
 **Nothing is ever invented.** If a program needs a value you have not set,
 the install still happens, and the plan names the one file it could not
 write and the command that would let it. See [the station
-command](../reference/cli.md#hammunition-station-show-hammunition-station-set).
+command](../reference/cli.md#hammunition-station-set).
 
 ## What Hammunition writes for you
 

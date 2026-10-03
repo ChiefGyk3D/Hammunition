@@ -32,6 +32,7 @@ import argparse
 import contextlib
 import dataclasses
 import hashlib
+import io
 import os
 import shutil
 import sqlite3
@@ -47,6 +48,7 @@ from typing import TYPE_CHECKING, NoReturn, TextIO, cast
 
 from hammunition import navit_config
 from hammunition.acma import AcmaProbe
+from hammunition.attributed import PublisherChecks
 from hammunition.backends import (
     Action,
     AptBackend,
@@ -100,7 +102,7 @@ from hammunition.consent import (
     resolve_repo_consent,
     resolve_topo_size_consent,
 )
-from hammunition.copernicus import CopernicusError, S3Probe
+from hammunition.copernicus import CachingTileProbe, CopernicusError, S3Probe
 from hammunition.country_boundaries import BoundarySource, CountryBoundaryError, boundary_source
 from hammunition.desktop import current_desktop, scan_sessions
 from hammunition.devctl_helper import plan_helper
@@ -109,11 +111,14 @@ from hammunition.doctor import RigStatus
 from hammunition.execute import (
     ExecutionReport,
     Step,
+    StepOwners,
     already_built,
     artifact_removal_steps,
     build_dir,
     build_effects_present,
     commands_for,
+    completion_on_disk,
+    completion_states,
     execute,
     run_removal,
     user_groups,
@@ -140,6 +145,7 @@ from hammunition.hardware.apply import HardwarePlan
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.interface import envelope
 from hammunition.interface.services import ServicesDocument, ServiceView
+from hammunition.java import JavaProbe
 from hammunition.kernel import KernelProbe
 from hammunition.kiwix import (
     BookFile,
@@ -149,6 +155,7 @@ from hammunition.kiwix import (
     load_pin_file,
     resolve_books,
 )
+from hammunition.listening import bound_to_loopback_only
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
@@ -161,6 +168,7 @@ from hammunition.manifest.schema import (
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
+    Status,
     TopoQuadsInstall,
 )
 from hammunition.paths import (
@@ -173,7 +181,7 @@ from hammunition.paths import (
 )
 from hammunition.phone_plan import build_phone_run
 from hammunition.plan import NO_MAP_REGIONS, Blocker, Deferral, InstallPlan, PlanError, resolve
-from hammunition.progress import Progress
+from hammunition.progress import LiveStatus, Progress, activate_live, current_live
 from hammunition.repeater_sources import SnapshotHead
 from hammunition.retry import (
     POLICY,
@@ -458,183 +466,344 @@ def cmd_station_show(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+@envelope.json_capable()
 def cmd_station_set(args: argparse.Namespace) -> int:
+    return _cmd_station_set(args, json_output=envelope.wanted(args))
+
+
+def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
+    """Set the accepted station values and report each refused flag (D-059)."""
+    from hammunition.interface.station import StationSetDocument, StationSetRefusal
+
     user = operator(args)
     try:
         current = load_station(owner=user)
     except StationError:
         current = Station()
-    # Checked before "nothing to set" and whether or not other flags are
-    # given (fix round 1, M1): splitting "," or "" on ',' and stripping each
-    # piece can legitimately produce zero regions -- a trailing comma, a
-    # stray space, an empty string typed by habit -- and saving that
-    # silently as "no regions" is indistinguishable from having meant it.
-    # `--map-regions` is for setting regions, never for clearing them.
-    if args.map_regions is not None:
-        map_regions = tuple(r for r in (p.strip() for p in args.map_regions.split(",")) if r)
-        if not map_regions:
-            print(
-                "error: --map-regions gave no regions after splitting on ',' and "
-                "stripping whitespace; give at least one region, or to remove the "
-                "maps, uninstall osm-navit and osm-regions.",
-                file=sys.stderr,
-            )
-            return EXIT_FAILED
-    else:
-        map_regions = current.map_regions
-    # D-066: the same rule for books, and each id checked against the
-    # catalog's book list now, while the operator is looking at the prompt.
-    if args.reference_books is not None:
-        reference_books = tuple(
-            b for b in (p.strip() for p in args.reference_books.split(",")) if b
-        )
-        if not reference_books:
-            print(
-                "error: --reference-books gave no book ids after splitting on ',' and "
-                "stripping whitespace; give at least one, or to remove the books, "
-                "uninstall kiwix-library.",
-                file=sys.stderr,
-            )
-            return EXIT_FAILED
+
+    requested: dict[str, str | int | bool | tuple[str, ...] | None] = {}
+    accepted: dict[str, str | int | bool | tuple[str, ...] | None] = {}
+    refused: list[StationSetRefusal] = []
+    refusal_code = EXIT_FAILED
+
+    def refuse(
+        key: str,
+        value: str | int | bool | None,
+        reason: str,
+        code: int = EXIT_FAILED,
+    ) -> None:
+        nonlocal refusal_code
+        if not refused:
+            refusal_code = code
+        refused.append(StationSetRefusal(key=key, value=value, reason=reason))
+
+    for key, value in (
+        ("callsign", args.callsign),
+        ("grid_square", args.grid_square),
+        ("node_alias", args.node_alias),
+        ("map_freshness", args.map_freshness),
+        ("mirror", args.mirror),
+        ("dem_source", args.dem_source),
+        ("topo_radius_km", args.topo_radius_km),
+        ("topo_all", args.topo_all),
+    ):
+        if value is None:
+            continue
+        requested[key] = value
         try:
-            books = load_book_list(find_catalog(args.catalog))
-        except KiwixError as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            return EXIT_FAILED
-        unknown = [b for b in reference_books if b not in books]
-        if unknown:
-            print(
-                f"error: not in the catalog's book list: {', '.join(unknown)}. "
-                f"`hammunition reference books` lists the books the catalog offers, by id.",
-                file=sys.stderr,
+            candidate = Station(**{key: value})
+        except StationError as exc:
+            refuse(key, value, str(exc))
+        else:
+            accepted[key] = getattr(candidate, key)
+
+    if args.map_regions is not None:
+        raw_regions = args.map_regions
+        requested["map_regions"] = raw_regions
+        map_regions = tuple(r for r in (p.strip() for p in raw_regions.split(",")) if r)
+        if not map_regions:
+            refuse(
+                "map_regions",
+                raw_regions,
+                "--map-regions gave no regions after splitting on ',' and stripping "
+                "whitespace; give at least one region, or to remove the maps, uninstall "
+                "osm-navit and osm-regions.",
             )
-            return EXIT_FAILED
-    else:
-        reference_books = current.reference_books
+        else:
+            try:
+                candidate = Station(map_regions=map_regions)
+            except StationError as exc:
+                refuse("map_regions", raw_regions, str(exc))
+            else:
+                accepted["map_regions"] = candidate.map_regions
 
-    # The rig values (D-073 §4): resolved against the catalog here, so the
-    # station module stays free of it. Returns the resolved kwargs and the
-    # field names set, or an exit code on a refusal.
-    rig_result = _resolve_rig_flags(args, current)
-    if isinstance(rig_result, int):
-        return rig_result
-    rig_fields = rig_result.fields_set
-    rig_notes = rig_result.notes
+    if args.reference_books is not None:
+        raw_books = args.reference_books
+        requested["reference_books"] = raw_books
+        reference_books = tuple(b for b in (p.strip() for p in raw_books.split(",")) if b)
+        if not reference_books:
+            refuse(
+                "reference_books",
+                raw_books,
+                "--reference-books gave no book ids after splitting on ',' and stripping "
+                "whitespace; give at least one, or to remove the books, uninstall "
+                "kiwix-library.",
+            )
+        else:
+            try:
+                candidate = Station(reference_books=reference_books)
+                books = load_book_list(find_catalog(args.catalog))
+            except StationError as exc:
+                refuse("reference_books", raw_books, str(exc))
+            except (CatalogError, KiwixError) as exc:
+                refuse("reference_books", raw_books, str(exc))
+            else:
+                unknown = [book for book in candidate.reference_books if book not in books]
+                if unknown:
+                    refuse(
+                        "reference_books",
+                        raw_books,
+                        "not in the catalog's book list: "
+                        f"{', '.join(unknown)}. `hammunition reference books` lists the "
+                        "books the catalog offers, by id.",
+                    )
+                else:
+                    accepted["reference_books"] = candidate.reference_books
 
-    set_fields = [
-        field
-        for field, value in (
-            ("callsign", args.callsign),
-            ("grid_square", args.grid_square),
-            ("node_alias", args.node_alias),
-            ("map_regions", args.map_regions),
-            ("map_freshness", args.map_freshness),
-            ("reference_books", args.reference_books),
-            ("mirror", args.mirror or args.clear_mirror),
-            ("dem_source", args.dem_source),
-        )
-        if value
-    ] + rig_fields
+    if args.clear_mirror:
+        requested["mirror"] = None
+        accepted["mirror"] = None
+
     topo_regions = current.topo_regions
     if args.clear_topo_regions:
+        requested["topo_regions"] = None
+        accepted["topo_regions"] = ()
         topo_regions = ()
-        set_fields.append("topo_regions")
     elif args.topo_regions is not None:
-        topo_regions = tuple(r for r in (p.strip() for p in args.topo_regions.split(",")) if r)
-        if not topo_regions:
-            print(
-                "error: --topo-regions gave no regions after splitting on ',' and "
-                "stripping whitespace; give at least one of the station's map regions.",
-                file=sys.stderr,
+        raw_topo_regions = args.topo_regions
+        requested["topo_regions"] = raw_topo_regions
+        regions = tuple(r for r in (p.strip() for p in raw_topo_regions.split(",")) if r)
+        if not regions:
+            refuse(
+                "topo_regions",
+                raw_topo_regions,
+                "--topo-regions gave no regions after splitting on ',' and stripping "
+                "whitespace; give at least one of the station's map regions.",
             )
-            return EXIT_FAILED
-        set_fields.append("topo_regions")
+        else:
+            try:
+                effective_map_regions = cast(
+                    tuple[str, ...], accepted.get("map_regions", current.map_regions)
+                )
+                candidate = Station(
+                    map_regions=effective_map_regions,
+                    topo_regions=regions,
+                )
+            except StationError as exc:
+                refuse("topo_regions", raw_topo_regions, str(exc))
+            else:
+                accepted["topo_regions"] = candidate.topo_regions
+                topo_regions = candidate.topo_regions
     if args.map_regions is not None and args.topo_regions is None and topo_regions:
-        # A narrowed map list must not strand --topo-regions on a region that
-        # is gone: it is dropped, and said.
-        kept = tuple(r for r in topo_regions if r in map_regions)
+        effective_map_regions = cast(
+            tuple[str, ...], accepted.get("map_regions", current.map_regions)
+        )
+        kept = tuple(region for region in topo_regions if region in effective_map_regions)
         if kept != topo_regions:
             print(
                 f"note: {len(topo_regions) - len(kept)} --topo-regions entr(ies) are no longer "
-                f"among the map regions and are dropped"
+                "among the map regions and are dropped",
+                file=sys.stderr if json_output else sys.stdout,
             )
             topo_regions = kept
-    if args.topo_radius_km is not None:
-        set_fields.append("topo_radius_km")
-    if args.topo_all is not None:
-        set_fields.append("topo_all")
-    if not set_fields and args.unattended is None:
-        print(
+            accepted["topo_regions"] = kept
+
+    rig_flags = {
+        "rig": args.rig,
+        "rig_device": args.rig_device,
+        "rig_baud": args.rig_baud,
+        "rig_ptt_line": args.rig_ptt_line,
+        "rig_owner": args.rig_owner,
+    }
+    rig_touched = any(value is not None for value in rig_flags.values())
+    rig_notes: list[str] = []
+    if args.clear_rig:
+        if rig_touched:
+            reason = (
+                "--clear-rig cannot be combined with rig-setting flags; clear first, "
+                "then set rig values in a second command."
+            )
+            refuse("rig", True, reason)
+            for key, value in rig_flags.items():
+                if value is not None:
+                    requested[key] = value
+                    refuse(key, value, reason)
+        else:
+            for key in rig_flags:
+                requested[key] = None
+                accepted[key] = None
+            rig_notes.append("  rig            (cleared)")
+    elif rig_touched:
+        rig_args = argparse.Namespace(**vars(args))
+        invalid_rig_fields: set[str] = set()
+        for key, value in rig_flags.items():
+            if value is not None:
+                requested[key] = value
+                try:
+                    candidate = Station(**{key: value})
+                except StationError as exc:
+                    refuse(key, value, str(exc))
+                    invalid_rig_fields.add(key)
+                    setattr(rig_args, key, None)
+                else:
+                    setattr(rig_args, key, getattr(candidate, key))
+
+        with contextlib.redirect_stderr(io.StringIO()) as captured:
+            rig_result = _resolve_rig_flags(rig_args, current)
+        rig_reason = captured.getvalue().strip()
+        if isinstance(rig_result, int):
+            reason = rig_reason.removeprefix("error:").strip() or "rig settings were refused"
+            rejected_keys = [
+                key
+                for key, value in rig_flags.items()
+                if value is not None and key not in invalid_rig_fields
+            ]
+            for key in rejected_keys:
+                refuse(key, rig_flags[key], reason, rig_result)
+        else:
+            accepted.update(
+                {
+                    "rig": rig_result.rig,
+                    "rig_device": rig_result.rig_device,
+                    "rig_baud": rig_result.rig_baud,
+                    "rig_ptt_line": rig_result.rig_ptt_line,
+                    "rig_owner": rig_result.rig_owner,
+                }
+            )
+            rig_notes.extend(rig_result.notes)
+
+    if not requested and args.unattended is None:
+        message = (
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
             "--node-alias, --map-regions, --map-freshness, --reference-books, --mirror, "
-            "--clear-mirror, --dem-source, --topo-radius-km, --topo-regions, --topo-all, --rig, --rig-device, --rig-baud, "
-            "--rig-ptt-line, --rig-owner, --clear-rig, --unattended.",
-            file=sys.stderr,
+            "--clear-mirror, --dem-source, --topo-radius-km, --topo-regions, --topo-all, "
+            "--rig, --rig-device, --rig-baud, --rig-ptt-line, --rig-owner, --clear-rig, "
+            "--unattended."
         )
+        print(message, file=sys.stderr)
+        if json_output:
+            envelope.emit(
+                envelope.ErrorDocument(
+                    command="station set", exit_code=EXIT_FAILED, message=message
+                )
+            )
         return EXIT_FAILED
+
+    if refused and not json_output:
+        print(f"error: {refused[0].reason}", file=sys.stderr)
+        return refusal_code
+
     try:
         station = Station(
-            callsign=args.callsign or current.callsign,
-            grid_square=args.grid_square or current.grid_square,
-            node_alias=args.node_alias or current.node_alias,
-            map_regions=map_regions,
-            map_freshness=args.map_freshness or current.map_freshness,
-            reference_books=reference_books,
-            mirror=None if args.clear_mirror else (args.mirror or current.mirror),
-            rig=rig_result.rig,
-            rig_device=rig_result.rig_device,
-            rig_baud=rig_result.rig_baud,
-            rig_ptt_line=rig_result.rig_ptt_line,
-            rig_owner=rig_result.rig_owner,
-            dem_source=args.dem_source or current.dem_source,
-            topo_radius_km=(
-                args.topo_radius_km if args.topo_radius_km is not None else current.topo_radius_km
+            callsign=cast(str | None, accepted.get("callsign", current.callsign)),
+            grid_square=cast(str | None, accepted.get("grid_square", current.grid_square)),
+            node_alias=cast(str | None, accepted.get("node_alias", current.node_alias)),
+            map_regions=cast(tuple[str, ...], accepted.get("map_regions", current.map_regions)),
+            map_freshness=cast(str | None, accepted.get("map_freshness", current.map_freshness)),
+            reference_books=cast(
+                tuple[str, ...], accepted.get("reference_books", current.reference_books)
             ),
-            topo_regions=topo_regions,
-            topo_all=args.topo_all if args.topo_all is not None else current.topo_all,
+            mirror=cast(str | None, accepted.get("mirror", current.mirror)),
+            rig=cast(str | None, accepted.get("rig", current.rig)),
+            rig_device=cast(str | None, accepted.get("rig_device", current.rig_device)),
+            rig_baud=cast(int | None, accepted.get("rig_baud", current.rig_baud)),
+            rig_ptt_line=cast(str | None, accepted.get("rig_ptt_line", current.rig_ptt_line)),
+            rig_owner=cast(str | None, accepted.get("rig_owner", current.rig_owner)),
+            dem_source=cast(str | None, accepted.get("dem_source", current.dem_source)),
+            topo_radius_km=cast(int, accepted.get("topo_radius_km", current.topo_radius_km)),
+            topo_regions=cast(tuple[str, ...], accepted.get("topo_regions", topo_regions)),
+            topo_all=cast(bool | None, accepted.get("topo_all", current.topo_all)),
         )
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILED
-    path = save_station(station, owner=user)
-    print(f"Saved to {path} (mode 0600).")
-    for field in sorted(set_fields):
-        if field == "map_regions":
-            print(f"  {field:<14} {len(station.map_regions)} set")
-        elif field == "map_freshness":
-            print(f"  {field:<14} {station.freshness}")
-        elif field == "reference_books":
-            print(f"  {field:<14} {', '.join(station.reference_books)}")
-        elif field == "mirror":
-            print(f"  {field:<14} {station.mirror or '(cleared)'}")
-        elif field == "rig":
-            # Echo every rig value that is set, not just `rig` (review minor).
-            for rig_field in ("rig", "rig_device", "rig_baud", "rig_ptt_line", "rig_owner"):
-                value = getattr(station, rig_field)
-                if value is not None:
-                    print(f"  {rig_field:<14} {value}")
-        elif field == "dem_source":
-            print(f"  {field:<14} {station.elevation}")
-        elif field == "topo_radius_km":
-            print(f"  {field:<14} {station.topo_radius} km")
-        elif field == "topo_regions":
-            print(f"  {field:<14} {len(station.topo_regions)} set")
-        elif field == "topo_all":
-            print(f"  {field:<14} {'yes' if station.topo_all else 'no'}")
-        else:
-            print(f"  {field:<14} {station.get(field)}")
-    for note in rig_notes:
-        print(note)
-    if "rig" in set_fields and station.rig is not None:
-        # A changed rig value reaches the running service only through a
-        # reinstall, which rewrites the unit and restarts it (D-073 §6c). Say so
-        # here, since rig-service's docs promise this reminder.
-        print("  → run `hammunition install rig-service` to apply this to the running service")
-    if args.unattended is not None:
-        code = _apply_unattended(args, station, user)
-        if code != EXIT_OK:
-            return code
-    return EXIT_OK
+
+    station_fields = (
+        "callsign",
+        "grid_square",
+        "node_alias",
+        "map_regions",
+        "map_freshness",
+        "reference_books",
+        "mirror",
+        "rig",
+        "rig_device",
+        "rig_baud",
+        "rig_ptt_line",
+        "rig_owner",
+        "dem_source",
+        "topo_radius_km",
+        "topo_regions",
+        "topo_all",
+    )
+    saved = (
+        {}
+        if refused
+        else {
+            key: getattr(station, key)
+            for key in station_fields
+            if getattr(station, key) != getattr(current, key)
+        }
+    )
+    refused_keys = {item.key for item in refused}
+    unchanged = {
+        key: getattr(station, key)
+        for key in requested
+        if key not in refused_keys and getattr(station, key) == getattr(current, key)
+    }
+    if refused:
+        station = current
+
+    if (accepted and not refused) or (args.unattended is not None and not refused):
+        path = save_station(station, owner=user)
+    else:
+        path = config_path(user)
+    doc = StationSetDocument(
+        saved=saved,
+        unchanged=unchanged,
+        refused=tuple(refused),
+        file=str(path),
+    )
+
+    code = (
+        _apply_unattended(args, station, user)
+        if args.unattended is not None and not refused
+        else EXIT_OK
+    )
+    if json_output:
+        for item in refused:
+            print(f"error: {item.reason}", file=sys.stderr)
+        for note in rig_notes:
+            print(note, file=sys.stderr)
+        envelope.emit(doc)
+    else:
+        from hammunition.interface.station import render_station_set
+
+        text_fields = list(requested)
+        if args.clear_rig or (rig_touched and not isinstance(rig_result, int)):
+            text_fields = [
+                field
+                for field in text_fields
+                if field not in ("rig", "rig_device", "rig_baud", "rig_ptt_line", "rig_owner")
+            ]
+            text_fields.append("rig")
+        for line in render_station_set(doc, station, text_fields):
+            print(line)
+        for note in rig_notes:
+            print(note)
+        if "rig" in text_fields and station.rig is not None:
+            print("  → run `hammunition install rig-service` to apply this to the running service")
+    return EXIT_UNPLANNABLE if refused else code
 
 
 @dataclasses.dataclass(frozen=True)
@@ -900,6 +1069,26 @@ def cmd_update(args: argparse.Namespace) -> int:
             return EXIT_OK
         print(f"Comparing the {len(names)} unit(s) the transaction log has ever named here.")
 
+    retired: dict[str, PackageManifest] = {}
+    update_profiles = dict(profiles)
+    for name in names:
+        manifest = packages.get(name)
+        if name not in profiles and manifest is not None and manifest.status is Status.retired:
+            retired.setdefault(name, manifest)
+        profile = profiles.get(name)
+        if profile is None:
+            continue
+        active_members: list[str] = []
+        for member in profile.packages:
+            member_manifest = packages.get(member)
+            if member_manifest is not None and member_manifest.status is Status.retired:
+                retired.setdefault(member, member_manifest)
+            else:
+                active_members.append(member)
+        if len(active_members) != len(profile.packages):
+            update_profiles[name] = profile.model_copy(update={"packages": active_members})
+    update_names = [name for name in names if name not in retired]
+
     try:
         station = load_station(owner=user)
     except StationError:
@@ -907,15 +1096,16 @@ def cmd_update(args: argparse.Namespace) -> int:
     repos = AptRepoBackend(owner=user or None)
     try:
         plan = resolve(
-            names,
+            update_names,
             catalog=packages,
-            profiles=profiles,
+            profiles=update_profiles,
             target=target,
             apt=apt,
             user=user,
             station=station,
             repos=repos,
             kernel=KernelProbe.detect(),
+            java=JavaProbe.detect(),
             desktops=scan_sessions(),
             log=read_log,
         )
@@ -1037,6 +1227,7 @@ def cmd_update(args: argparse.Namespace) -> int:
         quads=installed_quad_counts(plan, source.prefix, catalog_root),
         books=books_by_unit,
         mwm=mwm_by_unit,
+        retired=tuple(retired.values()),
     )
     lists_note = _apt_lists_note(apt)
     upstream = (
@@ -1304,6 +1495,36 @@ def cmd_logs(args: argparse.Namespace) -> int:
 
 
 @envelope.json_capable()
+def cmd_transactions(args: argparse.Namespace) -> int:
+    """List each transaction in chronological order, including rotated history. D-077."""
+    from hammunition import runlog
+    from hammunition.interface.transactions import (
+        TransactionsDocument,
+        build_transactions,
+        render_transactions,
+    )
+
+    if args.last is not None and args.last < 1:
+        print("error: --last must be a positive number", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+
+    owner = operator(args) or None
+    log = TransactionLog(owner=owner)
+    running_logs = {
+        str(run.path) for run in runlog.list_runs(runlog.logs_dir(owner)) if run.result == "running"
+    }
+    doc = build_transactions(list(log.read()), running_logs=running_logs)
+    if args.last is not None:
+        doc = TransactionsDocument(transactions=doc.transactions[-args.last :])
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_transactions(doc):
+        print(line)
+    return EXIT_OK
+
+
+@envelope.json_capable()
 def cmd_artifacts(args: argparse.Namespace) -> int:
     """Every remote data artifact the engine would fetch for the selection
     on the command line, with no station and no install.  D-070.
@@ -1552,6 +1773,8 @@ def cmd_maps_comaps(args: argparse.Namespace) -> int:
     sys.stdout.flush()
     sys.stderr.flush()  # execve discards whatever Python still buffers
     try:
+        # Semgrep: the program is the CoMaps binary this engine installed; the env only adds two paths.
+        # nosemgrep: python.lang.security.audit.dangerous-os-exec-tainted-env-args.dangerous-os-exec-tainted-env-args
         os.execve(str(program), ["CoMaps"], env)
     except OSError as exc:
         print(f"error: cannot start {program}: {exc.strerror or exc}.", file=sys.stderr)
@@ -3492,6 +3715,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             # The running kernel is a fact about this machine, not the target
             # (one Pop!_OS 24.04 VM has AX.25 under 7.0.11 and not under 7.1.5).
             kernel=KernelProbe.detect(),
+            java=JavaProbe.detect(),
             # Which desktops the session files offer (D-060): files on disk,
             # so the answer under sudo is the answer outside it.
             desktops=scan_sessions(),
@@ -3566,7 +3790,13 @@ def cmd_install(args: argparse.Namespace) -> int:
         node_root=node_root(user or None),
         bin_dir=user_bin_dir(user or None),
     )
-    data = DataBackend(fetcher=source.fetcher, prefix=source.prefix, runner=runner)
+    data = DataBackend(
+        fetcher=source.fetcher,
+        prefix=source.prefix,
+        runner=runner,
+        build_root=builds,
+        owner=source.owner,
+    )
     map_units = [p for p in plan.packages if isinstance(p.block.install, RegionalDataInstall)]
     try:
         resolution = resolve_map_regions(
@@ -3595,7 +3825,13 @@ def cmd_install(args: argparse.Namespace) -> int:
     # a unit the operator typed.
     outlines = MemoProbe(RetryingProbe(UrllibProbe()))
     outages = Outages()
+    # #197: what the log attributes as installed is not asked of its publisher
+    # again for a week (`--recheck` asks every one); the real run verifies
+    # whatever it fetches either way.
+    checks = PublisherChecks.from_log(read_log, recheck=args.recheck)
     POLICY.reset()
+    terrain_tile_probe = CachingTileProbe(RetryingProbe(S3Probe()), source.fetcher.cache_dir)
+    usgs_tile_probe = CachingTileProbe(RetryingProbe(ustopo_probe()), source.fetcher.cache_dir)
     try:
         dem_resolution = resolve_station_terrain(
             plan,
@@ -3603,14 +3839,17 @@ def cmd_install(args: argparse.Namespace) -> int:
             catalog_root,
             prefix=source.prefix,
             region_probe=outlines,
-            tile_probe=RetryingProbe(S3Probe()),
+            tile_probe=terrain_tile_probe,
             outages=outages,
+            checks=checks,
         )
     except CopernicusError as exc:
         print(f"error: {exc}", file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)
         refused("terrain", str(exc))
         return EXIT_UNPLANNABLE
+    finally:
+        terrain_tile_probe.flush()
     # Issue #232: the sheets and tiles are bounded by the station (a radius
     # around its grid square by default). The circle needs the grid square;
     # without one the unit defers by name and what is installed is kept (D-035).
@@ -3638,8 +3877,9 @@ def cmd_install(args: argparse.Namespace) -> int:
             catalog_root,
             prefix=source.prefix,
             region_probe=outlines,
-            quad_probe=RetryingProbe(ustopo_probe()),
+            quad_probe=usgs_tile_probe,
             outages=outages,
+            checks=checks,
             bound=topo_bound,
         )
     except UstopoError as exc:
@@ -3647,6 +3887,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("US Topo", str(exc))
         return EXIT_UNPLANNABLE
+    finally:
+        usgs_tile_probe.flush()
     # D-068, amended 2026-10-01: USGS 3DEP when the station chose it (the same
     # bucket as US Topo, so the same probe), and the Forest Service's FSTopo
     # sheets, each located through the raster gateway's one redirect.
@@ -3658,8 +3900,9 @@ def cmd_install(args: argparse.Namespace) -> int:
             prefix=source.prefix,
             source=station.elevation,
             region_probe=outlines,
-            tile_probe=RetryingProbe(ustopo_probe()),
+            tile_probe=usgs_tile_probe,
             outages=outages,
+            checks=checks,
             bound=topo_bound,
         )
     except CopernicusError as exc:
@@ -3667,6 +3910,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("3DEP", str(exc))
         return EXIT_UNPLANNABLE
+    finally:
+        usgs_tile_probe.flush()
     try:
         fstopo_resolution, fstopo_notes = resolve_station_fstopo(
             plan,
@@ -3676,6 +3921,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             region_probe=outlines,
             gateway=GatewayProbe(),
             outages=outages,
+            checks=checks,
             bound=topo_bound,
         )
     except FstopoError as exc:
@@ -3697,6 +3943,7 @@ def cmd_install(args: argparse.Namespace) -> int:
                 installed=data_root(source.prefix) / book_units[0].name,
                 head=retrying_head(KiwixProbe().head),
                 on_outage=reporter_for(outages, book_units[0]),
+                checks=checks,
             )
         except KiwixError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -3754,6 +4001,7 @@ def cmd_install(args: argparse.Namespace) -> int:
                 installed=data_root(source.prefix) / mwm_units[0].name,
                 head=retrying_head(CdnProbe().head),
                 on_outage=reporter_for(outages, mwm_units[0]),
+                checks=checks,
             )
         except ComapsError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -3761,6 +4009,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             refused("CoMaps maps", str(exc))
             return EXIT_UNPLANNABLE
         region_notes.extend(mwm_notes)
+    region_notes.extend(checks.notes())
     mwm = ComapsMapsBackend(
         fetcher=source.fetcher,
         prefix=source.prefix,
@@ -3978,16 +4227,40 @@ def cmd_install(args: argparse.Namespace) -> int:
             print("\nNothing was changed.", file=sys.stderr)
             refused("disk space", short)
             return EXIT_UNPLANNABLE
-    # D-051: a build present on disk that the log attributes to this engine
-    # at the manifest's pin is already installed; its build steps are skipped.
-    built = already_built(
-        plan, log=read_log, prefix=source.prefix, source=source, git=git, binary=binary
+    # D-051 and #279: builds and resolved data whose last run completed and
+    # whose current inputs and outputs still match need no fetch or conversion.
+    resume_states = completion_states(
+        plan,
+        regions=regions,
+        derived=derived,
+        dem=terrain.dem,
+        topo=terrain.topo,
+        mwm=mwm,
     )
+    built = already_built(
+        plan,
+        log=read_log,
+        prefix=source.prefix,
+        source=source,
+        git=git,
+        binary=binary,
+        states=resume_states,
+        on_disk=completion_on_disk(
+            plan,
+            regions=regions,
+            derived=derived,
+            dem=terrain.dem,
+            topo=terrain.topo,
+            mwm=mwm,
+        ),
+    )
+    step_owners = StepOwners()
     commands = commands_for(
         plan,
         apt,
         refresh=args.refresh,
         skip_builds=built,
+        owners=step_owners,
         source=source,
         git=git,
         binary=binary,
@@ -4044,6 +4317,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         suggestion_notes=suggestion_notes,
         maps=maps,
         region_notes=region_notes,
+        publisher_checks=checks.lines,
         terrain=terrain_view,
         sudo_keepalive=args.sudo_keepalive,
         mirror=station.mirror,
@@ -4080,6 +4354,7 @@ def cmd_install(args: argparse.Namespace) -> int:
                 action="install",
                 requested=tuple(args.names),
                 outcome="planned",
+                step_count=len(view.commands),
                 target=target_view(target),
                 blockers=(),
                 install=view,
@@ -4193,23 +4468,26 @@ def cmd_install(args: argparse.Namespace) -> int:
     # exit code of 0 from apt-get or gpasswd is not evidence the package landed
     # or the membership took, and transaction_end is the record uninstall will
     # trust.
-    report = run_with_sudo_ticket(
-        commands,
-        euid=euid,
-        keepalive=args.sudo_keepalive,
-        log=log,
-        run=lambda: execute(
+    live = LiveStatus(verbose=args.verbose)
+    with activate_live(live):
+        report = run_with_sudo_ticket(
             commands,
-            runner,
-            log=log,
-            plan=plan,
-            echo=print,
             euid=euid,
-            prober=apt,
-            prefix=source.prefix,
-            launcher_bin=user_bin_dir(user or None),
-        ),
-    )
+            keepalive=args.sudo_keepalive,
+            log=log,
+            run=lambda: execute(
+                commands,
+                runner,
+                log=log,
+                plan=plan,
+                echo=live.print,
+                euid=euid,
+                prober=apt,
+                prefix=source.prefix,
+                launcher_bin=user_bin_dir(user or None),
+                owners=step_owners,
+            ),
+        )
     if log.ownership_error:
         # Not fatal — the commands ran — but not silent either. A log the
         # operator cannot append to fails on their next run instead of this one.
@@ -4251,6 +4529,9 @@ def cmd_install(args: argparse.Namespace) -> int:
     stale = stale_lists_diagnosis(report.failed, report.stderr)
     if stale:
         print(f"\n{stale}", file=sys.stderr)
+    retry = apt_fetch_retry_advice(report.failed, report.stderr)
+    if retry:
+        print(f"\n{retry}", file=sys.stderr)
     print(
         f"{len(report.completed)} command(s) completed before the failure and are "
         f"recorded in {log.path}. Hammunition does not roll back; it tells you what "
@@ -4287,7 +4568,14 @@ def run_with_sudo_ticket(
         return run()
 
     def warn(message: str) -> None:
-        print(f"\nwarning: {message}", file=sys.stderr)
+        # The status line's writer owns the terminal while a step runs, so a
+        # keepalive failure cannot land in the middle of it (#270).
+        live = current_live()
+        text = f"\nwarning: {message}"
+        if live is not None:
+            live.print(text, err=True)
+        else:
+            print(text, file=sys.stderr)
 
     ticket = make_keepalive() if make_keepalive is not None else SudoKeepalive(warn=warn)
     print("\nsudo: asking once, before the first step (D-062).")
@@ -4336,6 +4624,21 @@ def run_with_sudo_ticket(
                 },
             }
         )
+
+
+def apt_fetch_retry_advice(failed: Command | Action, stderr: str) -> str | None:
+    """Advise what to do when apt's configured archive retries are exhausted."""
+    if isinstance(failed, Action) or failed.argv[:1] != ("apt-get",):
+        return None
+    if not {"install", "update"}.intersection(failed.argv[1:]):
+        return None
+    if not any(phrase in stderr for phrase in ("Failed to fetch", "Unable to fetch some archives")):
+        return None
+    return (
+        "apt retried archive fetches 3 times with `-o Acquire::Retries=3` and the fetch still "
+        "failed. Check the mirror or connection, then run the same command again; cached "
+        "downloads are reused."
+    )
 
 
 def stale_lists_diagnosis(failed: Command | Action, stderr: str) -> str | None:
@@ -4443,6 +4746,7 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
                     action="uninstall",
                     requested=tuple(args.names),
                     outcome="refused",
+                    step_count=0,
                     target=target_view(target),
                     blockers=(BlockerLine(subject="uninstall", reason=str(exc), remedy=None),),
                     install=None,
@@ -4512,6 +4816,7 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
                 action="uninstall",
                 requested=tuple(args.names),
                 outcome="planned",
+                step_count=len(view.commands),
                 target=target_view(target),
                 blockers=(),
                 install=None,
@@ -4534,9 +4839,18 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
             return EXIT_OK
 
     print("\nRunning:")
-    report = run_removal(
-        commands, runner, log=log, plan=plan, target=target, echo=print, euid=euid, prober=apt
-    )
+    live = LiveStatus(verbose=args.verbose)
+    with activate_live(live):
+        report = run_removal(
+            commands,
+            runner,
+            log=log,
+            plan=plan,
+            target=target,
+            echo=live.print,
+            euid=euid,
+            prober=apt,
+        )
     if log.ownership_error:
         print(f"\nWarning: {log.ownership_error}", file=sys.stderr)
     if report.ok and not report.verified and report.verification is not None:
@@ -5279,6 +5593,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         if helper_command is not None:
             helper_staging = staging_dir / "hammunition-devctl"
             helper_staging.write_text(plan.polkit.helper_content)
+            # Semgrep: a deliberate mode (0755/0644 on installed files and launchers, 0700 private); nothing group- or world-writable.
+            # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
             os.chmod(helper_staging, 0o755)
         if policy_command is not None:
             policy_staging = staging_dir / "devctl.policy"
@@ -6287,29 +6603,7 @@ def _port_loopback_only(port: int) -> bool | None:
 
     None when the files cannot be read. A listener (state 0A) on any other
     local address is a transmitter reachable off-machine (D-073 §11)."""
-    hexport = f"{port:04X}"
-    try:
-        rows = []
-        for name in ("/proc/net/tcp", "/proc/net/tcp6"):
-            p = Path(name)
-            if p.exists():
-                rows.extend(p.read_text().splitlines()[1:])
-    except OSError:
-        return None
-    loopback = {
-        "0100007F",  # 127.0.0.1, little-endian hex
-        "00000000000000000000000001000000",  # ::1
-        "0000000000000000FFFF00000100007F",  # ::ffff:127.0.0.1
-    }
-    for row in rows:
-        fields = row.split()
-        if len(fields) < 4 or fields[3] != "0A":  # 0A = LISTEN
-            continue
-        local = fields[1]
-        addr, _, lport = local.partition(":")
-        if lport.upper() == hexport and addr.upper() not in loopback:
-            return False
-    return True
+    return bound_to_loopback_only(port)
 
 
 def _rigctld_args_match(station: Station) -> bool | None:
@@ -6853,6 +7147,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_logs.set_defaults(func=cmd_logs)
 
+    p_transactions = sub.add_parser(
+        "transactions",
+        help="the full transaction history, oldest first across archives (D-077)",
+    )
+    p_transactions.add_argument(
+        "--last", type=int, default=None, metavar="N", help="show only the newest N transactions"
+    )
+    p_transactions.set_defaults(func=cmd_transactions)
+
     p_artifacts = sub.add_parser(
         "artifacts",
         help="list every remote data artifact for a selection, with no station (D-070)",
@@ -7126,12 +7429,31 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_install.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help=(
+            "stream every line each command prints as it arrives, instead of the one "
+            "in-place status line shown for a command that runs longer than two seconds "
+            "on a terminal; the run log is the same either way"
+        ),
+    )
+    p_install.add_argument(
         "--full",
         action="store_true",
         help=(
             "print every step of the plan expanded; without it a run of steps that "
             "repeat one template for many items (a sheet, a tile, a book) is shown "
             "as the template, one example, every item and the totals (D-016)"
+        ),
+    )
+    p_install.add_argument(
+        "--recheck",
+        action="store_true",
+        help=(
+            "ask every data item's publisher at plan time, including the installed "
+            "ones the log attributes (otherwise those are trusted for 7 days; "
+            "#197, D-049)"
         ),
     )
     p_install.add_argument(
@@ -7166,6 +7488,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="resolve the removal and print exactly what would run, then stop",
     )
     p_uninstall.add_argument("--yes", action="store_true", help="skip the confirmation")
+    p_uninstall.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="stream every line each command prints as it arrives (see `install --verbose`)",
+    )
     p_uninstall.add_argument(
         "--user",
         default=None,

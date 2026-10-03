@@ -165,7 +165,7 @@ def test_an_operator_already_in_the_group_is_not_added_again() -> None:
 
 def test_refresh_runs_before_anything_else() -> None:
     commands = commands_for(_plan(), AptBackend(RecordingRunner()), refresh=True)
-    assert _argv(commands[0]) == ("apt-get", "update")
+    assert _argv(commands[0]) == ("apt-get", "-o", "Acquire::Retries=3", "update")
 
 
 def test_refresh_is_skipped_when_nothing_asks_apt_to_resolve() -> None:
@@ -176,12 +176,12 @@ def test_refresh_is_skipped_when_nothing_asks_apt_to_resolve() -> None:
     update runs, whatever the flag says."""
     empty = InstallPlan(target=TARGET, packages=())
     commands = commands_for(empty, AptBackend(RecordingRunner()), refresh=True)
-    assert all(_argv(c)[:2] != ("apt-get", "update") for c in commands)
+    assert all(not (_argv(c)[0] == "apt-get" and "update" in _argv(c)) for c in commands)
 
 
 def test_no_refresh_leaves_the_update_out() -> None:
     commands = commands_for(_plan(), AptBackend(RecordingRunner()), refresh=False)
-    assert all(_argv(c)[:2] != ("apt-get", "update") for c in commands)
+    assert all(not (_argv(c)[0] == "apt-get" and "update" in _argv(c)) for c in commands)
 
 
 # ---------------------------------------------------------------------------
@@ -255,6 +255,86 @@ def test_the_echoed_line_matches_the_process_table(tmp_path: Path) -> None:
     execute([command], runner, log=log, plan=_plan(), echo=lines.append, euid=1000)
     shown = [line for line in lines if line.lstrip().startswith("$")]
     assert shown and "sudo" in shown[0]
+
+
+def test_step_indices_match_the_plan_progress_and_run_log(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from hammunition import runlog
+    from hammunition.interface.plan import step_view
+
+    steps = [
+        Command(argv=("first",), description="First fixture step", requires_root=False),
+        Command(argv=("second",), description="Second fixture step", requires_root=False),
+    ]
+    views = [step_view(step, euid=1000, index=index) for index, step in enumerate(steps, 1)]
+    assert [view.index for view in views] == [1, 2]
+
+    active = runlog._open(tmp_path / "run.log", None)
+    monkeypatch.setattr(runlog, "_active", active)
+    lines: list[str] = []
+    try:
+        execute(
+            steps,
+            RecordingRunner(),
+            log=TransactionLog(tmp_path / "log.jsonl"),
+            plan=_plan(),
+            echo=lines.append,
+            euid=1000,
+        )
+    finally:
+        runlog._active = None
+        active.close(0, 0.0)
+
+    expected = [
+        "step 1/2: First fixture step",
+        "step 2/2: Second fixture step",
+    ]
+    assert [line for line in lines if line.startswith("  step ")] == [
+        f"  {line}" for line in expected
+    ]
+    logged = [line for line in (tmp_path / "run.log").read_text().splitlines() if "step " in line]
+    assert [line.split("meta    ", 1)[1] for line in logged] == expected
+
+
+def test_uninstall_step_indices_match_progress_and_run_log(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from hammunition import runlog
+    from hammunition.execute import run_removal
+    from hammunition.state import RemovalPlan
+
+    steps = [
+        Command(argv=("first",), description="First fixture removal", requires_root=False),
+        Command(argv=("second",), description="Second fixture removal", requires_root=False),
+    ]
+    active = runlog._open(tmp_path / "uninstall.log", None)
+    monkeypatch.setattr(runlog, "_active", active)
+    lines: list[str] = []
+    try:
+        report = run_removal(
+            steps,
+            RecordingRunner(),
+            log=TransactionLog(tmp_path / "uninstall.jsonl"),
+            plan=RemovalPlan(to_remove={}, left_foreign={}, already_absent={}),
+            target=TARGET,
+            echo=lines.append,
+            euid=1000,
+        )
+    finally:
+        runlog._active = None
+        active.close(0, 0.0)
+
+    assert report.ok
+    expected = [
+        "step 1/2: First fixture removal",
+        "step 2/2: Second fixture removal",
+    ]
+    assert [line.strip() for line in lines if line.startswith("  step ")] == expected
+    logged = [
+        line for line in (tmp_path / "uninstall.log").read_text().splitlines() if "step " in line
+    ]
+    assert [line.split("meta    ", 1)[1] for line in logged] == expected
 
 
 def test_a_successful_transaction_is_closed(tmp_path: Path) -> None:
@@ -867,6 +947,14 @@ def test_install_dry_run_prints_the_plan_and_executes_nothing(
     assert "transaction log written to" in out
 
 
+def test_listening_dry_run_plans_supersdr(monkeypatch: pytest.MonkeyPatch, capsys: Any) -> None:
+    _mock_apt(monkeypatch, populated=True)
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "listening"])
+    out = capsys.readouterr().out
+    assert rc == EXIT_OK
+    assert "supersdr" in out
+
+
 def test_install_refreshes_the_lists_by_default_and_no_refresh_turns_it_off(
     monkeypatch: pytest.MonkeyPatch, capsys: Any
 ) -> None:
@@ -879,14 +967,64 @@ def test_install_refreshes_the_lists_by_default_and_no_refresh_turns_it_off(
     rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "git"])
     out = capsys.readouterr().out
     assert rc == EXIT_OK
-    assert "apt-get update" in out
-    assert out.index("apt-get update") < out.index("apt-get install")
+    assert "apt-get -o Acquire::Retries=3 update" in out
+    assert out.index("apt-get -o Acquire::Retries=3 update") < out.index(
+        "apt-get -o Acquire::Retries=3 install"
+    )
 
     rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "--no-refresh", "git"])
     out = capsys.readouterr().out
     assert rc == EXIT_OK
-    assert "apt-get update" not in out
-    assert "apt-get install" in out
+    assert "apt-get -o Acquire::Retries=3 update" not in out
+    assert "apt-get -o Acquire::Retries=3 install" in out
+
+
+def test_a_failed_apt_fetch_advises_retry_without_changing_failure_log(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _mock_apt(monkeypatch, populated=True)
+
+    class FetchFailureRunner(RecordingRunner):
+        def run(self, command: Command) -> CommandResult:
+            self.commands.append(command)
+            if command.argv[0] == "apt-get" and "install" in command.argv:
+                return CommandResult(
+                    argv=command.argv,
+                    returncode=100,
+                    stdout="",
+                    stderr=(
+                        "E: Failed to fetch https://192.0.2.1/package.deb "
+                        "502 Bad Gateway\n"
+                        "E: Unable to fetch some archives, maybe run apt-get update "
+                        "or try with --fix-missing?\n"
+                    ),
+                )
+            return CommandResult(argv=command.argv, returncode=0, stdout="", stderr="")
+
+    runner = FetchFailureRunner()
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda: runner)
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+
+    rc = main(["--catalog", str(CATALOG), "install", "--yes", "--no-refresh", "git"])
+    err = capsys.readouterr().err
+    log = TransactionLog(tmp_path / "state" / "hammunition" / "transactions.jsonl")
+
+    assert rc == EXIT_FAILED
+    assert "-o Acquire::Retries=3" in err
+    assert "run the same command again" in err
+    assert "cached downloads are reused" in err
+    events = list(log.read())
+    assert [event["event"] for event in events] == [
+        "transaction_begin",
+        "command_begin",
+        "command_end",
+        "transaction_failed",
+    ]
+    assert events[2]["returncode"] == 100
+    assert events[-1]["completed"] == 0
 
 
 def test_install_dry_run_discloses_offline_data_size_and_licence(
@@ -1251,7 +1389,7 @@ def test_every_fetch_runs_before_apt_and_apt_before_a_build(tmp_path: Path) -> N
     )
     labels = [s.kind if isinstance(s, Action) else s.argv[0] for s in steps]
     assert labels == ["fetch", "apt-get", "apt-get", "extract", "./configure", "make", "make"]
-    assert _argv(steps[1]) == ("apt-get", "update")
+    assert _argv(steps[1]) == ("apt-get", "-o", "Acquire::Retries=3", "update")
 
 
 def test_a_fetch_that_fails_leaves_apt_unrun(tmp_path: Path) -> None:
@@ -1323,9 +1461,9 @@ def test_a_bad_callsign_is_an_error_message_not_a_traceback(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """StationError from operator input gets the validator's message and the
-    planning exit code. Found on the first Parrot VM run that passed
-    --callsign N0CALL: the run ended in a raw traceback."""
-    code = main(["install", "linbpq", "--dry-run", "--callsign", "N0CALL"])
+    planning exit code. Five characters after the digit exceed the accepted
+    four-character callsign shape."""
+    code = main(["install", "linbpq", "--dry-run", "--callsign", "N0CALLL"])
     assert code == EXIT_UNPLANNABLE
     err = capsys.readouterr().err
     assert "does not look like a callsign" in err
@@ -1573,7 +1711,9 @@ def test_the_plan_names_the_units_that_asked_for_no_recommends() -> None:
     assert "without Recommends" in text
     assert "morse-classic" in text
     installs = [
-        c for c in commands if isinstance(c, Command) and c.argv[:2] == ("apt-get", "install")
+        c
+        for c in commands
+        if isinstance(c, Command) and c.argv[0] == "apt-get" and "install" in c.argv
     ]
     assert len(installs) == 2
     for command in installs:

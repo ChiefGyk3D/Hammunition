@@ -27,8 +27,9 @@ Readers lose nothing: `TransactionLog.read()` yields the archives in name
 order (the leading sequence number, not the clock, orders them: a machine whose clock steps back before a GPS fix still reads its history in the order it was written) and then
 the live file, the same events in the same order as before the move. `status`,
 `update` and `uninstall`, and the replays they stand on, call only that, and a
-test compares their output before and after a rotation. **Nothing is deleted**:
-what `uninstall` attributes to Hammunition is history. An archive that exists
+test compares their output before and after a rotation. `hammunition transactions`
+uses the same reader to display that history. **Nothing is deleted**: what
+`uninstall` attributes to Hammunition is history. An archive that exists
 and cannot be read stops the reader with an error rather than being skipped,
 since skipping it would report installed units as not installed.
 
@@ -80,13 +81,39 @@ exit does.
 
 | `event` | Written | Carries |
 |---|---|---|
-| `transaction_begin` | Once, first | `target`, the manifest `packages` requested, the `apt_packages` the whole set resolved to. **Version 2** (2026-09-03) adds `deferred`: one `{kind, subject, what, why}` per thing the plan chose not to do — `kind: package` for a profile member the target does not offer (**D-039**), `kind: config` for a file a station value was missing for (**D-035**). `status` prints them; a version 1 entry has no key and nothing is inferred from its absence. |
+| `transaction_begin` | Once, first | `target`, the manifest `packages` requested, the `apt_packages` the whole set resolved to. **Version 2** (2026-09-03) adds `deferred`: one `{kind, subject, what, why}` per thing the plan chose not to do — `kind: package` for a profile member the target does not offer (**D-039**), `kind: config` for a file a station value was missing for (**D-035**). `status` prints them; a version 1 entry has no key and nothing is inferred from its absence. When a D-077 run log is active, `run_log` records its path; older or unlogged transactions omit it. |
 | `command_begin` | Before each command | `argv`, `requires_root`, `description`. |
 | `command_end` | After each command that ran | `argv`, `returncode`. |
 | `action_begin` | Before each in-process step | `kind` (`fetch`, `extract`, `config`, `requirements`, `wrapper`, `desktop-entry`, `patch`, `prepare`, `install-binary`, `verify-pin`, `remove-venv`, `remove-wrapper`, `remove-desktop-entry`), `detail`, `description`. |
 | `action_end` | After each in-process step | `kind`, `detail`, `outcome` — one line saying what actually happened. `detail` (added 2026-08-31) is what uninstall's file-attribution replay reads back for `install-binary`; older entries without it leave those installs unattributed, reported and left in place. A step's own facts follow, never over one of those keys: a data download (a `data` unit's file, a map region, a terrain tile) adds `source` (`cache`, `mirror` or `publisher`), `fetched_from` (the URL the bytes came from, absent for `cache`) and, when a LAN mirror was passed over for the publisher, `mirror_failure` saying why (**D-070**). |
+| `unit_end` | When a unit's last owned step exits 0, inside the transaction (#272, #279) | `unit`, `ok` (`true`), `run` (the `timestamp` of this run's `transaction_begin`), `catalog_version`, and either `pin` for a source, git or non-deb binary unit, or opaque SHA-256 `state` for regional, derived, DEM, topo and CoMaps data. Shared map-ledger checks belong to the units they validate. A later failure does not erase finished units; on success, records follow `verify_effects` and are omitted if verification fails. A reader that does not know the event ignores it. |
 | `transaction_failed` | Instead of the rest, on the first failure | the failing `argv`, its `returncode` (or `error` for a missing binary), and how many commands `completed` before it. For an in-process step, `kind` and `detail` in place of `argv`. |
 | `transaction_end` | Once, on the success path | `completed`, and the effect check below. |
+
+### `unit_end` — what a rerun may trust (#272, #279)
+
+```json
+{"event": "unit_end", "version": 1, "timestamp": "2026-10-03T15:02:11+00:00",
+ "unit": "osm-pmtiles", "ok": true, "run": "2026-10-03T14:31:07+00:00",
+ "catalog_version": "1.0", "state": "…sha256…"}
+```
+
+`status` reads it: a unit with a `unit_end` in an install that then failed, or
+was killed, reports `last_outcome: completed`, with `completed_in_failed_run`
+naming that install; a unit whose steps only partly ran keeps the run's own
+word (`failed`, or `interrupted` with no ending). The plan trusts a build only
+when its declared outputs are on disk and its `pin` is exactly this manifest's
+build directory. Map and terrain units require both a matching opaque `state`
+fingerprint over resolved input pins/digests and selection, and an on-disk
+check by their own backend (regional attribution, derived outputs, or DEM/topo
+records and files). Changing a region set, input digest or topo bound, or
+losing an output, replans the unit. The fingerprint does not store raw station
+region selections. A later `uninstall_begin` naming the unit voids it. On
+success, `unit_end` follows `verify_effects`; failed verification writes no
+completion records. `uninstall` replays commands and actions and is
+unaffected; `update` reads the same attribution as the plan. Logs written
+before this event read as before, and the event reads across rotation, since
+every reader walks the archives in order.
 
 ### `transaction_end` — version 2, the effect check (D-031)
 

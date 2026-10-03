@@ -87,6 +87,10 @@ def test_the_install_plan_document(
     doc = parse_one(out)
     assert rc == 0 and doc["kind"] == "plan" and doc["outcome"] == "planned"
     validate(doc)
+    assert doc["step_count"] == len(doc["install"]["commands"])
+    assert [step["index"] for step in doc["install"]["commands"]] == list(
+        range(1, doc["step_count"] + 1)
+    )
     assert_golden("install-dry-run", doc, paths)
     _rc, text = _run(capsys, "install", "--dry-run", "fixture-apt")
     assert_text_values_in_json(text, doc, render_plan_view, cli.cmd_install)
@@ -161,6 +165,10 @@ def test_the_uninstall_plan_document(
     doc = parse_one(out)
     assert rc == 0 and doc["kind"] == "plan" and doc["action"] == "uninstall"
     validate(doc)
+    assert doc["step_count"] == len(doc["removal"]["commands"])
+    assert [step["index"] for step in doc["removal"]["commands"]] == list(
+        range(1, doc["step_count"] + 1)
+    )
     assert_golden("uninstall-dry-run", doc, paths)
     _rc, text = _run(capsys, "uninstall", "--dry-run", "fixture-apt")
     assert_text_values_in_json(text, doc, render_removal_view, cli.cmd_uninstall)

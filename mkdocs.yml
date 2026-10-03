@@ -112,14 +112,28 @@ nav:
       - index.md
       - The projects we install: projects.md
       - Credits: credits.md
-  - Getting started:
-      - getting-started/index.md
-      - Install the engine: getting-started/install.md
-      - How much disk you need: getting-started/disk-space.md
-      - Your first profile: getting-started/first-profile.md
-      - First contact: getting-started/first-contact.md
-      - The console: getting-started/console.md
-      - What works on which desktop: desktops.md
+  - Installation: getting-started/installation.md
+  - Profiles:
+      - profiles/index.md
+      - station: profiles/station.md
+      - digital-modes: profiles/digital-modes.md
+      - packet: profiles/packet.md
+      - logging: profiles/logging.md
+      - morse: profiles/morse.md
+      - propagation: profiles/propagation.md
+      - satellite: profiles/satellite.md
+      - antenna: profiles/antenna.md
+      - sdr: profiles/sdr.md
+      - listening: profiles/listening.md
+      - navigation: profiles/navigation.md
+      - reference: profiles/reference.md
+      - phone-maps: profiles/phone-maps.md
+      - electronics: profiles/electronics.md
+      - workstation: profiles/workstation.md
+      - editors: profiles/editors.md
+      - rf-security: profiles/rf-security.md
+      - rfid: profiles/rfid.md
+      - rf-research: profiles/rf-research.md
   - Guides:
       - guides/index.md
       - Operating:
@@ -143,27 +157,18 @@ nav:
           - A LAN mirror for map and reference data: guides/lan-mirror.md
           - Operating at a conference: guides/conference-operating.md
           - Rayhunter: guides/rayhunter.md
-  - Profiles:
-      - profiles/index.md
-      - station: profiles/station.md
-      - digital-modes: profiles/digital-modes.md
-      - packet: profiles/packet.md
-      - logging: profiles/logging.md
-      - morse: profiles/morse.md
-      - propagation: profiles/propagation.md
-      - satellite: profiles/satellite.md
-      - antenna: profiles/antenna.md
-      - sdr: profiles/sdr.md
-      - listening: profiles/listening.md
-      - navigation: profiles/navigation.md
-      - reference: profiles/reference.md
-      - phone-maps: profiles/phone-maps.md
-      - electronics: profiles/electronics.md
-      - workstation: profiles/workstation.md
-      - editors: profiles/editors.md
-      - rf-security: profiles/rf-security.md
-      - rfid: profiles/rfid.md
-      - rf-research: profiles/rf-research.md
+  - Troubleshooting:
+      - troubleshooting/index.md
+      - Installing: troubleshooting/install-failures.md
+      - Running: troubleshooting/running.md
+  - Getting started:
+      - getting-started/index.md
+      - Installing the engine, short form: getting-started/install.md
+      - How much disk you need: getting-started/disk-space.md
+      - Your first profile: getting-started/first-profile.md
+      - First contact: getting-started/first-contact.md
+      - The console: getting-started/console.md
+      - What works on which desktop: desktops.md
   - Packages:
       - packages/index.md
   - Hardware:
@@ -215,10 +220,6 @@ nav:
           - Cameras: hardware/camera-class.md
           - Sunplus Integrated_Webcam_FHD: hardware/sunplus-integrated-webcam-fhd.md
       - LibreVNA (vector network analyser): hardware/librevna.md
-  - Troubleshooting:
-      - troubleshooting/index.md
-      - Installing: troubleshooting/install-failures.md
-      - Running: troubleshooting/running.md
   - RF security:
       - rf-security/index.md
       - Kismet: rf-security/kismet.md
@@ -277,5 +278,6 @@ nav:
       - Adding a manifest: contributing/manifests.md
       - Sending hardware identifiers: contributing/hardware.md
       - Testing in VMs: contributing/vm-testing.md
+      - Continuous integration: contributing/ci.md
       - Releasing: contributing/releasing.md
       - The docs sweep: contributing/docs-sweep.md

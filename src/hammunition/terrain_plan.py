@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
 
+from .attributed import PublisherChecks, recheck_installed
 from .backends.base import CommandRunner
 from .backends.brouter import JAR_GLOB, BRouterConverter, InputPins
 from .backends.brouter import Source as BRouterSource
@@ -109,6 +110,7 @@ def resolve_terrain(
     region_probe: Probe,
     tile_probe: TileProbe,
     on_outage: OnOutage | None = None,
+    checks: PublisherChecks | None = None,
 ) -> DemResolution:
     """*regions* as ``(region, slug)`` pairs -- this run's and the kept ones --
     resolved to the tiles they need and how each is fetched. A pair named
@@ -148,6 +150,19 @@ def resolve_terrain(
                 raise CopernicusError(f"{tile.url} answered HTTP {status}, not 200")
         return tile
 
+    # #197: an installed tile the log attributes is not asked again until the
+    # attribution is a week old; a failed re-check is a note, never a refusal.
+    recheck_installed(
+        checks,
+        installed.name,
+        current,
+        name=lambda tile: tile,
+        path=lambda tile: installed / f"{tile}{TIF}",
+        check=check,
+        label="installed terrain tiles against the Copernicus DEM bucket",
+        probe=tile_probe,
+    )
+
     fetch: list[TileFile] = []
     deferred: list[str] = []
     outcomes = run_checks(todo, check, label="terrain tiles against the Copernicus DEM bucket")
@@ -186,6 +201,7 @@ def resolve_bare_earth(
     region_probe: Probe,
     tile_probe: TileProbe,
     on_outage: OnOutage | None = None,
+    checks: PublisherChecks | None = None,
     bound: TopoBound = ALL,
 ) -> DemResolution:
     """*regions* resolved to their USGS 3DEP tiles, under *bound* (issue #232) (D-068, amended
@@ -242,6 +258,17 @@ def resolve_bare_earth(
             raise CopernicusError(absent)
         check_tile(row, tile_probe)
         return row
+
+    recheck_installed(
+        checks,
+        installed.name,
+        current,
+        name=lambda tile: tile,
+        path=lambda tile: installed / f"{tile}{TIF}",
+        check=check,
+        label="installed 3DEP terrain tiles against the USGS bucket",
+        probe=tile_probe,
+    )
 
     outcomes = run_checks(todo, check, label="3DEP terrain tiles against the USGS bucket")
     for name, outcome in zip(todo, outcomes, strict=True):
@@ -322,6 +349,7 @@ def resolve_station_3dep(
     region_probe: Probe,
     tile_probe: TileProbe,
     outages: Outages | None = None,
+    checks: PublisherChecks | None = None,
     bound: TopoBound | None = ALL,
 ) -> tuple[DemResolution, tuple[str, ...]]:
     """The plan's 3DEP tiles and notes (D-068, amended 2026-10-01). Nothing
@@ -346,6 +374,7 @@ def resolve_station_3dep(
         region_probe=region_probe,
         tile_probe=tile_probe,
         on_outage=reporter_for(outages, unit),
+        checks=checks,
         bound=bound,
     )
     return resolution, ()
@@ -395,6 +424,7 @@ def resolve_station_terrain(
     region_probe: Probe,
     tile_probe: TileProbe,
     outages: Outages | None = None,
+    checks: PublisherChecks | None = None,
 ) -> DemResolution:
     """The plan's terrain, or an empty resolution when it holds no dem-tiles unit.
 
@@ -431,6 +461,7 @@ def resolve_station_terrain(
         region_probe=region_probe,
         tile_probe=tile_probe,
         on_outage=reporter_for(outages, unit),
+        checks=checks,
     )
 
 

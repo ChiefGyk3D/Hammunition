@@ -100,6 +100,9 @@ still does not answer:
   refuses, naming `scripts/gen_ustopo_index.py --fetch`, because the carried
   index is stale (**D-039**, amended 2026-10-02).
 
+Successful tile `HEAD` answers are reused from the artifacts cache for six
+hours. Non-200 answers and failed requests are not cached.
+
 No long option is accepted abbreviated, with or without `--json`:
 `--dry` is `unrecognized arguments`, never `--dry-run` (**D-059**). A CLI
 that guards installs and consent gates behind exact flags does not guess
@@ -1105,13 +1108,14 @@ A profile's documentation, its package list, and — for a gated profile — the
 full consent disclosure, printed without installing anything. This is how an
 operator reads a disclosure before deciding, rather than while being asked.
 
-With `--json`, prints a `profile` document
-([json-interface.md](json-interface.md)), the disclosure included. Under
-`--json` only, `show` also accepts a unit's name and prints a `unit`
-document carrying its manifest; the text `show` still describes profiles
-only.
+With `--json`, `hammunition show PROFILE` prints a `profile` document
+([json-interface.md](json-interface.md)), the disclosure included. A unit is
+also accepted: `hammunition show UNIT --json` prints a `unit` document carrying
+its manifest. Names are resolved against profiles first, then units, so a
+profile wins if the same name exists in both. The text form still describes
+profiles only.
 
-### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--full] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
+### `hammunition install NAME... [--dry-run] [--yes] [-v|--verbose] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--recheck] [--full] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
 **A re-run rebuilds nothing it has already built** (**D-051**): a source, git
 or prebuilt-archive unit whose binaries are on the machine *and* whose build
@@ -1122,12 +1126,40 @@ build steps -- is rebuilt, because nothing confirmed it.
 
 Names may be packages or profiles, mixed freely.
 
+**What a running command shows** (**#270**). Each step prints its `$` line. On a
+terminal, a command that runs longer than two seconds gets one status line
+under it, rewritten in place every second:
+
+```
+  $ git -C … submodule update --init --recursive --depth 1
+    this step can take several minutes
+  … 1m 42s  Receiving objects:  41% (3120/7600), 612.00 MiB | 4.10 MiB/s
+```
+
+It shows the time the command has been running and the last line it printed
+(colour and control characters removed, cut to the terminal's width), and is
+erased when the command ends. Nothing is added when stdout is not a terminal
+(a pipe, CI, a file), so a transcript there is what it was. With `--verbose`
+every output line is written as it arrives instead, indented under the `$`
+line, on a terminal or not. The sudo keepalive's warnings (**D-062**) go
+through the same writer, so they cannot land in the middle of the status line.
+Neither mode changes the run log (**D-077**): it holds every line of every
+command either way, and what the terminal shows is never written into it.
+
+`this step can take several minutes` is printed under a step the backend knows
+is long: a git block's submodule fetch, a `cmake`, `make` or `qmake` compile, a
+virtualenv's `pip install`, a node build. The plan prints the same line under
+those steps (`StepView.long_running` in `--json`). It states no duration; none
+has been measured.
+
 | Flag | Effect |
 |---|---|
 | `--dry-run` | Resolve everything, print exactly what would run, change nothing |
 | `--yes` | Skip the confirmation. **Does not satisfy a consent gate** (D-021). Also suppresses the station prompt |
+| `-v`, `--verbose` | Stream every line each command prints, as it arrives, in place of the status line described below (**#270**). The run log is the same either way |
 | `--no-refresh` | Skip the `apt-get update` that otherwise opens every transaction with apt work (**D-044**). For a local mirror, or a station with no uplink. `--refresh` is the default and still parses |
 | `--no-sudo-keepalive` | Do not hold sudo's ticket for the run (**D-062**). By default a run as a user that mixes root steps with steps that are not asks the password once, by `sudo -v`, before the first step, and keeps the ticket valid with `sudo -n -v` every 4 minutes until the run ends. With this flag each root step asks for itself, and one that follows a long step may prompt again. `--sudo-keepalive` is the default and still parses |
+| `--recheck` | Ask every data item's publisher at plan time, including installed items the transaction log attributes. Without it those are trusted for 7 days (`attributed.RECHECK_AFTER_DAYS`): the plan prints `N installed data item(s) were not re-checked against their publishers` with the oldest attribution date, `--json` carries a `publisher_checks` line per item with `checked: false` and the reason, and an item attributed 7 or more days ago, or whose file is not the one the log recorded, is asked again. A re-check that fails is a `note:`, never a refusal; the real run verifies everything it fetches either way (**D-049**, #197) |
 | `--no-mirror` | Ignore the LAN mirror set in station config for this run (**D-070**): every data download comes from its publisher. With no mirror set it changes nothing |
 | `--full` | Print every step of the plan expanded. Without it, a run of steps that repeat one template for many items (a US Topo sheet, a terrain tile, a Kiwix book) is printed as the template with `<placeholders>`, the first item written out in full, every item's own values on a line, and the totals; `--dry-run --full` prints the plan exactly as it was before grouping (**D-016**, amended 2026-10-02). `--json` always carries every step, with or without it |
 | `--user NAME` | Who to add to groups. Defaults to `$SUDO_USER`, then `$USER` |
@@ -1428,20 +1460,47 @@ section by section. A plan that refuses is still a `plan`, with `outcome:
 is refused** with an `error` document and nothing runs: a real install is
 never driven through JSON (**D-059**). A front end runs the ordinary command
 in your terminal, where sudo, every consent gate and every disclosure are
-this CLI's, then reads `status --json`. The plan names your account, paths
+this CLI's, then reads `status --json`. Every plan step has a stable, 1-based
+index in execution order; `step_count` gives the total. Text plans show each
+step's position, including the covered range of a grouped block, and real runs
+print the same `step N/COUNT: DESCRIPTION` line before starting it. The plan
+names your account, paths
 in your home and the station's map regions, so the document is for a local
 program, not for pasting into an issue. It never carries a rendered
 configuration file, so the callsign in one is not in it.
 
-### `hammunition uninstall NAME... [--dry-run] [--yes] [--user NAME]`
+**A rerun after a failure** plans only what is not done. When a unit's last
+step finishes the engine writes a `unit_end` to the transaction log
+([transaction-log.md](transaction-log.md)), so a failure in a later unit leaves
+every earlier one recorded and `status` reports it `completed`, with
+`completed_in_failed_run` naming the install. Run the same request again and
+the plan lists the unit that failed and the ones after it. A built unit is
+skipped (planned `already installed`) only when its declared binaries and tree
+marker are on disk and the recording is at the manifest's current pin; a
+missing file, or a moved pin, plans the build again. Units installed through
+apt are decided by apt as before. Regional, derived, DEM, topo and CoMaps units
+also resume when their completion fingerprint still matches the resolved
+inputs and selection, and their backend confirms the expected files and records
+are current. Changing a region, input digest or topo bound—or losing an output—
+plans that unit again. The fingerprint is opaque and does not store the station's
+raw region selection. Shared map-ledger checks are owned by the units they
+validate. On a successful run, completion records are written only after
+`verify_effects`; a failed check does not claim completion.
+
+### `hammunition uninstall NAME... [--dry-run] [--yes] [-v|--verbose] [--user NAME]`
 
 Removes what Hammunition itself installed, and only that (**D-004**). Names
 may be packages or profiles, mixed freely.
+
+The dry-run and JSON list each removal step with its 1-based execution index
+and total count. A real uninstall prints the same `step N/COUNT: DESCRIPTION`
+line before starting each step.
 
 | Flag | Effect |
 |---|---|
 | `--dry-run` | Resolve the removal, print exactly what would run, change nothing |
 | `--yes` | Skip the confirmation |
+| `-v`, `--verbose` | Stream every output line as it arrives; see `install` |
 | `--user NAME` | Whose transaction log to read. Defaults to `$SUDO_USER`, then `$USER` |
 
 "Installed by Hammunition" is read from the transaction log, by replaying the
@@ -1733,9 +1792,12 @@ from the checkout, and the one to paste when asking for help.
 
 With `--json`, prints a `doctor` document
 ([json-interface.md](json-interface.md)): each check's name, severity,
-detail and fix, and the counts. The exit code is the text run's. It keeps
-the count-only rule the text follows: no callsign, grid square or region
-name.
+detail, prose fix and, when that fix is one command, its `fix_argv` argument
+list; advice that is not a command has `fix_argv: null`. `doctor` never runs a
+fix. A local front end may offer a command to the operator, but must show it
+and wait for explicit confirmation before running it. The text output shows a
+single-command fix in a code span. The exit code is the text run's. It keeps
+the count-only rule the text follows: no callsign, grid square or region name.
 
 ### `hammunition hardware list`
 
@@ -2085,7 +2147,19 @@ write its last line). Reads only. `--last` prints the newest in full;
 and `--last` exits `1`. The files, their format and their rotation are
 `docs/reference/run-logs.md`.
 
-### `hammunition station show` / `hammunition station set`
+### `hammunition transactions [--last N] [--json]`
+
+The transaction history, oldest first across every rotated archive and the live
+file (**D-077**). Each row gives the begin and end times, command, units,
+deferred names, result (`ok`, `failed`, `aborted` or `in-progress`) and the
+associated run-log path when one was recorded. A missing end is `in-progress`
+only while its run log is still held open; otherwise it is `aborted`. Older
+transactions without a recorded run-log path show `—` in text and `null` in
+JSON. `--last N` limits the rows to the newest N while keeping them in
+chronological order. `--json` prints the `transactions` document
+([json-interface.md](json-interface.md)).
+
+### `hammunition station show`
 
 The values only you can supply — callsign, grid square, packet node alias,
 the regions to carry offline maps for, the LAN mirror to take their data
@@ -2152,7 +2226,16 @@ callsign, grid square, node alias, and every map region by name, because a
 local front end needs them to fill in a form. It is for local programs, not
 for pasting into an issue, a forum or a chat: a callsign resolves to a name
 and a licence address, and a grid square or a region says where the station
-is. `station set` has no JSON form.
+is.
+
+### `hammunition station set`
+
+`station set --json` prints a `station-set` document
+([json-interface.md](json-interface.md)) with the values saved,
+the given values left unchanged, and one refusal for each rejected flag. Its
+exit code is `2` if any flag was refused; when that happens, none of the
+requested values are saved. It carries station values too, so it is for local
+programs, not for pasting into an issue, a forum or a chat.
 
 ## Launchers and menu entries
 
@@ -2323,6 +2406,7 @@ capability matrix that reports coverage the engine does not have is the shim
 | A profile every member of which this target cannot install | the profile by name, with each member's reason — installing nothing and reporting success is not an outcome (**D-039**) |
 | No apt package lists at all, and `--no-refresh` | that this is a stale-lists problem, and that dropping `--no-refresh` lets this run fix it. Without the flag, the run's own `apt-get update` comes first and the plan says instead that the candidate check cannot be done before it |
 | A group membership with no identifiable operator | that `--user` is needed |
+| A unit whose `requires_java` is above the Java this machine has, or no `java` at all | the unit, the measured `java -version` line (or that none was found on PATH or at `/usr/lib/jvm/default-java/bin/java`), the floor, and the archive's `openjdk-N-jre-headless` that would meet it where the plan's apt sweep knows one; nothing is fetched (**D-037**, amended 2026-10-02). A *profile* member is deferred instead, the D-039 shape, and `--json` carries it in `deferrals` as for any other deferral. A concrete `openjdk-N-jre*` in the unit's `depends` that meets the floor is not a deferral and is noted in the plan; no Java at all with only `default-jre-headless` in `depends` is disclosed as *check `java -version` afterwards* and the unit plans |
 | A unit whose `requires_kernel` names a subsystem the running kernel's module tree lacks | the unit, the kernel release and the merge that removed the subsystem, with the remedies that exist: a distribution kernel that still carries it, or the userspace path (Direwolf's KISS/AGW ports serve pat, LinBPQ, YAAC and Xastir without kernel AX.25). Never an offer to build the module — no distribution packages one, and Hammunition builds no kernel modules (**D-041**). A *profile* member is deferred instead, the D-039 shape. No module tree for the running kernel at all — a container — is disclosed as *cannot be checked* and the unit plans |
 | A unit whose `desktops` names none of the desktops this machine's session files offer | the unit, the desktops it is for and the ones the machine has (`(it has no session files)` on a server or container, and `(its session files name none the catalog knows: …)` on a machine whose only desktop the catalog does not name), and the remedy: the unit its manifest names in `desktop_alternative` when that one serves a desktop the machine has, otherwise installing a session for the unit's desktop first. A *profile* member is deferred instead, the D-039 shape (**D-060**) |
 

@@ -225,6 +225,9 @@ class RunLog:
         self.write("cmd", "$ " + " ".join(argv))
         return time.monotonic()
 
+    def step_start(self, index: int, count: int, description: str) -> None:
+        self.write("meta", f"step {index}/{count}: {description}")
+
     def command_output(self, stream: str, line: str) -> None:
         self.write("cmd-out" if stream == "out" else "cmd-err", _clean(line.rstrip("\n")))
 
@@ -276,6 +279,8 @@ def _open(path: Path, owner: str | None) -> RunLog:
     parent = path.parent
     ensure_operator_dir(parent, owner)
     with contextlib.suppress(OSError):
+        # Semgrep: a deliberate mode (0755/0644 on installed files and launchers, 0700 private); nothing group- or world-writable.
+        # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
         os.chmod(parent, 0o700)
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC, 0o600)
     try:

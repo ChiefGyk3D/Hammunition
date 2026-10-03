@@ -10,7 +10,10 @@ so a manifest that says 0.69 GB and fetches something else is refused rather
 than trusted. A ``file`` is copied under the unit's data directory; a ``zip``
 or ``tarball`` is extracted into it, or into its own subdirectory ``into``,
 through the same guarded extraction the source backend uses, and only its
-listed ``members`` when it lists any (D-071). Nothing here is executed, ever.
+listed ``members`` when it lists any (D-071). An archive is unpacked into the
+operator's build directory first and installed by the plan's own printed
+commands (``install -d``, ``cp -aT``, the D-043 ``chown -R -h``), privileged
+when the prefix is root's (#271). Nothing here is executed, ever.
 
 The install directory is ``<prefix>/share/hammunition/data/<name>/`` -- a
 namespace only this engine writes, which is what lets ``uninstall`` remove
@@ -72,10 +75,20 @@ class DataBackend:
     prefix: Path
     runner: CommandRunner | None = None
     """Escalates the copy into a root-owned prefix when the engine is not root."""
+    build_root: Path | None = None
+    """Where an archive is unpacked before it is installed: the operator's
+    scratch, never the prefix. None puts it beside the fetch cache."""
+    owner: str | None = None
+    """The operator an installed tree is handed to (D-043); None keeps it root's."""
     method = "data"
 
     def data_dir(self, manifest: PackageManifest) -> Path:
         return self.prefix / "share" / "hammunition" / "data" / manifest.name
+
+    def staging_dir(self, manifest: PackageManifest, artifact: DataArtifact) -> Path:
+        """Where an archive artifact is unpacked first. Keyed by its digest."""
+        root = self.build_root or self.fetcher.cache_dir.parent / "builds"
+        return root / f"{manifest.name}-data-{artifact.sha256[:12]}"
 
     def steps(self, manifest: PackageManifest, block: DataInstall) -> list[Action | Command]:
         # Late import: see the TYPE_CHECKING comment at the top of this
@@ -119,17 +132,32 @@ class DataBackend:
                 description = (
                     f"Extract {manifest.name} data ({artifact.format}) into {target}{which}"
                 )
+            if artifact.format == "file":
+                steps.append(
+                    Action(
+                        kind="install-data",
+                        description=description,
+                        # The destination, verbatim: uninstall's attribution replay
+                        # reads it back, as it does install-binary's.
+                        detail=str(dest),
+                        perform=partial(self._install, artifact, fetched, dest),
+                        requires_root=needs_root_for(self.prefix),
+                    )
+                )
+                continue
+            staged = self.staging_dir(manifest, artifact)
             steps.append(
                 Action(
                     kind="install-data",
-                    description=description,
-                    # The destination, verbatim: uninstall's attribution replay
-                    # reads it back, as it does install-binary's.
+                    description=f"{description}, unpacked first under {staged} as you "
+                    f"(modes 0644 files, 0755 directories); nothing is written to the "
+                    f"prefix by this step",
+                    # The destination, verbatim, as for a file (see above).
                     detail=str(dest),
-                    perform=partial(self._install, artifact, fetched, dest),
-                    requires_root=needs_root_for(self.prefix),
+                    perform=partial(self._stage, artifact, fetched, staged),
                 )
             )
+            steps.extend(self._tree_commands(manifest.name, staged, dest))
         return steps
 
     def register_steps(
@@ -248,15 +276,68 @@ class DataBackend:
             writer = PrefixWriter(privileged=needs_root_for(self.prefix), runner=self.runner)
             writer.install_verified(path, dest, algorithm="sha256", digest=artifact.sha256)
             return f"installed {dest} ({human_size(artifact.size)}, mode 0644, sha256 re-verified)"
-        if artifact.into is not None:
-            # The unit's own directory, which a first archive with `into` makes.
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            os.chmod(dest.parent, 0o755)
-        outcome = extract(path, dest, members=artifact.members)
-        installed = sorted(p for p in dest.rglob("*") if p.is_file())
+        raise BackendError(  # pragma: no cover
+            "archive artifacts are staged and installed through _stage and the tree commands"
+        )
+
+    def _stage(self, artifact: DataArtifact, fetched: dict[str, Path], staged: Path) -> str:
+        """Unpack the archive into *staged*, in the operator's scratch, and fix
+        its modes there; the copy into the prefix is the plan's next steps."""
+        path = fetched.get("path")
+        if path is None:  # pragma: no cover
+            raise BackendError("the data artifact was not fetched before the install step")
+        staged.parent.mkdir(parents=True, exist_ok=True)
+        outcome = extract(path, staged, members=artifact.members)
+        installed = sorted(p for p in staged.rglob("*") if p.is_file())
         for p in installed:
+            # Semgrep: a deliberate mode (0755/0644 on installed files and launchers, 0700 private); nothing group- or world-writable.
+            # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
             os.chmod(p, 0o644)
-        for d in (p for p in dest.rglob("*") if p.is_dir()):
+        for d in (p for p in staged.rglob("*") if p.is_dir()):
+            # Semgrep: a deliberate mode (0755/0644 on installed files and launchers, 0700 private); nothing group- or world-writable.
+            # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
             os.chmod(d, 0o755)
-        os.chmod(dest, 0o755)
-        return f"{outcome}; {len(installed)} file(s) under {dest}"
+        # Semgrep: a deliberate mode (0755/0644 on installed files and launchers, 0700 private); nothing group- or world-writable.
+        # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
+        os.chmod(staged, 0o755)
+        return f"{outcome}; {len(installed)} file(s) staged under {staged}"
+
+    def _tree_commands(self, name: str, staged: Path, dest: Path) -> list[Command]:
+        """Put the staged tree at *dest* the way the tree backends do (D-043):
+        privileged when the prefix is root's, as the operator when it is theirs."""
+        privileged = needs_root_for(self.prefix)
+        how = "" if privileged else " (your own prefix, no root needed)"
+        commands = [
+            Command(
+                argv=("rm", "-rf", "--", str(dest)),
+                description=f"Clear any previous {name} data at {dest}{how}",
+                requires_root=privileged,
+            ),
+            Command(
+                argv=("install", "-d", str(dest.parent)),
+                description=f"Ensure {dest.parent} exists{how}",
+                requires_root=privileged,
+            ),
+            Command(
+                argv=("cp", "-aT", "--no-preserve=ownership", str(staged), str(dest)),
+                description=f"Install the staged {name} data into {dest}{how}",
+                requires_root=privileged,
+            ),
+        ]
+        if privileged and self.owner:
+            # -h never follows a symlink: a link pointing outside the tree
+            # cannot hand root's files to the operator (D-043).
+            commands.append(
+                Command(
+                    argv=("chown", "-R", "-h", "--", f"{self.owner}:", str(dest)),
+                    description=f"Hand the {name} data tree to {self.owner}",
+                    requires_root=True,
+                )
+            )
+        commands.append(
+            Command(
+                argv=("rm", "-rf", "--", str(staged)),
+                description=f"Delete the staged copy of the {name} data",
+            )
+        )
+        return commands

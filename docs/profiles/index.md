@@ -2,28 +2,85 @@
 
 # Profiles
 
-Named bundles of software that belong together. Flat tags with overlap, never nested (D-003) — compose them freely. Each page is generated from the profile's manifest.
+A profile is a named bundle of software that belongs together. Profiles
+are flat tags with overlap, never nested (D-003): `gpsd` is in both
+`station` and `navigation`, and you compose them freely. There are 19 of them, 12 in the 1.0 set and 7 that came after it. Every page below is generated from the profile's manifest, so it cannot drift from what the engine does.
 
-| Profile | Stage | Packages | Summary |
-|---|---|---:|---|
-| [antenna](antenna.md) | 1.0 | 12 | Antenna modelling, transmission lines and coverage prediction |
-| [digital-modes](digital-modes.md) | 1.0 | 22 | FT8, JS8, PSK31, SSTV, digital voice and the rest of the keyboard modes |
-| [editors](editors.md) | post-1.0 | 2 | VS Code and VSCodium, opt-in, each behind its publisher's apt repository |
-| [electronics](electronics.md) | 1.0 | 14 | Bench electronics, instruments and device programmers |
-| [listening](listening.md) | 1.0 | 27 | Shortwave, utility and aeronautical listening — no licence, no transmitter |
-| [logging](logging.md) | 1.0 | 11 | Station logs, contest logging and award tracking |
-| [morse](morse.md) | 1.0 | 17 | Morse code — sending, decoding, learning, and licence exam practice |
-| [navigation](navigation.md) | post-1.0 | 27 | Offline maps and turn-by-turn navigation from your own GPS, with no network |
-| [packet](packet.md) | 1.0 | 24 | AX.25, APRS, Winlink and the EMCOMM stack |
-| [phone-maps](phone-maps.md) | post-1.0 | 3 | Offline maps and points of interest for the team's phones, built on the laptop |
-| [propagation](propagation.md) | 1.0 | 12 | Band conditions, grey line, beacons and DX spotting |
-| [reference](reference.md) | post-1.0 | 6 | An offline library -- Wikipedia, WikiMed, ham Q&A, dictionaries and the ICS forms -- on one local page |
-| [rf-research](rf-research.md) 🔒 | post-1.0 | 2 | Transmit-capable and interception-capable RF tooling — affirmative opt-in required |
-| [rf-security](rf-security.md) | 1.0 | 13 | Spectrum analysis, wireless auditing and protocol inspection |
-| [rfid](rfid.md) | post-1.0 | 6 | RFID and NFC — card protocols, readers, and the tooling to study them |
-| [satellite](satellite.md) | 1.0 | 4 | Tracking, working and decoding amateur and weather satellites |
-| [sdr](sdr.md) | 1.0 | 16 | Software-defined radio — receivers, GNU Radio, and the driver layer |
-| [station](station.md) | 1.0 | 14 | The floor every station stands on — rig control, time, position |
-| [workstation](workstation.md) | post-1.0 | 7 | Terminal and bench tooling for the machine the station runs on |
+## How to use this page
 
-🔒 = consent-gated (D-021).
+1. Find your goal in [Which profile do I want](#which-profile-do-i-want).
+2. Open that profile's page and read what it installs, what it leaves out and what you configure by hand.
+3. Run `hammunition install <profile> --dry-run`, read the plan, then run it again without `--dry-run`. [Installation](../getting-started/installation.md) walks the whole path.
+
+**Install `station` first** on any machine you will operate from. Every other profile assumes rig control, a correct clock and a position source are there. Then add the mode profile you want.
+
+## All profiles
+
+Units is the number of catalog entries the profile names. A target that lacks one defers it by name and installs the rest. Footprint figures say where they were measured on each profile's own page.
+
+| Profile | What it is for | Stage | Units | Disk | Assumes | Consent gates | Leaves out |
+|---|---|---|---:|---|---|---|---|
+| [`antenna`](antenna.md) | Antenna modelling, transmission lines and coverage prediction | 1.0 | 12 | about 150 MB, plus terrain when map regions are set | None to model | none | general propagation prediction, rotator control, LibreVNA-GUI |
+| [`digital-modes`](digital-modes.md) | FT8, JS8, PSK31, SSTV, digital voice and the rest of the keyboard modes | 1.0 | 22 | about 1.2 GB, plus 0.9 GB of build trees; six source builds | A transceiver, an audio path between it and the computer (a sound-card interface, a Digirig-class device or the radio's own USB audio), and a way to key it: CAT, a serial control line or VOX | none | packet and Winlink, Morse, SvxLink repeater software, any callsign or frequency configuration |
+| [`electronics`](electronics.md) | Bench electronics, instruments and device programmers | 1.0 | 14 | about 250 MB; LibreVNA's build adds about 780 MB of Qt development packages | The programmers and instruments themselves | none | KiCad, Fritzing, ngspice (reserved to the maintainer), udev rules (applied separately) |
+| [`listening`](listening.md) | Shortwave, utility and aeronautical listening — no licence, no transmitter | 1.0 | 28 | about 400 MB; eight source or pinned-git builds | An SDR and an antenna for the band you want | none | anything that transmits, anything aimed at protected communications |
+| [`logging`](logging.md) | Station logs, contest logging and award tracking | 1.0 | 11 | about 700 MB; QLog is a long source build | None | none | not1mm (not in Debian), kel-agent (a local web socket), station-wide callsign config |
+| [`morse`](morse.md) | Morse code — sending, decoding, learning, and licence exam practice | 1.0 | 17 | under 100 MB | None for learning, which generates its own audio | none | fldigi's CW decoder, contest loggers, morse-runner (installs by name) |
+| [`packet`](packet.md) | AX.25, APRS, Winlink and the EMCOMM stack | 1.0 | 24 | about 500 MB, plus 220 MB for FreeDATA's venv | A VHF or HF transceiver with an audio path to the computer for the soundcard TNC route, or a hardware TNC | none | VARA and its messaging client, Pi-APRS, any callsign or port configuration |
+| [`propagation`](propagation.md) | Band conditions, grey line, beacons and DX spotting | 1.0 | 12 | about 450 MB | None | none | nothing Q-006 chose to drop; Ubuntu 24.04 lacks openhamclock's Node |
+| [`rf-security`](rf-security.md) | Spectrum analysis, wireless auditing and protocol inspection | 1.0 | 13 | about 300 MB, mostly Wireshark | A monitor-mode Wi-Fi adapter, an Ubertooth or Bluetooth adapter, or an SDR, depending on what you capture | a typed key fingerprint per repository, only where the target's archive lacks the unit: `kismet` | anything cellular, and everything gated in rf-research |
+| [`satellite`](satellite.md) | Tracking, working and decoding amateur and weather satellites | 1.0 | 4 | about 400 MB, double without GNU Radio | An SDR and an antenna for receiving, or a transceiver for working amateur satellites | none | NOAA APT decoders (all satellites retired 2025-11-09), FoxTelem |
+| [`sdr`](sdr.md) | Software-defined radio — receivers, GNU Radio, and the driver layer | 1.0 | 16 | about 1.5 GB, most of it GNU Radio | An SDR and an antenna | none | eleven of twelve per-device SoapySDR modules (install yours by name) |
+| [`station`](station.md) | The floor every station stands on — rig control, time, position | 1.0 | 14 | about 125 MB | None to install it | none | per-manufacturer radio tools, loggers, anything mode-specific |
+| [`editors`](editors.md) | VS Code and VSCodium, opt-in, each behind its publisher's apt repository | post-1.0 | 2 | about 400 MB per editor | None | a typed key fingerprint per repository, only where the target's archive lacks the unit: `codium`, `code` | every other editor, extensions and settings sync |
+| [`navigation`](navigation.md) | Offline maps and turn-by-turn navigation from your own GPS, with no network | post-1.0 | 27 | per region: the download plus roughly 3 to 4 times it; Navit alone is small | A USB GPS receiver for position (the `station` profile carries gpsd) | none | phone maps, Kiwix, tile servers, raster tile stacks |
+| [`phone-maps`](phone-maps.md) | Offline maps and points of interest for the team's phones, built on the laptop | post-1.0 | 3 | per region: the download plus about a fifth and three quarters of it, and about 15 times it as scratch while building | A phone that reads Mapsforge files (install the app while it still has internet) | none | OsmAnd, Organic Maps, CoMaps and PocketMaps files, Transportr |
+| [`reference`](reference.md) | An offline library -- Wikipedia, WikiMed, ham Q&A, dictionaries and the ICS forms -- on one local page | post-1.0 | 6 | readers and dictionaries about 50 MB; each book from 27 MB up | None | none | wikiHow, ARRL material, Gutenberg in full, video ZIMs |
+| [`rf-research`](rf-research.md) | Transmit-capable and interception-capable RF tooling — affirmative opt-in required | post-1.0 | 2 | small beyond GNU Radio, which gr-gsm pulls in | A supported SDR; `hacktv` drives a HackRF, `gr-gsm` needs a receiver | profile gate, `HAMMUNITION_ACCEPT_RF_RESEARCH` | transmit-capable cellular stacks (post-1.0, their own gated profile), everything in rf-security |
+| [`rfid`](rfid.md) | RFID and NFC — card protocols, readers, and the tooling to study them | post-1.0 | 6 | under 50 MB from apt; the Proxmark3 build is larger | A card reader (a PN53x NFC reader, a PC/SC reader or a Proxmark3) and cards you own or are authorised to test | none | UHF and long-range RFID, credential cloning for use, key dictionaries |
+| [`workstation`](workstation.md) | Terminal and bench tooling for the machine the station runs on | post-1.0 | 7 | about 200 MB | None | none | shells, dotfiles, window managers, editors |
+
+## Which profile do I want
+
+Find what you want to do. The profiles are listed in the order to install them, `station` first where it applies.
+
+| I want to | Install |
+|---|---|
+| Build my own signal-processing flow graphs (GNU Radio) | [`sdr`](sdr.md) |
+| Carry offline maps on my team's phones | [`phone-maps`](phone-maps.md) |
+| Control my radio from the computer (CAT) and share it between programs | [`station`](station.md) |
+| Decode aircraft, ships, DAB or other signals with an SDR | [`listening`](listening.md), [`sdr`](sdr.md) |
+| Install VS Code or VSCodium | [`editors`](editors.md) |
+| Keep the clock right with no network (GPS time) | [`station`](station.md) |
+| Know when a band is open | [`propagation`](propagation.md) |
+| Learn or practise Morse code, or study for the licence exam | [`morse`](morse.md) |
+| Listen with a cheap SDR dongle | [`listening`](listening.md), [`sdr`](sdr.md) |
+| Log contacts and upload them to Logbook of the World | [`logging`](logging.md) |
+| Make FT8, JS8Call or PSK31 contacts | [`station`](station.md), [`digital-modes`](digital-modes.md) |
+| Model an antenna or predict its coverage | [`antenna`](antenna.md) |
+| Navigate offline from my own GPS | [`navigation`](navigation.md) |
+| Program a handheld radio | [`station`](station.md) |
+| Read Wikipedia and the ICS forms with no network | [`reference`](reference.md) |
+| Receive weather satellite images | [`listening`](listening.md) |
+| Report my position on APRS | [`packet`](packet.md) |
+| Run a packet node or BBS | [`packet`](packet.md) |
+| See repeaters, airfields and hospitals on an offline map | [`navigation`](navigation.md) |
+| Send and receive pictures (SSTV) or weather faxes | [`digital-modes`](digital-modes.md) |
+| Send email by radio (Winlink) or run packet | [`station`](station.md), [`packet`](packet.md) |
+| Set up a serial console, git and the tools every device problem starts with | [`workstation`](workstation.md) |
+| Study cellular or transmit-capable RF research tooling | [`rf-research`](rf-research.md) |
+| Study RFID and NFC cards | [`rfid`](rfid.md) |
+| Study wireless and Bluetooth security | [`rf-security`](rf-security.md) |
+| Track and hear satellites | [`satellite`](satellite.md) |
+| Use digital voice (FreeDV, M17, DMR, D-STAR) without a radio | [`digital-modes`](digital-modes.md) |
+| Watch the grey line and DX spots on a live map | [`propagation`](propagation.md) |
+| Work at a bench: flash devices, measure with a NanoVNA or tinySA | [`electronics`](electronics.md) |
+
+## What to read next
+
+- [Installation](../getting-started/installation.md): the whole path from a fresh machine, with every command and what it prints.
+- [The guides](../guides/index.md): one task each, from rig control to a first FT8 contact to offline maps.
+- [Troubleshooting](../troubleshooting/index.md): by symptom.
+- [The package reference](../packages/index.md): every program, what it does and where to get help with it.
+
+`hammunition list profiles` prints the same list on your own machine, with how many of each you have installed, and `hammunition show <profile>` prints a profile's documentation.

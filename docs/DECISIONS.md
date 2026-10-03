@@ -2404,6 +2404,36 @@ exists to refuse — so the engine names the gap and stops.
 (upstream's `prebuild` fetches it from a moving tag, skipped here) is carried
 as a pinned artefact. The built-in model serves until an operator asks.
 
+**Amendment, 2026-10-02 — the Java floor beside the Node floor.** `graphhopper`
+and `brouter` depend on `default-jre-headless`, a metapackage whose version says
+nothing about the Java major it brings: Ubuntu 22.04 and Pop!_OS 22.04 resolve it
+to Java 11, GraphHopper's classes are major 61 (Java 17), and both units planned
+cleanly and failed at run time (the deferred minor from PRs #176 and #191). The
+rule is D-037's, with a probe in place of a package version. A manifest names
+`requires_java: <major>` (a positive integer); the plan runs `java -version`
+once, only if some unit in the transaction declares the field, on the `java` on
+PATH or else `/usr/lib/jvm/default-java/bin/java`, and parses the major from the
+first line (`"17.0.12"` is 17, `"21"` is 21, `"1.8.0_392"` is 8). Below the
+floor, or no `java` at all: a profile member is deferred by name, a unit the
+operator typed is refused with the same text (D-039), either one stating the
+measured version, the floor, and the archive's `openjdk-N-jre-headless` that
+would meet it where the plan's own `apt-cache policy` sweep knows one. Nothing is
+fetched or installed to meet a floor. Two cases are not deferrals. A concrete
+`openjdk-N-jre*` in the unit's own `depends` with N at or above the floor and an
+archive candidate meets it in this very transaction, and the plan says so. And a
+machine with *no* Java whose unit depends only on a JRE metapackage cannot be
+measured before the install (refusing would defer both units on every clean
+Debian 13), so the plan discloses that and says to check `java -version`
+afterwards; a metapackage with a too-old Java already installed is the reported
+case and still defers. The floors are measured, per D-037's last sentence:
+GraphHopper 17 (its pom's `<release>17</release>` and the jar's class-file
+major 61); BRouter **11** (its build sets `options.release = 11`, the jar is
+major 55; upstream's Docker image uses 17, which is an image choice, not a
+floor); the Mapsforge writer (target 8) and the archive's osmosis carry their
+own JRE dependency, so they declare none. The capability matrix has no column
+for floors (it records archive candidates, and Node's floor is not there either),
+so nothing changes in it.
+
 **Amendment, 2026-09-02 — what the loopback bind is and is not.** Written
 while carrying the first unit. The engine's wrapper sets `HOST=127.0.0.1`
 and the schema refuses a manifest that sets `HOST` at all, so the *engine's*
@@ -3739,6 +3769,38 @@ backend that fetches, verifies and installs; the plan's disclosure; the
 docs generator's rendering; `capability_matrix.py` knows the method.
 `country_files.yaml` is the proof. Q-021 is closed by this record; Q-015
 decision 8's deferral ends with it.
+
+**Amended 2026-10-02 (maintainer's ruling on #197): an installed item the log
+attributes is not re-asked of its publisher at plan time, and is re-checked
+after seven days.** A plan used to ask the publisher about every item it would
+fetch and nothing about an item already on disk, so a repeated dry run cost
+what the first did only while the first had not installed; the ruling adds a
+bound on trust in the other direction. The rule, for a terrain or 3DEP tile, a
+US Topo or FSTopo sheet, a Kiwix book and a CoMaps map:
+
+1. An item on disk that the transaction log attributes (the last
+   `install-data` `action_end` for its destination, replayed through
+   `TransactionLog.read()` so rotated archives count, D-077, and cancelled by a
+   later `remove-data`) and whose attribution is **younger than seven days**
+   (`attributed.RECHECK_AFTER_DAYS`) is planned as "installed, not re-checked
+   (attributed DATE)" and makes no request.
+2. One attributed **seven days or more ago**, or any attributed item under
+   `install --recheck`, is asked again, as a missing one is. That re-check
+   **never refuses and never defers**: the item is installed. A publisher that
+   no longer serves it as pinned, or does not answer, becomes a `note:` line
+   and the installed copy is kept; replacing it is the operator's decision.
+3. An item on disk the log does **not** attribute (copied in by hand, or
+   installed before the log recorded it) keeps what it had: its file counts and
+   nothing is asked. An attributed item whose file is not the one the log
+   recorded (a different size, or a catalog pin that is no longer the digest
+   attributed) is not trusted and is asked again. `install-data` entries now
+   carry `size` (and `digest` for books and maps); an older entry has neither
+   and is trusted on its timestamp alone.
+4. The plan says how many items were not re-checked and the oldest attribution
+   among them; `install --json` carries `publisher_checks`, one line per item on
+   disk with `checked`, the `reason` and the `attributed` date.
+5. Nothing about the real run changes: whatever it fetches it verifies, so a
+   skipped item can only have been skipped when there was nothing to fetch.
 
 ## D-050 — The menu is shaped like Parrot's: one top menu, ordered groups, one submenu per category, and an entry for every installed unit
 

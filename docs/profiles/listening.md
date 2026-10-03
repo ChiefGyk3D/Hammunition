@@ -6,9 +6,24 @@
 
 **Stage:** 1.0
 
+## Who it is for
+
+Someone who wants to receive and decode what is on the air without a licence and without transmitting: aircraft, ships, DAB and HD Radio, utility signals, weather satellites. It is the best on-ramp the catalog has.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | 1.0 |
+| Units | 28 |
+| Disk | about 400 MB; eight source or pinned-git builds |
+| Hardware | An SDR and an antenna for the band you want. One dongle hears one band at a time, so ADS-B on 1090 MHz and UAT on 978 MHz together need two. |
+| Consent | none |
+| Install | `hammunition install listening` |
+
 ## What it installs
 
-The aeronautical decoder cluster — ACARS, VDL Mode 2 and HFDL, with the shared library that turns their raw text into structured messages and a database to keep what was heard. Aircraft transponder decoding on both ADS-B links, 1090 MHz and the US-only 978 MHz UAT, with a multilateration feeder. Marine AIS three ways. DAB in a window and in a pipe, and HD Radio, the digital side of North American FM and AM. A multi-channel airband scanner, digital voice protocol decoding, paging and classic mode decoding, weather satellite imaging, two Morse decoders, and an offline signal-identification reference (Artemis, the sigidwiki database in a window) for the moment you see something on the waterfall and do not know what it is.
+The aeronautical decoder cluster — ACARS, VDL Mode 2 and HFDL, with the shared library that turns their raw text into structured messages and a database to keep what was heard. Aircraft transponder decoding on both ADS-B links, 1090 MHz and the US-only 978 MHz UAT, with a multilateration feeder. Marine AIS three ways. DAB in a window and in a pipe, and HD Radio, the digital side of North American FM and AM. A multi-channel airband scanner, digital voice protocol decoding, paging and classic mode decoding, weather satellite imaging, two Morse decoders, and an offline signal-identification reference (Artemis, the sigidwiki database in a window) for the moment you see something on the waterfall and do not know what it is. SuperSDR connects to a remote KiwiSDR and synchronizes its panadapter with rig control; it has no upstream licence file, so it is carried under D-033 with that position stated here and is never mirrored.
 
 **Disk footprint:** Around 400 MB. Six of these are source or pinned-git builds — the whole aeronautical cluster plus kalibrate-rtl — and dump978-fa and nrsc5 are two more, so the install takes longer than the size suggests.
 
@@ -17,15 +32,56 @@ The aeronautical decoder cluster — ACARS, VDL Mode 2 and HFDL, with the shared
 **This is the profile that needs no licence and no transmitter**, which makes it the best on-ramp this project has. Someone with a twenty-pound dongle and a wire can have aircraft on a map within an hour, and that is usually what turns an interest into a hobby.
 It is also where the Skywave delta lands. The aeronautical cluster in particular is a genuine hole in Debian — libacars, acarsdec, dumpvdl2 and dumphfdl are absent from stable *and* unstable, measured in containers — so it is the clearest case of the thing this project exists to do: install what a person cannot easily install themselves.
 
-## Packages (27)
+## Packages (28)
 
-[`libacars`](../packages/libacars.md), [`acarsdec`](../packages/acarsdec.md), [`acarsserv`](../packages/acarsserv.md), [`dumpvdl2`](../packages/dumpvdl2.md), [`dumphfdl`](../packages/dumphfdl.md), [`rtlsdr-airband`](../packages/rtlsdr-airband.md), [`multimon-ng`](../packages/multimon-ng.md), [`multimon`](../packages/multimon.md), [`dsdcc`](../packages/dsdcc.md), [`readsb`](../packages/readsb.md), [`tar1090`](../packages/tar1090.md), [`dump978-fa`](../packages/dump978-fa.md), [`mlat-client-adsbfi`](../packages/mlat-client-adsbfi.md), [`gr-air-modes`](../packages/gr-air-modes.md), [`rtl-ais`](../packages/rtl-ais.md), [`ais-catcher`](../packages/ais-catcher.md), [`gnuais`](../packages/gnuais.md), [`gnuaisgui`](../packages/gnuaisgui.md), [`welle-io`](../packages/welle-io.md), [`dablin`](../packages/dablin.md), [`nrsc5`](../packages/nrsc5.md), [`satdump`](../packages/satdump.md), [`kalibrate-rtl`](../packages/kalibrate-rtl.md), [`morse2ascii`](../packages/morse2ascii.md), [`xdemorse`](../packages/xdemorse.md), [`gqrx-sdr`](../packages/gqrx-sdr.md), [`artemis`](../packages/artemis.md)
+[`libacars`](../packages/libacars.md), [`acarsdec`](../packages/acarsdec.md), [`acarsserv`](../packages/acarsserv.md), [`dumpvdl2`](../packages/dumpvdl2.md), [`dumphfdl`](../packages/dumphfdl.md), [`rtlsdr-airband`](../packages/rtlsdr-airband.md), [`multimon-ng`](../packages/multimon-ng.md), [`multimon`](../packages/multimon.md), [`dsdcc`](../packages/dsdcc.md), [`readsb`](../packages/readsb.md), [`tar1090`](../packages/tar1090.md), [`dump978-fa`](../packages/dump978-fa.md), [`mlat-client-adsbfi`](../packages/mlat-client-adsbfi.md), [`gr-air-modes`](../packages/gr-air-modes.md), [`rtl-ais`](../packages/rtl-ais.md), [`ais-catcher`](../packages/ais-catcher.md), [`gnuais`](../packages/gnuais.md), [`gnuaisgui`](../packages/gnuaisgui.md), [`welle-io`](../packages/welle-io.md), [`dablin`](../packages/dablin.md), [`nrsc5`](../packages/nrsc5.md), [`satdump`](../packages/satdump.md), [`kalibrate-rtl`](../packages/kalibrate-rtl.md), [`morse2ascii`](../packages/morse2ascii.md), [`xdemorse`](../packages/xdemorse.md), [`gqrx-sdr`](../packages/gqrx-sdr.md), [`supersdr`](../packages/supersdr.md), [`artemis`](../packages/artemis.md)
 
 ## What it deliberately excludes
 
-**`supersdr`, the headline remote-KiwiSDR client**, which Q-007 decided to carry and which now installs: a hash-pinned venv beside the app tree, with a generated launcher (the venv-and-payload route; D-033 has the licence position). It is not a member of this profile, or of any, so `hammunition install supersdr` installs it by name. Also excludes anything that transmits, and anything aimed at protected communications — those are `rf-security` and the consent-gated `rf-research`.
+Anything that transmits, and anything aimed at protected communications — those are `rf-security` and the consent-gated `rf-research`.
+
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show listening
+hammunition install listening --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install listening
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
 
 ## What you configure by hand afterward
 
 **An antenna for the band matters more than the receiver.** A quarter wave for 1090 MHz is about 7 cm and for marine VHF about 46 cm; either, outside, will multiply what a stub on a desk achieves, and 1090 MHz is line of sight so height is everything. **Determine the dongle's PPM correction** — the two AIS channels are 50 kHz apart and an uncorrected offset silently puts one outside the filter, which reads as poor propagation. **One dongle hears one band at a time**: readsb on 1090 MHz and dump978-fa on 978 MHz together need two, and readsb can take dump978-fa's raw port as a second input so both links land in one set of JSON.
 Each decoder is configured separately and none is configured here; the aeronautical tools in particular want frequencies for your region. **Feeding an aggregator publishes what your receiver hears and where it is, continuously**, and every feeder here is off unless you configure it — that is a decision with a privacy dimension for the vessels and aircraft as well as for you.
+
+## Your first ten minutes
+
+1. Install `sdr` first, run `hammunition hardware apply`, log out and back in, and confirm the dongle with `rtl_test`. [The SDR profile](sdr.md) has the steps.
+2. Read the plan: `hammunition install listening --dry-run`. Several members build from source; on Ubuntu 24.04 a handful are deferred by name because the archive lacks them.
+3. Install: `hammunition install listening`.
+4. Start with the aircraft map: [SDR first steps](../guides/sdr.md) runs `readsb` and serves the map in a browser.
+5. Put an antenna for the band outside. A quarter wave for 1090 MHz is about 7 cm; height matters more than the receiver.
+6. Nothing here feeds an aggregator until you configure it. Decide that deliberately: feeding publishes what your receiver hears, and where it is.
+7. When you see something on the waterfall you cannot name, open `artemis`, the offline signal-identification reference.
+
+## Take it off again
+
+```sh
+hammunition uninstall listening --dry-run
+hammunition uninstall listening
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

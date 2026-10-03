@@ -143,7 +143,15 @@ def test_fake_hwclock_without_ntpsec_is_the_only_command(time_files: Path) -> No
     tg = plan_time_grants(installed=_only_gpsd)
     commands = grant_commands(tg, "/s", HELPER)
     assert [c.argv for c in commands] == [
-        ("apt-get", "install", "-y", "--no-install-recommends", "fake-hwclock")
+        (
+            "apt-get",
+            "-o",
+            "Acquire::Retries=3",
+            "install",
+            "-y",
+            "--no-install-recommends",
+            "fake-hwclock",
+        )
     ]
     assert commands[0].env == {"DEBIAN_FRONTEND": "noninteractive"}
 

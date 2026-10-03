@@ -74,7 +74,7 @@ class StationError(ValueError):
 #: Loose on purpose. Callsigns carry prefixes, suffixes and portable
 #: indicators; a strict pattern rejects real ones. This is the shape a
 #: configuration file needs, not a licensing check.
-CALLSIGN = re.compile(r"^[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}(?:/[A-Z0-9]{1,4})*$")
+CALLSIGN = re.compile(r"^[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,4}(?:/[A-Z0-9]{1,4})*$")
 
 #: Maidenhead: two letters, two digits, optionally two more letters, and the
 #: extended pairs some software wants. Case is normalised before matching.

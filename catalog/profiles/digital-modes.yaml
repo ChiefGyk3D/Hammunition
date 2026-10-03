@@ -112,3 +112,19 @@ documentation:
     they add to this profile's measured total has not been measured. fldigi purges the
     repository package first, because the source build installs to the same
     prefix.
+  who_for: "An operator who wants FT8, JS8Call, PSK31, RTTY, SSTV or digital voice through a transceiver and its sound card. It is the profile most people come to Hammunition for."
+  hardware_assumed: "A transceiver, an audio path between it and the computer (a sound-card interface, a Digirig-class device or the radio's own USB audio), and a way to key it: CAT, a serial control line or VOX. DroidStar and the SSTV and decoder tools run with no radio at all."
+  footprint_short: "about 1.2 GB, plus 0.9 GB of build trees; six source builds"
+  excludes_short: "packet and Winlink, Morse, SvxLink repeater software, any callsign or frequency configuration"
+  goals:
+    - "Make FT8, JS8Call or PSK31 contacts"
+    - "Send and receive pictures (SSTV) or weather faxes"
+    - "Use digital voice (FreeDV, M17, DMR, D-STAR) without a radio"
+  first_ten_minutes:
+    - "Install `station` first and run `hammunition hardware apply` if you have not; this profile assumes both. See [the station profile](station.md)."
+    - "Read the plan: `hammunition install digital-modes --dry-run`. Look for *will build* against fldigi, WSJT-X, MSHV, glfer, xwefax and DroidStar. Those compile on your machine and take a while."
+    - "Install it: `hammunition install digital-modes`. Leave it running; the build trees land in `~/.cache/hammunition/build`."
+    - "Look at what is wired to which sound card with `qpwgraph`. [Radio audio](../guides/audio-routing.md) finds which device is the radio and sets levels without overdriving it."
+    - "Check the clock before anything else. FT8 decodes nothing if the clock is more than about a second out: `hammunition doctor`, then [the clock section of the FT8 guide](../guides/digital-modes.md#3-time-the-clock-must-be-right)."
+    - "Point one program at the radio through the shared service (`127.0.0.1:4532`, *Hamlib NET rigctl*) and enter your callsign and grid in it. [Your callsign in each program](../guides/station-settings.md) lists where each one keeps them."
+    - "Open WSJT-X, pick FT8, and watch the waterfall for a full 15-second cycle before you transmit anything. [FT8 and the digital modes](../guides/digital-modes.md) goes from here to a first contact."
