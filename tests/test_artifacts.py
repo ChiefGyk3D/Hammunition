@@ -117,6 +117,22 @@ class Register:
         return self.answer
 
 
+class Head:
+    """A fake snapshot ``HEAD``: a size per URL, ``None`` for no length, or
+    an OSError for no answer."""
+
+    def __init__(self, sizes: dict[str, int | None] | None = None, fail: bool = False) -> None:
+        self.asked: list[str] = []
+        self.sizes = sizes or {}
+        self.fail = fail
+
+    def size(self, url: str) -> int | None:
+        self.asked.append(url)
+        if self.fail:
+            raise OSError("no route")
+        return self.sizes.get(url)
+
+
 class Bucket:
     def __init__(self) -> None:
         self.asked: list[str] = []
@@ -299,6 +315,62 @@ def test_the_acma_register_is_listed_unverified_with_the_days_size(tmp_path: Pat
     assert MirrorPath(entry.unit, entry.name or "") == MirrorPath("acma-register", acma.FILE_NAME)
 
 
+def test_the_default_units_end_with_the_repeater_snapshots() -> None:
+    assert select_units(CATALOG, ())[-1] == "repeater-snapshots"
+    assert select_units(CATALOG, ("repeater-snapshots",)) == ("repeater-snapshots",)
+
+
+def _snapshots(tmp_path: Path, probe: Head | None) -> tuple[ArtifactEntry, ...]:
+    return list_artifacts(
+        ("repeater-snapshots",),
+        regions=(),
+        freshness="yearly",
+        catalog=CATALOG,
+        catalog_root=_root(tmp_path),
+        today=TODAY,
+        region_probe=Geofabrik(),
+        tile_probe=Bucket(),
+        snapshot_probe=probe,
+    )
+
+
+def test_the_on_request_repeater_lists_are_listed_unverified_for_a_bunker(
+    tmp_path: Path,
+) -> None:
+    """D-078: ETCC, Brandmeister and hearham, as `unverified-fetch`: no digest,
+    the publisher's URL, the size from the last HEAD (None when the server
+    states none), the licence position, and a name a mirror serves under
+    `repeater-snapshots/`."""
+    from hammunition import repeater_sources as rs
+
+    urls = {s.name: s.url for s in rs.snapshots()}
+    probe = Head({urls["etcc.csv"]: 62_000, urls["brandmeister.json"]: None})
+    entries = _snapshots(tmp_path, probe)
+    assert [e.name for e in entries] == ["etcc.csv", "brandmeister.json", "hearham.json"]
+    assert sorted(probe.asked) == sorted(urls.values())
+    for entry in entries:
+        assert entry.unit == "repeater-snapshots" and entry.check == "unverified-fetch"
+        assert entry.check in CHECKS
+        assert entry.digest is None and entry.checksum_url is None and entry.deferred is None
+        assert entry.url == urls[entry.name or ""]
+        assert "never redistributed by the project" in entry.licence
+        assert MirrorPath(entry.unit, entry.name or "").segments == (
+            "repeater-snapshots",
+            entry.name,
+        )
+    assert [e.size for e in entries] == [62_000, None, None]
+
+
+def test_an_on_request_list_whose_size_cannot_be_read_is_deferred_by_name(
+    tmp_path: Path,
+) -> None:
+    for probe, why in ((Head(fail=True), "could not be read"), (None, "not asked for")):
+        entries = _snapshots(tmp_path / why.replace(" ", "-"), probe)
+        assert len(entries) == 3
+        assert all(e.deferred is not None and why in e.deferred for e in entries)
+        assert [e.name for e in entries] == ["etcc.csv", "brandmeister.json", "hearham.json"]
+
+
 def test_the_acma_register_is_deferred_when_its_size_cannot_be_read(tmp_path: Path) -> None:
     for probe, why in ((Register(None), "could not be read"), (None, "not asked for")):
         (entry,) = list_artifacts(
@@ -329,7 +401,7 @@ def test_the_infrastructure_units_are_listed_for_a_mirror_like_any_pinned_data(
 ) -> None:
     """D-075: the two US federal units and WRI's are pinned data, so a Bunker
     keeps them under the name the fetch asks a mirror for; the FCC and NWR
-    fetches are not units and are not listed."""
+    fetches are not listed (the ETCC, Brandmeister and hearham ones are, D-078)."""
     entries, _, _ = _list(tmp_path, (unit,), ())
     (entry,) = entries
     block = CATALOG[unit].install[0].install
@@ -521,6 +593,7 @@ def _cli(
     monkeypatch.setattr(cli, "UrllibProbe", Geofabrik)
     monkeypatch.setattr(cli, "S3Probe", Bucket)
     monkeypatch.setattr(cli, "AcmaProbe", Register)
+    monkeypatch.setattr(cli, "SnapshotHead", Head)
     monkeypatch.setattr(cli, "date", type("D", (), {"today": staticmethod(lambda: TODAY)}))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("USER", "op")
@@ -678,3 +751,15 @@ def test_every_listed_name_is_the_mirror_path_the_install_asks_for(tmp_path: Pat
         block = CATALOG[unit].install[0].install
         assert isinstance(block, DataInstall)
         assert [e.name for e in listed if e.unit == unit] == [data_name(a) for a in block.artifacts]
+
+
+def test_the_command_lists_the_snapshots_by_default_and_by_name(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rc, out, _ = _cli(monkeypatch, tmp_path, capsys, "--json", "--units", "repeater-snapshots")
+    doc = parse_one(out)
+    validate(doc)
+    assert rc == 0 and doc["units"] == ["repeater-snapshots"]
+    assert {a["check"] for a in doc["artifacts"]} == {"unverified-fetch"}
+    rc, out, _ = _cli(monkeypatch, tmp_path / "all", capsys, "--json")
+    assert "repeater-snapshots" in parse_one(out)["units"]

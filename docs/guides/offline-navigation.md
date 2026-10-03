@@ -1050,7 +1050,10 @@ arrived and names the layer *unverified*. hearham states no licence for its
 data, and says it should not be relied upon "for medical emergencies, or any
 other life-and-death operations". To combine it with your RepeaterBook
 export, save hearham's JSON yourself and give both files to one
-`maps repeaters import`.
+`maps repeaters import`. If your station names a LAN mirror (`station set
+--mirror`), the three `fetch-*` commands read `repeater-snapshots/<name>` from
+it first, and `--no-mirror` skips it; what a mirror sends is still
+unverified (**D-078**).
 
 ### More sources, one layer each
 
@@ -1223,9 +1226,13 @@ and rebuilds the rest.
   has no positions), the WIA's CSV (all rights reserved, no positions),
   repeatermap.de (a token on request only), and the D-STAR, YSF and NXDN
   lists (personal-use pages, or internet reflectors without positions).
-- An APRS-IS capture, and the US coordinators' and Brandmeister's lists
-  under an explicit licence: those wait on the maintainer's decision
-  (D-074).
+- An APRS-IS capture: that waits on the maintainer's decision (D-074). No
+  one writes to the US coordinators, the RSGB or Brandmeister for a licence
+  on your behalf; you bring your own export or your own key (**D-078**).
+- **Canada.** ISED's TAFL has no amateur rows and carries licensees' names
+  and addresses; its amateur call-sign file is names and addresses only; no
+  open bulk Canadian repeater list exists. Use your own RepeaterBook export
+  or `fetch-hearham` (D-074, 2026-10-03).
 
 ---
 

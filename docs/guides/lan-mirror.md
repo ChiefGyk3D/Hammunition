@@ -130,9 +130,16 @@ that keeps it is worth more than usual here: Open Repeater's download
 address carries no date, so its file changes whenever the site does and
 the catalog's pin goes stale between regenerations, while the copy the
 Bunker took at the pinned digest still installs. The repeater lists fetched
-on request (hearham, the ETCC, Brandmeister) are not data units and are not
-in the list; whether a Bunker may keep copies of them is the maintainer's
-decision, not yet made.
+on request (hearham, the ETCC, Brandmeister) are in it too (**D-078**), as
+unit `repeater-snapshots`, names `etcc.csv`, `brandmeister.json` and
+`hearham.json`, check `unverified-fetch`: no digest, the publisher's URL, the
+size from a `HEAD`, only the size and date to check. A Bunker may hold them
+under `hold_unverified`, the same switch as the ACMA zip; `fetch-etcc`,
+`fetch-brandmeister` and `fetch-hearham` read `<mirror>/repeater-snapshots/<name>`
+first and the publisher if it is not there, and the layer says which. Nothing
+a mirror serves there can be verified, so the layer is *unverified* either
+way. The project never hosts these files: you bring them, or your Bunker
+takes them from the publisher at your request.
 
 The ACMA's register (`acma-register`, **D-074**, amended 2026-10-01) is in
 the list as `acma-register/spectra_rrl.zip` with check `unverified-zip`, the
@@ -150,7 +157,7 @@ which clause 8 of the register's licence bars passing on: it exists for
 operators to download their own data and set up their station, the mirror is
 LAN-only by documented rule, and the engine never opens `client.csv`
 (maintainer's ruling of 2026-10-02, **D-074**). If you do not want it on your
-NAS, set Bunker's `hold_unverified = false` (a switch being added to Bunker).
+NAS, set Bunker's `hold_unverified = false`.
 
 The infrastructure layers' three data units (**D-075**) mirror like any
 pinned data: `faa-nasr-airports/APT_CSV.zip`, `eia-860m/eia860m.xlsx` and

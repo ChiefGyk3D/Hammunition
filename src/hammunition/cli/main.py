@@ -173,6 +173,7 @@ from hammunition.paths import (
 from hammunition.phone_plan import build_phone_run
 from hammunition.plan import NO_MAP_REGIONS, Blocker, InstallPlan, PlanError, resolve
 from hammunition.progress import Progress
+from hammunition.repeater_sources import SnapshotHead
 from hammunition.retry import (
     POLICY,
     Outages,
@@ -245,6 +246,7 @@ if TYPE_CHECKING:
     from hammunition.infra_sources import SourceRead
     from hammunition.interface.repeaters import AllSourcesView, RegistrationView
     from hammunition.qmapshack_config import BRouterSetup
+    from hammunition.repeater_sources import SnapshotRead
     from hammunition.repeaters import ParsedInput
     from hammunition.upstream import UpstreamRow
 
@@ -1304,6 +1306,7 @@ def cmd_artifacts(args: argparse.Namespace) -> int:
         region_probe=UrllibProbe(),
         tile_probe=S3Probe(),
         register_probe=AcmaProbe(),
+        snapshot_probe=SnapshotHead(),
     )
     doc = ArtifactsDocument(
         map_regions=regions,
@@ -2250,11 +2253,43 @@ def _import_repeater_source(args: argparse.Namespace) -> int:
         return EXIT_FAILED
 
 
+def _snapshot_mirror(args: argparse.Namespace) -> str | None:
+    """The station's LAN mirror for an on-request repeater fetch (D-078), or
+    ``None`` with ``--no-mirror``, no mirror set, or a station file that
+    cannot be read (said once; the publisher is then asked)."""
+    if getattr(args, "no_mirror", False):
+        return None
+    try:
+        return load_station(owner=operator(args)).mirror
+    except StationError as exc:
+        print(f"note: the station file could not be read ({exc}); not asking a mirror.")
+        return None
+
+
+def _snapshot_source_lines(read: SnapshotRead, mirror: str | None) -> str:
+    """What the operator is told about where the bytes came from, and the
+    ``when`` text the layer's licence records.  D-078."""
+    stamp = read.when.isoformat()
+    if read.source == "mirror":
+        print(
+            f"Read from your LAN mirror, {read.where}: a snapshot someone fetched earlier, "
+            f"its own date unknown. Still unverified; its sha256 is only what arrived.",
+            flush=True,
+        )
+        return (
+            f"Read from the LAN mirror {read.where} at {stamp} (a snapshot fetched earlier, "
+            f"date unknown)"
+        )
+    if mirror:
+        why = read.mirror_failure or "it did not have it"
+        print(f"The LAN mirror did not supply it ({why}); asking the publisher.", flush=True)
+    return f"Fetched {stamp}"
+
+
 def _fetch_repeater_list(
     args: argparse.Namespace,
     *,
-    url: str,
-    limit: int,
+    snapshot: str,
     disclosure: str,
     parse: Callable[[bytes, str], ParsedInput],
     licence: Callable[[str, str], str],
@@ -2262,27 +2297,32 @@ def _fetch_repeater_list(
     layer_id: str,
 ) -> int:
     """A list fetched on request through D-064's fetch (bounded, HTTPS-only
-    redirects), parsed from memory, written as its own layer.  D-074."""
+    redirects), parsed from memory, written as its own layer. The station's
+    LAN mirror is asked first, at ``<mirror>/repeater-snapshots/<snapshot>``,
+    unless ``--no-mirror`` (D-078).  D-074."""
+    from hammunition import repeater_sources as rs
     from hammunition import repeaters
 
     if _refuse_root("repeater overlays"):
         return EXIT_FAILED
+    (snap,) = (x for x in rs.snapshots() if x.name == snapshot)
+    mirror = _snapshot_mirror(args)
     print(disclosure, flush=True)
+    if mirror:
+        print(
+            f"Your station names a LAN mirror ({mirror}): it is asked first, for "
+            f"{rs.SNAPSHOT_UNIT}/{snap.name}, and the publisher only if it does not have it.",
+            flush=True,
+        )
     try:
-        body, digest, when = repeaters.fetch_list(url, limit=limit)
-    except repeaters.RepeaterFetchError as exc:
+        read = rs.read_snapshot(snap, parse, mirror=mirror)
+    except (repeaters.RepeaterFetchError, repeaters.RepeaterInputError) as exc:
         print(f"error: {exc}. Nothing was written.", file=sys.stderr)
         return EXIT_FAILED
-    try:
-        parsed = parse(body, url)
-    except repeaters.RepeaterInputError as exc:
-        print(f"error: {exc}. Nothing was written.", file=sys.stderr)
-        return EXIT_FAILED
-    finally:
-        del body  # never kept: Brandmeister's carries every hotspot's position
-    parsed = dataclasses.replace(parsed, sha256=digest)
-    day = when.date()
-    text = licence(f"Fetched {when.isoformat()}", digest)
+    parsed = dataclasses.replace(read.parsed, sha256=read.sha256)
+    when_text = _snapshot_source_lines(read, mirror)
+    day = read.when.date()
+    text = licence(when_text, read.sha256)
     return _write_repeater_layer([parsed], name(day), day, [text], args, layer_id)
 
 
@@ -2296,8 +2336,7 @@ def cmd_maps_repeaters_fetch_etcc(args: argparse.Namespace) -> int:
 
     return _fetch_repeater_list(
         args,
-        url=rs.ETCC_URL,
-        limit=rs.ETCC_LIMIT,
+        snapshot="etcc.csv",
         disclosure=(
             f"This fetches the RSGB ETCC's UK repeater list from {rs.ETCC_URL} (about 62 kB), "
             f"now and only now, and converts it on this machine. ukrepeater.net states no "
@@ -2322,8 +2361,7 @@ def cmd_maps_repeaters_fetch_brandmeister(args: argparse.Namespace) -> int:
 
     return _fetch_repeater_list(
         args,
-        url=rs.BRANDMEISTER_URL,
-        limit=rs.BRANDMEISTER_LIMIT,
+        snapshot="brandmeister.json",
         disclosure=(
             f"This fetches Brandmeister's whole DMR device list from {rs.BRANDMEISTER_URL} "
             f"(about 9.5 MB), now and only now, and converts it on this machine. Most entries "
@@ -2347,43 +2385,49 @@ def cmd_maps_repeaters_fetch_hearham(args: argparse.Namespace) -> int:
     no digest and no dated snapshot, so it is marked unverified (D-033's
     position). No ``--json`` form: the disclosure is printed before the
     request, for a person to read."""
+    from hammunition import repeater_sources as rs
     from hammunition import repeaters
 
     if _refuse_root("repeater overlays"):
         return EXIT_FAILED
-    url = repeaters.HEARHAM_URL
+    (snap,) = (x for x in rs.snapshots() if x.name == "hearham.json")
+    url = snap.url
+    mirror = _snapshot_mirror(args)
     print(
         f"This fetches hearham.com's whole repeater list from {url} (about 9.5 MB), now and "
         f"only now, and converts it on this machine. hearham publishes no checksum, so what "
         f"arrives is recorded by its sha256 and marked unverified.",
         flush=True,
     )
+    if mirror:
+        print(
+            f"Your station names a LAN mirror ({mirror}): it is asked first, for "
+            f"{rs.SNAPSHOT_UNIT}/{snap.name}, and the publisher only if it does not have it.",
+            flush=True,
+        )
+
+    def parse(body: bytes, source: str) -> ParsedInput:
+        with tempfile.TemporaryDirectory(prefix="hammunition-hearham-") as scratch:
+            staged = Path(scratch) / "hearham.json"
+            staged.write_bytes(body)
+            parsed = repeaters.read_input(staged)
+        if parsed.format != repeaters.HEARHAM:
+            raise repeaters.RepeaterInputError(
+                f"{source} answered with something other than its repeater list ({parsed.format})"
+            )
+        return dataclasses.replace(parsed, path=Path(source))
+
     try:
-        body, digest, when = repeaters.fetch_hearham(url, limit=repeaters.HEARHAM_LIMIT)
-    except repeaters.RepeaterFetchError as exc:
+        read = rs.read_snapshot(snap, parse, mirror=mirror)
+    except (repeaters.RepeaterFetchError, repeaters.RepeaterInputError) as exc:
         print(f"error: {exc}. Nothing was written.", file=sys.stderr)
         return EXIT_FAILED
-    with tempfile.TemporaryDirectory(prefix="hammunition-hearham-") as scratch:
-        staged = Path(scratch) / "hearham.json"
-        staged.write_bytes(body)
-        try:
-            parsed = repeaters.read_input(staged)
-        except repeaters.RepeaterInputError as exc:
-            print(f"error: {url}: {exc}. Nothing was written.", file=sys.stderr)
-            return EXIT_FAILED
-        if parsed.format != repeaters.HEARHAM:
-            print(
-                f"error: {url} answered with something other than its repeater list "
-                f"({parsed.format}). Nothing was written.",
-                file=sys.stderr,
-            )
-            return EXIT_FAILED
-        parsed = dataclasses.replace(parsed, path=Path(url))
-        day = when.date()
-        licence = repeaters.hearham_licence(f"Fetched {when.isoformat()}", digest)
-        return _write_repeater_layer(
-            [parsed], repeaters.hearham_layer_name(day), day, [licence], args
-        )
+    when_text = _snapshot_source_lines(read, mirror)
+    day = read.when.date()
+    licence = repeaters.hearham_licence(when_text, read.sha256)
+    return _write_repeater_layer(
+        [read.parsed], repeaters.hearham_layer_name(day), day, [licence], args
+    )
 
 
 @envelope.json_capable()
@@ -6763,17 +6807,32 @@ def build_parser() -> argparse.ArgumentParser:
         "fetch-hearham",
         help="fetch hearham.com's open list now and convert it; recorded as unverified",
     )
+    p_rep_fetch.add_argument(
+        "--no-mirror",
+        action="store_true",
+        help="do not ask the station's LAN mirror first; fetch from the publisher (D-078)",
+    )
     p_rep_fetch.set_defaults(func=cmd_maps_repeaters_fetch_hearham)
     p_rep_etcc = rep_sub.add_parser(
         "fetch-etcc",
         help="fetch the RSGB ETCC's UK repeater list now and convert it; recorded as "
         "unverified (D-074)",
     )
+    p_rep_etcc.add_argument(
+        "--no-mirror",
+        action="store_true",
+        help="do not ask the station's LAN mirror first; fetch from the publisher (D-078)",
+    )
     p_rep_etcc.set_defaults(func=cmd_maps_repeaters_fetch_etcc)
     p_rep_bm = rep_sub.add_parser(
         "fetch-brandmeister",
         help="fetch Brandmeister's DMR repeaters now, hotspots dropped; recorded as "
         "unverified (D-074)",
+    )
+    p_rep_bm.add_argument(
+        "--no-mirror",
+        action="store_true",
+        help="do not ask the station's LAN mirror first; fetch from the publisher (D-078)",
     )
     p_rep_bm.set_defaults(func=cmd_maps_repeaters_fetch_brandmeister)
     p_rep_remove = rep_sub.add_parser(

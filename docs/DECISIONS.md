@@ -9209,6 +9209,29 @@ Bunker's `hold_unverified = false` (a switch being added to Bunker now).
 The "owed to the bench" question above is closed by this ruling; the
 install-through-the-engine and drawing checks are still owed.
 
+### Amendment, 2026-10-03 — Canada measured and not carried; the on-request lists a Bunker may hold (maintainer's rulings)
+
+**Canada.** Measured, and not carried, for the same reason each time:
+- **TAFL** (ISED's Technical and Administrative Frequency Lists) is the one
+  Canadian bulk file with positions, under the Open Government Licence -
+  Canada. It has **no amateur rows**, and every row it does have carries a
+  licensee's name and address; it is also monthly and unversioned. Not carried.
+- **ISED's amateur call-sign file** is names and addresses only: no repeater,
+  no frequency, no position. Not carried.
+- **No open bulk Canadian repeater source exists.** The routes are the
+  operator's own RepeaterBook export (`maps repeaters import`) and hearham
+  (`fetch-hearham`); the guide says so in one sentence.
+
+**Snapshots on a Bunker (D-078).** The open question in "Left to the
+maintainer" above, whether a Bunker may hold the unverified on-request lists
+(hearham, the ETCC, Brandmeister), is ruled: it may, under Bunker's
+`hold_unverified`, the same switch as the ACMA zip. `hammunition artifacts
+--json` lists them as unit `repeater-snapshots`, check `unverified-fetch`, and
+`fetch-etcc`, `fetch-brandmeister` and `fetch-hearham` read
+`<mirror>/repeater-snapshots/<name>` first. The writing-to-the-councils item
+in the same section is also closed: no licence letters are sent on the
+project's behalf (D-078).
+
 **Consequences.** `src/hammunition/acma.py`; `RegisterInstall` in
 `src/hammunition/manifest/schema.py`; `Fetcher.fetch_checked`;
 `DataBackend.register_steps`; the plan's `data` lines gain `verified_by`
@@ -9766,3 +9789,60 @@ active); `TransactionLog.rotate`, `.archives` and the locked append in
 `docs/reference/run-logs.md`. Tests: `tests/test_runlog.py`,
 `tests/test_transaction_log_rotation.py`; `tests/conftest.py` sends every
 test's run logs to a temporary directory.
+
+
+## D-078 — Questionable or personal data is the operator's own to bring: their export or their own key; the project never hosts it; an operator's Bunker may hold it for their LAN, and the on-request repeater lists are mirrorable as `unverified-fetch`
+
+**Date:** 2026-10-03. **Status:** accepted (the maintainer's rulings of
+2026-10-03, recorded and implemented on branch `repeater-rulings`; the
+implementation is proposed until merged). **Depends on:** D-033 (an
+unlicensed source judged on what we do with it), D-064 and D-074 (the
+repeater layers), D-070 (the mirror and `artifacts`), D-021 (disclose, never
+adjudicate).
+
+**Principle.** For data whose terms are questionable or personal, the operator
+brings their own export or their own API key. The project never hosts or
+redistributes such files: not in the repository, not in a release, not on a
+server of its own. An operator's own Bunker may hold them for their LAN, under
+Bunker's `hold_unverified` switch. **No licence letters are sent to data owners
+on the project's behalf**: the councils', the RSGB's and Brandmeister's explicit
+licences, left to the maintainer in D-074, are not asked for, and the layers
+stay what they are, carried under D-033 and marked unverified. Instances: the
+ACMA register's `client.csv` (D-074, the ruling of 2026-10-02: a Bunker may hold
+the zip, the engine never opens that file) and these rulings of 2026-10-03.
+
+**Ruling B: the on-request lists are listable.** `hammunition artifacts --json`
+lists the three on-request repeater lists (`etcc.csv`, `brandmeister.json`,
+`hearham.json`) under the unit `repeater-snapshots` (not a catalog unit: nothing
+is installed from it; it is listed by default and when named with `--units`),
+check `unverified-fetch` in the contract: `digest` null, `url` the publisher's,
+`size` from one `HEAD` (null when the server states none, deferred only when it
+does not answer), `licence` the project's position text, never a licence. The
+check is size and date only; nothing a mirror serves under that name can be
+verified, and everything read from one is marked unverified, as when read from
+the publisher.
+
+`fetch-etcc`, `fetch-brandmeister` and `fetch-hearham` read the station's mirror
+first, at `<mirror>/repeater-snapshots/<name>` (D-070's shape), and the
+publisher on any failure there: unreachable, an error status, too large, or
+bytes that do not parse as that list. `--no-mirror` skips it. The layer's
+licence line says the snapshot came from the mirror and that its own date is
+unknown; the layer is dated the day it was read. `import` takes the operator's
+own files and fetches nothing, so it has no mirror to read.
+
+**Ruling C** is the 2026-10-03 amendment to D-074: Canada measured, not carried.
+
+**Rejected.** A snapshot hosted by the project. Writing to data owners (above).
+A digest for a snapshot: the lists change under their URLs, and a digest the
+Bunker took would be pinned to nobody's publication.
+
+**Not measured.** A real Bunker holding a snapshot and the engine reading it
+over the LAN; the tests use loopback servers.
+
+**Consequences.** `snapshots()`, `read_snapshot()` and `SnapshotHead` in
+`src/hammunition/repeater_sources.py`; `list_artifacts(snapshot_probe=...)` in
+`src/hammunition/artifacts.py`; `unverified-fetch` in `CHECKS`
+(`src/hammunition/interface/artifacts.py`); `--no-mirror` on the three fetch
+commands in `src/hammunition/cli/main.py`; `docs/guides/lan-mirror.md`,
+`docs/guides/offline-navigation.md`, `docs/reference/json-interface.md`.
+Tests: `tests/test_artifacts.py`, `tests/test_repeater_sources_cli.py`.
