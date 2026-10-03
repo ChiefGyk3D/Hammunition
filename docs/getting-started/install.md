@@ -94,11 +94,11 @@ engine will install on, how many of the catalog's manifests resolve on this
 target, and where your transaction log will live:
 
 ```
-Target: Parrot Security 7.3 (echo) (ID=parrot, version=7.3, arch=x86_64)
+Target: Parrot Security 7.4 (echo) (ID=parrot, version=7.4, arch=x86_64)
 Debian family: yes
 Catalog: /home/op/Hammunition/catalog
-  244 packages, 242 of which resolve on this target
-  16 profiles
+  321 packages, 319 of which resolve on this target
+  19 profiles
 Transaction log: /home/op/.local/state/hammunition/transactions.jsonl
   no transactions recorded
 ```
@@ -145,3 +145,8 @@ The first command of any run that installs from apt is `apt-get update`.
 Stale package lists are the commonest way a correct plan fails — apt asks
 the mirror for a file the pool has replaced — so the refresh is on by
 default. Pass `--no-refresh` on a local mirror or a station with no uplink.
+
+## Next
+
+[How much disk you need](disk-space.md) says what a profile or the whole
+catalog costs before you start. Back: [Getting started](index.md).

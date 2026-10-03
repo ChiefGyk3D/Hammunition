@@ -11,6 +11,7 @@ synthetic rows. Nothing is fetched.
 
 from __future__ import annotations
 
+import ast
 import io
 import json
 import zipfile
@@ -27,6 +28,35 @@ from hammunition.infra import InfraInputError
 DELAWARE = (-75.79, 38.45, -74.96, 40.03)
 BOXES = [DELAWARE]
 WHEN = datetime(2026, 10, 1, 18, 30, tzinfo=UTC)
+
+
+def test_ra_field_constants_are_read() -> None:
+    tree = ast.parse(Path(src.__file__).read_text(encoding="utf-8"))
+    assigned: set[str] = set()
+    for statement in tree.body:
+        if isinstance(statement, ast.Assign):
+            targets = statement.targets
+        elif isinstance(statement, (ast.AnnAssign, ast.AugAssign)):
+            targets = [statement.target]
+        else:
+            continue
+        assigned.update(
+            node.id
+            for target in targets
+            for node in ast.walk(target)
+            if isinstance(node, ast.Name)
+            and isinstance(node.ctx, ast.Store)
+            and node.id.startswith("_RA_")
+        )
+
+    loaded = {
+        node.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+    }
+    assert assigned
+    assert assigned <= loaded, sorted(assigned - loaded)
+
 
 # --- NASR -----------------------------------------------------------------------------
 

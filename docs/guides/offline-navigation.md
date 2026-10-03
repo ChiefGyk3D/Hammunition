@@ -613,7 +613,7 @@ while QMapShack is open.
 ### Run it as a service
 
 The tether is its own project now, [hammunition-gps-tether](https://github.com/ChiefGyk3D/hammunition-gps-tether),
-and `hammunition install gps-tether` installs it: the project's v0.1.0 source
+and `hammunition install gps-tether` installs it: the project's v0.1.1 source
 (pure Python, nothing to build), checked against a pinned sha256 and unpacked
 to `/usr/local/share/hammunition/gps-tether`, and a systemd **user** service, `hammunition-gps-tether.service`, written to
 `~/.config/systemd/user/` and enabled. The plan lists the file, the command it

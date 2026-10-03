@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Publishes the GitHub wiki from docs/ on every push to main.
+#
+# The wiki is a generated mirror of the MkDocs site (scripts/gen_wiki.py), never
+# a place to write: this job replaces every page in it. The canonical site is
+# https://chiefgyk3d.github.io/Hammunition/ (pages.yml).
+#
+# It needs one thing the repository owner does once: a wiki git remote does not
+# exist until the first page is created in the GitHub UI. Until then the job
+# fails with a message naming that step, and nothing else in CI is affected.
+#
+# Action majors resolved with `git ls-remote --tags` on 2026-10-02 (CLAUDE.md:
+# never pin an action from memory): checkout v7, setup-python v7.
+
+name: Wiki
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One publish at a time, and never cancel one halfway through a push.
+concurrency:
+  group: wiki
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publish the wiki
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[docs]"
+      - name: generate the wiki pages
+        run: python scripts/gen_wiki.py --out "$RUNNER_TEMP/wiki-out" --commit "$GITHUB_SHA"
+      - name: clone the wiki
+        env:
+          WIKI_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.wiki.git
+        run: |
+          if ! git clone --quiet "$WIKI_URL" "$RUNNER_TEMP/wiki" 2>/dev/null; then
+            echo "::error::The wiki has no first page yet: open https://github.com/ChiefGyk3D/Hammunition/wiki, create any page once, then re-run this workflow"
+            exit 1
+          fi
+      - name: replace the wiki's contents and push if anything changed
+        run: |
+          cd "$RUNNER_TEMP/wiki"
+          # Remove every tracked page, then write the generated tree: a page
+          # the generator no longer writes disappears from the wiki.
+          git rm -rq --ignore-unmatch .
+          cp "$RUNNER_TEMP"/wiki-out/*.md .
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The wiki is already current."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit --quiet -m "Regenerate the wiki from docs/ at ${GITHUB_SHA}"
+          git push --quiet origin HEAD
