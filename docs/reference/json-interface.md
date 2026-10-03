@@ -1755,6 +1755,7 @@ operator; for local programs, not for pasting.
 | `action` | string | `install` or `uninstall` |
 | `requested` | list of string | the names given on the command line |
 | `outcome` | string | `planned`, or `refused` with the blockers |
+| `step_count` | integer | the number of steps in this transaction; zero when refused |
 | `target` | [`TargetView`](#targetview) | the system planned against |
 | `blockers` | list of [`BlockerLine`](#blockerline) | empty unless refused |
 | `install` | [`InstallPlanView`](#installplanview) or null | the install plan; null for an uninstall or a refusal |
@@ -2243,6 +2244,7 @@ One step, exactly as the real run performs it.
 | `action` | string or null | the in-process step's kind (`fetch`, `extract`, ...); null for a command |
 | `requires_root` | boolean | whether it runs as root |
 | `sources` | list of string | for a data download (a `data` artifact, a map region, a terrain tile), the URLs it is fetched from in the order tried: the LAN mirror, then the publisher (D-070); the publisher alone with no mirror; empty for any other step |
+| `index` | integer | this step's 1-based position in execution order |
 
 #### `PublisherCheckLine`
 
@@ -3732,6 +3734,10 @@ A unit and files.
           },
           "title": "Sources",
           "type": "array"
+        },
+        "index": {
+          "title": "Index",
+          "type": "integer"
         }
       },
       "required": [
@@ -3740,7 +3746,8 @@ A unit and files.
         "argv",
         "action",
         "requires_root",
-        "sources"
+        "sources",
+        "index"
       ],
       "title": "StepView",
       "type": "object"
@@ -4331,6 +4338,10 @@ A unit and files.
       "title": "Outcome",
       "type": "string"
     },
+    "step_count": {
+      "title": "Step Count",
+      "type": "integer"
+    },
     "target": {
       "$ref": "#/$defs/TargetView"
     },
@@ -4366,6 +4377,7 @@ A unit and files.
     "action",
     "requested",
     "outcome",
+    "step_count",
     "target",
     "blockers",
     "install",
