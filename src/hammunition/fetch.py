@@ -685,6 +685,8 @@ class Fetcher:
         make_dir(self.cache_dir)
         final = self.sha1_path_for(url, sha1)
         if final.exists() and final.stat().st_size == expected_size:
+            # Semgrep: SHA-1 is the digest CoMaps' own index publishes; the sha256 pins stay the integrity check.
+            # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
             digest = hashlib.sha1(usedforsecurity=False)
             with final.open("rb") as handle:
                 while chunk := handle.read(_CHUNK):

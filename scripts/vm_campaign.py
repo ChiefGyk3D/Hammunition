@@ -800,6 +800,8 @@ def main() -> int:
     # ssh address is deliberately not the fallback: the report is published.
     target_probe = target_from_status(
         subprocess.run(
+            # Semgrep: fixed ssh argv, no shell; the host is the operator's own flag.
+            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
             [
                 *ssh,
                 args.host,

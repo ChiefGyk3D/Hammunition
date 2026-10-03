@@ -161,6 +161,35 @@ def test_recorded_units_say_how_the_last_transaction_naming_them_ended(
     assert units["gone-unit"]["method"] is None, "a unit the catalog no longer has is not guessed"
 
 
+def test_completed_units_remain_visible_when_a_later_install_step_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    entries = [
+        BEGIN,
+        {
+            "event": "unit_end",
+            "version": 1,
+            "unit": "fixture-apt",
+            "ok": True,
+        },
+        {"event": "transaction_failed", "version": 1, "completed": 2},
+    ]
+    rc, out = _run(monkeypatch, tmp_path, capsys, entries, "--json")
+    assert rc == 0
+    units = {u["name"]: u for u in parse_one(out)["recorded_units"]}
+    assert units["fixture-apt"]["last_outcome"] == "completed"
+    assert units["fixture-apt"]["completed_in_failed_run"] == BEGIN["timestamp"]
+    assert units["fixture-source"]["last_outcome"] == "failed"
+    validate(parse_one(out))
+
+    _rc, text = _run(monkeypatch, tmp_path / "text", capsys, entries)
+    assert (
+        "finished before it stopped, so a rerun skips them once their files are verified (1):"
+        in text
+    )
+    assert "    fixture-apt" in text
+
+
 @pytest.mark.parametrize(
     ("scenario", "outcome", "when"),
     [

@@ -1,0 +1,72 @@
+# Release: on a version tag, build the documentation site and a source archive,
+# verify them against the tag, and publish them to the GitHub release through
+# GYST's artifact-release (signed with cosign, SLSA provenance recorded).
+#
+# The site tarball is what the `hammunition-docs` catalog unit pins: an offline
+# copy of these docs for a machine with no network (ruled 2026-10-03), served
+# by `hammunition reference serve`. A pull request builds and verifies and
+# never publishes; `publish` is true only on a tag.
+name: Release
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  artifacts:
+    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/artifact-release.yml@8d6d940f143b97b6d521f5dfe38b11573a916ef4 # v1.7.1
+    # Every permission the called workflow declares on any job must be granted
+    # here: GitHub validates the declarations at startup, before any `if`, and
+    # a caller that grants less fails the whole file with no check run (#284).
+    permissions:
+      contents: write       # the GitHub release and its assets
+      id-token: write       # keyless signing and build provenance
+      attestations: write   # the provenance record
+    with:
+      publish: ${{ startsWith(github.ref, 'refs/tags/v') }}
+      tag-prefix: v
+      build-install-command: pip install -e ".[docs]"
+      # The same --strict build tests/test_site.py and the Pages workflow run.
+      build-command: |
+        mkdir -p dist
+        mkdocs build --strict
+        tar -C site -czf "dist/hammunition-docs-${VERSION}.tar.gz" .
+        git archive --format=tar.gz --prefix="hammunition-${VERSION}/" \
+          -o "dist/hammunition-${VERSION}.tar.gz" HEAD
+      artifacts: dist/hammunition-docs-*.tar.gz dist/hammunition-*.tar.gz
+      # A tag whose number disagrees with pyproject is refused before anything
+      # is published. On a pull request VERSION is 0.0.0+<sha> and only the
+      # tarball's shape is checked.
+      verify-command: |
+        case "$VERSION" in
+          0.0.0+*) echo "not a tag: the version check is skipped" ;;
+          *) python3 - "$VERSION" <<'PY'
+        import sys, tomllib
+        want = sys.argv[1]
+        have = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
+        if have != want:
+            sys.exit(f"pyproject.toml says {have}, the tag says {want}")
+        PY
+        ;;
+        esac
+        work="$(mktemp -d)"
+        tar -xzf "dist/hammunition-docs-${VERSION}.tar.gz" -C "$work"
+        test -f "$work/index.html"
+        test -f "$work/guides/offline-navigation/index.html"
+        test "$(find "$work" -type f | wc -l)" -gt 400
+      # The release notes are this version's CHANGELOG section, which
+      # scripts/changelog.py assemble wrote; an empty section refuses.
+      release-notes-command: |
+        case "$VERSION" in
+          0.0.0+*) exit 0 ;;
+        esac
+        notes="$(awk -v v="v${VERSION}" 'index($0, "## " v " ") == 1 {f=1; next} /^## / {f=0} f' CHANGELOG.md)"
+        test -n "$notes"
+        printf '%s\n' "$notes"
+      egress-policy: block
+      extra-allowed-endpoints: pypi.org:443 files.pythonhosted.org:443

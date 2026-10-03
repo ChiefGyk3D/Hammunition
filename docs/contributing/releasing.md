@@ -328,3 +328,15 @@ release commit does. Compare the section with
 `gh pr list --state merged` since the last tag: a merged pull request with no
 fragment is a gap to fill by adding the missing fragment before assembling.
 A tag that the changelog does not describe is a tag nobody can review.
+## What the tag publishes
+
+Pushing the tag runs `.github/workflows/release.yml`, a caller of GYST's
+`artifact-release`. It builds the documentation site with the same
+`mkdocs build --strict` the tests run, packs it as
+`hammunition-docs-<version>.tar.gz` beside a `git archive` of the tree,
+refuses a tag whose number disagrees with `pyproject.toml`, takes the release
+notes from that version's section of `CHANGELOG.md`, and attaches the files,
+`SHA256SUMS`, cosign signatures and SLSA provenance to the GitHub release. A
+pull request runs the same build and verification and publishes nothing. The
+site tarball's digest is what the `hammunition-docs` unit pins, so an operator
+can keep these pages on a machine with no network.
