@@ -4267,6 +4267,9 @@ def cmd_install(args: argparse.Namespace) -> int:
     stale = stale_lists_diagnosis(report.failed, report.stderr)
     if stale:
         print(f"\n{stale}", file=sys.stderr)
+    retry = apt_fetch_retry_advice(report.failed, report.stderr)
+    if retry:
+        print(f"\n{retry}", file=sys.stderr)
     print(
         f"{len(report.completed)} command(s) completed before the failure and are "
         f"recorded in {log.path}. Hammunition does not roll back; it tells you what "
@@ -4352,6 +4355,21 @@ def run_with_sudo_ticket(
                 },
             }
         )
+
+
+def apt_fetch_retry_advice(failed: Command | Action, stderr: str) -> str | None:
+    """Advise what to do when apt's configured archive retries are exhausted."""
+    if isinstance(failed, Action) or failed.argv[:1] != ("apt-get",):
+        return None
+    if not {"install", "update"}.intersection(failed.argv[1:]):
+        return None
+    if not any(phrase in stderr for phrase in ("Failed to fetch", "Unable to fetch some archives")):
+        return None
+    return (
+        "apt retried archive fetches 3 times with `-o Acquire::Retries=3` and the fetch still "
+        "failed. Check the mirror or connection, then run the same command again; cached "
+        "downloads are reused."
+    )
 
 
 def stale_lists_diagnosis(failed: Command | Action, stderr: str) -> str | None:

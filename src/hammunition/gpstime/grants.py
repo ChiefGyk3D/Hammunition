@@ -272,7 +272,15 @@ def grant_commands(tg: TimeGrants, staging_root: str, helper: str) -> list[Comma
     if tg.offer_fake_hwclock:
         out.append(
             Command(
-                argv=("apt-get", "install", "-y", "--no-install-recommends", FAKE_HWCLOCK),
+                argv=(
+                    "apt-get",
+                    "-o",
+                    "Acquire::Retries=3",
+                    "install",
+                    "-y",
+                    "--no-install-recommends",
+                    FAKE_HWCLOCK,
+                ),
                 description=(
                     "Install fake-hwclock: there is no hardware clock, so it saves the time "
                     "at shutdown and hourly and restores it at boot"
