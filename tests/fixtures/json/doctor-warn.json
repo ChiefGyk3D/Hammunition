@@ -7,13 +7,20 @@
       "name": "system",
       "status": "ok",
       "detail": "Debian GNU/Linux 13",
-      "fix": null
+      "fix": null,
+      "fix_argv": null
     },
     {
       "name": "compiler",
       "status": "warn",
       "detail": "no C compiler found",
-      "fix": "sudo apt install build-essential"
+      "fix": "sudo apt install build-essential",
+      "fix_argv": [
+        "sudo",
+        "apt",
+        "install",
+        "build-essential"
+      ]
     }
   ],
   "fails": 0,

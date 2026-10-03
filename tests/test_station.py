@@ -60,6 +60,10 @@ def test_real_callsign_shapes_are_accepted(callsign: str) -> None:
     assert Station(callsign=callsign).callsign == callsign
 
 
+def test_documented_placeholder_callsign_is_accepted() -> None:
+    assert Station(callsign="N0CALL").callsign == "N0CALL"
+
+
 @pytest.mark.parametrize("bad", ["not a call", "M0 ABC", "", "ABCDEFGHIJK", "M0ABC;rm -rf /"])
 def test_unusable_callsigns_are_refused(bad: str) -> None:
     with pytest.raises(StationError, match="callsign"):
@@ -123,11 +127,8 @@ def test_an_unknown_freshness_is_refused() -> None:
 
 
 def test_template_variables_are_unchanged_by_map_fields() -> None:
-    # M0ABC, not the brief's literal N0CALL: CALLSIGN's suffix group allows at
-    # most 3 characters and N0CALL's is 4 ("CALL"), so the placeholder used
-    # elsewhere in CLAUDE.md as an anonymised example does not itself pass
-    # this project's existing callsign shape check. Pre-existing and out of
-    # this task's scope; M0ABC exercises the same property.
+    # M0ABC exercises this map-field property; the documented placeholder is
+    # checked separately by test_documented_placeholder_callsign_is_accepted.
     s = Station(callsign="M0ABC", map_regions=("north-america/us/vermont",))
     assert s.get("callsign") == "M0ABC"
     assert "map_regions" not in s.as_dict() or isinstance(s.as_dict()["map_regions"], list)

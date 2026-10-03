@@ -1381,9 +1381,9 @@ def test_a_bad_callsign_is_an_error_message_not_a_traceback(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """StationError from operator input gets the validator's message and the
-    planning exit code. Found on the first Parrot VM run that passed
-    --callsign N0CALL: the run ended in a raw traceback."""
-    code = main(["install", "linbpq", "--dry-run", "--callsign", "N0CALL"])
+    planning exit code. Five characters after the digit exceed the accepted
+    four-character callsign shape."""
+    code = main(["install", "linbpq", "--dry-run", "--callsign", "N0CALLL"])
     assert code == EXIT_UNPLANNABLE
     err = capsys.readouterr().err
     assert "does not look like a callsign" in err

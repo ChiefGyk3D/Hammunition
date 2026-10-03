@@ -1,0 +1,1 @@
+- #245: expose doctor command fixes as argv in JSON and render them as code in text output.
