@@ -180,3 +180,4 @@ docs/_build/
 .DS_Store
 Thumbs.db
 .direnv/
+/wiki-out/
