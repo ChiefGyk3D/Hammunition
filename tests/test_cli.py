@@ -18,6 +18,7 @@ import importlib
 import json
 import os
 import pwd
+import re
 import sys
 import tempfile
 from collections.abc import Iterator
@@ -1055,8 +1056,10 @@ def test_linbpq_capability_grant_and_consent_are_shown_in_every_plan(
     assert "File capabilities (opt-in; cleared on uninstall):" in output
     assert "CAP_NET_ADMIN=ep CAP_NET_RAW=ep CAP_NET_BIND_SERVICE=ep" in output
     assert "HAMMUNITION_ACCEPT_CAPABILITIES_LINBPQ" in output
-    assert "  $ sudo setcap " in output
-    assert output.index("&& make -j") < output.index("  $ sudo setcap ")
+    # Root (the distro containers) gets no sudo prefix; a user does.
+    setcap = re.search(r"  \$ (?:sudo )?setcap ", output)
+    assert setcap is not None
+    assert output.index("&& make -j") < setcap.start()
 
 
 def test_linbpq_json_plan_carries_capability_and_consent_gate(
