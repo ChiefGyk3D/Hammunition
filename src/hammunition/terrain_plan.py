@@ -221,6 +221,9 @@ def resolve_bare_earth(
         found = tuple(sorted(name for name in names if name in tiles))
         unpublished = len(names) - len(found)
         found = tuple(name for name in found if bound.keeps(tile_box(name)))
+        if not found and unpublished and bound.token != "all":
+            # Left out by the bound, not unpublished: never "no terrain here".
+            unpublished = 0
         entries.append(RegionTiles(region, slug, found, unpublished, bound.token))
     wanted = sorted({name for entry in entries for name in entry.tiles})
     current = [name for name in wanted if (installed / f"{name}{TIF}").is_file()]
@@ -483,7 +486,7 @@ class TerrainRun:
     splat: SplatSdfConverter
     dem_source: str = "copernicus"
     """The station's ``dem_source`` this run (D-068, amended 2026-10-01)."""
-    topo_bound: TopoBound = ALL
+    topo_bound: TopoBound | None = ALL
     """The bound the topographic selection was made under (issue #232)."""
 
     @property
@@ -515,8 +518,12 @@ class TerrainRun:
             licence_url=block.licence_url if isinstance(block, TopoQuadsInstall) else "",
             warp=tuple(self.mosaic.pending(mosaic.manifest)) if mosaic is not None else (),
             building=building,
-            selection=self.topo_bound.describe(),
-            everything=self.topo_bound.mode == "all",
+            selection=(
+                self.topo_bound.describe()
+                if self.topo_bound is not None
+                else "what is installed is kept (no grid square is set)"
+            ),
+            everything=self.topo_bound is not None and self.topo_bound.mode == "all",
         )
 
     def _fstopo(self, plan: InstallPlan) -> FsTopoDisclosure | None:
@@ -690,7 +697,7 @@ def build_terrain_run(
     contour_source: str | None = None,
     fstopo: FsTopoResolution | None = None,
     splat_source: str | None = None,
-    topo_bound: TopoBound = ALL,
+    topo_bound: TopoBound | None = ALL,
 ) -> TerrainRun:
     """Every piece-2 backend for one run. Each converter stages in its own
     directory under the operator's build tree and runs as the operator."""

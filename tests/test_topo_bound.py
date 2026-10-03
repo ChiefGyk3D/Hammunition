@@ -527,3 +527,43 @@ def test_3dep_tiles_follow_the_bound_and_keep_their_unpublished_count(tmp_path: 
     assert entry.bound == _bound(radius_km=60).token
     # Bounded-out tiles are not "unpublished": that count is the list's.
     assert entry.unpublished == everything.regions[0].unpublished  # type: ignore[attr-defined]
+
+
+def test_narrowing_the_map_regions_drops_topo_regions_that_are_gone_and_they_can_be_cleared(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = _env(monkeypatch, tmp_path)
+    assert cli.main(["station", "set", "--map-regions", "a/b,c/d", "--topo-regions", "c/d"]) == 0
+    assert cli.main(["station", "set", "--map-regions", "a/b"]) == 0
+    assert "dropped" in capsys.readouterr().out
+    assert load_station(path=path).topo_regions == ()
+    assert cli.main(["station", "set", "--map-regions", "a/b,c/d", "--topo-regions", "a/b"]) == 0
+    assert cli.main(["station", "set", "--clear-topo-regions"]) == 0
+    assert load_station(path=path).topo_regions == ()
+
+
+def test_a_radius_must_be_a_whole_number_not_a_bool() -> None:
+    for bad in (True, 100.5):
+        with pytest.raises(StationError):
+            Station(topo_radius_km=bad)  # type: ignore[arg-type]
+
+
+def test_a_bound_out_3dep_region_is_not_called_unpublished() -> None:
+    from hammunition.terrain_plan import resolve_bare_earth
+    from hammunition.usgs3dep import parse_tile_list
+
+    tiles = parse_tile_list(f"USGS_13_n41w074 12 {MD5}\n")
+
+    class Heads:
+        def head(self, url: str) -> tuple[int, int, str | None]:  # pragma: no cover
+            raise AssertionError("nothing is selected")
+
+    got = resolve_bare_earth(
+        [REGION],
+        installed=Path("/nonexistent"),
+        tiles=tiles,
+        region_probe=_Outlines(),
+        tile_probe=Heads(),
+        bound=_bound(radius_km=1, grid_square="FN20aa"),
+    )
+    assert got.regions[0].tiles == () and not got.regions[0].no_terrain

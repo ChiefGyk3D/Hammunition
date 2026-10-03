@@ -524,7 +524,10 @@ def cmd_station_set(args: argparse.Namespace) -> int:
         if value
     ] + rig_fields
     topo_regions = current.topo_regions
-    if args.topo_regions is not None:
+    if args.clear_topo_regions:
+        topo_regions = ()
+        set_fields.append("topo_regions")
+    elif args.topo_regions is not None:
         topo_regions = tuple(r for r in (p.strip() for p in args.topo_regions.split(",")) if r)
         if not topo_regions:
             print(
@@ -534,6 +537,16 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             )
             return EXIT_FAILED
         set_fields.append("topo_regions")
+    if args.map_regions is not None and args.topo_regions is None and topo_regions:
+        # A narrowed map list must not strand --topo-regions on a region that
+        # is gone: it is dropped, and said.
+        kept = tuple(r for r in topo_regions if r in map_regions)
+        if kept != topo_regions:
+            print(
+                f"note: {len(topo_regions) - len(kept)} --topo-regions entr(ies) are no longer "
+                f"among the map regions and are dropped"
+            )
+            topo_regions = kept
     if args.topo_radius_km is not None:
         set_fields.append("topo_radius_km")
     if args.topo_all is not None:
@@ -3742,7 +3755,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         contour_source=contour_source(plan),
         fstopo=fstopo_resolution,
         splat_source=splat_source(plan),
-        topo_bound=topo_bound or ALL,
+        topo_bound=topo_bound,
     )
     # D-067: the phone converters, from the same regions, as the operator.
     phone = build_phone_run(
@@ -7268,6 +7281,11 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="REGION[,REGION…]",
         help="narrow the topographic selection to these map regions (a subset of "
         "--map-regions); with no --topo-radius-km they are taken whole",
+    )
+    p_station_set.add_argument(
+        "--clear-topo-regions",
+        action="store_true",
+        help="remove --topo-regions, so the radius applies to every map region again",
     )
     p_station_set.add_argument(
         "--topo-all",

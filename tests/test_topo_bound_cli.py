@@ -197,3 +197,14 @@ def test_a_selection_over_10_gb_asks_even_without_topo_all(
     rc = cli.main(["--catalog", str(catalog), "install", "--yes", "usgs-ustopo"])
     assert rc == 3 and ran == []
     assert "This installs 1 US Topo sheet" in capsys.readouterr().err
+
+
+def test_the_deferred_plan_does_not_claim_topo_all(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli, _ = _cli(monkeypatch, tmp_path)
+    _station(tmp_path)
+    assert _dry(cli, _catalog(tmp_path), "--json") == 0
+    topo = json.loads(capsys.readouterr().out)["install"]["maps"]["terrain"]["topo"]
+    assert "--topo-all" not in topo["selection"] and topo["size_consent"] is None
+    assert "kept" in topo["selection"]

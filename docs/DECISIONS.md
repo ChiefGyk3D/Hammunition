@@ -7888,6 +7888,13 @@ antimeridian (an index row never wraps it, so the Aleutians east of 180 are
 not reached from the west). Tests: `tests/test_topo_bound.py`,
 `tests/test_topo_bound_cli.py`.
 
+**Limits, stated.** The size consent and the "installed sheets lie outside
+it" note read the US Topo selection only; FSTopo (by name, unverified) and
+3DEP follow the bound but are not separately asked about, and their removals
+are in the plan's steps, not in that note. `--clear-topo-regions` removes
+`topo_regions`, and narrowing `--map-regions` drops a `topo_regions` entry
+that is gone, with a note, so a station is never stranded invalid.
+
 ## D-069 — CoMaps is carried as a pinned source build over CoMaps' own maps for the station's regions, checked by CoMaps' own index; its missing position is written down, not faked
 
 **Date:** 2026-09-30. **Status:** proposed (design approved by the

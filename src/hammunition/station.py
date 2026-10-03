@@ -330,6 +330,10 @@ class Station:
             )
         if self.topo_radius_km is not None:
             try:
+                if isinstance(self.topo_radius_km, bool) or self.topo_radius_km != int(
+                    self.topo_radius_km
+                ):
+                    raise ValueError
                 radius = int(self.topo_radius_km)
             except (TypeError, ValueError) as exc:
                 raise StationError(
