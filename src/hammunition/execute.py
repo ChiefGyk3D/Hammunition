@@ -58,6 +58,7 @@ from hammunition.backends.source import tree_destination
 from hammunition.backends.topo import TopoQuadsBackend
 from hammunition.devctl_helper import HELPER_PATH, under_prefix
 from hammunition.distro import Target
+from hammunition.interface.plan_group import LONG_STEP_NOTE
 from hammunition.launchers import launcher_steps
 from hammunition.manifest.schema import (
     AptInstall,
@@ -1709,6 +1710,8 @@ def execute(
             active_run.step_start(index, count, command.description)
         write(f"  step {index}/{count}: {command.description}")
         write(f"  $ {command.display(euid=shown_as)}")
+        if isinstance(command, Command) and command.long_running:
+            write(f"    {LONG_STEP_NOTE}")
 
         if isinstance(command, Action):
             # An in-process step: same logging shape, same failure contract. It
@@ -2001,6 +2004,8 @@ def run_removal(
             active_run.step_start(index, count, command.description)
         write(f"  step {index}/{count}: {command.description}")
         write(f"  $ {command.display(euid=shown_as)}")
+        if isinstance(command, Command) and command.long_running:
+            write(f"    {LONG_STEP_NOTE}")
 
         if isinstance(command, Action):
             # Marker-verified unlinks and venv removals run in-process, with

@@ -178,7 +178,7 @@ from hammunition.paths import (
 )
 from hammunition.phone_plan import build_phone_run
 from hammunition.plan import NO_MAP_REGIONS, Blocker, Deferral, InstallPlan, PlanError, resolve
-from hammunition.progress import Progress
+from hammunition.progress import LiveStatus, Progress, activate_live, current_live
 from hammunition.repeater_sources import SnapshotHead
 from hammunition.retry import (
     POLICY,
@@ -4280,24 +4280,26 @@ def cmd_install(args: argparse.Namespace) -> int:
     # exit code of 0 from apt-get or gpasswd is not evidence the package landed
     # or the membership took, and transaction_end is the record uninstall will
     # trust.
-    report = run_with_sudo_ticket(
-        commands,
-        euid=euid,
-        keepalive=args.sudo_keepalive,
-        log=log,
-        run=lambda: execute(
+    live = LiveStatus(verbose=args.verbose)
+    with activate_live(live):
+        report = run_with_sudo_ticket(
             commands,
-            runner,
-            log=log,
-            plan=plan,
-            echo=print,
             euid=euid,
-            prober=apt,
-            prefix=source.prefix,
-            launcher_bin=user_bin_dir(user or None),
-            owners=step_owners,
-        ),
-    )
+            keepalive=args.sudo_keepalive,
+            log=log,
+            run=lambda: execute(
+                commands,
+                runner,
+                log=log,
+                plan=plan,
+                echo=live.print,
+                euid=euid,
+                prober=apt,
+                prefix=source.prefix,
+                launcher_bin=user_bin_dir(user or None),
+                owners=step_owners,
+            ),
+        )
     if log.ownership_error:
         # Not fatal — the commands ran — but not silent either. A log the
         # operator cannot append to fails on their next run instead of this one.
@@ -4378,7 +4380,14 @@ def run_with_sudo_ticket(
         return run()
 
     def warn(message: str) -> None:
-        print(f"\nwarning: {message}", file=sys.stderr)
+        # The status line's writer owns the terminal while a step runs, so a
+        # keepalive failure cannot land in the middle of it (#270).
+        live = current_live()
+        text = f"\nwarning: {message}"
+        if live is not None:
+            live.print(text, err=True)
+        else:
+            print(text, file=sys.stderr)
 
     ticket = make_keepalive() if make_keepalive is not None else SudoKeepalive(warn=warn)
     print("\nsudo: asking once, before the first step (D-062).")
@@ -4642,9 +4651,18 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
             return EXIT_OK
 
     print("\nRunning:")
-    report = run_removal(
-        commands, runner, log=log, plan=plan, target=target, echo=print, euid=euid, prober=apt
-    )
+    live = LiveStatus(verbose=args.verbose)
+    with activate_live(live):
+        report = run_removal(
+            commands,
+            runner,
+            log=log,
+            plan=plan,
+            target=target,
+            echo=live.print,
+            euid=euid,
+            prober=apt,
+        )
     if log.ownership_error:
         print(f"\nWarning: {log.ownership_error}", file=sys.stderr)
     if report.ok and not report.verified and report.verification is not None:
@@ -7221,6 +7239,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_install.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help=(
+            "stream every line each command prints as it arrives, instead of the one "
+            "in-place status line shown for a command that runs longer than two seconds "
+            "on a terminal; the run log is the same either way"
+        ),
+    )
+    p_install.add_argument(
         "--full",
         action="store_true",
         help=(
@@ -7270,6 +7298,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="resolve the removal and print exactly what would run, then stop",
     )
     p_uninstall.add_argument("--yes", action="store_true", help="skip the confirmation")
+    p_uninstall.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="stream every line each command prints as it arrives (see `install --verbose`)",
+    )
     p_uninstall.add_argument(
         "--user",
         default=None,

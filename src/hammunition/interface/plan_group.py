@@ -31,11 +31,16 @@ from dataclasses import dataclass
 from typing import Protocol
 
 __all__ = [
+    "LONG_STEP_NOTE",
     "Group",
     "Renderable",
     "group_steps",
     "render_steps",
 ]
+
+#: What the plan and the run say under a step the backend knows is long (#270).
+#: No duration: a measured one may come later from the run log's own timings.
+LONG_STEP_NOTE = "this step can take several minutes"
 
 #: Fewest repeats worth collapsing. Three of anything is still readable.
 MIN_REPEATS = 4
@@ -78,6 +83,8 @@ class Renderable(Protocol):
     def requires_root(self) -> bool: ...
     @property
     def index(self) -> int: ...
+    @property
+    def long_running(self) -> bool: ...
 
 
 def _tokens(step: Renderable) -> list[str]:
@@ -366,6 +373,8 @@ def _render_group(group: Group, step_count: int) -> list[str]:
         f"({group.period} step{'s' if group.period != 1 else ''} each, in this order); "
         f"--full prints every one:",
     ]
+    if any(step.long_running for step in group.steps):
+        lines.append(f"  Each repeat: {LONG_STEP_NOTE}")
     for template in group.templates:
         text = _fill(template, group.columns)
         description, _, display = text.partition("\n")
@@ -376,6 +385,8 @@ def _render_group(group: Group, step_count: int) -> list[str]:
         step = group.steps[phase]
         lines.append(f"  # {step.index}: {step.description}")
         lines.append(f"  $ {step.display}")
+        if step.long_running:
+            lines.append(f"    {LONG_STEP_NOTE}")
     lines.append(
         f"  The {repeats} items, one per line ({' '.join(f'<{c}>' for c in group.columns)}):"
     )
@@ -399,4 +410,6 @@ def render_steps(steps: Sequence[Renderable], *, full: bool = False) -> list[str
         else:
             lines.append(f"  # {item.index}: {item.description}")
             lines.append(f"  $ {item.display}")
+            if item.long_running:
+                lines.append(f"    {LONG_STEP_NOTE}")
     return lines

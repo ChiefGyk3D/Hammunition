@@ -13,7 +13,7 @@ golden text test holds that); ``install --dry-run --json`` emits it inside a
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import ClassVar
 
@@ -715,6 +715,14 @@ class StepView(Strict):
         "the publisher alone with no mirror; empty for any other step"
     )
     index: int = described("this step's 1-based position in execution order")
+    long_running: bool = field(
+        default=False,
+        metadata={
+            "doc": "true when the backend knows the step can take several minutes (a submodule "
+            "fetch, a compile, a venv install, a node build); the text prints one fixed note "
+            "under it and claims no duration (#270)"
+        },
+    )
 
 
 @dataclass(frozen=True)
@@ -893,6 +901,7 @@ def step_view(step: Step, *, euid: int, index: int) -> StepView:
         requires_root=step.requires_root,
         sources=(),
         index=index,
+        long_running=step.long_running,
     )
 
 
