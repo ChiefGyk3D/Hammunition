@@ -2086,6 +2086,18 @@ write its last line). Reads only. `--last` prints the newest in full;
 and `--last` exits `1`. The files, their format and their rotation are
 `docs/reference/run-logs.md`.
 
+### `hammunition transactions [--last N] [--json]`
+
+The transaction history, oldest first across every rotated archive and the live
+file (**D-077**). Each row gives the begin and end times, command, units,
+deferred names, result (`ok`, `failed`, `aborted` or `in-progress`) and the
+associated run-log path when one was recorded. A missing end is `in-progress`
+only while its run log is still held open; otherwise it is `aborted`. Older
+transactions without a recorded run-log path show `—` in text and `null` in
+JSON. `--last N` limits the rows to the newest N while keeping them in
+chronological order. `--json` prints the `transactions` document
+([json-interface.md](json-interface.md)).
+
 ### `hammunition station show` / `hammunition station set`
 
 The values only you can supply — callsign, grid square, packet node alias,
