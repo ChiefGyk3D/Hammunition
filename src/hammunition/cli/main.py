@@ -101,7 +101,7 @@ from hammunition.consent import (
     resolve_repo_consent,
     resolve_topo_size_consent,
 )
-from hammunition.copernicus import CopernicusError, S3Probe
+from hammunition.copernicus import CachingTileProbe, CopernicusError, S3Probe
 from hammunition.country_boundaries import BoundarySource, CountryBoundaryError, boundary_source
 from hammunition.desktop import current_desktop, scan_sessions
 from hammunition.devctl_helper import plan_helper
@@ -3635,6 +3635,8 @@ def cmd_install(args: argparse.Namespace) -> int:
     # whatever it fetches either way.
     checks = PublisherChecks.from_log(read_log, recheck=args.recheck)
     POLICY.reset()
+    terrain_tile_probe = CachingTileProbe(RetryingProbe(S3Probe()), source.fetcher.cache_dir)
+    usgs_tile_probe = CachingTileProbe(RetryingProbe(ustopo_probe()), source.fetcher.cache_dir)
     try:
         dem_resolution = resolve_station_terrain(
             plan,
@@ -3642,7 +3644,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             catalog_root,
             prefix=source.prefix,
             region_probe=outlines,
-            tile_probe=RetryingProbe(S3Probe()),
+            tile_probe=terrain_tile_probe,
             outages=outages,
             checks=checks,
         )
@@ -3651,6 +3653,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("terrain", str(exc))
         return EXIT_UNPLANNABLE
+    finally:
+        terrain_tile_probe.flush()
     # Issue #232: the sheets and tiles are bounded by the station (a radius
     # around its grid square by default). The circle needs the grid square;
     # without one the unit defers by name and what is installed is kept (D-035).
@@ -3678,7 +3682,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             catalog_root,
             prefix=source.prefix,
             region_probe=outlines,
-            quad_probe=RetryingProbe(ustopo_probe()),
+            quad_probe=usgs_tile_probe,
             outages=outages,
             checks=checks,
             bound=topo_bound,
@@ -3688,6 +3692,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("US Topo", str(exc))
         return EXIT_UNPLANNABLE
+    finally:
+        usgs_tile_probe.flush()
     # D-068, amended 2026-10-01: USGS 3DEP when the station chose it (the same
     # bucket as US Topo, so the same probe), and the Forest Service's FSTopo
     # sheets, each located through the raster gateway's one redirect.
@@ -3699,7 +3705,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             prefix=source.prefix,
             source=station.elevation,
             region_probe=outlines,
-            tile_probe=RetryingProbe(ustopo_probe()),
+            tile_probe=usgs_tile_probe,
             outages=outages,
             checks=checks,
             bound=topo_bound,
@@ -3709,6 +3715,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("3DEP", str(exc))
         return EXIT_UNPLANNABLE
+    finally:
+        usgs_tile_probe.flush()
     try:
         fstopo_resolution, fstopo_notes = resolve_station_fstopo(
             plan,
