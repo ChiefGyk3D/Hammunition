@@ -160,3 +160,19 @@ documentation:
     Parrot). LinBPQ, ardopcf and Mercury are source builds from pinned
     upstream tags (Mercury is apt on Kali); FreeDATA is a hash-pinned venv;
     everything else is apt.
+  who_for: "An operator who wants Winlink email by radio, APRS, packet BBS or node work, or EMCOMM readiness without the internet."
+  hardware_assumed: "A VHF or HF transceiver with an audio path to the computer for the soundcard TNC route, or a hardware TNC. APRS-IS and Pat's telnet mode work with no radio, which is the right way to test first."
+  footprint_short: "about 500 MB, plus 220 MB for FreeDATA's venv"
+  excludes_short: "VARA and its messaging client, Pi-APRS, any callsign or port configuration"
+  goals:
+    - "Send email by radio (Winlink) or run packet"
+    - "Report my position on APRS"
+    - "Run a packet node or BBS"
+  first_ten_minutes:
+    - "Set your callsign first: `hammunition station set --callsign N0CALL --grid-square FN31pr`. A packet node transmits, and its identity is yours, so the engine will not invent one."
+    - "Read the plan: `hammunition install packet --dry-run`. The profile offers a mail client only if none of thunderbird, claws-mail, evolution, geary, mutt, neomutt or kmail is found; `--yes` skips the question."
+    - "Install: `hammunition install packet`. LinBPQ, ardopcf and Mercury build from pinned upstream tags, so it is not quick."
+    - "Check what the kernel offers: the kernel AX.25 stack is not in every kernel any more (Linux 7.1 removed it). The userspace route (Direwolf with Pat, YAAC or Xastir over KISS or AGW) needs none of it. [The kernel AX.25 page](../reference/kernel-ax25.md) says what was measured."
+    - "Write your callsign into `direwolf.conf`, starting from the commented example the package ships, and choose the audio device and PTT method. [Packet and Winlink](../guides/packet-winlink.md) walks it line by line."
+    - "Run `pat configure` to store your Winlink account, then `pat http` and open `http://localhost:8080`. Send a message over the internet first to prove the account before you involve a radio."
+    - "For APRS, start with [the APRS guide](../guides/aprs.md): receive only, then APRS-IS, then beaconing, which is a decision about the air you share."

@@ -12,20 +12,24 @@ experience never has to read a forum thread to finish.
 
 The order that works:
 
-1. [Install the engine](install.md) — five minutes, no root until you install
-   something. `./bootstrap.sh` puts `hammunition` on your PATH, which is how
-   every example here runs it; if your shell says `command not found`, that
-   page says what to run instead.
-2. [How much disk you need](disk-space.md) — one or two profiles fit in about
+1. **[Installation](installation.md)** — the full, numbered walkthrough, with
+   every command and the output it prints, from a fresh machine to an installed
+   and verified profile, with the differences for each supported system. Start
+   here if you want nothing left out. The pages below are the shorter route.
+2. [Install the engine](install.md) — the short form: five minutes, no root
+   until you install something. `./bootstrap.sh` puts `hammunition` on your
+   PATH, which is how every example here runs it; if your shell says `command
+   not found`, that page says what to run instead.
+3. [How much disk you need](disk-space.md) — one or two profiles fit in about
    5 GB, the whole catalog in about 55 GB, and offline maps and Wikipedia are
    what make a disk large. Every figure says where it came from.
-3. [Your first profile](first-profile.md) — `station`, the floor every setup
+4. [Your first profile](first-profile.md) — `station`, the floor every setup
    stands on, then a mode profile.
-4. [First contact](first-contact.md) — a digital-modes station making its first
+5. [First contact](first-contact.md) — a digital-modes station making its first
    decode. The full walk-through is
    [FT8 and the digital modes](../guides/digital-modes.md), with
    [Radio audio](../guides/audio-routing.md) beside it.
-5. [The guides](../guides/index.md) — rig control, audio and the clock once,
+6. [The guides](../guides/index.md) — rig control, audio and the clock once,
    then FT8, Winlink, APRS, SDR listening, satellites, each start to finish.
 
 Everything the engine does to your machine, it prints before it does it, and

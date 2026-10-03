@@ -6,6 +6,21 @@
 
 **Stage:** post-1.0  ·  **consent-gated**
 
+## Who it is for
+
+A researcher with the authorisation they need for transmit-capable or interception-capable RF tooling, who has read the disclosure and wants to affirm it deliberately.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | post-1.0 |
+| Units | 2 |
+| Disk | small beyond GNU Radio, which gr-gsm pulls in |
+| Hardware | A supported SDR; `hacktv` drives a HackRF, `gr-gsm` needs a receiver. None are needed to install. |
+| Consent | profile gate, `HAMMUNITION_ACCEPT_RF_RESEARCH` |
+| Install | `hammunition install rf-research` |
+
 ## What it installs
 
 Software whose capability, rather than its complexity, is the reason it is kept separate: tools that can cause hardware to transmit, and tools that receive and decode communications not addressed to you. Today that is `gr-gsm`, which receives and decodes GSM downlink signalling, and `hacktv`, which drives a HackRF to generate complete analogue television signals in bands allocated to other services.
@@ -24,9 +39,40 @@ They share a single property — using them lawfully depends on authorization yo
 
 Transmit-capable cellular network stacks — srsRAN_4G, the Osmocom core, osmo-trx, OsmocomBB, intrusive-lte-mme and sni5gect. They are **post-1.0, not out of scope** (D-034): they land in a separate consent-gated `cellular` profile with its own env_var, once that profile and the `docs/rf-security/` framing exist. The objection was never to the software, which is legitimate and which DragonOS ships; it is that a one-command installer aimed at licensed hams is the wrong delivery mechanism for a rogue base station before that framing is written. Also excludes everything in `rf-security`, which is not gated.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show rf-research
+hammunition install rf-research --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install rf-research
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 Nothing is configured automatically. gr-gsm needs a supported SDR and a tuned capture — its own documentation (the upstream project page in the gr-gsm package manifest) is the reference; this catalog ships no worked example yet. No transmit path is enabled by installing this.
+
+## Your first ten minutes
+
+1. Read the disclosure before anything is installed: `hammunition show rf-research`. It lists the four capability categories and says Hammunition does not know your location, licence or authorisation.
+2. Read the plan: `hammunition install rf-research --dry-run`. It prints the consent gate it will present.
+3. Install interactively and answer the question yourself: `hammunition install rf-research`. `--yes` is read by nothing in a gate; a person affirms, or sets `HAMMUNITION_ACCEPT_RF_RESEARCH=1` for a script.
+4. With no terminal and no variable the run stops with exit code 3. That is the gate working, not a failure.
+5. Nothing is configured for you and no transmit path is enabled by installing. `gr-gsm` needs a supported SDR and its own tuned capture; follow its upstream documentation.
+6. Keep your use inside what you are authorised to do. The software cannot know what that is.
 
 ## Consent gate
 
@@ -38,3 +84,12 @@ Risk categories declared:
 - protected_communications: Can receive, decode, store or display communications that may be protected from interception.
 - identifier_collection: Can collect identifiers associated with people or their devices, such as IMSI, IMEI, MAC addresses, or subscriber records.
 - spectrum_disruption: Can degrade or deny service to other users of the radio spectrum, whether or not that is the intent.
+
+## Take it off again
+
+```sh
+hammunition uninstall rf-research --dry-run
+hammunition uninstall rf-research
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

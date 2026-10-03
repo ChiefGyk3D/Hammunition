@@ -144,6 +144,7 @@ def test_the_json_carries_the_same_numbers_and_a_current_unit_reads_installed() 
         action="install",
         requested=("antenna",),
         outcome="planned",
+        step_count=len(view.commands),
         target=target_view(plan.target),
         blockers=(),
         install=view,

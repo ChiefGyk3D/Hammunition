@@ -6,6 +6,21 @@
 
 **Stage:** post-1.0
 
+## Who it is for
+
+A team lead who builds offline maps and points of interest once on the laptop and carries them to the team's phones.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | post-1.0 |
+| Units | 3 |
+| Disk | per region: the download plus about a fifth and three quarters of it, and about 15 times it as scratch while building |
+| Hardware | A phone that reads Mapsforge files (install the app while it still has internet). The laptop's hotspot, USB or KDE Connect carry the files. |
+| Consent | none |
+| Install | `hammunition install phone-maps` |
+
 ## What it installs
 
 The OpenStreetMap regions you choose, downloaded from Geofabrik and verified (`osm-regions`); a Mapsforge vector map of each (`mapsforge-map`), built with the archive's osmosis and Mapsforge writer; and a Mapsforge points-of-interest file of each (`mapsforge-poi`), built with Mapsforge's POI writer, which is fetched once from Maven Central and checked against a sha256 Hammunition measured. `hammunition maps phone` then gathers the files, with the Garmin maps from `navigation` when they are installed, into one folder with a SHA256SUMS, and prints the ways to carry them to a phone.
@@ -24,6 +39,47 @@ Phones lean on the network for their maps. With these, the laptop makes every ph
 
 OsmAnd's `.obf`, because its generator is a nightly build replaced daily with no checksum, signature or tag (the route is a build of OsmAnd-tools from a source commit). Organic Maps' and CoMaps' `.mwm`, because the generator must match the app's release and needs the whole planet's coastline for any coastal region (the route is the publishers' own files, checked by their per-file hashes). PocketMaps, which needs a 2019 routing engine for an app with no commit since 2024-10. Transportr, which queries online transit services and stores nothing offline. The engine transfers nothing to a phone itself: `adb` and KDE Connect are opt-ins the operator installs, and `maps phone` says what each needs.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show phone-maps
+hammunition install phone-maps --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install phone-maps
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 Choose your map regions first, for example `hammunition station set --map-regions north-america/us/vermont`; without them the map units are deferred. After the install, run `hammunition maps phone` as yourself, then carry the folder it names to each phone by one of the routes it prints: the laptop's hotspot with a web server bound to the hotspot's address, USB file transfer, or the opt-in `adb` or KDE Connect. On the phone, install a Mapsforge-reading app while it still has the internet, and open the files from it. None of this has been checked on a phone yet; the bench owes it.
+
+## Your first ten minutes
+
+1. Choose your regions: `hammunition station set --map-regions <region-path>`. Without them the map units are deferred.
+2. Read the plan: `hammunition install phone-maps --dry-run`. Look at the scratch space a build needs, about 15 times the download.
+3. Install: `hammunition install phone-maps`. A map took 3 minutes 38 seconds on a 22 MB region and hours on a large one.
+4. Gather the files: `hammunition maps phone`, run as yourself. It makes one folder with a `SHA256SUMS` and prints the ways to carry it; it never runs them.
+5. Install a Mapsforge-reading app on each phone while it still has internet, then copy the folder across and open the files from the app.
+6. Compare checksums on the phone with the `SHA256SUMS` file so a corrupt copy cannot pass for a map.
+7. Note: nothing here has been checked on a phone yet; the bench owes it.
+
+## Take it off again
+
+```sh
+hammunition uninstall phone-maps --dry-run
+hammunition uninstall phone-maps
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

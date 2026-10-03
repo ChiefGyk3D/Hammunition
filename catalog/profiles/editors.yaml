@@ -62,3 +62,15 @@ documentation:
     Around 400 MB per editor after the package unpacks; roughly 800 MB with
     both. Each repository's metadata adds a few megabytes under
     /var/lib/apt/lists/ and a refresh on every `apt update` from then on.
+  who_for: "Someone who wants VS Code or VSCodium on a machine whose archive does not carry it, and accepts a publisher's apt repository to get it."
+  hardware_assumed: "None."
+  footprint_short: "about 400 MB per editor"
+  excludes_short: "every other editor, extensions and settings sync"
+  goals:
+    - "Install VS Code or VSCodium"
+  first_ten_minutes:
+    - "Pick one: `codium` is the telemetry-free community build, `code` is Microsoft's. They coexist, but there is rarely a reason to hold both."
+    - "Read the plan: `hammunition install codium --dry-run` (or `code`). On Parrot, `codium` comes from the distribution and the plan adds no repository. Elsewhere the plan names the repository, the files it will write and the fingerprint you must type."
+    - "Check that fingerprint against the publisher's own page. That check is the whole point of the gate and only you can do it."
+    - "Install, setting the variable the plan printed to the fingerprint itself, never to `1`: for example `HAMMUNITION_ACCEPT_APT_REPO_<NAME>=<fingerprint> hammunition install codium`. `--yes` cannot answer this gate."
+    - "To remove it: `hammunition uninstall codium`. It removes the package and both repository files this engine wrote, and refreshes apt."

@@ -72,3 +72,16 @@ documentation:
     gr-gsm package manifest) is the reference; this catalog ships no worked
     example yet. No transmit path is enabled by installing this.
   disk_footprint_hint: Small today — one package plus the GNU Radio stack it depends on.
+  who_for: "A researcher with the authorisation they need for transmit-capable or interception-capable RF tooling, who has read the disclosure and wants to affirm it deliberately."
+  hardware_assumed: "A supported SDR; `hacktv` drives a HackRF, `gr-gsm` needs a receiver. None are needed to install."
+  footprint_short: "small beyond GNU Radio, which gr-gsm pulls in"
+  excludes_short: "transmit-capable cellular stacks (post-1.0, their own gated profile), everything in rf-security"
+  goals:
+    - "Study cellular or transmit-capable RF research tooling"
+  first_ten_minutes:
+    - "Read the disclosure before anything is installed: `hammunition show rf-research`. It lists the four capability categories and says Hammunition does not know your location, licence or authorisation."
+    - "Read the plan: `hammunition install rf-research --dry-run`. It prints the consent gate it will present."
+    - "Install interactively and answer the question yourself: `hammunition install rf-research`. `--yes` is read by nothing in a gate; a person affirms, or sets `HAMMUNITION_ACCEPT_RF_RESEARCH=1` for a script."
+    - "With no terminal and no variable the run stops with exit code 3. That is the gate working, not a failure."
+    - "Nothing is configured for you and no transmit path is enabled by installing. `gr-gsm` needs a supported SDR and its own tuned capture; follow its upstream documentation."
+    - "Keep your use inside what you are authorised to do. The software cannot know what that is."

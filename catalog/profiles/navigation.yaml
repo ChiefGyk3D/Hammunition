@@ -228,3 +228,18 @@ documentation:
     is smaller and not measured) and 123 MB installed with its World maps;
     its own maps are tens to a few hundred megabytes a US state (Vermont
     61 MB) and 15.7 GB for all of the US.
+  who_for: "An operator who needs maps and routing with no network: a field laptop, a vehicle, a hike, an EMCOMM deployment. It builds everything from regions you choose, on your machine."
+  hardware_assumed: "A USB GPS receiver for position (the `station` profile carries gpsd). Maps and routing work without one; they just do not follow you."
+  footprint_short: "per region: the download plus roughly 3 to 4 times it; Navit alone is small"
+  excludes_short: "phone maps, Kiwix, tile servers, raster tile stacks"
+  goals:
+    - "Navigate offline from my own GPS"
+    - "See repeaters, airfields and hospitals on an offline map"
+  first_ten_minutes:
+    - "Install `station` first so gpsd and the GPS tooling are present. See [the station profile](station.md)."
+    - "Find a region path with `hammunition maps regions vermont` (a case-insensitive filter; it asks Geofabrik, so it needs the network), then choose yours: `hammunition station set --map-regions <region-path>[,<region-path>]` and `hammunition station set --grid-square FN31pr` (your own locator). The sheets and terrain are bounded to 100 km around the grid square by default."
+    - "Read the plan: `hammunition install navigation --dry-run`. It prints the size of every download before it asks. Read those numbers; a region and its derived maps are several times the download."
+    - "Install: `hammunition install navigation`. It holds your `sudo` ticket open for the length of the run (see the install guide), because conversions can take hours."
+    - "Start the GPS bridge the maps read: `hammunition maps gps-tether`, and check `hammunition doctor` for the `geoclue` line."
+    - "Open `navit-offline` for turn-by-turn directions, or run `hammunition maps qmapshack` to set up QMapShack for trails, terrain and routing on foot."
+    - "Read [Offline navigation](../guides/offline-navigation.md) next. It says what was measured on the field laptop and what is still owed to the bench."
