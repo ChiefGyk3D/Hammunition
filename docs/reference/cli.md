@@ -915,7 +915,7 @@ every book with its id, title, pinned file and size, licence and licence
 URL, and whether it is chosen and installed. Which books somebody reads is
 not where they are, so unlike map regions the ids are named everywhere.
 
-### `hammunition reference serve [--port N] [--position-port N]`
+### `hammunition reference serve [--port N] [--position-port N] [--readsb-json DIR]`
 
 The offline reference on one page, on **127.0.0.1 only** (**D-066**):
 
@@ -946,6 +946,7 @@ you: parsing downloaded files is the reader's business, never root's.
 |---|---|---|
 | `--port N` | `8480` | The page's port, still on 127.0.0.1; kiwix-serve takes N+1. 1024 to 65534; anything else is refused by name. |
 | `--position-port N` | `10111` | Where the map page asks the GPS tether for your position, on 127.0.0.1: the tether's own `--position-port`. 1024 to 65535. |
+| `--readsb-json DIR` | `/run/readsb` | The directory readsb writes `aircraft.json` to, which the aircraft page reads, read-only. An absolute path; a relative one is refused by name. |
 
 **The offline map (D-071).** When `vector-map-kit` is installed, the same
 server also serves the map (with no `osm-pmtiles` region installed, the
@@ -975,6 +976,32 @@ wrote with `hammunition maps infra` is served from your own overlay
 directory as `/map/overlays/infra-<id>.geojson`, listed at
 `/map/overlays.json`, and drawn as a toggled layer with its licence in the
 credit; a layer written while the server runs appears after a restart.
+
+**The aircraft map (D-071, amended 2026-10-02).** When the `tar1090` unit is
+installed, the same server serves tar1090 at `/aircraft/`: the pinned
+archive's `html/` by exact installed name, a `config.js` and an
+`hammunition-layers.js` of the engine's own, and `/aircraft/data/<name>.json`
+read from readsb's directory (a plain `name.json` of letters, digits, `_` and
+`-`, a regular file, never a link, sent `no-store`; nothing else under
+`data/`; `receiver.json` is built from readsb's own, reduced to version,
+refresh and position, so the page reads plain `aircraft.json` and never asks
+for the binary or globe forms). `/aircraft` redirects to `/aircraft/`. The page cannot call out:
+tar1090's settings for photographs, routes and overlays are off, its online
+map layers do not exist, and every response carries a Content-Security-Policy
+naming no host (`default-src 'self'`, `connect-src 'self'`, `img-src 'self'
+data: blob:`, `form-action 'none'`, `frame-ancestors 'none'`). The one base map is your PMTiles regions
+(with `vector-map-kit` and `osm-pmtiles`); without them there is none, the
+aircraft are drawn on a plain background and the page says why. The Host
+check applies. The directory is read when a request arrives, so readsb may
+start after the page. The verb prints the address, the directory and the
+basemap line:
+
+```
+  aircraft: http://127.0.0.1:8480/aircraft/  (tar1090 over readsb's JSON in /run/readsb; the basemap is your offline map)
+```
+
+A tree that is installed but whose `index.html` is not the pinned one is named
+as a warning and not served; the rest of the page goes on.
 
 With no books installed, no kiwix-serve is started and the page says how to
 choose some. With books installed and `kiwix-serve` or `kiwix-manage`
@@ -1063,7 +1090,7 @@ With `--json`, prints a `profile` document
 document carrying its manifest; the text `show` still describes profiles
 only.
 
-### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
+### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--full] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
 **A re-run rebuilds nothing it has already built** (**D-051**): a source, git
 or prebuilt-archive unit whose binaries are on the machine *and* whose build
@@ -1081,6 +1108,7 @@ Names may be packages or profiles, mixed freely.
 | `--no-refresh` | Skip the `apt-get update` that otherwise opens every transaction with apt work (**D-044**). For a local mirror, or a station with no uplink. `--refresh` is the default and still parses |
 | `--no-sudo-keepalive` | Do not hold sudo's ticket for the run (**D-062**). By default a run as a user that mixes root steps with steps that are not asks the password once, by `sudo -v`, before the first step, and keeps the ticket valid with `sudo -n -v` every 4 minutes until the run ends. With this flag each root step asks for itself, and one that follows a long step may prompt again. `--sudo-keepalive` is the default and still parses |
 | `--no-mirror` | Ignore the LAN mirror set in station config for this run (**D-070**): every data download comes from its publisher. With no mirror set it changes nothing |
+| `--full` | Print every step of the plan expanded. Without it, a run of steps that repeat one template for many items (a US Topo sheet, a terrain tile, a Kiwix book) is printed as the template with `<placeholders>`, the first item written out in full, every item's own values on a line, and the totals; `--dry-run --full` prints the plan exactly as it was before grouping (**D-016**, amended 2026-10-02). `--json` always carries every step, with or without it |
 | `--user NAME` | Who to add to groups. Defaults to `$SUDO_USER`, then `$USER` |
 | `--callsign CALL` | Station callsign for this run. Overrides the saved value |
 | `--grid-square LOC` | Maidenhead locator, four or six characters |
@@ -1550,7 +1578,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Twenty-two checks across four severities:
+one command that fixes it. Twenty-three checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -1560,6 +1588,10 @@ one command that fixes it. Twenty-two checks across four severities:
 - **info** — a true fact that is not a problem (no ham hardware attached
   right now; udev rules not yet applied on a machine with no radios).
 - **ok** — checked and healthy.
+
+The **run logs** check (an *info*, shown once a run has left a log) says how
+many logs there are, their size, and how the newest ended; `hammunition logs
+--last` prints it (**D-077**).
 
 The **desktops** check is always information (**D-060**): the desktops
 the session files in `/usr/share/xsessions` and `/usr/share/wayland-sessions`
@@ -2015,7 +2047,22 @@ JSON form, **D-059**), prints a `services` document
 re-rendered, so a front end reads one shape from the engine or from the
 helper. A helper that predates the `services` verb, or is not installed, is
 refused by name: update or install hammunition-tray. Not yet measured on the
-bench: the verbs against the tray's helper, which is not released.
+bench: the verbs against the tray's helper (hammunition-tray 0.5.0, released
+and installed by the tray units), which has been run against fakes only, never
+against a real `systemctl`.
+
+### `hammunition logs [--last] [--path] [--user NAME] [--json]`
+
+The log each run that changed something left behind (**D-077**), newest first:
+when it started, which command, how large the file is and how the run ended
+(`ok`, `failed`, `refused`, `not confirmed`, `running` while a live process
+still holds the file, `incomplete` for a run that was killed before it could
+write its last line). Reads only. `--last` prints the newest in full;
+`--path` prints its path, for `tail -f` while the run is going. With `--json`
+(the list only) prints a `logs` document
+([json-interface.md](json-interface.md)). With no logs yet, the list says so
+and `--last` exits `1`. The files, their format and their rotation are
+`docs/reference/run-logs.md`.
 
 ### `hammunition station show` / `hammunition station set`
 
@@ -2478,6 +2525,13 @@ about. A `depends` the archive lacks is never a reason to add one.
 | 3 | A consent gate was declined, or could not be presented |
 
 ## What is recorded
+
+Two records, for two readers. Every run that changes something also writes a
+plain-text **run log** (`hammunition logs`, `docs/reference/run-logs.md`,
+**D-077**): what it printed, each command it ran with the command's output and
+exit code, how it ended. It ends with a `Log: <path>` line on stderr (not under
+`--json`). The **transaction log** below is the machine's record, which
+`uninstall` stands on.
 
 Every run appends to the transaction log — format in
 `docs/reference/transaction-log.md`. Each command is logged **before** it runs

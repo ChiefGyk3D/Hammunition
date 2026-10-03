@@ -236,3 +236,28 @@ def test_clear_rig(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert rc == 0
     st = _station(tmp_path)
     assert st.rig is None  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ("--rig", "yaesu-ft-991a"),
+        ("--rig-baud", "9600"),
+    ],
+)
+def test_clear_rig_refuses_setting_rig_flags(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    flags: tuple[str, ...],
+) -> None:
+    _run(monkeypatch, tmp_path, "--rig", "yaesu-ft-991a", "--rig-baud", "38400")
+    original = _station(tmp_path)
+
+    rc = _run(monkeypatch, tmp_path, *flags, "--clear-rig")
+
+    assert rc == cli.EXIT_FAILED
+    error = capsys.readouterr().err
+    assert "--clear-rig" in error
+    assert "second command" in error
+    assert _station(tmp_path) == original

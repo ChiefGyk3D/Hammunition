@@ -5,73 +5,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Changelog
 
-One entry per release, written from the merged pull requests, each line
+One entry per release, assembled from the fragments each merged pull request
+adds under `changelog.d/` (never edited here in a pull request), each line
 naming the PR and the decision it rests on. Decisions are authoritative in
 `docs/DECISIONS.md`; this file is the map from a version to them.
 
 ## Unreleased
 
-- **A publisher outage at plan time retries, then defers by name instead of
-  refusing the install** (#200, **D-039** amended 2026-10-02). `install
-  navigation --dry-run` refused whole over a Geofabrik outline answering 502, one
-  timing out and one US Topo sheet answering 503, none of which was a fault in
-  the plan. Every plan-time probe (terrain, 3DEP, US Topo, FSTopo, Kiwix, CoMaps
-  and the outlines they share) now retries an HTTP 5xx or 429, a connection
-  error and a read timeout three times, waiting 1 s, 3 s, 9 s, one stderr line
-  per retry; any other 4xx is final. A profile member's items a publisher still
-  does not answer for are deferred by name with its last answer quoted (printed
-  under "Will NOT happen", in `--json` `deferrals`, in the log and `status`), a
-  dead outline defers that region in every unit that needs it and no other, and
-  a line at the foot says to run the command again; a unit you typed refuses,
-  saying the publisher is not answering rather than naming the stale-index
-  remedy, which a 404 keeps. A deferred sheet leaves its older edition
-  installed, and a deferred book or map suspends the unit's removals for the
-  run. New `hammunition.retry`; tests `tests/test_retry.py`,
-  `tests/test_plan_retry.py`.
-
-- **Switching rigs clears saved baud and PTT-line settings that do not apply
-  to the new rig; device and owner still carry over** (#218, **D-073**).
-- **The engine's own GPS tether copy retired; the ACMA Bunker ruling recorded**
-  (**D-071** note, **D-074**, 2026-10-02). `gps_tether.py` and its tests are
-  deleted: the tether is hammunition-gps-tether, installed by the `gps-tether`
-  unit. `hammunition maps gps-tether` runs the installed program and, absent,
-  refuses naming `hammunition install gps-tether`. `tether_contract.py` holds
-  the ports and the four GeoClue constants shared with the tether, asserted
-  equal to its source by `tests/test_tether_contract.py` (skipped where that
-  source is absent). `reference serve` checks `--position-port` itself. The
-  maintainer's ruling that a Bunker may hold the ACMA register zip (it contains
-  `client.csv`, never opened by the engine) is recorded, with Bunker's
-  `hold_unverified = false` as the opt-out.
-- **HydraSDR RFOne and RigExpert Fobos SDR: host software and device entries,
-  from upstream's own files, for hardware nobody here owns** (**D-024**,
-  **D-027**, **D-028**, **D-029**, **D-032**). Five units: `hydrasdr-host` (the
-  library and its seventeen tools) and `soapysdr-module-hydrasdr`, and
-  `libfobos`, `libfobos-sdr-agile` and `soapysdr-module-fobos`, the last
-  needing both libraries to build. Kali and Ubuntu 26.04 take the HydraSDR
-  units from apt; every other target builds the tags Debian packages
-  (v1.1.1, v1.0.1). Nothing Fobos is packaged anywhere, so `libfobos` (head
-  1e0fab3) and `soapysdr-module-fobos` (aa8d486) are commit pins with a
-  `pin_review`, `libfobos-sdr-agile` is upstream's tag. Two entries under
-  `catalog/hardware/devices/`: `hydrasdr-rfone` (38af:0001, `status:
-  supported` in D-027's shape, with 1d50:60a1 recorded in `rejected_ids`
-  because the Airspy R2 and Mini use it and no rule can tell them apart, and
-  the NXP DFU recovery id marked shared with the HackRF) and `fobos-sdr`
-  (16d0:132e, `untested`; both firmware families present it and differ only
-  in bcdDevice). Identifiers are cited as commit-pinned URLs into the vendors'
-  repositories; `scripts/check_rule_citations.py` now ignores a rules file
-  named inside a URL, since the sweep covers distribution packages only.
-  Built in rootless containers on Debian 13, Ubuntu 24.04, Ubuntu 26.04 and
-  Kali (x86_64): all five units build and install, `hydrasdr_info` and
-  `fobos_devinfo` run without a board, `SoapySDRUtil --info` lists both
-  modules. Three defects of upstream's builds are handled in the manifests,
-  each measured: libfobos-sdr-agile wrote `/etc/udev/rules.d` as root (a
-  CRLF-preserving patch removes it), SoapyHydraSDR also wrote into dpkg's
-  module directory (a define), and nothing a build into `/usr/local` links
-  was found without `ldconfig` (an embedded run path). Not owned, not run
-  against a board; the units stay out of the `sdr` profile (D-020). The
-  HydraSDR tree states two licences (per-directory LICENSE.md files, and a
-  debian/copyright reading "licensed exclusively for HydraSDR products"); the
-  unit's page says so and the catalog follows the LICENSE.md files (D-033).
+Nothing yet.
 
 ## v0.19.0 — 2026-10-02 — the rig as station data, repeater sources, infrastructure layers, GraphHopper, terrain for coverage plots, the tether as its own project, device and service control for the tray
 

@@ -24,10 +24,12 @@ You have two ways to be that one program. Both are in the
 | Programs reach it at | `127.0.0.1:4532` as *Hamlib NET rigctl* | `127.0.0.1:12345` as *FLRig* |
 | Good for | A station that runs unattended, satellites, scripts | Seeing and turning the knobs on screen |
 
-Pick one. The `station` profile's own notes suggest flrig, because its
-panel shows at a glance that the radio is answering. This page walks
-`rigctld` first because every program on the station can speak to it, and
-the flrig route is at the end. Either is right; running both against the
+Pick one. `rigctld` is the default: say which radio you have with
+`hammunition station set --rig` and the `rig-service` unit runs it for you as
+a user service. flrig is the other route, chosen with `station set --rig-owner
+flrig`, and its panel shows at a glance that the radio is answering. This page
+walks `rigctld` first because every program on the station can speak to it,
+and the flrig route is at the end. Either is right; running both against the
 radio is not.
 
 ## 1. Find the radio's serial port
