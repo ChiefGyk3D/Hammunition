@@ -1246,6 +1246,36 @@ def cmd_logs(args: argparse.Namespace) -> int:
 
 
 @envelope.json_capable()
+def cmd_transactions(args: argparse.Namespace) -> int:
+    """List each transaction in chronological order, including rotated history. D-077."""
+    from hammunition import runlog
+    from hammunition.interface.transactions import (
+        TransactionsDocument,
+        build_transactions,
+        render_transactions,
+    )
+
+    if args.last is not None and args.last < 1:
+        print("error: --last must be a positive number", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+
+    owner = operator(args) or None
+    log = TransactionLog(owner=owner)
+    running_logs = {
+        str(run.path) for run in runlog.list_runs(runlog.logs_dir(owner)) if run.result == "running"
+    }
+    doc = build_transactions(list(log.read()), running_logs=running_logs)
+    if args.last is not None:
+        doc = TransactionsDocument(transactions=doc.transactions[-args.last :])
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_transactions(doc):
+        print(line)
+    return EXIT_OK
+
+
+@envelope.json_capable()
 def cmd_artifacts(args: argparse.Namespace) -> int:
     """Every remote data artifact the engine would fetch for the selection
     on the command line, with no station and no install.  D-070.
@@ -6678,6 +6708,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--user", default=None, help="whose logs to read (default: $SUDO_USER, else $USER)"
     )
     p_logs.set_defaults(func=cmd_logs)
+
+    p_transactions = sub.add_parser(
+        "transactions",
+        help="the full transaction history, oldest first across archives (D-077)",
+    )
+    p_transactions.add_argument(
+        "--last", type=int, default=None, metavar="N", help="show only the newest N transactions"
+    )
+    p_transactions.set_defaults(func=cmd_transactions)
 
     p_artifacts = sub.add_parser(
         "artifacts",
