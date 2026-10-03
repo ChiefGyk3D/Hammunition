@@ -46,11 +46,11 @@ N = 12
 
 
 def _view(step: Action | Command) -> StepView:
-    return step_view(step, euid=1000)
+    return step_view(step, euid=1000, index=1)
 
 
 def _views(steps: Sequence[Action | Command]) -> list[StepView]:
-    return [_view(s) for s in steps]
+    return [step_view(step, euid=1000, index=index) for index, step in enumerate(steps, 1)]
 
 
 def _tile(lat: int, lon: int) -> str:
@@ -242,13 +242,21 @@ def test_full_prints_every_step_as_the_plan_always_did(tmp_path: Path) -> None:
     views = ustopo(tmp_path)
     expected: list[str] = []
     for view in views:
-        expected.append(f"  # {view.description}")
+        expected.append(f"  # {view.index}: {view.description}")
         expected.append(f"  $ {view.display}")
     assert render_steps(views, full=True) == expected
 
 
 def _action(i: int, kind: str = "fetch", root: bool = False, word: str = "Fetch") -> StepView:
-    return StepView(f"{word} tile {i} (1.0 MB, ok)", f"[{kind}] /d/t{i}.tif", (), kind, root, ())
+    return StepView(
+        f"{word} tile {i} (1.0 MB, ok)",
+        f"[{kind}] /d/t{i}.tif",
+        (),
+        kind,
+        root,
+        (),
+        i + 1,
+    )
 
 
 def test_commands_never_group() -> None:
@@ -261,8 +269,9 @@ def test_commands_never_group() -> None:
             None,
             True,
             (),
+            index,
         )
-        for name in ("a.py", "b.py", "c.py", "d.py", "e.py", "f.py")
+        for index, name in enumerate(("a.py", "b.py", "c.py", "d.py", "e.py", "f.py"), 1)
     ]
     assert not _groups(steps)
     assert render_steps(steps) == render_steps(steps, full=True)
@@ -295,7 +304,9 @@ def test_the_total_sums_the_size_column(tmp_path: Path) -> None:
 def test_an_installed_group_keeps_its_unrelated_steps_after_it(tmp_path: Path) -> None:
     views = ustopo(tmp_path)
     text = render_steps(views)
-    assert text[-2].startswith("  # Build QMapShack's US Topo map"), "the VRT step is not grouped"
+    assert text[-2].startswith(f"  # {views[-1].index}: Build QMapShack's US Topo map"), (
+        "the VRT step is not grouped"
+    )
     assert text[-1].startswith("  $ [install-data]")
 
 
@@ -311,7 +322,7 @@ def test_plan_step_views_have_stable_indices_and_groups_show_their_range() -> No
     steps = [_action(i) for i in range(12)]
     assert [getattr(step, "index", None) for step in steps] == list(range(1, 13))
     text = "\n".join(render_steps(steps))
-    assert "Steps 1–12 of 12" in text
+    assert "Steps 1-12 of 12" in text
 
 
 # -- the whole plan, through render_plan and main() ---------------------------------------
@@ -348,8 +359,8 @@ def test_full_equals_the_plan_as_it_was_printed_before_grouping_byte_for_byte(
     plan = _plan()
     head = render_plan(plan, [], euid=1000)[:-2]  # without "Commands (0):" and its "(none" line
     before = [*head, f"Commands ({len(steps)}):"]
-    for step in steps:
-        before.append(f"  # {step.description}")
+    for index, step in enumerate(steps, 1):
+        before.append(f"  # {index}: {step.description}")
         before.append(f"  $ {step.display(euid=1000)}")
     assert render_plan(plan, steps, euid=1000, full=True) == before
     grouped = render_plan(plan, steps, euid=1000)
@@ -389,7 +400,7 @@ def test_install_accepts_full_for_a_dry_run_and_a_real_listing(
 def test_a_step_that_differs_in_a_flag_or_scheme_or_words_is_not_one_template() -> None:
     def fetch(i: int, text: str) -> StepView:
         return StepView(
-            f"Fetch tile {i} {text}", f"[fetch] {text}/t{i}.tif", (), "fetch", False, ()
+            f"Fetch tile {i} {text}", f"[fetch] {text}/t{i}.tif", (), "fetch", False, (), i + 1
         )
 
     plain = [fetch(i, "https://x.invalid/d") for i in range(5)]
@@ -398,11 +409,13 @@ def test_a_step_that_differs_in_a_flag_or_scheme_or_words_is_not_one_template() 
         mixed = [*plain[:2], fetch(2, odd), *plain[3:]]
         assert all(len(g.items) < 5 for g in _groups(mixed)), odd
     unrelated = [
-        StepView(f"Fetch {w}", f"[fetch] {w2}", (), "fetch", False, ())
-        for w, w2 in (("a b", "c d"), ("e f", "g h"), ("i j", "k l"), ("m n", "o p"))
+        StepView(f"Fetch {w}", f"[fetch] {w2}", (), "fetch", False, (), index)
+        for index, (w, w2) in enumerate(
+            (("a b", "c d"), ("e f", "g h"), ("i j", "k l"), ("m n", "o p")), 1
+        )
     ]
     assert not _groups(unrelated)
 
 
 def test_identical_steps_are_not_grouped() -> None:
-    assert not _groups([StepView("Fetch x", "[fetch] y", (), "fetch", False, ())] * 6)
+    assert not _groups([StepView("Fetch x", "[fetch] y", (), "fetch", False, (), 1)] * 6)

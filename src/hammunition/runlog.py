@@ -225,6 +225,9 @@ class RunLog:
         self.write("cmd", "$ " + " ".join(argv))
         return time.monotonic()
 
+    def step_start(self, index: int, count: int, description: str) -> None:
+        self.write("meta", f"step {index}/{count}: {description}")
+
     def command_output(self, stream: str, line: str) -> None:
         self.write("cmd-out" if stream == "out" else "cmd-err", _clean(line.rstrip("\n")))
 

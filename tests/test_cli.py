@@ -274,8 +274,14 @@ def test_step_indices_match_the_plan_progress_and_run_log(
     monkeypatch.setattr(runlog, "_active", active)
     lines: list[str] = []
     try:
-        execute(steps, RecordingRunner(), log=TransactionLog(tmp_path / "log.jsonl"),
-                plan=_plan(), echo=lines.append, euid=1000)
+        execute(
+            steps,
+            RecordingRunner(),
+            log=TransactionLog(tmp_path / "log.jsonl"),
+            plan=_plan(),
+            echo=lines.append,
+            euid=1000,
+        )
     finally:
         runlog._active = None
         active.close(0, 0.0)
@@ -284,8 +290,50 @@ def test_step_indices_match_the_plan_progress_and_run_log(
         "step 1/2: First fixture step",
         "step 2/2: Second fixture step",
     ]
-    assert [line for line in lines if line.startswith("  step ")] == [f"  {line}" for line in expected]
+    assert [line for line in lines if line.startswith("  step ")] == [
+        f"  {line}" for line in expected
+    ]
     logged = [line for line in (tmp_path / "run.log").read_text().splitlines() if "step " in line]
+    assert [line.split("meta    ", 1)[1] for line in logged] == expected
+
+
+def test_uninstall_step_indices_match_progress_and_run_log(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from hammunition import runlog
+    from hammunition.execute import run_removal
+    from hammunition.state import RemovalPlan
+
+    steps = [
+        Command(argv=("first",), description="First fixture removal", requires_root=False),
+        Command(argv=("second",), description="Second fixture removal", requires_root=False),
+    ]
+    active = runlog._open(tmp_path / "uninstall.log", None)
+    monkeypatch.setattr(runlog, "_active", active)
+    lines: list[str] = []
+    try:
+        report = run_removal(
+            steps,
+            RecordingRunner(),
+            log=TransactionLog(tmp_path / "uninstall.jsonl"),
+            plan=RemovalPlan(to_remove={}, left_foreign={}, already_absent={}),
+            target=TARGET,
+            echo=lines.append,
+            euid=1000,
+        )
+    finally:
+        runlog._active = None
+        active.close(0, 0.0)
+
+    assert report.ok
+    expected = [
+        "step 1/2: First fixture removal",
+        "step 2/2: Second fixture removal",
+    ]
+    assert [line.strip() for line in lines if line.startswith("  step ")] == expected
+    logged = [
+        line for line in (tmp_path / "uninstall.log").read_text().splitlines() if "step " in line
+    ]
     assert [line.split("meta    ", 1)[1] for line in logged] == expected
 
 
