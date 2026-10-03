@@ -277,8 +277,13 @@ def test_the_suite_blocks_the_network() -> None:
     """The seam is only a seam if nothing can go around it. Asserted here so
     the guard itself is tested rather than assumed (CLAUDE.md: a check nobody
     falsified is a check nobody should trust)."""
+    # A literal address, never a name: resolving a name is a DNS query, and on
+    # a runner whose egress is blocked (GYST's python-ci) that query fails
+    # first, with its own message, before the guard on connect() is reached
+    # (#284). 192.0.2.1 is TEST-NET-1 (RFC 5737): routable nowhere, loopback
+    # never, so only the guard can answer.
     with pytest.raises(Exception, match="blocked a connection"):
-        socket.create_connection(("example.com", 80), timeout=1)
+        socket.create_connection(("192.0.2.1", 80), timeout=1)
 
 
 # ---------------------------------------------------------------------------

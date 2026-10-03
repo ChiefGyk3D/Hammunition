@@ -1610,6 +1610,8 @@ def cmd_maps_comaps(args: argparse.Namespace) -> int:
     sys.stdout.flush()
     sys.stderr.flush()  # execve discards whatever Python still buffers
     try:
+        # Semgrep: the program is the CoMaps binary this engine installed; the env only adds two paths.
+        # nosemgrep: python.lang.security.audit.dangerous-os-exec-tainted-env-args.dangerous-os-exec-tainted-env-args
         os.execve(str(program), ["CoMaps"], env)
     except OSError as exc:
         print(f"error: cannot start {program}: {exc.strerror or exc}.", file=sys.stderr)
@@ -5490,6 +5492,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         if helper_command is not None:
             helper_staging = staging_dir / "hammunition-devctl"
             helper_staging.write_text(plan.polkit.helper_content)
+            # Semgrep: a deliberate mode (0755/0644 on installed files and launchers, 0700 private); nothing group- or world-writable.
+            # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
             os.chmod(helper_staging, 0o755)
         if policy_command is not None:
             policy_staging = staging_dir / "devctl.policy"

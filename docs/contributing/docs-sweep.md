@@ -22,7 +22,7 @@ alone. It never invents a measurement.
 ## The wiki mirror
 
 The GitHub wiki is generated from `docs/`, never written. On every push to
-`main`, `.github/workflows/wiki.yml` runs `scripts/gen_wiki.py` and replaces
+`main`, `.github/workflows/wiki.yml` (a GYST `wiki-publish.yml` caller) runs `scripts/gen_wiki.py` and replaces
 every wiki page with its output, so an edit made in the wiki is lost at the
 next push. Corrections go to `docs/` by pull request, like any other. The
 canonical site stays <https://chiefgyk3d.github.io/Hammunition/>.
