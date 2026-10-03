@@ -27,8 +27,9 @@ Readers lose nothing: `TransactionLog.read()` yields the archives in name
 order (the leading sequence number, not the clock, orders them: a machine whose clock steps back before a GPS fix still reads its history in the order it was written) and then
 the live file, the same events in the same order as before the move. `status`,
 `update` and `uninstall`, and the replays they stand on, call only that, and a
-test compares their output before and after a rotation. **Nothing is deleted**:
-what `uninstall` attributes to Hammunition is history. An archive that exists
+test compares their output before and after a rotation. `hammunition transactions`
+uses the same reader to display that history. **Nothing is deleted**: what
+`uninstall` attributes to Hammunition is history. An archive that exists
 and cannot be read stops the reader with an error rather than being skipped,
 since skipping it would report installed units as not installed.
 
@@ -80,7 +81,7 @@ exit does.
 
 | `event` | Written | Carries |
 |---|---|---|
-| `transaction_begin` | Once, first | `target`, the manifest `packages` requested, the `apt_packages` the whole set resolved to. **Version 2** (2026-09-03) adds `deferred`: one `{kind, subject, what, why}` per thing the plan chose not to do — `kind: package` for a profile member the target does not offer (**D-039**), `kind: config` for a file a station value was missing for (**D-035**). `status` prints them; a version 1 entry has no key and nothing is inferred from its absence. |
+| `transaction_begin` | Once, first | `target`, the manifest `packages` requested, the `apt_packages` the whole set resolved to. **Version 2** (2026-09-03) adds `deferred`: one `{kind, subject, what, why}` per thing the plan chose not to do — `kind: package` for a profile member the target does not offer (**D-039**), `kind: config` for a file a station value was missing for (**D-035**). `status` prints them; a version 1 entry has no key and nothing is inferred from its absence. When a D-077 run log is active, `run_log` records its path; older or unlogged transactions omit it. |
 | `command_begin` | Before each command | `argv`, `requires_root`, `description`. |
 | `command_end` | After each command that ran | `argv`, `returncode`. |
 | `action_begin` | Before each in-process step | `kind` (`fetch`, `extract`, `config`, `requirements`, `wrapper`, `desktop-entry`, `patch`, `prepare`, `install-binary`, `verify-pin`, `remove-venv`, `remove-wrapper`, `remove-desktop-entry`), `detail`, `description`. |

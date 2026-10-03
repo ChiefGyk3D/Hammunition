@@ -59,9 +59,10 @@ their text follows.
 - `hammunition maps repeaters remove`
 - `hammunition reference books`
 - `hammunition services`
-- `hammunition show`
+- `hammunition show PROFILE` (profile document); `hammunition show UNIT --json` (unit document)
 - `hammunition station show`
 - `hammunition status`
+- `hammunition transactions`
 - `hammunition uninstall` (with `--dry-run` only)
 - `hammunition update`
 
@@ -89,6 +90,7 @@ their text follows.
 | `services` | [`ServicesDocument`](#services) |
 | `station` | [`StationDocument`](#station) |
 | `status` | [`StatusDocument`](#status) |
+| `transactions` | [`TransactionsDocument`](#transactions) |
 | `unit` | [`UnitDocument`](#unit) |
 | `update` | [`UpdateDocument`](#update) |
 
@@ -5930,6 +5932,126 @@ machine. A unit the catalog no longer carries has null method and pin.
     "recorded_units"
   ],
   "title": "StatusDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### transactions
+
+The transaction history, oldest first, across archives and the live log.
+
+| field | type | meaning |
+|---|---|---|
+| `transactions` | list of [`TransactionEntry`](#transactionentry) | transaction rows in chronological order, oldest first |
+
+#### `TransactionEntry`
+
+One install or uninstall recorded in the transaction log.
+
+| field | type | meaning |
+|---|---|---|
+| `id` | integer | its one-based position in chronological transaction history |
+| `began` | string | the begin event's ISO 8601 timestamp |
+| `ended` | string or null | the matching end event's timestamp, or null without one |
+| `command` | string | the command that began the transaction, such as `install` |
+| `units` | list of string | unit names recorded by the begin event |
+| `deferred` | list of string | unit names deferred by the begin event (D-039) |
+| `result` | string | `ok`, `failed`, `aborted` or `in-progress` |
+| `log` | string or null | the D-077 run-log path recorded at transaction start, or null |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "TransactionEntry": {
+      "additionalProperties": false,
+      "description": "One install or uninstall recorded in the transaction log.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "began": {
+          "title": "Began",
+          "type": "string"
+        },
+        "ended": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ended"
+        },
+        "command": {
+          "title": "Command",
+          "type": "string"
+        },
+        "units": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Units",
+          "type": "array"
+        },
+        "deferred": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Deferred",
+          "type": "array"
+        },
+        "result": {
+          "title": "Result",
+          "type": "string"
+        },
+        "log": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Log"
+        }
+      },
+      "required": [
+        "id",
+        "began",
+        "ended",
+        "command",
+        "units",
+        "deferred",
+        "result",
+        "log"
+      ],
+      "title": "TransactionEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The transaction history, oldest first, across archives and the live log.",
+  "properties": {
+    "transactions": {
+      "items": {
+        "$ref": "#/$defs/TransactionEntry"
+      },
+      "title": "Transactions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "transactions"
+  ],
+  "title": "TransactionsDocument",
   "type": "object"
 }
 ```
