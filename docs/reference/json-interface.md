@@ -5613,6 +5613,7 @@ machine. A unit the catalog no longer carries has null method and pin.
 | `name` | string | the catalog unit |
 | `last_named` | string or null | when the latest install or uninstall naming it began |
 | `last_outcome` | string | an install's `completed`, `failed` or `interrupted`; an uninstall's `removed`, `removal failed` or `removal interrupted` |
+| `completed_in_failed_run` | string or null | when the install that completed this unit began, if that install then failed or was killed after the unit's last step (`unit_end`); null otherwise |
 | `catalog_version` | string or null | the manifest's version today |
 | `method` | string or null | the install method that resolves on this target |
 | `pin` | string or null | the catalog's pin for a built unit; null for apt |
@@ -5805,6 +5806,17 @@ machine. A unit the catalog no longer carries has null method and pin.
           "title": "Last Outcome",
           "type": "string"
         },
+        "completed_in_failed_run": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Completed In Failed Run"
+        },
         "catalog_version": {
           "anyOf": [
             {
@@ -5843,6 +5855,7 @@ machine. A unit the catalog no longer carries has null method and pin.
         "name",
         "last_named",
         "last_outcome",
+        "completed_in_failed_run",
         "catalog_version",
         "method",
         "pin"

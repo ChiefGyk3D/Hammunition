@@ -1469,6 +1469,20 @@ in your home and the station's map regions, so the document is for a local
 program, not for pasting into an issue. It never carries a rendered
 configuration file, so the callsign in one is not in it.
 
+**A rerun after a failure** plans only what is not done. When a unit's last
+step finishes the engine writes a `unit_end` to the transaction log
+([transaction-log.md](transaction-log.md)), so a failure in a later unit leaves
+every earlier one recorded and `status` reports it `completed`, with
+`completed_in_failed_run` naming the install. Run the same request again and
+the plan lists the unit that failed and the ones after it. A built unit is
+skipped (planned `already installed`) only when its declared binaries and tree
+marker are on disk and the recording is at the manifest's current pin; a
+missing file, or a moved pin, plans the build again. Units installed through
+apt are decided by apt as before. A unit the log does not show finishing is
+planned in full; map units that share a ledger (`osm-regions`, the converters,
+the terrain and topo units) are not recorded per unit and are planned as they
+were.
+
 ### `hammunition uninstall NAME... [--dry-run] [--yes] [-v|--verbose] [--user NAME]`
 
 Removes what Hammunition itself installed, and only that (**D-004**). Names

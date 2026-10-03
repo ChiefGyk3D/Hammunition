@@ -167,6 +167,16 @@ be long says `this step can take several minutes` first. Add `-v` to see every
 line the command prints instead; piped or logged, the transcript stays plain.
 Every line is in the run log either way (`hammunition logs --last`).
 
+## If a run stops partway
+
+A failure stops the run at the first step that fails, and the units that had
+already finished stay finished. Fix the cause and run the same command again:
+the plan lists the unit that failed and those after it, and a build that was
+done and is still on disk at its pin is shown as `already installed` instead of
+being fetched and built a second time. `hammunition status` names what
+finished before the run stopped. A file that has since gone missing is rebuilt,
+because the plan checks the disk before it believes the log.
+
 ## Next
 
 [Installation](installation.md) continues from here: the health check, your
