@@ -1433,7 +1433,11 @@ section by section. A plan that refuses is still a `plan`, with `outcome:
 is refused** with an `error` document and nothing runs: a real install is
 never driven through JSON (**D-059**). A front end runs the ordinary command
 in your terminal, where sudo, every consent gate and every disclosure are
-this CLI's, then reads `status --json`. The plan names your account, paths
+this CLI's, then reads `status --json`. Every plan step has a stable, 1-based
+index in execution order; `step_count` gives the total. Text plans show each
+step's position, including the covered range of a grouped block, and real runs
+print the same `step N/COUNT: DESCRIPTION` line before starting it. The plan
+names your account, paths
 in your home and the station's map regions, so the document is for a local
 program, not for pasting into an issue. It never carries a rendered
 configuration file, so the callsign in one is not in it.
@@ -1456,6 +1460,10 @@ were.
 
 Removes what Hammunition itself installed, and only that (**D-004**). Names
 may be packages or profiles, mixed freely.
+
+The dry-run and JSON list each removal step with its 1-based execution index
+and total count. A real uninstall prints the same `step N/COUNT: DESCRIPTION`
+line before starting each step.
 
 | Flag | Effect |
 |---|---|

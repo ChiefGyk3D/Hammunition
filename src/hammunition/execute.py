@@ -32,7 +32,7 @@ from functools import partial
 from pathlib import Path
 from typing import Protocol
 
-from hammunition import devctl_services
+from hammunition import devctl_services, runlog
 from hammunition.backends import (
     Action,
     AptBackend,
@@ -1678,7 +1678,7 @@ def execute(
 
     last_step: dict[str, int] = {}
     if owners is not None:
-        for index, step in enumerate(commands):
+        for index, step in enumerate(commands, 1):
             for unit in owners.units_of(step):
                 if unit not in owners.excluded:
                     last_step[unit] = index
@@ -1703,7 +1703,11 @@ def execute(
             log.append(entry)
 
     completed: list[Step] = []
-    for index, command in enumerate(commands):
+    count = len(commands)
+    for index, command in enumerate(commands, 1):
+        if (active_run := runlog.current()) is not None:
+            active_run.step_start(index, count, command.description)
+        write(f"  step {index}/{count}: {command.description}")
         write(f"  $ {command.display(euid=shown_as)}")
 
         if isinstance(command, Action):
@@ -1991,7 +1995,11 @@ def run_removal(
 
     completed: list[Step] = []
     declined: set[str] = set()
-    for command in commands:
+    count = len(commands)
+    for index, command in enumerate(commands, 1):
+        if (active_run := runlog.current()) is not None:
+            active_run.step_start(index, count, command.description)
+        write(f"  step {index}/{count}: {command.description}")
         write(f"  $ {command.display(euid=shown_as)}")
 
         if isinstance(command, Action):

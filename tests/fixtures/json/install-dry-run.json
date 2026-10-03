@@ -7,6 +7,7 @@
     "fixture-apt"
   ],
   "outcome": "planned",
+  "step_count": 2,
   "target": {
     "distro": "debian",
     "version": "13",
@@ -69,7 +70,8 @@
         ],
         "action": null,
         "requires_root": true,
-        "sources": []
+        "sources": [],
+        "index": 1
       },
       {
         "description": "Install 1 package(s) with apt",
@@ -89,7 +91,8 @@
         ],
         "action": null,
         "requires_root": true,
-        "sources": []
+        "sources": [],
+        "index": 2
       }
     ],
     "suggestion_notes": [],
