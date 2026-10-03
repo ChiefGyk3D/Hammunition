@@ -59,7 +59,7 @@ their text follows.
 - `hammunition maps repeaters remove`
 - `hammunition reference books`
 - `hammunition services`
-- `hammunition show`
+- `hammunition show PROFILE` (profile document); `hammunition show UNIT --json` (unit document)
 - `hammunition station show`
 - `hammunition status`
 - `hammunition transactions`
