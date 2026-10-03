@@ -115,6 +115,7 @@ nav:
   - Getting started:
       - getting-started/index.md
       - Install the engine: getting-started/install.md
+      - How much disk you need: getting-started/disk-space.md
       - Your first profile: getting-started/first-profile.md
       - First contact: getting-started/first-contact.md
       - What works on which desktop: desktops.md

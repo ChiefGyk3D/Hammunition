@@ -12,3 +12,6 @@ Station configuration: <config>/hammunition/station.yml
   map freshness  yearly
   mirror         http://bunker.lan:8080/
   dem_source     copernicus
+  topo radius    100 km (the default)
+  topo regions   (not set)
+  topo all       no

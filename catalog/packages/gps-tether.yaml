@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: gps-tether
-version: "0.1.0"
+version: "0.1.1"
 summary: Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service
 categories: [navigation-maps, gps-gnss]
 
@@ -15,15 +15,15 @@ categories: [navigation-maps, gps-gnss]
 # leave open.
 #
 # Standard library only, so the install is the tag's source tree and nothing
-# else: GitHub's tarball of tag v0.1.0 (annotated tag c16012a, commit
-# 58d4bb7eab9fbf5c8b6e8ccce2b0f3178b17d44e, resolved 2026-10-02 with
-# `gh api`), pinned by sha256 and unpacked to
+# else: GitHub's tarball of tag v0.1.1 (annotated tag e1aa2ba, commit
+# d68bc888d1a44ecce74604d6299f991a72a7ae54, resolved 2026-10-02 with
+# `git ls-remote`), pinned by sha256 and unpacked to
 # /usr/local/share/hammunition/gps-tether like skid-finder's tree, with no build,
 # no pip and no network after the fetch. The tarball was fetched twice on
-# 2026-10-02 and hashed identically (140967 bytes). Run from an unpacked copy:
+# 2026-10-02 and hashed identically. Run from an unpacked copy:
 # `PYTHONPATH=<tree>/src python3 -m hammunition_gps_tether --version` printed
-# "hammunition-gps-tether 0.1.0" on Debian 13 (Python 3.13.5). The project
-# publishes no wheel or release asset for v0.1.0 (no release exists on
+# "hammunition-gps-tether 0.1.1" on Debian 13 (Python 3.13.5). The project
+# publishes no wheel or release asset for v0.1.1 (no release exists on
 # 2026-10-02), so the tag's own tarball is what there is to pin; a published
 # wheel would be the better artifact and the pin moves to it when it exists.
 #
@@ -35,8 +35,8 @@ install:
   - install:
       method: binary
       artifact:
-        url: https://github.com/ChiefGyk3D/hammunition-gps-tether/archive/refs/tags/v0.1.0.tar.gz
-        sha256: a707794b330b2127d458ff0741f3a9a506689b4e60b25de3926a4c7e9f76b90a
+        url: https://github.com/ChiefGyk3D/hammunition-gps-tether/archive/refs/tags/v0.1.1.tar.gz
+        sha256: 8d2c78b760a622bf682ecd3616af5b807e6653fd1bb05fd6fa28a5761ef456f6
       format: tarball
       install_tree: true
       # GitHub's tag tarball has one top directory, which extraction strips.
@@ -70,12 +70,12 @@ user_services:
       - {protocol: tcp, address: 127.0.0.1, port: 10111}
     restart: on-failure
     restart_sec: 5
-    # The tether exits 1 when it refuses (a taken port, root), so that is not
-    # retried. Exit 1 is also what an uncaught Python exception returns, so a
-    # crash is not retried either; the start limit (5 in 30 s) would have stopped
-    # a taken-port loop anyway. Upstream's own unit makes the same choice. A
-    # distinct refusal code upstream would let this be narrowed.
-    restart_prevent_exit_status: [1]
+    # Since v0.1.1 the tether exits 3 when it refuses (a taken port or socket,
+    # root, an unusable option), which retrying cannot fix, so 3 is not retried.
+    # An uncaught Python exception exits 1 and is retried every 5 s, the start
+    # limit bounding a crash loop. Upstream's own unit makes the same choice
+    # (maintainer's ruling, 2026-10-02). v0.1.0 exited 1 for both.
+    restart_prevent_exit_status: [3]
 
 update:
   probe:
@@ -123,8 +123,9 @@ documentation:
     graphically it does not start until you do (or `loginctl enable-linger`,
     which `hammunition` does not set for this unit). The tether needs Python
     3.11 or later; Ubuntu 22.04 and Pop!_OS 22.04 ship 3.10, where it will
-    not start. The unit does not restart a tether that exited 1, its refusal
-    (a taken port, root). There is no `hammunition-gps-tether` command on your
+    not start. The unit does not restart a tether that exited 3, its refusal
+    (a taken port, root, a bad option); a crash, exit 1, is retried every 5
+    seconds. There is no `hammunition-gps-tether` command on your
     PATH: the program is the installed tree run by the service, and
     `hammunition maps gps-tether` runs the same tree in a terminal. Not yet
     measured: the service started on a machine from this unit, and a reboot
