@@ -165,9 +165,10 @@ def _git_ignored(paths: list[Path]) -> set[Path]:
 
 
 def path_check_exempt(rel: Path) -> bool:
-    """True for a doc whose backticked paths name files in another repository
-    or files a plan has not yet produced (``docs/superpowers/``); its markdown
-    links are still checked."""
+    """True for a design spec or implementation plan under ``docs/superpowers/``:
+    it quotes code and links into another repository, so neither its links nor
+    its backticked paths resolve in this checkout and the file is skipped whole.
+    Every other document is checked as before."""
     return rel.as_posix().startswith(PATH_CHECK_EXEMPT)
 
 
@@ -179,6 +180,10 @@ def check() -> int:
         md = REPO_ROOT / rel
         text = md.read_text()
 
+        if path_check_exempt(rel):
+            # A plan or spec quotes code and links into another repository;
+            # neither its links nor its paths resolve here. Skipped whole.
+            continue
         for target in MD_LINK.findall(text):
             if target.startswith(SKIP_SCHEMES):
                 continue
@@ -189,8 +194,6 @@ def check() -> int:
             if not (md.parent / path).resolve().exists():
                 broken.append(f"{rel}: [link] {target}")
 
-        if path_check_exempt(rel):
-            continue
         for target in BACKTICK_PATH.findall(text):
             if target in ALLOW_MISSING or Path(target).name in ALLOW_MISSING:
                 continue
