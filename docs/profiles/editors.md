@@ -6,6 +6,21 @@
 
 **Stage:** post-1.0
 
+## Who it is for
+
+Someone who wants VS Code or VSCodium on a machine whose archive does not carry it, and accepts a publisher's apt repository to get it.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | post-1.0 |
+| Units | 2 |
+| Disk | about 400 MB per editor |
+| Hardware | None. |
+| Consent | a typed key fingerprint per repository, only where the target's archive lacks the unit: `codium`, `code` |
+| Install | `hammunition install editors` |
+
 ## What it installs
 
 Two builds of the same editor. `codium` is the telemetry-free community build of VS Code's open-source tree, and it is what Parrot ships in its own archive; `code` is Microsoft's branded build with its marketplace and telemetry. Each manifest declares its publisher's apt repository and the fingerprint of the key that signs it; the engine adds the repository only when the target's archive offers no candidate of its own (D-022), and only after you have affirmed that key by fingerprint (D-040).
@@ -24,6 +39,47 @@ They are alternatives to each other, and neither belongs in `workstation`. A ser
 
 Every other editor. Vim, Emacs, nano, Kate, gedit and their relatives are in every target's archive already and need no manifest, no repository and no consent gate; the only reason these two are catalogued at all is that they are the ones AHRL and 73Linux users ask for and the ones that need a third-party repository to get. Extensions, settings sync and the marketplace are the editor's business, not the catalog's. Installing both is supported but pointless: they coexist without conflict and there is no reason to hold both unless you are comparing them.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show editors
+hammunition install editors --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install editors
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
+**Third-party apt repositories.** `codium`, `code` can need a publisher's apt repository on a target whose own archive lacks the package (D-040). The plan then prints the repository, the two files it would write and the key's fingerprint, and asks you to type that fingerprint into `HAMMUNITION_ACCEPT_APT_REPO_<NAME>`. `--yes` and a value of `1` are refused.
+
 ## What you configure by hand afterward
 
 Affirm the repository before installing. The plan names the environment variable and the fingerprint it must equal, and prints both the file it will write under /etc/apt/sources.list.d/ and the keyring under /etc/apt/keyrings/ that Signed-By will point at. Check the fingerprint against the publisher's own page before exporting it — that check is the whole point of the gate, and the engine cannot do it for you. On Parrot, `codium` comes from the distribution and no repository is added; `code` is Microsoft's everywhere. `hammunition uninstall <unit>` removes the package and, where this engine wrote them, both repository files, then refreshes apt.
+
+## Your first ten minutes
+
+1. Pick one: `codium` is the telemetry-free community build, `code` is Microsoft's. They coexist, but there is rarely a reason to hold both.
+2. Read the plan: `hammunition install codium --dry-run` (or `code`). On Parrot, `codium` comes from the distribution and the plan adds no repository. Elsewhere the plan names the repository, the files it will write and the fingerprint you must type.
+3. Check that fingerprint against the publisher's own page. That check is the whole point of the gate and only you can do it.
+4. Install, setting the variable the plan printed to the fingerprint itself, never to `1`: for example `HAMMUNITION_ACCEPT_APT_REPO_<NAME>=<fingerprint> hammunition install codium`. `--yes` cannot answer this gate.
+5. To remove it: `hammunition uninstall codium`. It removes the package and both repository files this engine wrote, and refreshes apt.
+
+## Take it off again
+
+```sh
+hammunition uninstall editors --dry-run
+hammunition uninstall editors
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

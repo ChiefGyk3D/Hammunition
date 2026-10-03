@@ -72,3 +72,16 @@ documentation:
   disk_footprint_hint: >-
     Roughly 200 MB. An editor from the `editors` profile adds around 400 MB
     on top of this.
+  who_for: "Anyone whose station machine is also the bench machine and wants the serial consoles, version control and enumeration tools every device problem starts with."
+  hardware_assumed: "None. A serial adapter is what the consoles are for."
+  footprint_short: "about 200 MB"
+  excludes_short: "shells, dotfiles, window managers, editors"
+  goals:
+    - "Set up a serial console, git and the tools every device problem starts with"
+  first_ten_minutes:
+    - "Read the plan: `hammunition install workstation --dry-run`. All seven packages are from your distribution's own archive; nothing adds a repository."
+    - "Install: `hammunition install workstation`."
+    - "Set your git identity: `git config --global user.name \"Your Name\"` and `git config --global user.email you@example.org`."
+    - "Join the serial group: `hammunition hardware apply`, then log out and back in."
+    - "List what is attached: `lsusb` for USB devices and `lspci` for PCI ones."
+    - "Open a serial console: `tio /dev/serial/by-id/<your-adapter>`. `tio` remembers settings; `minicom` and `screen` are there if you prefer them."

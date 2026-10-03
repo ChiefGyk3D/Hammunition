@@ -57,3 +57,17 @@ documentation:
     8 MB. Books as chosen, from 27 MB (Simple English Wiktionary) and 76 MB
     (Amateur Radio Stack Exchange) to 127 GB (English Wikipedia with
     pictures); each is counted twice while it installs.
+  who_for: "Anyone who wants Wikipedia, ham Q&A, dictionaries and FEMA's ICS forms to work with no network, on one local page."
+  hardware_assumed: "None. The books are the disk cost."
+  footprint_short: "readers and dictionaries about 50 MB; each book from 27 MB up"
+  excludes_short: "wikiHow, ARRL material, Gutenberg in full, video ZIMs"
+  goals:
+    - "Read Wikipedia and the ICS forms with no network"
+  first_ten_minutes:
+    - "See the books and their sizes and licences: `hammunition reference books`."
+    - "Choose by id: `hammunition station set --reference-books ham.stackexchange.com_en_all,wikipedia_en_medicine_nopic`, or your own selection. With none chosen the book unit is deferred and the rest installs."
+    - "Read the plan: `hammunition install reference --dry-run`. Each book's size and licence is printed before the confirmation."
+    - "Install: `hammunition install reference`."
+    - "Serve it: `hammunition reference serve`, then open `http://127.0.0.1:8480/`. It binds loopback only."
+    - "In goldendict-ng, add the local dictd once as a DICT server on `127.0.0.1`."
+    - "[Offline reference](../guides/offline-reference.md) covers the page, the books and what was measured."

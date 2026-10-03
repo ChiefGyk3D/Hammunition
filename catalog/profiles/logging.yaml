@@ -59,3 +59,17 @@ documentation:
     Around 700 MB installed, and **QLog is a source build with roughly twenty
     Qt6 development packages and a long compile** — expect that step to
     dominate the install time. CQRLOG's MariaDB server is most of the disk.
+  who_for: "An operator who wants a station log, contest logging or award tracking, and wants to choose the logger that fits how they operate."
+  hardware_assumed: "None. Loggers can follow a radio's frequency and mode through rig control but work without one."
+  footprint_short: "about 700 MB; QLog is a long source build"
+  excludes_short: "not1mm (not in Debian), kel-agent (a local web socket), station-wide callsign config"
+  goals:
+    - "Log contacts and upload them to Logbook of the World"
+  first_ten_minutes:
+    - "Request your Logbook of the World certificate now if you do not have one. It needs proof of licence and takes days, and TQSL is useless without it."
+    - "Read the plan: `hammunition install logging --dry-run`. QLog compiles from source with about twenty Qt 6 development packages; expect that step to dominate."
+    - "Install: `hammunition install logging`."
+    - "Pick one logger to start. QLog is the recommended default; CQRLOG gives the most correct award tracking and needs MariaDB running; xlog starts in under a second."
+    - "Enter your callsign, grid square and station location in that logger. There is no shared station setting yet, so this is per program; award computations depend on the location being right."
+    - "Back up your LoTW certificate (a private key in your home directory) before you do anything else with it."
+    - "If you operate with a radio, point the logger at the shared rig service (`127.0.0.1:4532`, *Hamlib NET rigctl*) so frequency and mode fill themselves in. [Rig control (CAT)](../guides/rig-control.md) has the table."
