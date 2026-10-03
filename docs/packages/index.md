@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**321 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**322 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -702,7 +702,7 @@ Radio email when the internet is down: pat, ARDOP, gateways.
 - [mercury](mercury.md) — Open HF data modem that speaks VARA's TCP interface, so pat uses it unchanged
 - [pat](pat.md) — Winlink client — radio email that works when the internet does not
 
-### `workstation` — 21
+### `workstation` — 22
 
 The machine the station runs on rather than the radio: editors, multiplexers, version control.
 
@@ -717,6 +717,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 - [geary](geary.md) — The minimal, conversation-view mail client
 - [git](git.md) — Distributed version control — the tool this project is distributed with
 - [gpa](gpa.md) — GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic
+- [hammunition-console](hammunition-console.md) — A terminal front end for the engine -- install, station, logs and updates in one full-screen program
 - [pciutils](pciutils.md) — lspci — for the SDRs and capture cards that are not on USB
 - [picocom](picocom.md) — The minimal terminal-native serial console
 - [pipx](pipx.md) — Installs Python applications in their own environments, on the PATH
@@ -857,6 +858,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [hacktv](hacktv.md) | Generates and transmits analogue television — a HackRF as a TV station | apt |
 | [hamclock-next](hamclock-next.md) | Maintained SDL2 rewrite of HamClock — grey line, propagation, DX cluster | source |
 | [hamexam](hamexam.md) | Practice tests for the United States amateur radio licence exams | apt |
+| [hammunition-console](hammunition-console.md) | A terminal front end for the engine -- install, station, logs and updates in one full-screen program | binary |
 | [hammunition-hill](hammunition-hill.md) | Local-first ham radio dashboard — the Hammunition family's own | binary |
 | [hammunition-tray](hammunition-tray.md) | KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own | binary |
 | [hammunition-tray-qt](hammunition-tray-qt.md) | Tray switches for parking and waking radio devices on Xfce, LXQt, LXDE, MATE and Cinnamon — the Hammunition family's own | binary |
