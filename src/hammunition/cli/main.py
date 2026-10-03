@@ -110,6 +110,7 @@ from hammunition.doctor import RigStatus
 from hammunition.execute import (
     ExecutionReport,
     Step,
+    StepOwners,
     already_built,
     artifact_removal_steps,
     build_dir,
@@ -4059,11 +4060,13 @@ def cmd_install(args: argparse.Namespace) -> int:
     built = already_built(
         plan, log=read_log, prefix=source.prefix, source=source, git=git, binary=binary
     )
+    step_owners = StepOwners()
     commands = commands_for(
         plan,
         apt,
         refresh=args.refresh,
         skip_builds=built,
+        owners=step_owners,
         source=source,
         git=git,
         binary=binary,
@@ -4285,6 +4288,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             prober=apt,
             prefix=source.prefix,
             launcher_bin=user_bin_dir(user or None),
+            owners=step_owners,
         ),
     )
     if log.ownership_error:

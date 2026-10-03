@@ -25,8 +25,8 @@ import re
 import shutil
 import stat
 import tempfile
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
@@ -60,6 +60,7 @@ from hammunition.devctl_helper import HELPER_PATH, under_prefix
 from hammunition.distro import Target
 from hammunition.launchers import launcher_steps
 from hammunition.manifest.schema import (
+    AptInstall,
     BinaryInstall,
     DataInstall,
     DemTilesInstall,
@@ -728,6 +729,28 @@ def build_effects_present(planned: PlannedPackage, *, prefix: Path) -> bool | No
     return all(present)
 
 
+@dataclass
+class StepOwners:
+    """Which catalog units each planned step belongs to."""
+
+    owned: dict[int, list[str]] = field(default_factory=dict)
+    pins: dict[str, str] = field(default_factory=dict)
+    versions: dict[str, str] = field(default_factory=dict)
+    excluded: set[str] = field(default_factory=set)
+
+    def own(self, step: Step, unit: str) -> None:
+        units = self.owned.setdefault(id(step), [])
+        if unit not in units:
+            units.append(unit)
+
+    def own_all(self, steps: Iterable[Step], unit: str) -> None:
+        for step in steps:
+            self.own(step, unit)
+
+    def units_of(self, step: Step) -> tuple[str, ...]:
+        return tuple(self.owned.get(id(step), ()))
+
+
 def already_built(
     plan: InstallPlan,
     *,
@@ -772,7 +795,13 @@ def already_built(
     pending: set[str] = set()
     for entry in log.read():
         event = entry.get("event")
-        if event == "transaction_begin":
+        if event == "unit_end":
+            unit = str(entry.get("unit", ""))
+            if entry.get("ok") is True and unit in wanted and entry.get("pin") == wanted[unit]:
+                attributed.add(unit)
+        elif event == "uninstall_begin":
+            attributed.difference_update(str(p) for p in entry.get("packages", ()))
+        elif event == "transaction_begin":
             pending.clear()
         elif event == "action_end" and entry.get("kind") in ("verify-pin", "extract"):
             detail = str(entry.get("detail", ""))
@@ -789,6 +818,20 @@ def already_built(
         elif event == "transaction_failed":
             pending.clear()
     return frozenset(attributed)
+
+
+def _note_unit(
+    track: StepOwners,
+    planned: PlannedPackage,
+    *,
+    source: SourceBackend | None,
+    git: GitBackend | None,
+    binary: BinaryBackend | None,
+) -> None:
+    track.versions[planned.name] = planned.manifest.version
+    src = build_dir(planned, source=source, git=git, binary=binary)
+    if src is not None:
+        track.pins[planned.name] = str(src)
 
 
 def commands_for(
@@ -816,6 +859,7 @@ def commands_for(
     user_services_home: Path | None = None,
     user_services_machine: str | None = None,
     skip_builds: frozenset[str] = frozenset(),
+    owners: StepOwners | None = None,
 ) -> list[Step]:
     """Every step this plan implies, in the order it will run.
 
@@ -839,6 +883,7 @@ def commands_for(
     and an absence is an error rather than a silent skip — a plan that quietly dropped the one
     step that installs the software would report success having done nothing.
     """
+    track = owners if owners is not None else StepOwners()
     # Each backend's steps in build order; the fetches are lifted out below.
     builds: list[Step] = []
     # A conversion reads data another unit installs in this same run, and
@@ -850,8 +895,12 @@ def commands_for(
     # One map region failing does not stop the others (spec §8); the ledger
     # the map backends share fails the transaction by name, as its last step.
     ledgers: dict[int, Ledger] = {}
+    ledger_units: dict[int, set[str]] = {}
+    marks: list[tuple[PlannedPackage, int, int]] = []
     for planned in plan.packages:
         block = planned.block.install
+        marks.append((planned, len(builds), len(conversions)))
+        _note_unit(track, planned, source=source, git=git, binary=binary)
         if planned.name in skip_builds and isinstance(
             block, SourceInstall | GitInstall | BinaryInstall
         ):
@@ -926,6 +975,7 @@ def commands_for(
                 )
             builds.extend(regions.steps(planned.manifest, block))
             ledgers.setdefault(id(regions.ledger), regions.ledger)
+            ledger_units.setdefault(id(regions.ledger), set()).add(planned.name)
         elif isinstance(block, DerivedDataInstall):
             if derived is None:
                 raise BackendError(
@@ -936,6 +986,7 @@ def commands_for(
             conversions.extend(derived.steps(planned.manifest, block))
             for ledger in derived.ledgers(block):
                 ledgers.setdefault(id(ledger), ledger)
+                ledger_units.setdefault(id(ledger), set()).add(planned.name)
         elif isinstance(block, DemTilesInstall):
             if dem is None:
                 raise BackendError(
@@ -945,6 +996,7 @@ def commands_for(
                 )
             builds.extend(dem.steps(planned.manifest, block))
             ledgers.setdefault(id(dem.ledger), dem.ledger)
+            ledger_units.setdefault(id(dem.ledger), set()).add(planned.name)
         elif isinstance(block, TopoQuadsInstall):
             if topo is None:
                 raise BackendError(
@@ -954,6 +1006,7 @@ def commands_for(
                 )
             builds.extend(topo.steps(planned.manifest, block))
             ledgers.setdefault(id(topo.ledger), topo.ledger)
+            ledger_units.setdefault(id(topo.ledger), set()).add(planned.name)
         elif isinstance(block, KiwixBooksInstall):
             if books is None:
                 raise BackendError(
@@ -970,6 +1023,10 @@ def commands_for(
                     f"successful run that installed nothing."
                 )
             builds.extend(mwm.steps(planned.manifest, block))
+    ends = [*((b, c) for _, b, c in marks[1:]), (len(builds), len(conversions))][: len(marks)]
+    for (planned, b0, c0), (b1, c1) in zip(marks, ends, strict=True):
+        track.own_all(builds[b0:b1], planned.name)
+        track.own_all(conversions[c0:c1], planned.name)
     builds.extend(conversions)
 
     # A `fetch` is an in-process download into the cache, verified before it
@@ -996,7 +1053,9 @@ def commands_for(
     if repos is not None:
         repo_steps: list[Step] = []
         for addition in plan.apt_repos:
-            repo_steps.extend(repos.steps(addition.repo, unit=addition.unit))
+            added = repos.steps(addition.repo, unit=addition.unit)
+            track.own_all(added, addition.unit)
+            repo_steps.extend(added)
         commands.extend(s for s in repo_steps if isinstance(s, Action) and s.kind == "fetch")
         commands.extend(s for s in repo_steps if not (isinstance(s, Action) and s.kind == "fetch"))
 
@@ -1072,6 +1131,7 @@ def commands_for(
                 stdin="\n".join(plan.debconf_selections) + "\n",
             )
         )
+    apt_phase_start = len(commands)
     commands.extend(apt.install_commands(plan.apt_to_install, release=plan.apt_release))
     # The second apt command, for the units whose manifests asked for
     # `--no-install-recommends` (D-052). After the default one, because it is
@@ -1085,6 +1145,10 @@ def commands_for(
             recommends=False,
         )
     )
+    apt_units = [p.name for p in plan.packages if isinstance(p.block.install, AptInstall)]
+    for step in commands[apt_phase_start:]:
+        for name in apt_units:
+            track.own(step, name)
 
     if plan.reconfigure_after and plan.apt_packages_all:
         # After the whole apt transaction is settled, so a postinst action that
@@ -1106,13 +1170,18 @@ def commands_for(
     # Configuration is written after the software that reads it exists, so a
     # package's own postinst cannot overwrite what we put down, and before
     # group membership for the same reason the comment above gives.
-    commands.extend(config_steps(plan, staging_root=config_staging))
+    for package in dict.fromkeys(pkg for pkg, _config, _body in plan.config_files):
+        own_files = tuple(c for c in plan.config_files if c[0] == package)
+        written = config_steps(replace(plan, config_files=own_files), staging_root=config_staging)
+        track.own_all(written, package)
+        commands.extend(written)
 
     # User services after the software and its configuration exist, and only
     # when the caller supplied the operator's home — a caller that does not
     # (older tests, bare planning) plans exactly as before (D-073 §6c).
     if user_services_home is not None:
         if plan.user_services:
+            track.excluded.update(svc.unit for svc in plan.user_services)
             commands.extend(
                 user_service_steps(plan, home=user_services_home, machine=user_services_machine)
             )
@@ -1141,23 +1210,23 @@ def commands_for(
     # does not (older tests, bare planning) gets plans identical to before.
     if launcher_bin is not None and launcher_applications is not None:
         for planned in plan.packages:
-            commands.extend(
-                launcher_steps(
-                    planned.manifest,
-                    bin_dir=launcher_bin,
-                    applications_dir=launcher_applications,
-                    venv_dir=(
-                        venv.venv_root / planned.name
-                        if venv is not None and isinstance(planned.block.install, VenvInstall)
-                        else None
-                    ),
-                    node_wrapper=(
-                        node.wrapper_for(planned.manifest, planned.block.install)
-                        if node is not None and isinstance(planned.block.install, NodeInstall)
-                        else None
-                    ),
-                )
+            made = launcher_steps(
+                planned.manifest,
+                bin_dir=launcher_bin,
+                applications_dir=launcher_applications,
+                venv_dir=(
+                    venv.venv_root / planned.name
+                    if venv is not None and isinstance(planned.block.install, VenvInstall)
+                    else None
+                ),
+                node_wrapper=(
+                    node.wrapper_for(planned.manifest, planned.block.install)
+                    if node is not None and isinstance(planned.block.install, NodeInstall)
+                    else None
+                ),
             )
+            track.own_all(made, planned.name)
+            commands.extend(made)
 
     cache: dict[str, frozenset[str]] = {}
     for membership in plan.group_memberships:
@@ -1168,19 +1237,23 @@ def commands_for(
         if membership.group in groups:
             # Idempotent: every operation is safe to re-run (CLAUDE.md).
             continue
-        commands.append(
-            Command(
-                argv=("gpasswd", "--add", membership.user, membership.group),
-                description=(
-                    f"Add {membership.user} to the {membership.group!r} group "
-                    f"for {membership.package}"
-                ),
-                requires_root=True,
-            )
+        member = Command(
+            argv=("gpasswd", "--add", membership.user, membership.group),
+            description=(
+                f"Add {membership.user} to the {membership.group!r} group "
+                f"for {membership.package}"
+            ),
+            requires_root=True,
         )
+        track.own(member, membership.package)
+        commands.append(member)
     # Last of all, so every other region, the launchers and the group
     # changes have happened before a partial map install fails the run.
-    commands.extend(ledger.step() for ledger in ledgers.values())
+    for key, ledger in ledgers.items():
+        checked = ledger.step()
+        for unit in ledger_units.get(key, ()):
+            track.own(checked, unit)
+        commands.append(checked)
     return commands
 
 
@@ -1534,6 +1607,7 @@ def execute(
     group_lookup: Callable[[str], frozenset[str]] = user_groups,
     prefix: Path | None = None,
     launcher_bin: Path | None = None,
+    owners: StepOwners | None = None,
 ) -> ExecutionReport:
     """Run every command, stopping at the first failure.
 
@@ -1559,6 +1633,7 @@ def execute(
     """
     write = echo if echo is not None else (lambda _line: None)
     shown_as = os.geteuid() if euid is None else euid
+    run_started = datetime.now(UTC).isoformat()
 
     log.append(
         {
@@ -1567,13 +1642,42 @@ def execute(
             # NOT to do, so a `status` read later knows the run installed
             # eighteen of a profile's twenty-two on purpose, not by accident.
             "version": 2,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": run_started,
             "target": plan.target.to_log_entry(),
             "packages": [p.name for p in plan.packages],
             "apt_packages": list(plan.apt_packages_all),
             "deferred": [d.to_log_entry() for d in plan.deferrals],
         }
     )
+
+    last_step: dict[str, int] = {}
+    if owners is not None:
+        for index, step in enumerate(commands):
+            for unit in owners.units_of(step):
+                if unit not in owners.excluded:
+                    last_step[unit] = index
+    finished_at: dict[int, list[str]] = {}
+    for unit, index in last_step.items():
+        finished_at.setdefault(index, []).append(unit)
+    finished: set[str] = set()
+
+    def record_finished() -> None:
+        if owners is None:
+            return
+        for unit in sorted(finished):
+            entry: dict[str, object] = {
+                "event": "unit_end",
+                "version": 1,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "unit": unit,
+                "ok": True,
+                "run": run_started,
+                "catalog_version": owners.versions.get(unit),
+            }
+            if unit in owners.pins:
+                entry["pin"] = owners.pins[unit]
+            log.append(entry)
+        finished.clear()
 
     completed: list[Step] = []
     for command in commands:
@@ -1596,6 +1700,7 @@ def execute(
             try:
                 outcome = command.perform()
             except (BackendError, OSError) as exc:
+                record_finished()
                 log.append(
                     {
                         "event": "transaction_failed",
@@ -1624,6 +1729,7 @@ def execute(
             if outcome:
                 write(f"    {outcome}")
             completed.append(command)
+            finished.update(finished_at.get(len(completed) - 1, ()))
             continue
 
         log.append(
@@ -1645,6 +1751,7 @@ def execute(
             # contract as a command that ran and returned non-zero. Letting it
             # escape as a traceback left the log saying command_begin with no
             # ending, which is the log lying by omission.
+            record_finished()
             log.append(
                 {
                     "event": "transaction_failed",
@@ -1666,6 +1773,7 @@ def execute(
             }
         )
         if not result.ok:
+            record_finished()
             log.append(
                 {
                     "event": "transaction_failed",
@@ -1678,6 +1786,7 @@ def execute(
             )
             return ExecutionReport(completed=tuple(completed), failed=command, stderr=result.stderr)
         completed.append(command)
+        finished.update(finished_at.get(len(completed) - 1, ()))
 
     # Every command exited 0. D-031: that is not yet evidence the machine
     # changed. Re-read the effects from the same sources resolution used, and
@@ -1717,6 +1826,8 @@ def execute(
     if verification is not None:
         end_entry["verified"] = verification.ok
         end_entry["checks"] = [c.to_log_entry() for c in verification.checks]
+    if verification is None or verification.ok:
+        record_finished()
     log.append(end_entry)
     return ExecutionReport(
         completed=tuple(completed), failed=None, stderr="", verification=verification
