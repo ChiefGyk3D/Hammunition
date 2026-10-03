@@ -343,6 +343,8 @@ every profile, package and device, and [every project we
 install](docs/projects.md), linked to its home. It is built from `docs/` by
 `mkdocs build --strict` and published from `main` (**D-065**).
 
+The [GitHub wiki](https://github.com/ChiefGyk3D/Hammunition/wiki) is a mirror of the same pages, generated from `docs/` on every push to `main`; edit `docs/`, never the wiki.
+
 The decision record and the policies below were written before the code
 they describe, deliberately; the reference pages are generated from the
 catalog and the measurements, so they cannot say what the code does not.
