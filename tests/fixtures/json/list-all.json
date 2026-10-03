@@ -27,7 +27,10 @@
         "deliberately_excludes": "Everything real.",
         "manual_configuration": "Nothing; it is a fixture.",
         "disk_footprint_hint": null
-      }
+      },
+      "members": 1,
+      "installed": 0,
+      "installed_size_bytes": null
     },
     {
       "name": "fixture-station",
@@ -44,7 +47,10 @@
         "deliberately_excludes": "Everything real.",
         "manual_configuration": "Nothing; it is a fixture.",
         "disk_footprint_hint": null
-      }
+      },
+      "members": 2,
+      "installed": 0,
+      "installed_size_bytes": null
     }
   ],
   "packages": [

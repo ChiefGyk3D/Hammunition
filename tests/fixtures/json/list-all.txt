@@ -1,7 +1,7 @@
 Profiles (2):
-  fixture-gated    post-1.0    1 pkg  [consent gate]
+  fixture-gated    post-1.0    1 pkg  installed 0 of 1  [consent gate]
       A consent-gated fixture profile
-  fixture-station  1.0         2 pkg
+  fixture-station  1.0         2 pkg  installed 0 of 2
       Both fixture units, as a profile
 
 Packages (2):

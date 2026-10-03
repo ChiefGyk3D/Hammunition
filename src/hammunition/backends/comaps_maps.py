@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 
+from ..attributed import PublisherChecks, recheck_installed
 from ..comaps import (
     REGENERATE,
     VERIFIED_BY,
@@ -173,6 +174,7 @@ class ComapsMapsBackend:
                     detail=str(dest),
                     perform=partial(self._install, f, fetched, dest, writer),
                     requires_root=writer.privileged,
+                    facts={"size": str(f.pin.size), "digest": f.pin.sha1},
                 )
             )
             steps.append(
@@ -258,6 +260,7 @@ def resolve_station_maps(
     installed: Path,
     head: Callable[[str], tuple[int, int]],
     on_outage: OnOutage | None = None,
+    checks: PublisherChecks | None = None,
 ) -> tuple[list[MapFile], list[str]]:
     """The station's regions as pinned maps, checked before the plan prints;
     and a note naming each region the table cannot place.
@@ -272,6 +275,10 @@ def resolve_station_maps(
     A publisher that did not answer after the retries (#200) goes to
     *on_outage* and that map is left out of the returned files, so the rest
     install; without it, it is refused with the others.
+
+    With *checks* (#197), an installed map the log attributes is not asked
+    again until the attribution is a week old; a map that is asked and no
+    longer published at its pin is a note in the plan, never a refusal.
     """
     pins = load_pins(catalog_root)
     files, unmapped = resolve_regions(regions, pins)
@@ -284,6 +291,24 @@ def resolve_station_maps(
     problems: list[str] = []
     unavailable: set[str] = set()
     todo = [f for f in files if not map_current(map_dest(installed, f), f)]
+
+    def still_published(f: MapFile) -> None:
+        status, size = head(f.url)
+        if not published(status, size, f.pin):
+            raise ComapsError(
+                f"{f.url} answered HTTP {status} with {size} bytes, not the pinned map"
+            )
+
+    recheck_installed(
+        checks,
+        installed.name,
+        [f for f in files if map_current(map_dest(installed, f), f)],
+        name=lambda f: f.id,
+        path=lambda f: map_dest(installed, f),
+        check=still_published,
+        digest=lambda f: f.pin.sha1,
+        label="installed CoMaps maps against the CoMaps CDN",
+    )
     outcomes = run_checks(todo, lambda f: head(f.url), label="CoMaps maps against the CoMaps CDN")
     for f, outcome in zip(todo, outcomes, strict=True):
         try:
