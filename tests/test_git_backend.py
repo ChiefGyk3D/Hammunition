@@ -241,3 +241,28 @@ def test_the_git_backend_passes_the_operator_to_the_tree_install(tmp_path: Path)
     last = steps[-1]
     assert isinstance(last, Command)
     assert last.argv[:5] == ("chown", "-R", "-h", "--", "alice:")
+
+
+def test_the_tag_step_ignores_the_operators_signing_config(tmp_path: Path) -> None:
+    """`tag.gpgsign true` turns a plain `git tag` into an annotated, signed one and
+    opens an editor; a navigation install sat in nano on the bench (2026-10-03)."""
+    manifest = _manifest()
+    backend = _backend(_HeadRunner(SHA), tmp_path)
+    steps = backend.steps(manifest, manifest.install[0])
+
+    tag = next(s for s in steps if isinstance(s, Command) and "tag" in s.argv)
+    pairs = list(zip(tag.argv, tag.argv[1:], strict=False))
+    assert ("-c", "tag.gpgSign=false") in pairs
+    assert ("-c", "tag.forceSignAnnotated=false") in pairs
+    assert tag.env.get("GIT_EDITOR") == "true"
+
+
+def test_git_never_prompts_on_a_terminal(tmp_path: Path) -> None:
+    """A credential or editor prompt inside a run is a hang, never a question."""
+    manifest = _manifest()
+    backend = _backend(_HeadRunner(SHA), tmp_path)
+    steps = backend.steps(manifest, manifest.install[0])
+
+    for step in steps:
+        if isinstance(step, Command) and step.argv[0] == "git":
+            assert step.env.get("GIT_TERMINAL_PROMPT") == "0", step.argv

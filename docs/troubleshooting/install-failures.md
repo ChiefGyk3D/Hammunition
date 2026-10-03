@@ -79,6 +79,27 @@ scripts/check_artifact_urls.py
 It knocks on every pinned URL in the catalog and reports the dead ones,
 keeping them apart from hosts that merely flaked today.
 
+## <a name="git-editor"></a>A git build stops in a text editor
+
+```
+  $ git -C …/build/comaps-…/src tag -f v2026.08.31-14 FETCH_HEAD
+  GNU nano …   .git/TAG_EDITMSG
+## Write a message for tag:
+```
+
+Your own git configuration turned a plain tag into a signed one. With
+`tag.gpgsign true` (or `tag.forceSignAnnotated true`) in `~/.gitconfig`,
+`git tag NAME` creates an annotated tag, which needs a message, so git opens
+your editor and the install waits in it. Nothing is wrong with the build.
+
+Engines from v0.20.0 on run every git step with the operator's signing
+settings turned off for that one command and with no editor and no terminal
+prompt, so this cannot recur. On an older engine, type any word, save and
+leave the editor (`Ctrl+O`, `Enter`, `Ctrl+X` in nano); if signing then fails
+for want of a key, the step fails and a rerun of the same command resumes
+from the cache once the engine is updated. Your git configuration is never
+changed.
+
 ## <a name="parrot-backports"></a>apt refuses with "held broken packages" on Parrot
 
 ```

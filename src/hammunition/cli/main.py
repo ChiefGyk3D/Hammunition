@@ -5319,6 +5319,22 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         print("error: could not determine whose transaction log to read.", file=sys.stderr)
         return EXIT_FAILED
 
+    import pwd as _pwd
+
+    from hammunition.hardware.linger import LINGER_RECORD, read_record
+
+    linger_record = read_record()
+    linger_ours = linger_record is not None and linger_record.enabled_by_us
+    # Act on the uid the record names, not on operator(args): the record is the
+    # account Hammunition turned linger on for, which may not be whoever runs
+    # unapply (review I3).
+    linger_name: str | None = None
+    if linger_ours and linger_record is not None:
+        try:
+            linger_name = _pwd.getpwuid(linger_record.uid).pw_name
+        except KeyError:
+            linger_ours = False
+
     kept_present = Path(KEPT_RULES).exists()
     from hammunition.gpstime import files as time_files
     from hammunition.gpstime.grants import (
@@ -5397,6 +5413,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         and not resume_present
         and not geo_present
         and not export_present
+        and not linger_ours
         and left_to_tray
     ):
         print(
@@ -5412,6 +5429,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         and not resume_present
         and not geo_present
         and not export_present
+        and not linger_ours
     ):
         print(
             "Nothing to remove: the transaction log records no hardware artefacts "
@@ -5431,6 +5449,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         and not resume_present
         and not geo_present
         and not export_present
+        and not linger_ours
     ):
         print("Nothing to do: no artefact this command owns is recorded.")
         return EXIT_OK
@@ -5446,29 +5465,13 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         and not resume_present
         and not geo_present
         and not export_present
+        and not linger_ours
     ):
         print("Nothing to do: every recorded artefact is already gone.")
         return EXIT_OK
 
-    # Linger (D-073 §5a): disable it and remove its record, but only when the
-    # record says Hammunition turned it on — linger that was on already is not
-    # ours. Run directly as root here (unapply escalates its own commands), so
-    # it does not depend on the helper that this same command removes.
-    import pwd as _pwd
-
-    from hammunition.hardware.linger import LINGER_RECORD, read_record
-
-    linger_record = read_record()
-    linger_ours = linger_record is not None and linger_record.enabled_by_us
-    # Act on the uid the record names, not on operator(args): the record is the
-    # account Hammunition turned linger on for, which may not be whoever runs
-    # unapply (review I3).
-    linger_name: str | None = None
-    if linger_ours and linger_record is not None:
-        try:
-            linger_name = _pwd.getpwuid(linger_record.uid).pw_name
-        except KeyError:
-            linger_ours = False
+    # Linger (D-073 §5a): disable only the linger this record says Hammunition
+    # turned on. Run directly as root; it does not depend on the helper being removed.
     commands = [
         Command(
             argv=("rm", "-f", path),
