@@ -6,6 +6,21 @@
 
 **Stage:** 1.0
 
+## Who it is for
+
+An operator who wants FT8, JS8Call, PSK31, RTTY, SSTV or digital voice through a transceiver and its sound card. It is the profile most people come to Hammunition for.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | 1.0 |
+| Units | 22 |
+| Disk | about 1.2 GB, plus 0.9 GB of build trees; six source builds |
+| Hardware | A transceiver, an audio path between it and the computer (a sound-card interface, a Digirig-class device or the radio's own USB audio), and a way to key it: CAT, a serial control line or VOX. DroidStar and the SSTV and decoder tools run with no radio at all. |
+| Consent | none |
+| Install | `hammunition install digital-modes` |
+
 ## What it installs
 
 fldigi and the NBEMS stack that surrounds it, the whole FT8 family, JS8Call, SSTV and radiofax, open digital voice, DroidStar for the digital-voice reflector networks (M17, DMR, D-STAR, Fusion, P25, NXDN) with no radio, two small PSK31 clients, a general-purpose FSK modem, a QRSS receiver, the measuring tools that let you compare two of them honestly, and `qpwgraph`, a PipeWire patchbay that shows which sound card each program is wired to.
@@ -27,8 +42,49 @@ This is the reason most people install something like this. It is the widest pro
 Packet and Winlink, which are `packet`. Morse, which is `morse` — fldigi decodes CW too, and the dedicated tools do it better. `ardopcf` is an HF data modem and sits in `packet` with the Winlink client it exists to serve. Also excludes the FT8 family's own configuration: no frequency lists, no station details, nothing that would need your callsign.
 **The SvxLink infrastructure is deliberately not here.** `svxlink-server`, `svxreflector`, `remotetrx` and the calibration and GPIO helpers run a repeater or a linked network — that is operating infrastructure other people depend on, not a mode you work, and it wants a considered install rather than arriving inside a bundle. `qtel` IS here, because using EchoLink from a desktop is an operating activity like any other, and `droidstar` is here for the same reason: it is a reflector client you talk through, the digital-voice networks' counterpart of `qtel`. It is not in `listening`, which D-046 keeps for receive-only decoders: pressing TX sends your voice to every repeater and hotspot linked to the reflector, and that needs a licence. **It is not offered on Ubuntu 24.04 or Linux Mint 22.3**, whose Qt 6.4 is below its 6.5 floor; there the profile installs without it (D-039).
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show digital-modes
+hammunition install digital-modes --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install digital-modes
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 **An accurate clock is not optional for FT8.** It transmits in 15-second windows and a clock more than about a second out decodes nothing while appearing to work — run NTP or chrony before anything else. **Audio routing is the other thing nothing here does for you**: sound card in and out to the radio, at levels that do not overdrive it, and PTT through hamlib, flrig, CAT or VOX. Transmit audio level is the single biggest cause of a station that hears everyone and is heard by nobody. The radio-audio guide (docs/guides/audio-routing.md) walks through it, and `qpwgraph` shows the result.
 **Running several of the FT8 family at once contends for the same sound device and the same radio** — pick one per session. SSTV needs the sound card's sample rate calibrated once per machine or every picture slants, which people blame on the band.
 **Two guides walk the whole of this.** `docs/guides/digital-modes.md` goes from installed to a first FT8 contact — rig control, the clock, your callsign in each program, WSJT-X, fldigi's PSK31 and RTTY, JS8Call, and which file each program writes. `docs/guides/audio-routing.md` is the sound path on PipeWire, finding which device is the radio, levels and the ALC trap, with its own symptom list.
+
+## Your first ten minutes
+
+1. Install `station` first and run `hammunition hardware apply` if you have not; this profile assumes both. See [the station profile](station.md).
+2. Read the plan: `hammunition install digital-modes --dry-run`. Look for *will build* against fldigi, WSJT-X, MSHV, glfer, xwefax and DroidStar. Those compile on your machine and take a while.
+3. Install it: `hammunition install digital-modes`. Leave it running; the build trees land in `~/.cache/hammunition/build`.
+4. Look at what is wired to which sound card with `qpwgraph`. [Radio audio](../guides/audio-routing.md) finds which device is the radio and sets levels without overdriving it.
+5. Check the clock before anything else. FT8 decodes nothing if the clock is more than about a second out: `hammunition doctor`, then [the clock section of the FT8 guide](../guides/digital-modes.md#3-time-the-clock-must-be-right).
+6. Point one program at the radio through the shared service (`127.0.0.1:4532`, *Hamlib NET rigctl*) and enter your callsign and grid in it. [Your callsign in each program](../guides/station-settings.md) lists where each one keeps them.
+7. Open WSJT-X, pick FT8, and watch the waterfall for a full 15-second cycle before you transmit anything. [FT8 and the digital modes](../guides/digital-modes.md) goes from here to a first contact.
+
+## Take it off again
+
+```sh
+hammunition uninstall digital-modes --dry-run
+hammunition uninstall digital-modes
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

@@ -153,6 +153,7 @@ def test_the_json_carries_the_same_numbers() -> None:
         action="install",
         requested=("navigation",),
         outcome="planned",
+        step_count=len(view.commands),
         target=target_view(plan.target),
         blockers=(),
         install=view,

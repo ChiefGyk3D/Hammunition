@@ -6,6 +6,21 @@
 
 **Stage:** 1.0
 
+## Who it is for
+
+An operator who builds antennas and wants to model one before cutting wire, measure it afterwards, and predict its coverage.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | 1.0 |
+| Units | 12 |
+| Disk | about 150 MB, plus terrain when map regions are set |
+| Hardware | None to model. A NanoVNA or other analyser to measure; those need serial access (the `dialout` group). |
+| Consent | none |
+| Install | `hammunition install antenna` |
+
 ## What it installs
 
 NEC2 in two forms — interactive with a live pattern display, and as a scriptable engine — plus three specialised modellers for the geometries NEC handles awkwardly: Yagi arrays, Moxon rectangles and Cassegrain dishes. Then the things that connect an antenna to reality: an arbitrary transmission-line solver, terrain-aware path analysis and coverage maps (SPLAT! and Signal-Server, with their terrain made from your map regions' elevation), a locator distance and bearing tool, and desktop front ends for the two analysers people actually measure with.
@@ -24,6 +39,47 @@ Antenna work is a loop — model it, build it, measure it, find out the model wa
 
 General propagation prediction, which is `propagation` — VOACAP answers "will this band be open", and this profile answers "what does my antenna do". They are different questions and both are optional. Rotator control lives in `station` with the rest of hamlib. LibreVNA-GUI is in `electronics` rather than here: it is a 14-minute source build of a bench instrument's program, and an antenna analyser is not the only thing it measures.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show antenna
+hammunition install antenna --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install antenna
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 **SPLAT! and Signal-Server need terrain data and will run without it**, assuming a flat earth at sea level and producing plausible output that is worthless. `splat-sdf` makes that terrain from the elevation of your map regions, so set them first (`hammunition station set --map-regions ...`); with none set it is deferred by name and the rest of the profile installs. Then run `hammunition maps splat` once as yourself, which points SPLAT! at the files through `~/.splat_path` and prints Signal-Server's `-sdf` argument. With regions set, this profile also downloads their elevation tiles and their map extracts, both listed with their sizes in the plan. NanoVNA-Saver and flaa need access to their instrument's serial port, which means the `dialout` group and a session started after you were added to it. NEC2 has real modelling rules about segment length and wire diameter, and breaking them produces confident, wrong answers rather than errors.
+
+## Your first ten minutes
+
+1. If you want coverage maps, choose your map regions first (`hammunition station set --map-regions <region>`, see [Offline navigation](../guides/offline-navigation.md) for the region paths); with none set, the terrain units are deferred by name and the modellers still install.
+2. Read the plan: `hammunition install antenna --dry-run`. With regions set it lists elevation tiles and map extracts with their sizes; read those numbers before you agree.
+3. Install: `hammunition install antenna`.
+4. Point SPLAT! at its terrain once, as yourself and not with `sudo`: `hammunition maps splat`.
+5. Open `xnec2c` and load one of its bundled example models to see a live radiation pattern before you try your own. NEC2 gives confident wrong answers when segment length or wire diameter breaks its rules.
+6. If you have a NanoVNA, join `dialout` with `hammunition hardware apply`, log out and back in, then open `nanovna-saver`.
+7. A coverage plot from your own grid centre is worked through in [Propagation and solar conditions](../guides/propagation.md).
+
+## Take it off again
+
+```sh
+hammunition uninstall antenna --dry-run
+hammunition uninstall antenna
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

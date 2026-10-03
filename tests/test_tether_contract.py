@@ -5,14 +5,21 @@
 
 The tether is hammunition-gps-tether (D-071 note, 2026-10-02). Its source is
 read as text, never imported, from a checkout beside this one or from the
-installed tree; where neither is present the test skips and says why, so the
-check runs wherever the tether is.
+installed tree. Where neither is present the test skips and says why on a
+developer machine, and fails in CI (``HAMMUNITION_REQUIRE_TETHER=1``,
+``HAMMUNITION_CI=1`` or ``GITHUB_ACTIONS=true``), where a skip is the drift
+check silently not running (issue #215). The workflow's ``tests`` job checks the
+tether out at the tag the catalog pins.
 """
 
 from __future__ import annotations
 
 import ast
 import contextlib
+import os
+import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -27,11 +34,24 @@ CANDIDATES = (
 )
 
 
+def _required() -> bool:
+    env = os.environ
+    return (
+        env.get("HAMMUNITION_REQUIRE_TETHER") == "1"
+        or env.get("HAMMUNITION_CI") == "1"
+        or env.get("GITHUB_ACTIONS") == "true"
+    )
+
+
 def _package() -> Path:
     for root in CANDIDATES:
         if (root / PACKAGE / "tether.py").is_file():
             return root / PACKAGE
-    pytest.skip("hammunition-gps-tether source not found beside this checkout or installed")
+    looked = ", ".join(str(r / PACKAGE / "tether.py") for r in CANDIDATES)
+    message = f"hammunition-gps-tether source not found; looked for {looked}"
+    if _required():
+        pytest.fail(message + " (CI must check it out: see the tests job in ci.yml)")
+    pytest.skip(message)
 
 
 def _constants(path: Path) -> dict[str, object]:
@@ -70,3 +90,83 @@ def test_the_engine_uses_the_contract_not_its_own_copies() -> None:
 
 def test_the_engine_carries_no_tether_module() -> None:
     assert not (REPO / "src" / "hammunition" / "gps_tether.py").exists()
+
+
+# --- the check cannot silently stop running (issue #215) -------------------
+
+
+_ENV = ("HAMMUNITION_REQUIRE_TETHER", "HAMMUNITION_CI", "GITHUB_ACTIONS")
+
+
+def _empty(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(sys.modules[__name__], "CANDIDATES", (tmp_path / "a", tmp_path / "b"))
+    for name in _ENV:
+        monkeypatch.delenv(name, raising=False)
+
+
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("HAMMUNITION_REQUIRE_TETHER", "1"),
+        ("HAMMUNITION_CI", "1"),
+        ("GITHUB_ACTIONS", "true"),
+    ],
+)
+def test_a_missing_tether_fails_in_ci(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, name: str, value: str
+) -> None:
+    _empty(monkeypatch, tmp_path)
+    monkeypatch.setenv(name, value)
+    with pytest.raises(pytest.fail.Exception, match=r"looked for .*tether\.py"):
+        _package()
+
+
+def test_a_missing_tether_skips_on_a_developer_machine(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _empty(monkeypatch, tmp_path)
+    with pytest.raises(pytest.skip.Exception, match="not found"):
+        _package()
+
+
+def test_a_present_tether_is_found_in_ci(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _empty(monkeypatch, tmp_path)
+    (tmp_path / "a" / PACKAGE).mkdir(parents=True)
+    (tmp_path / "a" / PACKAGE / "tether.py").write_text("PORT = 1\n", encoding="utf-8")
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert _package() == tmp_path / "a" / PACKAGE
+
+
+def _manifest_tag() -> str:
+    text = (REPO / "catalog" / "packages" / "gps-tether.yaml").read_text(encoding="utf-8")
+    found = re.findall(r"hammunition-gps-tether/archive/refs/tags/(v[0-9][^/\s]*?)\.tar\.gz", text)
+    assert len(set(found)) == 1, found
+    return str(found[0])
+
+
+def _workflow_tag_command() -> str:
+    text = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    match = re.search(r"id: tether_tag\n\s+run: \|\n(.*?)\n\s+- ", text, re.S)
+    assert match, "ci.yml has no `tether_tag` step reading the pin from the manifest"
+    return match.group(1)
+
+
+def test_ci_reads_the_tether_tag_from_the_manifest() -> None:
+    """The workflow holds no tag of its own, so a re-pin cannot leave CI behind."""
+    text = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "repository: ChiefGyk3D/hammunition-gps-tether" in text
+    assert "ref: ${{ steps.tether_tag.outputs.tag }}" in text
+    assert "HAMMUNITION_REQUIRE_TETHER" in text
+    assert not re.search(r"ref:\s*v[0-9]", text), "a hard-coded tether tag in ci.yml"
+    command = _workflow_tag_command()
+    assert "catalog/packages/gps-tether.yaml" in command
+    # Run the step's own extraction, so the grep and the manifest agree.
+    out = subprocess.run(
+        ["bash", "-c", command],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=True,
+        env={"PATH": os.environ["PATH"], "GITHUB_OUTPUT": "/dev/stdout"},
+    ).stdout
+    assert f"tag={_manifest_tag()}" in out
