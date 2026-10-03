@@ -2064,7 +2064,7 @@ write its last line). Reads only. `--last` prints the newest in full;
 and `--last` exits `1`. The files, their format and their rotation are
 `docs/reference/run-logs.md`.
 
-### `hammunition station show` / `hammunition station set`
+### `hammunition station show`
 
 The values only you can supply — callsign, grid square, packet node alias,
 the regions to carry offline maps for, the LAN mirror to take their data
@@ -2127,7 +2127,15 @@ callsign, grid square, node alias, and every map region by name, because a
 local front end needs them to fill in a form. It is for local programs, not
 for pasting into an issue, a forum or a chat: a callsign resolves to a name
 and a licence address, and a grid square or a region says where the station
-is. `station set` has no JSON form.
+is.
+
+### `hammunition station set`
+
+`station set --json` prints a `station-set` document
+([json-interface.md](json-interface.md)) with the values saved,
+the given values left unchanged, and one refusal for each rejected flag. Its
+exit code is `2` if any flag was refused. It carries station values too, so it
+is for local programs, not for pasting into an issue, a forum or a chat.
 
 ## Launchers and menu entries
 

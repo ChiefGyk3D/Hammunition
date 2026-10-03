@@ -32,6 +32,7 @@ import argparse
 import contextlib
 import dataclasses
 import hashlib
+import io
 import os
 import shutil
 import sqlite3
@@ -439,7 +440,10 @@ def cmd_station_show(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+@envelope.json_capable()
 def cmd_station_set(args: argparse.Namespace) -> int:
+    if envelope.wanted(args):
+        return _cmd_station_set_json(args)
     user = operator(args)
     try:
         current = load_station(owner=user)
@@ -460,7 +464,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
                 "maps, uninstall osm-navit and osm-regions.",
                 file=sys.stderr,
             )
-            return EXIT_FAILED
+            return EXIT_UNPLANNABLE
     else:
         map_regions = current.map_regions
     # D-066: the same rule for books, and each id checked against the
@@ -476,12 +480,12 @@ def cmd_station_set(args: argparse.Namespace) -> int:
                 "uninstall kiwix-library.",
                 file=sys.stderr,
             )
-            return EXIT_FAILED
+            return EXIT_UNPLANNABLE
         try:
             books = load_book_list(find_catalog(args.catalog))
         except KiwixError as exc:
             print(f"error: {exc}", file=sys.stderr)
-            return EXIT_FAILED
+            return EXIT_UNPLANNABLE
         unknown = [b for b in reference_books if b not in books]
         if unknown:
             print(
@@ -489,7 +493,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
                 f"`hammunition reference books` lists the books the catalog offers, by id.",
                 file=sys.stderr,
             )
-            return EXIT_FAILED
+            return EXIT_UNPLANNABLE
     else:
         reference_books = current.reference_books
 
@@ -498,7 +502,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
     # field names set, or an exit code on a refusal.
     rig_result = _resolve_rig_flags(args, current)
     if isinstance(rig_result, int):
-        return rig_result
+        return EXIT_UNPLANNABLE
     rig_fields = rig_result.fields_set
     rig_notes = rig_result.notes
 
@@ -543,28 +547,19 @@ def cmd_station_set(args: argparse.Namespace) -> int:
         )
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
-        return EXIT_FAILED
+        return EXIT_UNPLANNABLE
     path = save_station(station, owner=user)
-    print(f"Saved to {path} (mode 0600).")
-    for field in sorted(set_fields):
-        if field == "map_regions":
-            print(f"  {field:<14} {len(station.map_regions)} set")
-        elif field == "map_freshness":
-            print(f"  {field:<14} {station.freshness}")
-        elif field == "reference_books":
-            print(f"  {field:<14} {', '.join(station.reference_books)}")
-        elif field == "mirror":
-            print(f"  {field:<14} {station.mirror or '(cleared)'}")
-        elif field == "rig":
-            # Echo every rig value that is set, not just `rig` (review minor).
-            for rig_field in ("rig", "rig_device", "rig_baud", "rig_ptt_line", "rig_owner"):
-                value = getattr(station, rig_field)
-                if value is not None:
-                    print(f"  {rig_field:<14} {value}")
-        elif field == "dem_source":
-            print(f"  {field:<14} {station.elevation}")
-        else:
-            print(f"  {field:<14} {station.get(field)}")
+    from hammunition.interface.station import StationSetDocument, render_station_set
+
+    saved: dict[str, str | int | tuple[str, ...] | None] = {}
+    unchanged: dict[str, str | int | tuple[str, ...] | None] = {}
+    for field in set_fields:
+        value = getattr(station, field)
+        target = unchanged if value == getattr(current, field) else saved
+        target[field] = value
+    doc = StationSetDocument(saved=saved, unchanged=unchanged, refused=(), file=str(path))
+    for line in render_station_set(doc, station, set_fields):
+        print(line)
     for note in rig_notes:
         print(note)
     if "rig" in set_fields and station.rig is not None:
@@ -577,6 +572,233 @@ def cmd_station_set(args: argparse.Namespace) -> int:
         if code != EXIT_OK:
             return code
     return EXIT_OK
+
+
+def _cmd_station_set_json(args: argparse.Namespace) -> int:
+    """Set the accepted station values and report each refused flag (D-059)."""
+    from hammunition.interface.station import StationSetDocument, StationSetRefusal
+
+    user = operator(args)
+    try:
+        current = load_station(owner=user)
+    except StationError:
+        current = Station()
+
+    requested: dict[str, str | int | bool | tuple[str, ...] | None] = {}
+    accepted: dict[str, str | int | bool | tuple[str, ...] | None] = {}
+    refused: list[StationSetRefusal] = []
+
+    def refuse(key: str, value: str | int | bool | None, reason: str) -> None:
+        print(f"error: {reason}", file=sys.stderr)
+        refused.append(StationSetRefusal(key=key, value=value, reason=reason))
+
+    for key, value in (
+        ("callsign", args.callsign),
+        ("grid_square", args.grid_square),
+        ("node_alias", args.node_alias),
+        ("map_freshness", args.map_freshness),
+        ("mirror", args.mirror),
+        ("dem_source", args.dem_source),
+    ):
+        if value is None:
+            continue
+        requested[key] = value
+        try:
+            candidate = Station(**{key: value})
+        except StationError as exc:
+            refuse(key, value, str(exc))
+        else:
+            accepted[key] = getattr(candidate, key)
+
+    if args.map_regions is not None:
+        raw_regions = args.map_regions
+        requested["map_regions"] = raw_regions
+        map_regions = tuple(r for r in (p.strip() for p in raw_regions.split(",")) if r)
+        if not map_regions:
+            refuse(
+                "map_regions",
+                raw_regions,
+                "--map-regions gave no regions after splitting on ',' and stripping "
+                "whitespace; give at least one region, or to remove the maps, uninstall "
+                "osm-navit and osm-regions.",
+            )
+        else:
+            try:
+                candidate = Station(map_regions=map_regions)
+            except StationError as exc:
+                refuse("map_regions", raw_regions, str(exc))
+            else:
+                accepted["map_regions"] = candidate.map_regions
+
+    if args.reference_books is not None:
+        raw_books = args.reference_books
+        requested["reference_books"] = raw_books
+        reference_books = tuple(b for b in (p.strip() for p in raw_books.split(",")) if b)
+        if not reference_books:
+            refuse(
+                "reference_books",
+                raw_books,
+                "--reference-books gave no book ids after splitting on ',' and stripping "
+                "whitespace; give at least one, or to remove the books, uninstall "
+                "kiwix-library.",
+            )
+        else:
+            try:
+                candidate = Station(reference_books=reference_books)
+                books = load_book_list(find_catalog(args.catalog))
+            except StationError as exc:
+                refuse("reference_books", raw_books, str(exc))
+            except (CatalogError, KiwixError) as exc:
+                refuse("reference_books", raw_books, str(exc))
+            else:
+                unknown = [book for book in candidate.reference_books if book not in books]
+                if unknown:
+                    refuse(
+                        "reference_books",
+                        raw_books,
+                        "not in the catalog's book list: "
+                        f"{', '.join(unknown)}. `hammunition reference books` lists the "
+                        "books the catalog offers, by id.",
+                    )
+                else:
+                    accepted["reference_books"] = candidate.reference_books
+
+    if args.clear_mirror:
+        requested["mirror"] = None
+        accepted["mirror"] = None
+
+    rig_flags = {
+        "rig": args.rig,
+        "rig_device": args.rig_device,
+        "rig_baud": args.rig_baud,
+        "rig_ptt_line": args.rig_ptt_line,
+        "rig_owner": args.rig_owner,
+    }
+    rig_touched = any(value is not None for value in rig_flags.values())
+    if args.clear_rig:
+        if rig_touched:
+            reason = (
+                "--clear-rig cannot be combined with rig-setting flags; clear first, "
+                "then set rig values in a second command."
+            )
+            refuse("rig", True, reason)
+            for key, value in rig_flags.items():
+                if value is not None:
+                    refuse(key, value, reason)
+        else:
+            for key in rig_flags:
+                requested[key] = None
+                accepted[key] = None
+    elif rig_touched:
+        rig_args = argparse.Namespace(**vars(args))
+        invalid_rig_fields: set[str] = set()
+        for key, value in rig_flags.items():
+            if value is not None:
+                requested[key] = value
+                try:
+                    candidate = Station(**{key: value})
+                except StationError as exc:
+                    refuse(key, value, str(exc))
+                    invalid_rig_fields.add(key)
+                    setattr(rig_args, key, None)
+                else:
+                    setattr(rig_args, key, getattr(candidate, key))
+
+        with contextlib.redirect_stderr(io.StringIO()) as captured:
+            rig_result = _resolve_rig_flags(rig_args, current)
+        rig_reason = captured.getvalue().strip()
+        if isinstance(rig_result, int):
+            reason = rig_reason.removeprefix("error:").strip() or "rig settings were refused"
+            rejected_keys = [
+                key
+                for key, value in rig_flags.items()
+                if value is not None and key not in invalid_rig_fields
+            ]
+            for key in rejected_keys:
+                refuse(key, rig_flags[key], reason)
+        else:
+            accepted.update(
+                {
+                    "rig": rig_result.rig,
+                    "rig_device": rig_result.rig_device,
+                    "rig_baud": rig_result.rig_baud,
+                    "rig_ptt_line": rig_result.rig_ptt_line,
+                    "rig_owner": rig_result.rig_owner,
+                }
+            )
+            for note in rig_result.notes:
+                print(note, file=sys.stderr)
+
+    if not requested and args.unattended is None:
+        print(
+            "error: nothing to set. Pass at least one station flag or --unattended.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+
+    try:
+        station = Station(
+            callsign=cast(str | None, accepted.get("callsign", current.callsign)),
+            grid_square=cast(str | None, accepted.get("grid_square", current.grid_square)),
+            node_alias=cast(str | None, accepted.get("node_alias", current.node_alias)),
+            map_regions=cast(tuple[str, ...], accepted.get("map_regions", current.map_regions)),
+            map_freshness=cast(str | None, accepted.get("map_freshness", current.map_freshness)),
+            reference_books=cast(
+                tuple[str, ...], accepted.get("reference_books", current.reference_books)
+            ),
+            mirror=cast(str | None, accepted.get("mirror", current.mirror)),
+            rig=cast(str | None, accepted.get("rig", current.rig)),
+            rig_device=cast(str | None, accepted.get("rig_device", current.rig_device)),
+            rig_baud=cast(int | None, accepted.get("rig_baud", current.rig_baud)),
+            rig_ptt_line=cast(str | None, accepted.get("rig_ptt_line", current.rig_ptt_line)),
+            rig_owner=cast(str | None, accepted.get("rig_owner", current.rig_owner)),
+            dem_source=cast(str | None, accepted.get("dem_source", current.dem_source)),
+        )
+    except StationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+
+    station_fields = (
+        "callsign",
+        "grid_square",
+        "node_alias",
+        "map_regions",
+        "map_freshness",
+        "reference_books",
+        "mirror",
+        "rig",
+        "rig_device",
+        "rig_baud",
+        "rig_ptt_line",
+        "rig_owner",
+        "dem_source",
+    )
+    saved = {
+        key: getattr(station, key)
+        for key in station_fields
+        if getattr(station, key) != getattr(current, key)
+    }
+    refused_keys = {item.key for item in refused}
+    unchanged = {
+        key: getattr(station, key)
+        for key in requested
+        if key not in refused_keys and getattr(station, key) == getattr(current, key)
+    }
+
+    if accepted or args.unattended is not None:
+        path = save_station(station, owner=user)
+    else:
+        path = config_path(user)
+    doc = StationSetDocument(
+        saved=saved,
+        unchanged=unchanged,
+        refused=tuple(refused),
+        file=str(path),
+    )
+
+    code = _apply_unattended(args, station, user) if args.unattended is not None else EXIT_OK
+    envelope.emit(doc)
+    return EXIT_UNPLANNABLE if refused else code
 
 
 @dataclasses.dataclass(frozen=True)

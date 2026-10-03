@@ -80,6 +80,36 @@ def test_station_set_json_reports_each_refusal_and_saves_valid_flags(
     assert load_station(path=path).freshness == "monthly"
 
 
+def test_station_set_json_keeps_a_good_rig_flag_when_another_rig_flag_is_refused(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = _set_env(monkeypatch, tmp_path)
+
+    result = cli.main(
+        [
+            "station",
+            "set",
+            "--rig",
+            "yaesu-ft-991a",
+            "--rig-device",
+            "relative-path",
+            "--map-freshness",
+            "latest",
+            "--json",
+        ]
+    )
+    assert result == 2
+    doc = parse_one(capsys.readouterr().out)
+    validate(doc)
+    assert doc["kind"] == "station-set"
+    assert doc["saved"]["map_freshness"] == "latest"
+    assert doc["saved"]["rig"] == "yaesu-ft-991a"
+    assert doc["refused"][0]["key"] == "rig_device"
+    assert doc["refused"][0]["value"] == "relative-path"
+    assert "absolute /dev/ path" in doc["refused"][0]["reason"]
+    assert load_station(path=path).rig == "yaesu-ft-991a"
+
+
 def test_station_set_text_success_is_unchanged(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
