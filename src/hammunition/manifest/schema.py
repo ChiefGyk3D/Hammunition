@@ -2158,21 +2158,26 @@ class UserService(Strict):
             raise ManifestError(
                 f"user service name {self.name!r} must be a lowercase unit-file base name"
             )
-        # exec[0] is an absolute path, or the engine placeholder {python} (the
+        # exec[0] is an absolute path, the engine placeholder {python} (the
         # interpreter that rendered the unit, as a launcher embeds the engine
-        # path, #145). Nothing else: a bare name resolves against systemd's own
-        # PATH, not ours.
-        if self.exec[0] != "{python}" and not self.exec[0].startswith("/"):
+        # path, #145), or a file inside the unit's own virtualenv
+        # ({venv}/bin/rnsd). Nothing else: a bare name resolves against
+        # systemd's own PATH, not ours.
+        if (
+            self.exec[0] != "{python}"
+            and not self.exec[0].startswith("/")
+            and not self.exec[0].startswith("{venv}/")
+        ):
             raise ManifestError(
-                f"user service {self.name!r}: exec[0] {self.exec[0]!r} must be an absolute path "
-                f"or {{python}}"
+                f"user service {self.name!r}: exec[0] {self.exec[0]!r} must be an absolute path, "
+                f"{{python}} or a file under {{venv}}/"
             )
         for word in self.exec:
             # A {station.*} reference stands in for a value re-checked after
             # substitution (D-073 §4, §6a); strip it before the word check so a
             # legitimate reference is not mistaken for a metacharacter. {python}
-            # is likewise an engine placeholder, not a shell token.
-            bare = STATION_REF.sub("X", word).replace("{python}", "X")
+            # and {venv} are likewise engine placeholders, not shell tokens.
+            bare = STATION_REF.sub("X", word).replace("{python}", "X").replace("{venv}", "X")
             if any(c in bare for c in _EXEC_FORBIDDEN):
                 raise ManifestError(
                     f"user service {self.name!r}: exec element {word!r} is not one argv word; "
@@ -2561,6 +2566,19 @@ class PackageManifest(Strict):
     def _user_services_names_exclusive(self) -> PackageManifest:
         if self.user_services:
             _user_services_names_are_exclusive(self.user_services)
+        return self
+
+    @model_validator(mode="after")
+    def _user_service_venv_needs_a_venv(self) -> PackageManifest:
+        """``{venv}`` in a service's exec is the unit's own virtualenv; a manifest
+        with no venv block has none to name, and the service would start a path
+        that does not exist."""
+        uses = [svc.name for svc in self.user_services if any("{venv}" in w for w in svc.exec)]
+        if uses and not any(isinstance(b.install, VenvInstall) for b in self.install):
+            raise ManifestError(
+                f"{self.name}: user service {uses[0]!r} runs a file under {{venv}}/ but no "
+                f"install block of this manifest is a venv, so there is no virtualenv to name"
+            )
         return self
 
     @model_validator(mode="after")
