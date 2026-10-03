@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import importlib
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -31,11 +32,23 @@ TARGET = Target(distro="debian", version="13", arch="x86_64", pretty_name="Debia
 CHECKS = {
     "doctor-ready": [
         Check("system", "ok", "Debian GNU/Linux 13"),
-        Check("udev rules", "info", "udev rules not yet applied", "hammunition hardware apply"),
+        Check(
+            "udev rules",
+            "info",
+            "udev rules not yet applied",
+            "hammunition hardware apply",
+            fix_argv=["hammunition", "hardware", "apply"],
+        ),
     ],
     "doctor-warn": [
         Check("system", "ok", "Debian GNU/Linux 13"),
-        Check("compiler", "warn", "no C compiler found", "sudo apt install build-essential"),
+        Check(
+            "compiler",
+            "warn",
+            "no C compiler found",
+            "sudo apt install build-essential",
+            fix_argv=["sudo", "apt", "install", "build-essential"],
+        ),
     ],
     "doctor-blocking": [
         Check("catalog", "fail", "the catalog could not be found or loaded", "pass --catalog"),
@@ -170,3 +183,40 @@ def test_a_fresh_install_with_local_bin_off_path_is_not_sent_back_to_bootstrap(
     assert 'export PATH="$HOME/.local/bin:$PATH"' in check["fix"]
     assert "bootstrap" not in check["fix"]
     assert "bootstrap" not in "".join(ln for ln in text.splitlines() if "hammunition" in ln)
+
+
+def test_fix_argv_starts_with_an_available_program(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    for checks in CHECKS.values():
+        _rc, out = _run(monkeypatch, capsys, checks, "--json")
+        doc = parse_one(out)
+        for check in doc["checks"]:
+            argv = check.get("fix_argv")
+            if argv is not None:
+                assert argv[0] in {"hammunition", "sudo"} or shutil.which(argv[0])
+
+
+def test_a_single_command_fix_is_rendered_as_a_code_span(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _rc, out = _run(monkeypatch, capsys, CHECKS["doctor-warn"])
+    assert "      → `sudo apt install build-essential`" in out
+    assert "      → sudo apt install build-essential" not in out
+
+
+def test_command_rendering_preserves_advice_around_the_command(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    check = Check(
+        "compiler",
+        "warn",
+        "no C compiler found",
+        "sudo apt install build-essential (the engine also pulls per-build deps at plan time)",
+        fix_argv=["sudo", "apt", "install", "build-essential"],
+    )
+    _rc, out = _run(monkeypatch, capsys, [check])
+    assert (
+        "      → `sudo apt install build-essential` "
+        "(the engine also pulls per-build deps at plan time)"
+    ) in out

@@ -82,3 +82,16 @@ documentation:
     by apt's own estimate on 2026-09-30: 36 MB on a bare Parrot image, 72 MB
     on a bare Kali one (more of its libraries already present on a real
     desktop install).
+  who_for: "A researcher or hobbyist who audits their own wireless networks, inspects protocols, and identifies what is on the air, using tools that capture and analyse but do not transmit attacks."
+  hardware_assumed: "A monitor-mode Wi-Fi adapter, an Ubertooth or Bluetooth adapter, or an SDR, depending on what you capture. None are needed to install."
+  footprint_short: "about 300 MB, mostly Wireshark"
+  excludes_short: "anything cellular, and everything gated in rf-research"
+  goals:
+    - "Study wireless and Bluetooth security"
+  first_ten_minutes:
+    - "Read [the RF security section](../rf-security/index.md) for the legal and ethical framing before you capture anything. Only capture what you are entitled to capture."
+    - "Read the plan: `hammunition install rf-security --dry-run`. On Debian 13, Ubuntu 24.04 and Linux Mint, Kismet comes from the Kismet project's own repository and the plan shows the key fingerprint you must type to allow it."
+    - "Install: `hammunition install rf-security`. Wireshark asks whether non-root users may capture; that choice adds a group and is recorded."
+    - "Apply device rules with `hammunition hardware apply` and **log out and back in** so the `wireshark`, `kismet` and device groups reach your session."
+    - "Decide what Kismet's web interface listens on. By default it is `http://localhost:2501` on every interface; set `httpd_bind_address=127.0.0.1` in `/etc/kismet/kismet_site.conf` to keep it local, and on Kali and Parrot disable its boot-time root service if you only want it on demand."
+    - "Start with something passive: a Wireshark capture on your own interface, or `rtl_433` decoding the sensors on your own street. [Kismet](../rf-security/kismet.md) has the rest."

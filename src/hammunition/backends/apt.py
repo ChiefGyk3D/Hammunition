@@ -452,6 +452,8 @@ class AptBackend:
         return Command(
             argv=(
                 "apt-get",
+                "-o",
+                "Acquire::Retries=3",
                 "install",
                 "--simulate",
                 "--yes",
@@ -560,7 +562,7 @@ class AptBackend:
 
     def refresh_command(self) -> Command:
         return Command(
-            argv=("apt-get", "update"),
+            argv=("apt-get", "-o", "Acquire::Retries=3", "update"),
             description="Refresh apt package lists",
             requires_root=True,
             env=dict(NONINTERACTIVE),
@@ -602,6 +604,8 @@ class AptBackend:
             Command(
                 argv=(
                     "apt-get",
+                    "-o",
+                    "Acquire::Retries=3",
                     "install",
                     "--yes",
                     "--no-remove",

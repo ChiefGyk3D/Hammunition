@@ -83,6 +83,9 @@ warn_required_dynamic_aliases = true
 
 # ---------------------------------------------------------------------------
 [tool.ruff]
+# Design specs and implementation plans quote code from other repositories as
+# illustrations; ruff format must not reflow them.
+extend-exclude = ["docs/superpowers"]
 line-length = 100
 target-version = "py311"
 src = ["src", "tests", "scripts"]

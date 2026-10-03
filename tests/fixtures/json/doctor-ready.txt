@@ -2,6 +2,7 @@ Hammunition health check
 
   [✓] system         Debian GNU/Linux 13
   [·] udev rules     udev rules not yet applied
+      → `hammunition hardware apply`
 
 2 ok, 0 to look at, 0 blocking.
 Ready.

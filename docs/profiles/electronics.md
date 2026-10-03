@@ -6,6 +6,21 @@
 
 **Stage:** 1.0
 
+## Who it is for
+
+Someone who builds or repairs equipment: flashes microcontrollers and firmware, probes boards, or measures with a NanoVNA, tinySA, LibreVNA or ADALM2000.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | 1.0 |
+| Units | 14 |
+| Disk | about 250 MB; LibreVNA's build adds about 780 MB of Qt development packages |
+| Hardware | The programmers and instruments themselves. Nothing here needs any of them to install. |
+| Consent | none |
+| Install | `hammunition install electronics` |
+
 ## What it installs
 
 Six device programmers covering AVR, SPI flash, ARM debug probes, FPGAs, ST-LINK and the STM32 serial bootloader; command-line control of the ADALM2000 lab instrument, and libiio's tools, which find and talk to it and to a PlutoSDR; desktop front ends for the two instruments most likely to be on a ham's bench, the tinySA spectrum analyser and the NanoVNA, and the program for the open-hardware LibreVNA, built from source; and three calculators — a Smith chart, a coil designer and an arbitrary transmission-line solver.
@@ -24,6 +39,46 @@ This is the half of the hobby that happens at a bench rather than at an operatin
 
 The EDA cluster — KiCad, Fritzing, ngspice, gspiceui. Those are reserved to the maintainer in `docs/PARITY-POLICY.md` and are not a decision this profile makes. Also excludes the `programmer` hardware class's udev rules, which are hardware catalog entries rather than packages and are applied by device detection rather than by installing a profile.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show electronics
+hammunition install electronics --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install electronics
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 **Programmers and instruments need device permissions and this profile does not grant them.** Most need membership of `plugdev` or `dialout` and a udev rule; the hardware catalog carries the rules and `hammunition hardware apply` writes them and adds you to the groups. A device that works under `sudo` and not otherwise is a permissions problem, not a broken cable. Know your tinySA's input power limit before connecting it to anything transmitting — it is the instrument most often destroyed on its first day. **LibreVNA-GUI starts a SCPI server on TCP port 19542 on every network address, with no password**, by its own default; turn it off in its Preferences unless another program drives it.
+
+## Your first ten minutes
+
+1. Read the plan: `hammunition install electronics --dry-run`. LibreVNA is a source build of about 14 minutes with a large set of Qt 6 development packages.
+2. Install: `hammunition install electronics`.
+3. Apply device permissions: `hammunition hardware apply`, then log out and back in. A programmer that works under `sudo` and not otherwise is a permissions problem.
+4. Plug a tinySA or NanoVNA in and open its front end (`qttinysa` or `nanovna-saver`). Know the instrument's input power limit before you connect it to anything transmitting.
+5. If you installed `librevna`, open its Preferences and turn off the SCPI server on TCP port 19542 unless another program drives it; it listens on every address with no password.
+6. For an AVR, run `avrdude -c <programmer> -p <part> -v` first to read the chip's signature before you write anything.
+
+## Take it off again
+
+```sh
+hammunition uninstall electronics --dry-run
+hammunition uninstall electronics
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

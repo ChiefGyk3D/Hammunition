@@ -25,7 +25,7 @@ from hammunition.backends.comaps_maps import map_dest, resolve_station_maps
 from hammunition.backends.dem import RegionTiles, render_record
 from hammunition.backends.kiwix import resolve_station_books
 from hammunition.comaps import load_pins as load_comaps_pins
-from hammunition.copernicus import CopernicusError, tile_url
+from hammunition.copernicus import CachingTileProbe, CopernicusError, tile_url
 from hammunition.fstopo import GatewayProbe
 from hammunition.kiwix import load_book_list, load_pin_file
 from hammunition.state import TransactionLog
@@ -184,7 +184,7 @@ def _terrain_dir(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def _terrain(tmp_path: Path, checks: PublisherChecks, tiles: TileProbe) -> Any:
+def _terrain(tmp_path: Path, checks: PublisherChecks, tiles: Any) -> Any:
     return resolve_terrain(
         [OCEANIA],
         installed=tmp_path,
@@ -203,6 +203,28 @@ def test_terrain_a_fresh_tile_asks_nothing_and_a_stale_one_is_probed(tmp_path: P
     got = _terrain(root, checks, tiles)
     assert tiles.asked == [tile_url(B)]
     assert got.current == (A, B) and got.fetch == ()
+
+
+def test_terrain_a_due_recheck_is_answered_from_the_head_cache(tmp_path: Path) -> None:
+    # #214 under #197: the stale attribution makes the tile due, the cache holds
+    # a fresh successful answer, so the publisher is not asked, and the line
+    # still counts as a check (checked: true) and says where the answer came from.
+    root = _terrain_dir(tmp_path)
+    checks = checks_for([installed(root / f"{A}.tif", FRESH), installed(root / f"{B}.tif", STALE)])
+    inner = TileProbe({tile_url(B): (200, 39_000_000, f'"{MD5}"')})
+    cache_dir = tmp_path / "cache"
+    warm = CachingTileProbe(inner, cache_dir)
+    warm.head(tile_url(B))
+    warm.flush()
+    inner.asked.clear()
+    cached = CachingTileProbe(inner, cache_dir)
+    got = _terrain(root, checks, cached)
+    assert inner.asked == []
+    assert got.current == (A, B) and got.fetch == ()
+    (line,) = [entry for entry in checks.lines if entry.checked]
+    assert line.item == B and not line.failed
+    assert "answered from the cache" in line.reason
+    assert [entry.item for entry in checks.skipped] == [A]
 
 
 def test_terrain_recheck_probes_both(tmp_path: Path) -> None:

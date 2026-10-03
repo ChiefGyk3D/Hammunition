@@ -7,13 +7,19 @@
       "name": "system",
       "status": "ok",
       "detail": "Debian GNU/Linux 13",
-      "fix": null
+      "fix": null,
+      "fix_argv": null
     },
     {
       "name": "udev rules",
       "status": "info",
       "detail": "udev rules not yet applied",
-      "fix": "hammunition hardware apply"
+      "fix": "hammunition hardware apply",
+      "fix_argv": [
+        "hammunition",
+        "hardware",
+        "apply"
+      ]
     }
   ],
   "fails": 0,

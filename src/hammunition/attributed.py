@@ -186,6 +186,17 @@ class PublisherChecks:
                 )
                 return
 
+    def mark_cached(self, unit: str, item: str) -> None:
+        """The item's re-check was answered from the plan-time HEAD cache
+        (#214), not by the publisher: still a check, and the line says so."""
+        for index in range(len(self.lines) - 1, -1, -1):
+            line = self.lines[index]
+            if line.unit == unit and line.item == item and line.checked:
+                self.lines[index] = replace(
+                    line, reason=f"{line.reason}; answered from the cache of an earlier check"
+                )
+                return
+
     @property
     def skipped(self) -> list[CheckLine]:
         return [line for line in self.lines if not line.checked and line.attributed is not None]
@@ -218,6 +229,7 @@ def recheck_installed(
     check: Callable[[T], object],
     label: str,
     digest: Callable[[T], str | None] | None = None,
+    probe: object | None = None,
 ) -> None:
     """Ask the publisher about the installed *items* that are due, through
     :func:`~hammunition.progress.run_checks`. Nothing happens without
@@ -230,6 +242,25 @@ def recheck_installed(
         for item in items
         if checks.due(unit, name(item), path(item), digest=digest(item) if digest else None)
     ]
-    outcomes = run_checks(due, check, label=label)
+    cached: set[str] = set()
+    thread_hits = getattr(probe, "thread_hits", None)
+    thread_misses = getattr(probe, "thread_misses", None)
+
+    def counted(item: T) -> object:
+        # A probe that caches (#214) counts per thread, and run_checks runs
+        # each check in one thread: an item whose every HEAD was a cache hit
+        # is marked as answered from the cache.
+        if thread_hits is None or thread_misses is None:
+            return check(item)
+        hits, misses = thread_hits(), thread_misses()
+        try:
+            return check(item)
+        finally:
+            if thread_hits() > hits and thread_misses() == misses:
+                cached.add(name(item))
+
+    outcomes = run_checks(due, counted, label=label)
     for item, outcome in zip(due, outcomes, strict=True):
         checks.report(unit, name(item), outcome.error)
+        if name(item) in cached and outcome.error is None:
+            checks.mark_cached(unit, name(item))
