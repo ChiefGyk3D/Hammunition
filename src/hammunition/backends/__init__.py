@@ -57,7 +57,9 @@ IMPLEMENTED_METHODS: frozenset[str] = frozenset(
 
 #: `system_modifications` kinds this engine build can actually perform.
 #: Everything else is a declared, named gap — never a silent skip.
-IMPLEMENTED_MODIFICATIONS: frozenset[str] = frozenset({"group_membership", "apt_pin"})
+IMPLEMENTED_MODIFICATIONS: frozenset[str] = frozenset(
+    {"group_membership", "apt_pin", "file_capability"}
+)
 
 __all__ = [
     "IMPLEMENTED_BINARY_FORMATS",

@@ -89,7 +89,8 @@ __all__ = [
 NOT_REVERSED = (
     "Not reversed, by design: dependencies apt pulled in (run "
     "`sudo apt autoremove` to clear orphans), group memberships, and any "
-    "config files written — all recorded in the transaction log (D-004)."
+    "config files written — all recorded in the transaction log (D-004). "
+    "File capabilities set by Hammunition are cleared before their binaries are removed."
 )
 
 
@@ -606,10 +607,22 @@ class MembershipLine(Strict):
 
 
 @dataclass(frozen=True)
+class FileCapabilityLine(Strict):
+    """A capability grant to one installed binary."""
+
+    unit: str = described("the catalog unit")
+    path: str = described("the installed binary receiving capabilities")
+    capabilities: tuple[str, ...] = described(
+        "Linux capabilities set with permitted/effective flags"
+    )
+    detail: str = described("why the capability grant is available")
+
+
+@dataclass(frozen=True)
 class GateLine(Strict):
     """A consent gate the real run will present (D-021). Never answered through JSON."""
 
-    profile: str = described("the gated profile")
+    profile: str = described("the gated profile or optional system change")
     env_var: str = described("the scripted-consent variable the gate reads")
     risk_lines: tuple[str, ...] = described("one line per disclosed capability")
 
@@ -753,6 +766,9 @@ class InstallPlanView(Strict):
         "the station's map regions (D-057); null when no map unit or nothing to disclose"
     )
     memberships: tuple[MembershipLine, ...] = described("group membership changes")
+    file_capabilities: tuple[FileCapabilityLine, ...] = described(
+        "opt-in file capabilities applied to installed binaries"
+    )
     consent_gates: tuple[GateLine, ...] = described("gates the real run presents")
     config_files: tuple[ConfigLine, ...] = described("configuration written")
     user_services: tuple[UserServiceLine, ...] = described(
@@ -1334,6 +1350,15 @@ def build_install_view(
             )
             for m in plan.group_memberships
         ),
+        file_capabilities=tuple(
+            FileCapabilityLine(
+                unit=capability.package,
+                path=str(capability.path),
+                capabilities=capability.capabilities,
+                detail=capability.detail,
+            )
+            for capability in plan.file_capabilities
+        ),
         consent_gates=tuple(
             GateLine(profile=name, env_var=gate.env_var, risk_lines=tuple(gate.risk_lines))
             for name, gate in plan.consent_gates
@@ -1565,6 +1590,15 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView, full: bool = 
             lines.extend(wrap(membership.detail, indent="      "))
             if membership.reverse_hint is not None:
                 lines.append(f"      reverse: {membership.reverse_hint}")
+        lines.append("")
+
+    if view.file_capabilities:
+        lines.append("File capabilities (opt-in; cleared on uninstall):")
+        for capability in view.file_capabilities:
+            assignments = " ".join(f"{name}=ep" for name in capability.capabilities)
+            lines.append(f"  {capability.path}  ({capability.unit})")
+            lines.append(f"      setcap {assignments}")
+            lines.extend(wrap(capability.detail, indent="      "))
         lines.append("")
 
     if view.consent_gates:
