@@ -42,10 +42,12 @@ def _env(tmp_path: Path) -> dict[str, str]:
 
 def _run(tmp_path: Path, *flags: str, tty: bool) -> tuple[str, list[str]]:
     """The child's stdout and its run log's command-output lines, stamps off."""
+    env = _env(tmp_path)
     argv = [sys.executable, str(FIXTURES / "driver.py"), str(FIXTURES / "slow_lines.py"), *flags]
     if tty:
         master, slave = pty.openpty()
-        proc = subprocess.Popen(argv, stdout=slave, env=_env(tmp_path))
+        env["FAKE_SUDO_TTY"] = os.ttyname(slave)
+        proc = subprocess.Popen(argv, stdout=slave, env=env)
         os.close(slave)
         chunks: list[bytes] = []
         while True:
@@ -64,7 +66,7 @@ def _run(tmp_path: Path, *flags: str, tty: bool) -> tuple[str, list[str]]:
         os.close(master)
         out = b"".join(chunks).decode().replace("\r\n", "\n")
     else:
-        done = subprocess.run(argv, capture_output=True, text=True, env=_env(tmp_path), check=True)
+        done = subprocess.run(argv, capture_output=True, text=True, env=env, check=True)
         out = done.stdout
     assert proc.returncode in (None, 0) if tty else True
     logs = list((tmp_path / "state").rglob("*.log"))
@@ -191,3 +193,17 @@ def test_the_status_line_is_cut_to_the_terminal_width(monkeypatch: pytest.Monkey
 )
 def test_elapsed_text(seconds: float, text: str) -> None:
     assert elapsed_text(seconds) == text
+
+
+def test_the_status_line_never_draws_over_a_sudo_prompt(tmp_path: Path) -> None:
+    """A command run through sudo draws nothing until it has printed a line:
+    the fake sudo prompts on the terminal for 3 s, well past the 0.5 s the
+    test's writer waits, and the prompt must still be intact."""
+    out, _ = _run(tmp_path, "--sudo", tty=True)
+    prompt = out.index("[sudo] password for operator: ")
+    first = out.index("  … ")
+    assert prompt < first
+    between = out[prompt:first]
+    assert between.count("\x1b[2K") == 1, "only the first draw's own erase, after the prompt"
+    assert between.endswith(ERASE)
+    assert len(STATUS.findall(out)) >= 2, "the status line appears once the command prints"

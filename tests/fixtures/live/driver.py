@@ -21,6 +21,7 @@ from hammunition.state import TransactionLog
 script, flags = sys.argv[1], set(sys.argv[2:])
 command = Command(
     argv=(sys.executable, script),
+    requires_root="--sudo" in flags,
     description="a fake long step",
     long_running="--long" in flags,
 )
@@ -29,5 +30,13 @@ log = TransactionLog(path=Path(os.environ["XDG_STATE_HOME"]) / "transaction.json
 live = LiveStatus(verbose="--verbose" in flags, after=0.5, interval=0.3)
 with runlog.session(command="install", argv=["install"], owner=None, version="t"):
     with activate_live(live):
-        report = execute([command], SubprocessRunner(), log=log, plan=plan, echo=live.print)
+        report = execute(
+            [command],
+            SubprocessRunner(
+                euid=1000, sudo=(sys.executable, str(Path(script).parent / "fake_sudo.py"))
+            ),
+            log=log,
+            plan=plan,
+            echo=live.print,
+        )
     print("done" if report.ok else "failed")

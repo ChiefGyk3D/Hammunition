@@ -283,7 +283,11 @@ def _run_logged(
     for thread in threads:
         thread.start()
     try:
-        with live.command() if live is not None else contextlib.nullcontext():
+        with (
+            live.command(hold=tuple(argv) != tuple(command.argv))
+            if live is not None
+            else contextlib.nullcontext()
+        ):
             proc.wait()
             for thread in threads:
                 thread.join()

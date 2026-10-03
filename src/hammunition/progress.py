@@ -297,6 +297,8 @@ class LiveStatus:
         self._last = ""
         self._shown = False
         self._running = False
+        self._hold = False
+        self._seen = False
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -331,7 +333,7 @@ class LiveStatus:
         if self.verbose or not self._tty():
             return
         elapsed = self._clock() - self._began
-        if elapsed < self._after:
+        if elapsed < self._after or (self._hold and not self._seen):
             return
         head = f"  … {elapsed_text(elapsed)}  "
         room = max(0, self._width() - len(head) - 1)
@@ -344,9 +346,16 @@ class LiveStatus:
     # -- a command's life --------------------------------------------------
 
     @contextlib.contextmanager
-    def command(self) -> Iterator[None]:
-        """Wrap one running command: start the refresh, erase it afterwards."""
+    def command(self, *, hold: bool = False) -> Iterator[None]:
+        """Wrap one running command: start the refresh, erase it afterwards.
+
+        With *hold* (a command run through ``sudo``) no status line is drawn
+        until the command has printed its first line: sudo's password prompt
+        goes to the terminal and is not output, and the line must not erase it.
+        """
         with self._lock:
+            self._hold = hold
+            self._seen = False
             self._began = self._clock()
             self._last = ""
             self._running = True
@@ -376,6 +385,7 @@ class LiveStatus:
     def output(self, line: str) -> None:
         """One line the command wrote, from either pipe."""
         with self._lock:
+            self._seen = True
             if self.verbose:
                 Progress._write(self._out(), "    " + _plain(line) + "\n")
                 return
