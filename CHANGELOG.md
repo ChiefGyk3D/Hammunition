@@ -198,14 +198,14 @@ Nothing yet.
   bracket with `JSONDecoder.raw_decode` instead of ending at the file's last
   `]`; invalid or non-list data still errors as before.
 
-- **Boxless map-region extract notes reach text and JSON imports** (#223,
-  issue #212, **D-075**). `maps infra import` with an installed extract that
-  has no bounding box continues with the usable extracts and reports the
-  omission, numbered and without naming the extract, in both text and `--json`;
-  tests cover both.
+- **Tests cover boxless map-region extracts in `maps infra import`** (#223,
+  issue #212, **D-075**). No code change: a CLI test for text and one for
+  `--json` assert that an installed extract with no bounding box is left out
+  with a numbered note, the usable extracts still import, and neither extract's
+  name appears in the output.
 
 - **Books and CoMaps disk checks include the same run's vector tiles and route
-  graphs** (#224, issue #213, **D-066**, **D-069**, **D-071**, **D-076**). Tile and graph
+  graphs** (#224, issue #213, **D-076**). Tile and graph
   needs join the per-path map-needs total, including when either is the only
   pending work, so a plan that would exceed free disk is refused with the
   combined figures.
@@ -335,8 +335,7 @@ Nothing yet.
   emitted by `hammunition show UNIT --json`; the JSON command list and CLI
   reference now name it and explain profile-first resolution.
 
-- **Docs: bench session 13 on the field laptop** (#233, **D-056**, **D-058**,
-  **D-073**). `docs/reference/bench-verification-5430.md` records the tray
+- **Docs: bench session 13 on the field laptop** (#233, **D-056**, **D-058**). `docs/reference/bench-verification-5430.md` records the tray
   0.5.0 helper installed and answering contract 1, `services` and `doctor`
   after it, the tether enabled at login, a 3D fix from a cold boot and the
   whole-`navigation` dry run, with what is still owed; the tray-controls,
