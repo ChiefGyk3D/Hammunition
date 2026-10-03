@@ -313,6 +313,7 @@ def render_plan(
     built: frozenset[str] = frozenset(),
     maps: MapDisclosure | None = None,
     terrain: TerrainDisclosure | None = None,
+    full: bool = False,
 ) -> list[str]:
     """The complete account of what will happen. Printed for every run.
 
@@ -345,7 +346,7 @@ def render_plan(
         maps=maps,
         terrain=terrain,
     )
-    return render_plan_view(view, target=target_view(plan.target))
+    return render_plan_view(view, target=target_view(plan.target), full=full)
 
 
 # ---------------------------------------------------------------------------
@@ -597,19 +598,29 @@ def _resolve_rig_flags(args: argparse.Namespace, current: Station) -> _RigFlags 
     catalog cross-checks — is it a rig, is the baud in range, does the kind
     allow this flag — are here (D-073 §4).
     """
-    if args.clear_rig:
-        return _RigFlags(None, None, None, None, None, ["rig"], ["  rig            (cleared)"])
-
-    rig: str | None = args.rig or current.rig
-    rig_device: str | None = args.rig_device or current.rig_device
-    rig_baud: int | None = args.rig_baud if args.rig_baud is not None else current.rig_baud
-    ptt_line: str | None = args.rig_ptt_line or current.rig_ptt_line
-    owner: str | None = args.rig_owner or current.rig_owner
-
     touched = any(
         v is not None
         for v in (args.rig, args.rig_device, args.rig_baud, args.rig_ptt_line, args.rig_owner)
     )
+    if args.clear_rig:
+        if touched:
+            print(
+                "error: --clear-rig cannot be combined with rig-setting flags; clear first, "
+                "then set rig values in a second command.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        return _RigFlags(None, None, None, None, None, ["rig"], ["  rig            (cleared)"])
+
+    rig: str | None = args.rig or current.rig
+    rig_changed = args.rig is not None and args.rig != current.rig
+    rig_device: str | None = args.rig_device or current.rig_device
+    rig_baud: int | None = (
+        args.rig_baud if args.rig_baud is not None else None if rig_changed else current.rig_baud
+    )
+    ptt_line: str | None = args.rig_ptt_line or (None if rig_changed else current.rig_ptt_line)
+    owner: str | None = args.rig_owner or current.rig_owner
+
     if not touched:
         return _RigFlags(rig, rig_device, rig_baud, ptt_line, owner, [], [])
 
@@ -1177,6 +1188,60 @@ def cmd_maps_regions(args: argparse.Namespace) -> int:
         return EXIT_OK
     for region in matched:
         print(region)
+    return EXIT_OK
+
+
+@envelope.json_capable()
+def cmd_logs(args: argparse.Namespace) -> int:
+    """List the run logs, print the newest, or say where it is.  D-077."""
+    from hammunition import runlog
+    from hammunition.interface.logs import LogsDocument, RunEntry, render_logs
+
+    directory = runlog.logs_dir(operator(args) or None)
+    runs = runlog.list_runs(directory)
+    if args.last or args.path:
+        if envelope.wanted(args) and not args.path:
+            print(
+                "error: --last prints a log as text; use the plain `logs --json` list",
+                file=sys.stderr,
+            )
+            return EXIT_UNPLANNABLE
+        if not runs:
+            print(f"No run logs yet in {directory}.", file=sys.stderr)
+            return EXIT_FAILED
+        newest = runs[0].path
+        if args.path:
+            print(newest)
+            return EXIT_OK
+        try:
+            sys.stdout.write(newest.read_text(encoding="utf-8", errors="replace"))
+        except OSError as exc:
+            print(f"error: cannot read {newest}: {exc}", file=sys.stderr)
+            return EXIT_FAILED
+        return EXIT_OK
+    doc = LogsDocument(
+        directory=str(directory),
+        total_bytes=runlog.total_size(directory),
+        max_files=runlog.MAX_FILES,
+        max_bytes=runlog.MAX_BYTES,
+        runs=tuple(
+            RunEntry(
+                path=str(r.path),
+                started=r.started,
+                command=r.command,
+                pid=r.pid,
+                size=r.size,
+                result=r.result,
+                exit_code=r.exit_code,
+            )
+            for r in runs
+        ),
+    )
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_logs(doc):
+        print(line)
     return EXIT_OK
 
 
@@ -2836,11 +2901,19 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
     import subprocess
 
     from hammunition import reference
+    from hammunition.aircraft_page import find_aircraft
     from hammunition.backends.source import tree_destination
     from hammunition.graphhopper import GRAPH_UNIT, PROGRAM_UNIT, RouterSpec, plan_router
     from hammunition.map_page import find_map
     from hammunition.paths import owner_aware_dir
 
+    if args.readsb_json is not None and not Path(args.readsb_json).is_absolute():
+        print(
+            f"error: --readsb-json {args.readsb_json}: give an absolute directory "
+            f"(readsb's usual one is /run/readsb).",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
     try:
         port = reference.PORT if args.port is None else reference.serve_port(args.port)
         position_port = (
@@ -2867,6 +2940,17 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
 
     # D-071; the operator's infrastructure layers as overlays, D-075.
     map_shelf = find_map(data_root(DEFAULT_PREFIX), overlays=infra.overlay_dir())
+    # tar1090 (D-071, amended 2026-10-02): its page from the installed tree,
+    # reading readsb's JSON, with the offline map behind it when there is one.
+    aircraft = None
+    try:
+        aircraft = find_aircraft(
+            data_root(DEFAULT_PREFIX),
+            map_shelf,
+            json_dir=Path(args.readsb_json) if args.readsb_json else None,
+        )
+    except ValueError as exc:
+        print(f"warning: the aircraft page is not served: {exc}", file=sys.stderr)
     if shelf.books:
         missing = [t for t in ("kiwix-serve", "kiwix-manage") if shutil.which(t) is None]
         if missing:
@@ -2932,6 +3016,7 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
             router=router,
             start_router=start_router,
             routes_note=routes_note,
+            aircraft=aircraft,
         )
     except OSError as exc:
         print(
@@ -3700,7 +3785,13 @@ def cmd_install(args: argparse.Namespace) -> int:
     # The same run's map data per file system, which the books' and CoMaps'
     # maps' own checks count beside their own.
     others: dict[Path, int] = {}
-    if pending or conversions or any(terrain_disk.values()):
+    if (
+        pending
+        or conversions
+        or any(terrain_disk.values())
+        or any(tiles_disk.values())
+        or any(graph_disk.values())
+    ):
         others = dict(
             disk_needs(
                 pending,
@@ -3710,8 +3801,9 @@ def cmd_install(args: argparse.Namespace) -> int:
                 prefix=source.prefix,
             )
         )
-        for path, amount in terrain_disk.items():
-            others[path] = others.get(path, 0) + amount
+        for extra in (terrain_disk, tiles_disk, graph_disk):
+            for path, amount in extra.items():
+                others[path] = others.get(path, 0) + amount
     # The books' own room, with any map data of the same run on the same disk.
     book_pending = [f for p in book_units for f in books.pending(p.manifest)]
     book_disk = books_disk_needs(book_pending, cache=source.fetcher.cache_dir, prefix=source.prefix)
@@ -3848,7 +3940,9 @@ def cmd_install(args: argparse.Namespace) -> int:
         return EXIT_OK
     for note in (*suggestion_notes, *region_notes):
         print(f"note: {note}")
-    for line in render_plan_view(view, target=target_view(plan.target)):
+    for line in render_plan_view(
+        view, target=target_view(plan.target), full=getattr(args, "full", False)
+    ):
         print(line)
 
     print(
@@ -6218,6 +6312,20 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     log_dir = state_dir(user or None)
     log_dir_writable = writable_or_creatable(log_dir)
 
+    from hammunition import runlog
+
+    runs_dir = runlog.logs_dir(user or None)
+    recorded_runs = runlog.list_runs(runs_dir)
+    run_logs_summary: tuple[int, int, str, str] | None = None
+    if recorded_runs:
+        newest = recorded_runs[0]
+        run_logs_summary = (
+            len(recorded_runs),
+            runlog.total_size(runs_dir),
+            f"{newest.command}, {newest.started[:19].replace('T', ' ')} UTC",
+            newest.result,
+        )
+
     # This checkout's entry point: src/hammunition/cli/main.py -> the checkout
     # root is three parents above the package. Resolved, so a ~/.local/bin
     # link to it compares equal (D-059).
@@ -6290,6 +6398,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         rules_applied=rules_applied,
         attached_recognised=attached_recognised,
         log_dir_writable=log_dir_writable,
+        run_logs=run_logs_summary,
         engine_on_path=engine_on_path,
         engine_expected=engine_expected,
         engine_found=found_engine,
@@ -6562,6 +6671,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
 
+    p_logs = sub.add_parser(
+        "logs",
+        help="the log of each run that changed something, newest first (D-077)",
+    )
+    p_logs.add_argument("--last", action="store_true", help="print the newest log in full")
+    p_logs.add_argument("--path", action="store_true", help="print the newest log's path")
+    p_logs.add_argument(
+        "--user", default=None, help="whose logs to read (default: $SUDO_USER, else $USER)"
+    )
+    p_logs.set_defaults(func=cmd_logs)
+
     p_artifacts = sub.add_parser(
         "artifacts",
         help="list every remote data artifact for a selection, with no station (D-070)",
@@ -6773,6 +6893,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="where the map page asks the GPS tether for your position: 127.0.0.1 port N "
         "(default 10111, the tether's own default, D-071)",
     )
+    p_ref_serve.add_argument(
+        "--readsb-json",
+        metavar="DIR",
+        default=None,
+        help="the directory readsb writes aircraft.json to, which the aircraft page (tar1090) "
+        "reads, read-only (default /run/readsb)",
+    )
     p_ref_serve.set_defaults(func=cmd_reference_serve)
 
     p_show = sub.add_parser("show", help="describe a profile, disclosure included")
@@ -6810,6 +6937,15 @@ def build_parser() -> argparse.ArgumentParser:
             "its ticket valid until the run ends, so a long unprivileged step cannot leave "
             "a later root step waiting at a prompt (the default; D-062). "
             "--no-sudo-keepalive turns it off"
+        ),
+    )
+    p_install.add_argument(
+        "--full",
+        action="store_true",
+        help=(
+            "print every step of the plan expanded; without it a run of steps that "
+            "repeat one template for many items (a sheet, a tile, a book) is shown "
+            "as the template, one example, every item and the totals (D-016)"
         ),
     )
     p_install.add_argument(
@@ -7086,7 +7222,98 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+#: The arguments of the run in progress, for its log's header (D-077).
+_RUN_ARGV: list[str] = []
+
+
+def _loggable(args: argparse.Namespace) -> bool:
+    """Whether this command leaves a run log (D-077): the ones that change
+    state or run long. Readouts (`status`, `list`, `doctor`, `show`) do not,
+    and `station set` is not logged because its argv *is* the station values."""
+    name = envelope.command_name(args)
+    words = name.split()
+    if not words:
+        return False
+    if envelope.wanted(args) and not getattr(args, "dry_run", False):
+        return False  # a front end polling `update --json` must not evict real logs
+    if words[0] == "services":
+        return getattr(args, "action", None) is not None  # the list is a readout
+    if words[0] in ("install", "uninstall", "update", "menus", "maps"):
+        return True
+    if words[0] == "hardware":
+        return len(words) > 1 and words[1] in ("apply", "unapply", "park", "wake")
+    if words[0] == "reference":
+        return len(words) > 1 and words[1] == "serve"
+    if words[0] == "time":
+        return len(words) > 1 and words[1] == "mode"
+    return False
+
+
+def _station_secrets(args: argparse.Namespace) -> list[str]:
+    """Every station value this run could print, to scrub from its log (D-077):
+    the saved station and what was typed on the command line."""
+    values: list[str] = []
+    try:
+        from hammunition.station import load_station
+
+        station = load_station(owner=operator(args) or None)
+        values += [
+            v
+            for v in (
+                station.callsign,
+                station.grid_square,
+                station.node_alias,
+                station.mirror,
+                station.rig_device,
+                station.rig_owner,
+                *station.map_regions,
+            )
+            if v
+        ]
+        if station.mirror:
+            from urllib.parse import urlparse
+
+            host = urlparse(station.mirror).hostname
+            if host:
+                values.append(host)
+    except Exception:  # a broken station file is the command's to report, not the log's
+        pass
+    for attr in ("callsign", "grid_square", "node_alias", "map_regions", "mirror", "rig_device"):
+        typed = getattr(args, attr, None)
+        if isinstance(typed, str) and typed:
+            values += [part.strip() for part in typed.split(",")] + [typed]
+    return values
+
+
 def _dispatch(args: argparse.Namespace) -> int:
+    """Run the chosen command inside its run log, when it gets one."""
+    if not _loggable(args):
+        return _dispatch_command(args)
+    from importlib import metadata
+
+    from hammunition import runlog
+
+    try:
+        version = metadata.version("hammunition")
+    except metadata.PackageNotFoundError:  # pragma: no cover - installed editable
+        version = "unknown"
+    with runlog.session(
+        command=envelope.command_name(args),
+        argv=["hammunition", *_RUN_ARGV],
+        owner=operator(args) or None,
+        version=version,
+    ) as run:
+        if run is not None:
+            run.set_scrub(_station_secrets(args))
+        code = _dispatch_command(args)
+        if run is not None:
+            run.exit_code = code
+    if run is not None and not envelope.wanted(args):
+        print(f"Log: {run.path}", file=sys.stderr)
+    return code
+
+
+def _dispatch_command(args: argparse.Namespace) -> int:
     """Run the chosen command, turning operator-input errors into exit codes."""
     try:
         result: int = args.func(args)
@@ -7188,6 +7415,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if reconfigure is not None:
         reconfigure(line_buffering=True)
     arguments = list(sys.argv[1:] if argv is None else argv)
+    _RUN_ARGV[:] = arguments
     if _json_requested(arguments):
         return _main_json(arguments)
     parser = build_parser()

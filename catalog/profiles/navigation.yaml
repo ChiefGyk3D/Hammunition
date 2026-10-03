@@ -170,6 +170,15 @@ documentation:
     connection for the position (gpsd, or `gps-tether` on 127.0.0.1 port
     10110) and one for AIS from `rtl-ais` or `ais-catcher`; none of
     these has been set up and tried by this project (2026-09-30).
+    Optional layers, each its own command and none of them installed by this
+    profile: repeaters on the maps from your own export or an open list
+    (`hammunition maps repeaters import`, D-064 and D-074), infrastructure and
+    EMCOMM points such as airfields, hospitals and the grid (`hammunition maps
+    infra import`, D-075), and routes in the browser map (`hammunition install
+    graphhopper-graph`, D-076); docs/guides/offline-navigation.md sections 13,
+    18 and 16. None of them has been drawn on a desktop yet. The tray's
+    Services group can start and stop `gps-tether` once it is installed
+    (docs/guides/tray-controls.md).
   disk_footprint_hint: >-
     Navit, espeak-ng, osmium-tool and gpsd from the archive (size not yet
     measured), the 13.3 MB country-border file once, and the browser map's

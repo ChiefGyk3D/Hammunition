@@ -1,0 +1,127 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: tar1090
+version: "3.14.1823+ge784ee5"
+summary: The ADS-B aircraft map for readsb, served on this machine only, with no outside requests
+categories: [aircraft]
+
+# ADD (docs/reference/catalog-gaps-2026-09.md, "not added" until 2026-10-02).
+# tar1090 is no distribution's package (apt-cache policy: none of the seven
+# targets; the AUR builds master), so D-024's first rule has nothing to pin
+# and this is the second: our own pin, the commit the page was measured at
+# (D-032: default branch head, 2026-09-29, version file 3.14.1823; upstream
+# publishes no tags and bumps the version file in every commit). The archive
+# is GitHub's tarball of that commit, 2,812,358 bytes, downloaded twice on
+# 2026-10-02 with the same sha256 both times. GitHub does not promise that
+# bytes of a generated archive stay the same for ever; if they ever change
+# the fetch refuses on the hash and the pin is bumped by hand.
+#
+# Its own installer is not run: a root `wget | bash` that clones master and
+# the aircraft database, writes a lighttpd stanza (port 80, every address)
+# and a systemd unit. Only html/ and the licence are kept, and
+# `hammunition reference serve` serves html/ at /aircraft/ on 127.0.0.1
+# (D-071, amended 2026-10-02).
+#
+# Not carried: wiedehopf/tar1090-db, the aircraft database. Upstream
+# replaces its single commit regularly, so it cannot be pinned; with no
+# database the type, operator and registration columns show only what readsb
+# itself decoded.
+depends: [readsb]
+
+install:
+  - install:
+      method: data
+      artifacts:
+        - url: https://github.com/wiedehopf/tar1090/archive/e784ee5ae82948f41efe3ef5c235ade0943ab8ff.tar.gz
+          sha256: aad8017d29fc8bc378d29963cb15ad2b4845ae48800d4f03d399c48922460558
+          size: 2812358
+          format: tarball
+          into: src
+          members:
+            - tar1090-e784ee5ae82948f41efe3ef5c235ade0943ab8ff/html/
+            - tar1090-e784ee5ae82948f41efe3ef5c235ade0943ab8ff/LICENSE
+      licence: >-
+        GPL-2.0-or-later (tar1090's LICENSE: "licensed under the GPL, v2 or
+        later"); its flag icons are MIT (html/flags/LICENSE)
+      licence_url: https://github.com/wiedehopf/tar1090/blob/e784ee5ae82948f41efe3ef5c235ade0943ab8ff/LICENSE
+    note: >-
+      The page's files only, under /usr/local/share/hammunition/data/tar1090/.
+      Nothing is run and no web server is configured. It installs on every
+      target that offers `readsb`; where readsb is absent (Ubuntu 24.04 and
+      Linux Mint 22.3: no candidate in the 2026-10-01 sweep, recorded in
+      docs/reference/catalog-gaps-2026-09.md) this unit is deferred by name.
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Upstream has no tags and commits several times a month. The pin is the
+    commit measured on 2026-09-29; to move it, download the new commit's
+    archive twice, compare the sha256, check that html/index.html still
+    loads layers.js in the one place `hammunition reference serve` rewrites
+    (a test asserts it), and bump url, sha256, size, members and version
+    together. `hammunition update` reports the pin; it does not ask GitHub.
+
+documentation:
+  what_it_does: >-
+    Installs tar1090, the web page most people use to watch ADS-B aircraft on
+    a map from their own receiver: a table of what is in the air, a track
+    for each aircraft, altitude and speed, range rings, filters. It reads the
+    JSON file readsb keeps up to date (Debian's readsb service writes it to
+    /run/readsb). Its own installer is not used. `hammunition reference
+    serve` serves the page at http://127.0.0.1:8480/aircraft/, on this
+    machine only, and hands it readsb's file through its own `data/` address,
+    read-only. The page is changed in three ways so that it cannot call
+    anything off this machine: tar1090's settings that fetch aircraft
+    photographs, flight routes and weather or airspace overlays are switched
+    off; its online map layers are replaced by your offline map
+    (the one `osm-pmtiles` builds) or, without one, a blank background with
+    the reason written on the page; and the page's responses carry a
+    Content-Security-Policy that names no host, so the browser itself refuses
+    a request to anywhere else.
+  why_you_want_it: >-
+    readsb decodes aircraft and its own built-in map is basic; tar1090 is the
+    maintained, much fuller page for it, and the aircraft view the rest of
+    the ADS-B community uses. Served here it needs no web server to set up,
+    does not listen on port 80 on every address as tar1090's installer
+    arranges, and works with the network off, which is when a field station
+    most wants to know what is overhead. It replaces Virtual Radar Server
+    (superseded by readsb with tar1090, PARITY-POLICY).
+  prerequisites: >-
+    `readsb` (installs with it) decoding something: an RTL-SDR at 1090 MHz,
+    or dump978-fa's UAT output fed to readsb (`--net-connector
+    127.0.0.1,30978,uat_in`, measured). readsb has to be writing its JSON: the
+    Debian service does, to /run/readsb; if yours writes elsewhere, `hammunition
+    reference serve --readsb-json DIR` names the directory. For a map behind the
+    aircraft: `vector-map-kit` and `osm-pmtiles` with map regions set (the
+    `navigation` profile); without them the page still works on a plain
+    background.
+  known_problems: >-
+    No aircraft database: type, operator and registration are blank unless
+    readsb supplies them, and the pictures, routes and overlays (TFRs,
+    weather, airspace) are off, because each is a request to someone else's
+    server. Tracks use only what the page has seen since you opened it:
+    tar1090's history service, which keeps what happened before, is not run.
+    The page's detail panel still has links to FlightAware and planespotters;
+    clicking one is your navigation, not the page calling out. The basemap is
+    drawn by the page from your regions' vector tiles with a small style of
+    its own, plainer than the map at /map/, and covers only the regions you
+    built: an aircraft outside them is drawn on the plain background. The
+    page always reads readsb's plain aircraft.json: readsb 3.14.1630 also
+    writes aircraft.binCraft.zst (measured, run with no SDR, 2026-10-02), and
+    its receiver.json can say to read that, or globe files or history
+    chunks, so the receiver.json the page is given has only the version,
+    refresh interval and position. Measured in headless Chromium with a
+    synthetic aircraft.json and a synthetic tile
+    (tests/test_aircraft_render.py); not yet seen with a live receiver (the
+    installed readsb writes no receiver.json without an SDR, so the real
+    file's contents were not read), and not in Firefox. The data unit is an archive of GitHub's making: see the
+    note above on its hash.
+  upstream_url: https://github.com/wiedehopf/tar1090
+  upstream_support: >-
+    tar1090's GitHub issues (https://github.com/wiedehopf/tar1090/issues) for
+    the page itself, though they will not support what this server changed
+    (the layers, the settings, no database). Problems with decoding are
+    readsb's (https://github.com/wiedehopf/readsb/issues).
