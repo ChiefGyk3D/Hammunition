@@ -46,6 +46,11 @@ Group membership changes:
       also grants every other serial device on the machine.
       reverse: sudo gpasswd -d op dialout
 
+File capabilities (opt-in; cleared on uninstall):
+  /usr/local/bin/fixture-radio  (fixture-source)
+      setcap CAP_NET_RAW=ep
+      Fixture radio network access
+
 Consent gates that will be presented:
   fixture-gated (HAMMUNITION_ACCEPT_FIXTURE_GATED)
       - identifier_collection: Can collect identifiers associated with people or their

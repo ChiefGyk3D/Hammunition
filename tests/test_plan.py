@@ -118,6 +118,81 @@ def test_a_plain_package_resolves(tmp_path: Path) -> None:
     assert plan.apt_to_install == ("example",)
 
 
+def test_file_capabilities_and_typed_consent_are_always_in_the_plan(tmp_path: Path) -> None:
+    unit = _manifest(
+        install=[
+            {
+                "install": {
+                    "method": "git",
+                    "repo": "https://example.invalid/radio-node",
+                    "ref": "v1.0",
+                    "build_system": "make",
+                    "provides_install_target": False,
+                }
+            }
+        ],
+        binaries=[{"produced": "radio-node", "install_as": "radio-node"}],
+        system_modifications=[
+            {
+                "kind": "file_capability",
+                "binary": "radio-node",
+                "capabilities": ["CAP_NET_RAW"],
+                "description": "Allow Ethernet packet ports",
+                "detail": "KISS ports do not need this privilege.",
+                "reversible": True,
+            }
+        ],
+    )
+    catalog = {"example": unit}
+
+    known = {"example": None, "build-essential": None, "git": None}
+    plan = _resolve(tmp_path, ["example"], catalog=catalog, known=known)
+
+    assert len(plan.file_capabilities) == 1
+    assert plan.file_capabilities[0].path == Path("/usr/local/bin/radio-node")
+    assert plan.file_capabilities[0].capabilities == ("CAP_NET_RAW",)
+    gate_name, gate = plan.consent_gates[0]
+    assert gate_name == "file-capabilities:example"
+    assert gate.env_var == "HAMMUNITION_ACCEPT_CAPABILITIES_EXAMPLE"
+    assert "CAP_NET_RAW=ep" in gate.disclosure
+    assert "CAP_NET_RAW=ep" in gate.affirmation
+
+
+def test_file_capability_must_name_a_prefix_binary_even_without_opt_in(tmp_path: Path) -> None:
+    unit = _manifest(
+        install=[
+            {
+                "install": {
+                    "method": "git",
+                    "repo": "https://example.invalid/radio-node",
+                    "ref": "v1.0",
+                    "build_system": "make",
+                    "provides_install_target": False,
+                }
+            }
+        ],
+        binaries=[{"produced": "radio-node", "install_as": "radio-node"}],
+        system_modifications=[
+            {
+                "kind": "file_capability",
+                "binary": "missing",
+                "capabilities": ["CAP_NET_RAW"],
+                "description": "Allow Ethernet packet ports",
+                "detail": "KISS ports do not need this privilege.",
+                "reversible": True,
+            }
+        ],
+    )
+
+    with pytest.raises(PlanError, match="not a binary copied into the Hammunition prefix"):
+        _resolve(
+            tmp_path,
+            ["example"],
+            catalog={"example": unit},
+            known={"example": None, "build-essential": None, "git": None},
+        )
+
+
 def test_an_already_installed_package_produces_no_work(tmp_path: Path) -> None:
     """Idempotency: every operation is safe to re-run (CLAUDE.md)."""
     plan = _resolve(tmp_path, ["example"], known={"example": "1.0"})

@@ -470,6 +470,73 @@ def test_irreversible_modification_must_explain_itself() -> None:
         )
 
 
+def test_file_capability_modification_names_a_binary_and_known_capabilities() -> None:
+    manifest = PackageManifest.model_validate(
+        _minimal(
+            binaries=[{"produced": "radio-node", "install_as": "radio-node"}],
+            system_modifications=[
+                {
+                    "kind": "file_capability",
+                    "binary": "radio-node",
+                    "capabilities": ["CAP_NET_RAW", "CAP_NET_ADMIN"],
+                    "description": "Allow optional Ethernet packet ports",
+                    "detail": "These privileges are not needed for KISS ports.",
+                    "reversible": True,
+                }
+            ],
+        )
+    )
+
+    modification = manifest.system_modifications[0]
+    assert modification.binary == "radio-node"
+    assert modification.capabilities == ["CAP_NET_RAW", "CAP_NET_ADMIN"]
+
+
+@pytest.mark.parametrize(
+    "modification",
+    [
+        {
+            "kind": "file_capability",
+            "capabilities": ["CAP_NET_RAW"],
+            "description": "Missing binary",
+            "detail": "A binary must be named.",
+            "reversible": True,
+        },
+        {
+            "kind": "file_capability",
+            "binary": "radio-node",
+            "capabilities": ["CAP_NOT_REAL"],
+            "description": "Unknown capability",
+            "detail": "Only known Linux capabilities are accepted.",
+            "reversible": True,
+        },
+        {
+            "kind": "file_capability",
+            "binary": "radio-node",
+            "capabilities": ["CAP_NET_RAW"],
+            "description": "Irreversible grant",
+            "detail": "Uninstall must be able to clear this.",
+            "reversible": False,
+            "reverse_hint": "setcap -r radio-node",
+        },
+        {
+            "kind": "group_membership",
+            "group": "dialout",
+            "binary": "radio-node",
+            "capabilities": ["CAP_NET_RAW"],
+            "description": "Misplaced fields",
+            "detail": "Capability fields are only valid for file capabilities.",
+            "reversible": True,
+        },
+    ],
+)
+def test_file_capability_modification_rejects_incomplete_or_misplaced_fields(
+    modification: dict[str, Any],
+) -> None:
+    with pytest.raises((ValidationError, ManifestError)):
+        PackageManifest.model_validate(_minimal(system_modifications=[modification]))
+
+
 def test_third_party_repo_requires_a_pinned_key() -> None:
     with pytest.raises((ValidationError, ManifestError)):
         PackageManifest.model_validate(

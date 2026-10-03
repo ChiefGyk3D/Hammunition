@@ -66,6 +66,30 @@ The program's page under [`docs/packages/`](../packages/index.md) says which
 file and where; copy the shipped `*.example`, edit it, done. This is expected
 first-run setup, not a broken install.
 
+## <a name="linbpq-capabilities"></a>LinBPQ cannot open a network port
+
+LinBPQ may need `CAP_NET_ADMIN` and `CAP_NET_RAW` for Ethernet/TUN interfaces,
+and `CAP_NET_BIND_SERVICE` to bind ports below 1024. Hammunition does not grant
+these during a normal install. If the consent gate was declined or unanswered,
+LinBPQ is installed without them and the rest of the profile still installs.
+
+Check the installed grant with:
+
+```sh
+sudo getcap /usr/local/bin/linbpq
+```
+
+No output means no capabilities are set. To opt in during an install, set the
+variable to the exact grant shown by the plan:
+
+```sh
+HAMMUNITION_ACCEPT_CAPABILITIES_LINBPQ='CAP_NET_ADMIN=ep CAP_NET_RAW=ep CAP_NET_BIND_SERVICE=ep' \
+  hammunition install linbpq
+```
+
+`--yes` does not answer this gate. A successful grant appears in `getcap`;
+`hammunition uninstall linbpq` removes the capability Hammunition recorded.
+
 ## <a name="ax25"></a>"Address family not supported by protocol" from a packet program
 
 ```

@@ -693,6 +693,7 @@ CHECKED_GENERATORS: list[tuple[str, list[str], list[Path]]] = [
     ("gen_device_naming.py", ["docs/reference/device-naming.md"], []),
     ("gen_hardware_gaps.py", ["docs/reference/hardware-gaps.md"], []),
     ("gen_json_reference.py", ["docs/reference/json-interface.md"], []),
+    ("gen_station_settings.py", ["docs/guides/station-settings.md"], []),
     ("gen_projects_page.py", ["docs/projects.md"], []),
     (
         "gen_geofabrik_countries.py",
@@ -770,6 +771,94 @@ def _load_script(name: str) -> object:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_station_table_covers_every_config_file_and_its_deferral(tmp_path: Path) -> None:
+    from hammunition.plan import _plan_config
+    from hammunition.station import Station
+
+    gen = _load_script("gen_station_settings.py")
+    catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
+    table = gen.render_table(catalog)  # type: ignore[attr-defined]
+    rows = table.splitlines()[2:]
+    configs = [(name, config) for name, m in catalog.items() for config in m.config_files]
+    assert configs
+    assert len(rows) == len(configs)
+    for name, config in configs:
+        row = next(r for r in rows if f"| `{config.path}` |" in r)
+        assert f"[{name}](../packages/{name}.md)" in row
+        for variable in config.station_variables:
+            assert f"`{variable}`" in row
+        manifest = catalog[name].model_copy(update={"config_files": [config]})
+        writable, deferred = _plan_config(manifest, Station(), tmp_path)
+        if config.station_variables:
+            assert not writable and len(deferred) == 1
+            assert (
+                f"will not write {tmp_path / config.path[2:] if config.in_home else config.path}"
+                == deferred[0].what
+            )
+            for missing in Station().missing(config.station_variables):
+                assert f"`{missing}`" in row
+            assert "Defer this file only" in row
+        else:
+            assert writable and not deferred
+            assert "No station value required" in row
+
+
+def test_station_table_discovers_new_units_and_derived_sources() -> None:
+    from hammunition.manifest.schema import ConfigFile
+
+    gen = _load_script("gen_station_settings.py")
+    catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
+    new = catalog["linbpq"].model_copy(
+        update={
+            "name": "new-config",
+            "config_files": [
+                ConfigFile(path="/etc/new.conf", template="{station.longitude}\n"),
+                ConfigFile(path="/etc/fixed.conf", template="fixed\n"),
+            ],
+        }
+    )
+    table = gen.render_table({"new-config": new})  # type: ignore[attr-defined]
+    assert "[new-config](../packages/new-config.md)" in table
+    assert "`/etc/new.conf` | `longitude` (from `grid_square`)" in table
+    assert "Defer this file only if any of `grid_square` is unset" in table
+    assert "`/etc/fixed.conf` | None | No station value required" in table
+
+
+def test_station_table_check_detects_drift_without_writing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    gen = _load_script("gen_station_settings.py")
+    page = (REPO_ROOT / "docs" / "guides" / "station-settings.md").read_text()
+    stale = page.replace("`/etc/bpq32.cfg`", "`/etc/stale.cfg`")
+    assert stale != page
+    out = tmp_path / "station-settings.md"
+    out.write_text(stale)
+    before = out.stat().st_mtime_ns
+    monkeypatch.setattr(gen, "OUT", out)
+    monkeypatch.setattr(sys, "argv", ["gen_station_settings.py", "--check"])
+    assert gen.main() == 1  # type: ignore[attr-defined]
+    assert "run scripts/gen_station_settings.py" in capsys.readouterr().out
+    assert out.read_text() == stale
+    assert out.stat().st_mtime_ns == before
+    catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
+    assert gen.render(stale, catalog) == page  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize("markers", ["", "start", "end", "duplicate", "reversed"])
+def test_station_table_refuses_missing_or_ambiguous_markers(markers: str) -> None:
+    gen = _load_script("gen_station_settings.py")
+    start, end = gen.START, gen.END  # type: ignore[attr-defined]
+    page = {
+        "": "",
+        "start": start,
+        "end": end,
+        "duplicate": start + start + end,
+        "reversed": end + start,
+    }[markers]
+    with pytest.raises(ValueError, match="generation markers"):
+        gen.render(page, {})  # type: ignore[attr-defined]
 
 
 # Issue #45: a missing probe rendered as an empty measurement. profile-sizing
