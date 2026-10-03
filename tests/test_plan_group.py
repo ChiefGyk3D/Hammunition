@@ -307,6 +307,13 @@ def test_json_is_unchanged_by_grouping(tmp_path: Path) -> None:
     assert json.dumps([v.__dict__ for v in views], sort_keys=True) == before
 
 
+def test_plan_step_views_have_stable_indices_and_groups_show_their_range() -> None:
+    steps = [_action(i) for i in range(12)]
+    assert [getattr(step, "index", None) for step in steps] == list(range(1, 13))
+    text = "\n".join(render_steps(steps))
+    assert "Steps 1–12 of 12" in text
+
+
 # -- the whole plan, through render_plan and main() ---------------------------------------
 
 
