@@ -12,9 +12,11 @@ follow your GPS receiver when the network is not there, shows how to read
 what the clock is following, and how to take all of it back out. The
 decision record behind it is **D-058** in `docs/DECISIONS.md`.
 
-> **Status.** Built and tested in containers and fakes; **not yet run on
-> the field laptop**. Where a behaviour below depends on that bench run, it
-> says so. `docs/reference/bench-verification-5430.md` is where the results
+> **Status.** Built and tested in containers and fakes. The field laptop
+> has run the first part (bench session 13, 2026-10-02: the files and grants
+> installed, the mode read, the GPS source configured with no fix yet);
+> **GPS time taking over has not been seen**. Where a behaviour below depends
+> on a bench run still owed, it says so. `docs/reference/bench-verification-5430.md` is where the results
 > will be recorded.
 
 ## 1. First: fit a battery-backed hardware clock (RTC)
@@ -119,8 +121,10 @@ checked on the field laptop.
 | `ntp-only` | the network only; the GPS is never used | the network only |
 | `gps-only` | the GPS only; network time servers are never used | nothing (holdover, below), and `doctor` warns |
 
-Whether `auto` really follows the network while it is reachable is not yet
-measured: ntpsec treats `prefer` as a tie-breaker, and a GPS can win over
+Bench session 13 measured one half: with the receiver awake but without a
+fix, `auto` followed the network (offset +1.4 ms) and `ntpq -pn` showed the
+GPS source configured with reach 0. Whether `auto` follows the network once
+the GPS has a fix is not yet measured: ntpsec treats `prefer` as a tie-breaker, and a GPS can win over
 network servers. Until the bench says otherwise, read `auto` as "ntpsec
 chooses between the network and the GPS".
 

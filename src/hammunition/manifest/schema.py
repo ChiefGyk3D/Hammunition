@@ -2385,6 +2385,23 @@ class PackageManifest(Strict):
         ),
     )
 
+    requires_java: int | None = Field(
+        default=None,
+        gt=0,
+        strict=True,
+        description=(
+            "The lowest Java major version the software runs on, checked at plan "
+            "time with `java -version` (D-037, amended 2026-10-02). "
+            "`default-jre-headless` is a metapackage whose version says nothing "
+            "about the Java major, so the floor is read from the `java` on this "
+            "machine, never from the archive. A machine below it (or with no "
+            "java, when this unit's `depends` would not install one that meets "
+            "it) defers the unit in a profile and refuses it by name; nothing "
+            "is fetched to meet it. Measured from the upstream's build file or "
+            "its jar's class-file major, never copied from a README."
+        ),
+    )
+
     desktops: list[Desktop] | None = Field(
         default=None,
         description=(
