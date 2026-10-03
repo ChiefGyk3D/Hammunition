@@ -12,11 +12,11 @@
 
 ## What it does
 
-A KDE Plasma applet that puts a switch in the system tray for each catalogued device Hammunition can park -- a GPS receiver today, a WWAN modem when one is catalogued. Turning a switch off detaches the device so the kernel drops it and its port can suspend; turning it on brings it back. The tray icon is a penguin holding a handheld radio, and goes grey while anything is parked. A Time section (D-058, needs Hammunition 0.18.0 or later) shows what the clock follows and lets you choose one of the four GPS-time modes.
+A KDE Plasma applet that puts a switch in the system tray for each catalogued device Hammunition can park that is plugged in -- a GPS receiver, a cellular modem, a Bluetooth controller or a camera. Turning a switch off detaches the device so the kernel drops it and its port can suspend; turning it on brings it back. Beside the devices it has a Services group (the GPS daemon, the clock, the GPS tether, the rig service: a running switch and a start-at-login box each) and a Radios group (mobile broadband, Wi-Fi, Bluetooth), the Controls panel. The tray icon is a penguin holding a handheld radio, and goes grey while anything is parked. A Time section (D-058, needs Hammunition 0.18.0 or later) shows what the clock follows and lets you choose one of the four GPS-time modes.
 
 ## Why you would want it
 
-Parking a GPS or a modem you are not using saves battery on a field laptop, and doing it from the tray is one click and one password prompt rather than a command line. It is a front end for `hammunition hardware park` and `wake` (D-056), so it does exactly what those do and nothing else.
+Parking a GPS or a modem you are not using saves battery on a field laptop, and doing it from the tray is one click and one password prompt rather than a command line. It is a front end for `hammunition hardware park` and `wake` and `hammunition services` (D-056), so it does exactly what those do and nothing else; docs/guides/tray-controls.md says which switch asks for a password.
 
 ## Before it will work
 
@@ -35,7 +35,7 @@ KDE Plasma 6. This unit installs the device helper and the polkit action the swi
 
 - probe: github release (`ChiefGyk3D/hammunition-tray`)
 - strategy: reinstall
-- Tagged releases with a .deb and SHA256SUMS attached to each. A release is a new digest; re-pin both.
+- Tagged releases with a .deb and SHA256SUMS attached to each. A release is a new digest; re-pin both. The v0.5.0 release's .deb assets were not published when this was pinned, so the pin is the tag's own source archive.
 
 ## Where to get help with the software itself
 

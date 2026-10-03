@@ -57,6 +57,12 @@ from .source import (
     tree_install_commands,
 )
 
+# Every git the engine runs is unattended. An operator's own git config can turn
+# a plain `git tag` into an annotated, signed one (`tag.gpgsign true`), which
+# opens an editor; a credential prompt on a fetch would wait the same way. A
+# navigation install sat in nano on the bench for that (2026-10-03).
+GIT_ENV: dict[str, str] = {"GIT_TERMINAL_PROMPT": "0", "GIT_EDITOR": "true"}
+
 if TYPE_CHECKING:
     # Type-only: `hammunition.backends/__init__.py` imports this module
     # eagerly, and `hammunition.fetch` imports `hammunition.backends.base`,
@@ -133,20 +139,24 @@ class GitBackend:
             ),
             Command(
                 argv=("git", "init", "--quiet", str(src)),
+                env=GIT_ENV,
                 description=f"Start an empty repository for {manifest.name}",
             ),
             Command(
                 argv=("git", "-C", str(src), "remote", "add", "origin", block.repo),
+                env=GIT_ENV,
                 description=f"Point it at {block.repo}",
             ),
             Command(
                 # Shallow and by ref: a pinned commit costs one object walk, not
                 # the project's whole history.
                 argv=("git", "-C", str(src), "fetch", "--depth", "1", "origin", block.ref),
+                env=GIT_ENV,
                 description=f"Fetch {manifest.name} at {block.ref}",
             ),
             Command(
                 argv=("git", "-C", str(src), "checkout", "--quiet", "FETCH_HEAD"),
+                env=GIT_ENV,
                 description=f"Check out {block.ref}",
             ),
             *(
@@ -156,7 +166,22 @@ class GitBackend:
                         # that version themselves with `git describe` then see
                         # no tag at all. Recreating the ref locally costs
                         # nothing and makes describe answer with the pin.
-                        argv=("git", "-C", str(src), "tag", "-f", block.ref, "FETCH_HEAD"),
+                        # Lightweight on purpose, whatever the operator's git
+                        # config says: a signed tag needs a message and a key.
+                        argv=(
+                            "git",
+                            "-c",
+                            "tag.gpgSign=false",
+                            "-c",
+                            "tag.forceSignAnnotated=false",
+                            "-C",
+                            str(src),
+                            "tag",
+                            "-f",
+                            block.ref,
+                            "FETCH_HEAD",
+                        ),
+                        env=GIT_ENV,
                         description=f"Recreate the {block.ref} tag for describe-based versioning",
                     )
                 ]
@@ -233,6 +258,7 @@ class GitBackend:
                     "--depth",
                     "1",
                 ),
+                env=GIT_ENV,
                 description=(
                     f"Check out {manifest.name}'s submodules at the commits the pinned "
                     f"revision records (shallow, recursive)"

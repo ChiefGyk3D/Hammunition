@@ -27,7 +27,7 @@ The station's rig values (`hammunition station set --rig …`). Membership of `d
 
 ## Known problems
 
-Loopback is not per-user: any local account and any local process can connect to 127.0.0.1:4532 and key the transmitter, and `rigctld` has no password (its `-A` option is "not implemented"). On a single-operator laptop that is the operator's own software; on a shared machine it is a transmitter anyone logged in can key. Two operators logged in at once would each try to start a rigctld on 4532 and the second fails to bind — the station is one operator's. Changing a rig value reaches the service only through a reinstall of this unit, which `station set` prints when it changes one.
+Loopback is not per-user: any local account and any local process can connect to 127.0.0.1:4532 and key the transmitter, and `rigctld` has no password (its `-A` option is "not implemented"). On a single-operator laptop that is the operator's own software; on a shared machine it is a transmitter anyone logged in can key. Two operators logged in at once would each try to start a rigctld on 4532 and the second fails to bind — the station is one operator's. Changing a rig value reaches the service only through a reinstall of this unit, which `station set` prints when it changes one. Not yet run against a real radio: the service at login, the UV-50PRO's keying line and start-up keying, `--unattended` across a logout, and the loopback filter with real clients are the bench's (D-073); docs/guides/rig-control.md says what was measured.
 
 ## Keeping it current
 

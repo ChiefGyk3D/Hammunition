@@ -53,8 +53,11 @@ def test_claude_md_and_the_changelog_carry_it() -> None:
     assert "**D-070**" in _flat("CLAUDE.md")
     # In whichever release carries it: a test tied to "Unreleased" goes red
     # the day the entry is released, which is what happened to v0.16.0.
+    # A change not yet released lives in a changelog.d/ fragment, not under
+    # Unreleased (which only ever says "Nothing yet."); look in both.
     changelog = (REPO_ROOT / "CHANGELOG.md").read_text()
-    assert "D-070" in changelog[changelog.index("## Unreleased") :]
+    fragments = "".join(p.read_text() for p in sorted((REPO_ROOT / "changelog.d").glob("*.md")))
+    assert "D-070" in changelog[changelog.index("## Unreleased") :] + fragments
 
 
 def test_the_guide_says_the_plan_still_needs_the_internet() -> None:
