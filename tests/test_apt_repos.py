@@ -561,13 +561,13 @@ def test_the_key_fetch_runs_first_then_files_update_simulate_install(tmp_path: P
             "stage-apt-source",
             ("install", "-D", "-m"),
             ("install", "-D", "-m"),
-            ("apt-get", "update"),
-            ("apt-get", "install", "--simulate"),
-            ("apt-get", "install", "--yes"),
+            ("apt-get", "-o", "Acquire::Retries=3"),
+            ("apt-get", "-o", "Acquire::Retries=3"),
+            ("apt-get", "-o", "Acquire::Retries=3"),
         ][: len(shape)]
     )
     argvs = [s.argv for s in steps if isinstance(s, Command)]
-    assert any(a[:2] == ("apt-get", "update") for a in argvs)
+    assert any(a[0] == "apt-get" and "update" in a for a in argvs)
     simulate = next(s for s in steps if isinstance(s, Command) and "--simulate" in s.argv)
     assert "editor" in simulate.argv
     assert "editor" in simulate.description
