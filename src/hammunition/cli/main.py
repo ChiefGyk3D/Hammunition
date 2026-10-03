@@ -98,6 +98,7 @@ from hammunition.consent import (
     ConsentUnavailable,
     resolve_consent,
     resolve_repo_consent,
+    resolve_topo_size_consent,
 )
 from hammunition.copernicus import CopernicusError, S3Probe
 from hammunition.country_boundaries import BoundarySource, CountryBoundaryError, boundary_source
@@ -171,7 +172,7 @@ from hammunition.paths import (
     venv_root,
 )
 from hammunition.phone_plan import build_phone_run
-from hammunition.plan import NO_MAP_REGIONS, Blocker, InstallPlan, PlanError, resolve
+from hammunition.plan import NO_MAP_REGIONS, Blocker, Deferral, InstallPlan, PlanError, resolve
 from hammunition.progress import Progress
 from hammunition.repeater_sources import SnapshotHead
 from hammunition.retry import (
@@ -210,11 +211,17 @@ from hammunition.terrain_plan import (
     splat_source,
 )
 from hammunition.tiles_plan import build_tiles_run
+from hammunition.topo_bound import ALL, BoundUnavailable, TopoBound, make_bound
 from hammunition.topo_plan import (
     FSTOPO_INDEX,
     MemoProbe,
+    missing_grid_deferral,
+    outside_installed,
     resolve_station_fstopo,
     resolve_station_topo,
+    selection_note,
+    size_consent,
+    topo_units,
 )
 from hammunition.topo_plan import INDEX as USTOPO_INDEX
 from hammunition.update import (
@@ -518,11 +525,39 @@ def cmd_station_set(args: argparse.Namespace) -> int:
         )
         if value
     ] + rig_fields
+    topo_regions = current.topo_regions
+    if args.clear_topo_regions:
+        topo_regions = ()
+        set_fields.append("topo_regions")
+    elif args.topo_regions is not None:
+        topo_regions = tuple(r for r in (p.strip() for p in args.topo_regions.split(",")) if r)
+        if not topo_regions:
+            print(
+                "error: --topo-regions gave no regions after splitting on ',' and "
+                "stripping whitespace; give at least one of the station's map regions.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        set_fields.append("topo_regions")
+    if args.map_regions is not None and args.topo_regions is None and topo_regions:
+        # A narrowed map list must not strand --topo-regions on a region that
+        # is gone: it is dropped, and said.
+        kept = tuple(r for r in topo_regions if r in map_regions)
+        if kept != topo_regions:
+            print(
+                f"note: {len(topo_regions) - len(kept)} --topo-regions entr(ies) are no longer "
+                f"among the map regions and are dropped"
+            )
+            topo_regions = kept
+    if args.topo_radius_km is not None:
+        set_fields.append("topo_radius_km")
+    if args.topo_all is not None:
+        set_fields.append("topo_all")
     if not set_fields and args.unattended is None:
         print(
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
             "--node-alias, --map-regions, --map-freshness, --reference-books, --mirror, "
-            "--clear-mirror, --dem-source, --rig, --rig-device, --rig-baud, "
+            "--clear-mirror, --dem-source, --topo-radius-km, --topo-regions, --topo-all, --rig, --rig-device, --rig-baud, "
             "--rig-ptt-line, --rig-owner, --clear-rig, --unattended.",
             file=sys.stderr,
         )
@@ -542,6 +577,11 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             rig_ptt_line=rig_result.rig_ptt_line,
             rig_owner=rig_result.rig_owner,
             dem_source=args.dem_source or current.dem_source,
+            topo_radius_km=(
+                args.topo_radius_km if args.topo_radius_km is not None else current.topo_radius_km
+            ),
+            topo_regions=topo_regions,
+            topo_all=args.topo_all if args.topo_all is not None else current.topo_all,
         )
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -565,6 +605,12 @@ def cmd_station_set(args: argparse.Namespace) -> int:
                     print(f"  {rig_field:<14} {value}")
         elif field == "dem_source":
             print(f"  {field:<14} {station.elevation}")
+        elif field == "topo_radius_km":
+            print(f"  {field:<14} {station.topo_radius} km")
+        elif field == "topo_regions":
+            print(f"  {field:<14} {len(station.topo_regions)} set")
+        elif field == "topo_all":
+            print(f"  {field:<14} {'yes' if station.topo_all else 'no'}")
         else:
             print(f"  {field:<14} {station.get(field)}")
     for note in rig_notes:
@@ -3555,6 +3601,24 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("terrain", str(exc))
         return EXIT_UNPLANNABLE
+    # Issue #232: the sheets and tiles are bounded by the station (a radius
+    # around its grid square by default). The circle needs the grid square;
+    # without one the unit defers by name and what is installed is kept (D-035).
+    topo_bound: TopoBound | None = ALL
+    topo_deferrals: tuple[Deferral, ...] = ()
+    try:
+        topo_bound = make_bound(
+            radius_km=station.topo_radius_km,
+            regions=station.topo_regions,
+            everything=station.topo_all,
+            grid_square=station.grid_square,
+        )
+    except BoundUnavailable:
+        topo_bound = None
+        topo_deferrals = tuple(
+            missing_grid_deferral(p.name)
+            for p in topo_units(plan, bare_earth=station.elevation == "3dep")
+        )
     # D-068: the US Topo sheets for the same regions, each HEAD-checked
     # against the ETag the carried index lists.
     try:
@@ -3566,6 +3630,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             region_probe=outlines,
             quad_probe=RetryingProbe(ustopo_probe()),
             outages=outages,
+            bound=topo_bound,
         )
     except UstopoError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3585,6 +3650,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             region_probe=outlines,
             tile_probe=RetryingProbe(ustopo_probe()),
             outages=outages,
+            bound=topo_bound,
         )
     except CopernicusError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3600,6 +3666,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             region_probe=outlines,
             gateway=GatewayProbe(),
             outages=outages,
+            bound=topo_bound,
         )
     except FstopoError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3639,6 +3706,30 @@ def cmd_install(args: argparse.Namespace) -> int:
     region_notes.extend(topo_notes)
     region_notes.extend(bare_notes)
     region_notes.extend(fstopo_notes)
+    # The walk-through line (issue #232): what the bound chose, and how to
+    # change it, before the plan rather than 29,000 lines of it.
+    ustopo_unit = next(
+        (
+            p
+            for p in plan.packages
+            if isinstance(p.block.install, TopoQuadsInstall)
+            and p.block.install.provider == "usgs-ustopo"
+        ),
+        None,
+    )
+    if ustopo_unit is not None and topo_bound is not None:
+        region_notes.insert(
+            0,
+            selection_note(
+                topo_bound,
+                topo_resolution,
+                outside=outside_installed(
+                    data_root(source.prefix) / ustopo_unit.name, topo_resolution
+                ),
+            ),
+        )
+    if topo_deferrals:
+        plan = dataclasses.replace(plan, deferrals=(*plan.deferrals, *topo_deferrals))
     # D-069: CoMaps' maps for the same regions, from the carried region table,
     # and every map not yet installed HEAD-checked for its pinned size before
     # the plan prints: each map's size, licence and check are the disclosure,
@@ -3721,6 +3812,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         contour_source=contour_source(plan),
         fstopo=fstopo_resolution,
         splat_source=splat_source(plan),
+        topo_bound=topo_bound,
     )
     # D-067: the phone converters, from the same regions, as the operator.
     phone = build_phone_run(
@@ -4009,6 +4101,28 @@ def cmd_install(args: argparse.Namespace) -> int:
     if confirmable and not _confirm_unsafe_interpreter(confirmable):
         print("Aborted: not confirmed. Nothing was changed.", file=sys.stderr)
         return EXIT_CONSENT
+
+    # The size of the US Topo selection (issue #232): asked at the keyboard when
+    # it is every sheet (--topo-all) or more than 10 GB, and never answered by
+    # --yes. The plan above printed the same sentence.
+    asked_size = size_consent(terrain_view.topo if terrain_view is not None else None)
+    if asked_size is not None:
+        try:
+            size_record = resolve_topo_size_consent(
+                asked_size.sentence(),
+                asked_size.count,
+                environ=os.environ,
+                prompt=_prompt if sys.stdin.isatty() else None,
+                assume_yes=args.yes,
+                actor=user or None,
+            )
+        except ConsentDeclined as exc:
+            print(f"\n{exc}. Nothing was changed.", file=sys.stderr)
+            return EXIT_CONSENT
+        except ConsentUnavailable as exc:
+            print(f"\n{exc}", file=sys.stderr)
+            return EXIT_CONSENT
+        log.append(size_record.to_log_entry())
 
     # Consent gates come after the plan is printed and before anything runs.
     # --yes is passed so the call site documents that it does not help; the
@@ -7227,6 +7341,33 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("copernicus", "3dep"),
         help="the elevation QMapShack's hillshade and contours are drawn from: copernicus "
         "(the default, a surface model) or 3dep (USGS bare earth, about 10x larger) (D-068)",
+    )
+    p_station_set.add_argument(
+        "--topo-radius-km",
+        default=None,
+        type=int,
+        metavar="N",
+        help="how far from your grid square's centre US Topo sheets, FSTopo sheets and 3DEP "
+        "tiles are selected: 100 when unset, 0 for none (D-068, issue #232)",
+    )
+    p_station_set.add_argument(
+        "--topo-regions",
+        default=None,
+        metavar="REGION[,REGION…]",
+        help="narrow the topographic selection to these map regions (a subset of "
+        "--map-regions); with no --topo-radius-km they are taken whole",
+    )
+    p_station_set.add_argument(
+        "--clear-topo-regions",
+        action="store_true",
+        help="remove --topo-regions, so the radius applies to every map region again",
+    )
+    p_station_set.add_argument(
+        "--topo-all",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="select every sheet of every region, as before the bound; the install states "
+        "the size and asks a typed yes that --yes does not answer",
     )
     p_station_set.add_argument(
         "--rig",

@@ -24,15 +24,18 @@ from enum import StrEnum
 from hammunition.manifest.schema import AptRepo, ConsentGate, RiskCategory
 
 __all__ = [
+    "TOPO_SIZE_ENV",
     "ConsentDeclined",
     "ConsentRecord",
     "ConsentUnavailable",
     "Decision",
     "render_disclosure",
     "render_repo_disclosure",
+    "render_topo_size_disclosure",
     "repo_env_var",
     "resolve_consent",
     "resolve_repo_consent",
+    "resolve_topo_size_consent",
 ]
 
 
@@ -280,4 +283,83 @@ def resolve_repo_consent(
 
     if not prompt(text):
         raise ConsentDeclined(f"adding the {repo.name} repository for {unit!r} was declined")
+    return record(Decision.interactive)
+
+
+# ---------------------------------------------------------------------------
+# The size of the US Topo selection.  D-068 (amended 2026-10-02), issue #232.
+# ---------------------------------------------------------------------------
+#
+# Not a risk gate: nothing here is dangerous, it is large. It has the gate's
+# shape because a size a convenience flag could accept is a size nobody read:
+# ``--yes`` is never read, silence is never consent, and the scripted answer
+# names what was shown -- the number of sheets -- so a script written against
+# a small selection stops when the selection grows.
+
+TOPO_SIZE_ENV = "HAMMUNITION_ACCEPT_TOPO_SIZE"
+
+
+def render_topo_size_disclosure(sentence: str) -> str:
+    """Exactly what the operator is asked about."""
+    return (
+        f"{sentence}\n"
+        f"`hammunition station set --topo-radius-km N` or `--topo-regions` asks for fewer; "
+        f"`hammunition uninstall usgs-ustopo` takes them away again.\n"
+        f"Install that much?"
+    )
+
+
+def resolve_topo_size_consent(
+    sentence: str,
+    sheets: int,
+    *,
+    environ: Mapping[str, str],
+    prompt: Callable[[str], bool] | None,
+    assume_yes: bool = False,
+    actor: str | None = None,
+    now: Callable[[], datetime] | None = None,
+) -> ConsentRecord:
+    """Obtain an affirmation of the US Topo size, or raise.
+
+    ``assume_yes`` is accepted and never read (D-021). The environment route
+    needs :data:`TOPO_SIZE_ENV` to hold the number of sheets shown; any other
+    value, ``1`` included, is refused with the number it should have held.
+    """
+    del assume_yes  # D-021: --yes must not accept a size nobody read.
+
+    stamp = (now or (lambda: datetime.now(UTC)))()
+    text = render_topo_size_disclosure(sentence)
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    def record(decision: Decision) -> ConsentRecord:
+        return ConsentRecord(
+            profile="us-topo-size",
+            decision=decision,
+            risk_categories=(),
+            disclosure_text=text,
+            disclosure_sha256=digest,
+            env_var=TOPO_SIZE_ENV,
+            timestamp=stamp,
+            actor=actor,
+            extra={"kind": "topo_size", "sheets": str(sheets)},
+        )
+
+    given = environ.get(TOPO_SIZE_ENV)
+    if given is not None:
+        if given.strip() == str(sheets):
+            return record(Decision.environment)
+        raise ConsentUnavailable(
+            f"{TOPO_SIZE_ENV} is set but does not name this selection. To affirm it in a "
+            f"script, set {TOPO_SIZE_ENV}={sheets}, the number of sheets shown; a bare '1' "
+            f"is refused so that a selection that grew stops the script.\n\n{text}"
+        )
+    if prompt is None:
+        raise ConsentUnavailable(
+            f"the US Topo selection needs affirmative consent to its size and there is no "
+            f"interactive terminal. Set {TOPO_SIZE_ENV}={sheets} to affirm it in a script, "
+            f"or choose fewer sheets with `hammunition station set --topo-radius-km N`. "
+            f"--yes does not satisfy this.\n\n{text}"
+        )
+    if not prompt(text):
+        raise ConsentDeclined("the US Topo size was declined")
     return record(Decision.interactive)

@@ -47,12 +47,22 @@ documentation:
     official map, public domain, and on the disk it works with no network --
     the same sheet a search team or a ranger station hands out.
   prerequisites: >-
-    Map regions set in station config; the sheets follow them. With none set
-    this unit is deferred by name. Only regions in the United States and its
+    Map regions set in station config, and a grid square: the sheets are
+    those of your regions within a radius of the grid square's centre, 100 km
+    unless `station set --topo-radius-km N` says otherwise (0 selects none).
+    `--topo-regions a,b` narrows to some of your regions, taken whole unless
+    a radius is also set; `--topo-all` takes every sheet of every region, and
+    the install then prints the count and size and asks you to type `yes`,
+    which `--yes` does not answer; so does any selection over 10 GB. With no
+    regions set this unit is deferred by name; with no grid square (and
+    neither `--topo-all` nor `--topo-regions`) it is deferred by name too and
+    what is installed is kept. Only regions in the United States and its
     territories have sheets; a region elsewhere gets none, and the plan says
     so without failing.
   known_problems: >-
-    A sheet is 2 to 20 MB, about 8 MB typically. Measured on 2026-09-29 from
+    Narrowing the bound removes the installed sheets that fall outside it on
+    the next install, and the plan says how many; `--topo-all` keeps them. A
+    sheet is 2 to 20 MB, about 8 MB typically. Measured on 2026-09-29 from
     the index: Delaware's 38 sheets are about 220 MB, Vermont's 194 about
     1.6 GB, Virginia's 729 about 6 GB; a region's outline also touches sheets
     across its borders. The plan prints the count and size per region before
