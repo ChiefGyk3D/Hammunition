@@ -19,6 +19,27 @@ prose grounded in the code and the pull request bodies, fixes contradictions
 in favour of the code and `docs/DECISIONS.md`, and leaves everything else
 alone. It never invents a measurement.
 
+## The wiki mirror
+
+The GitHub wiki is generated from `docs/`, never written. On every push to
+`main`, `.github/workflows/wiki.yml` runs `scripts/gen_wiki.py` and replaces
+every wiki page with its output, so an edit made in the wiki is lost at the
+next push. Corrections go to `docs/` by pull request, like any other. The
+canonical site stays <https://chiefgyk3d.github.io/Hammunition/>.
+
+To see what the wiki will contain:
+
+```sh
+.venv/bin/python scripts/gen_wiki.py --out /tmp/wiki-out
+.venv/bin/python scripts/gen_wiki.py --check
+```
+
+`--check` writes nothing; it fails on a name collision or a link that points at
+nothing. A new page needs no wiki step: it is in the nav, so it is in the wiki.
+The workflow needs the wiki's first page created once in the GitHub UI, because
+the wiki's git remote does not exist before that; until then it fails naming
+that step.
+
 ## Set up
 
 ```sh
