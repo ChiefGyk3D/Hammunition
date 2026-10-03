@@ -15,7 +15,7 @@ Left in place — installed, but not installed by Hammunition:
 Already absent:
   fixture-source               (nothing resolves here)
 
-Not reversed, by design: dependencies apt pulled in (run `sudo apt autoremove` to clear orphans), group memberships, and any config files written — all recorded in the transaction log (D-004).
+Not reversed, by design: dependencies apt pulled in (run `sudo apt autoremove` to clear orphans), group memberships, and any config files written — all recorded in the transaction log (D-004). File capabilities set by Hammunition are cleared before their binaries are removed.
 
 Commands (2):
   # 1: Remove 1 package(s) with apt

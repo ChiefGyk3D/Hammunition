@@ -15,8 +15,10 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 import os
 import pwd
+import re
 import sys
 import tempfile
 from collections.abc import Iterator
@@ -47,6 +49,7 @@ from hammunition.cli.main import (  # noqa: E402
     EXIT_FAILED,
     EXIT_OK,
     EXIT_UNPLANNABLE,
+    _prompt_capability,
     build_parser,
     cmd_status,
     main,
@@ -54,12 +57,23 @@ from hammunition.cli.main import (  # noqa: E402
     render_plan,
 )
 from hammunition.distro import Target  # noqa: E402
-from hammunition.execute import commands_for, execute, verify_effects  # noqa: E402
+from hammunition.execute import (  # noqa: E402
+    ExecutionReport,
+    commands_for,
+    execute,
+    verify_effects,
+)
 from hammunition.fetch import Fetcher  # noqa: E402
 from hammunition.manifest.schema import PackageManifest  # noqa: E402
-from hammunition.plan import GroupMembership, InstallPlan, PlannedPackage  # noqa: E402
+from hammunition.plan import (  # noqa: E402
+    FileCapability,
+    GroupMembership,
+    InstallPlan,
+    PlannedPackage,
+)
 from hammunition.state import TransactionLog, log_path  # noqa: E402
 
+CLI_MODULE = importlib.import_module("hammunition.cli.main")
 TARGET = Target(distro="debian", version="13", arch="x86_64")
 
 CATALOG = REPO_ROOT / "catalog"
@@ -142,6 +156,90 @@ def test_group_membership_is_planned_after_installation() -> None:
     commands = commands_for(plan, AptBackend(RecordingRunner()), current_groups=frozenset())
     assert _argv(commands[0])[0] == "apt-get"
     assert _argv(commands[-1])[:2] == ("gpasswd", "--add")
+
+
+def test_file_capabilities_are_a_root_step_and_follow_installation() -> None:
+    plan = _plan(
+        file_capabilities=(
+            FileCapability(
+                path=Path("/usr/local/bin/radio-node"),
+                capabilities=("CAP_NET_ADMIN", "CAP_NET_RAW"),
+                package="radio-node",
+                detail="Optional Ethernet ports need these privileges.",
+            ),
+        )
+    )
+
+    commands = commands_for(plan, AptBackend(RecordingRunner()), current_groups=frozenset())
+    capability_step = next(command for command in commands if _argv(command)[0] == "setcap")
+
+    assert capability_step.requires_root
+    assert _argv(capability_step) == (
+        "setcap",
+        "CAP_NET_ADMIN=ep CAP_NET_RAW=ep",
+        "/usr/local/bin/radio-node",
+    )
+    assert commands.index(capability_step) > 0
+
+
+def test_capability_verification_reads_back_the_declared_effect() -> None:
+    path = Path("/usr/local/bin/radio-node")
+    plan = _plan(
+        file_capabilities=(
+            FileCapability(
+                path=path,
+                capabilities=("CAP_NET_RAW",),
+                package="radio-node",
+                detail="Optional Ethernet ports need this privilege.",
+            ),
+        )
+    )
+
+    confirmed = verify_effects(plan, None, capability_lookup=lambda _path: f"{path} cap_net_raw=ep")
+    missing = verify_effects(plan, None, capability_lookup=lambda _path: "")
+
+    assert confirmed.ok
+    assert confirmed.checks[0].kind == "file_capability"
+    assert not missing.ok
+
+
+def test_file_capability_command_is_logged_and_verified(tmp_path: Path) -> None:
+    path = Path("/usr/local/bin/radio-node")
+    plan = _plan(
+        file_capabilities=(
+            FileCapability(
+                path=path,
+                capabilities=("CAP_NET_RAW",),
+                package="radio-node",
+                detail="Optional Ethernet ports need this privilege.",
+            ),
+        )
+    )
+    command = next(
+        step
+        for step in commands_for(plan, AptBackend(RecordingRunner()))
+        if _argv(step)[0] == "setcap"
+    )
+    log = TransactionLog(tmp_path / "transaction.jsonl")
+
+    report = execute(
+        [command],
+        RecordingRunner(),
+        log=log,
+        plan=plan,
+        capability_lookup=lambda _path: f"{path} cap_net_raw=ep",
+    )
+
+    events = log.read()
+    assert report.verified
+    assert any(
+        entry.get("event") == "command_end"
+        and entry.get("argv") == ["setcap", "CAP_NET_RAW=ep", str(path)]
+        and entry.get("returncode") == 0
+        for entry in events
+    )
+    end = next(entry for entry in events if entry.get("event") == "transaction_end")
+    assert end["verified"] is True
 
 
 def test_an_operator_already_in_the_group_is_not_added_again() -> None:
@@ -951,6 +1049,201 @@ def test_install_dry_run_prints_the_plan_and_executes_nothing(
     # after the fact (#3).
     assert "Records:" in out
     assert "transaction log written to" in out
+
+
+def test_linbpq_capability_grant_and_consent_are_shown_in_every_plan(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    monkeypatch.setenv("USER", "root")
+    monkeypatch.delenv("SUDO_USER", raising=False)
+    _mock_apt(monkeypatch, populated=True)
+    assert main(["--catalog", str(CATALOG), "install", "--dry-run", "linbpq"]) == EXIT_OK
+    output = capsys.readouterr().out
+    assert "File capabilities (opt-in; cleared on uninstall):" in output
+    assert "CAP_NET_ADMIN=ep CAP_NET_RAW=ep CAP_NET_BIND_SERVICE=ep" in output
+    assert "HAMMUNITION_ACCEPT_CAPABILITIES_LINBPQ" in output
+    # Root (the distro containers) gets no sudo prefix; a user does.
+    setcap = re.search(r"  \$ (?:sudo )?setcap ", output)
+    assert setcap is not None
+    assert output.index("&& make -j") < setcap.start()
+
+
+def test_linbpq_json_plan_carries_capability_and_consent_gate(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    monkeypatch.setenv("USER", "root")
+    monkeypatch.delenv("SUDO_USER", raising=False)
+    _mock_apt(monkeypatch, populated=True)
+    assert main(["--json", "--catalog", str(CATALOG), "install", "--dry-run", "linbpq"]) == EXIT_OK
+    install = json.loads(capsys.readouterr().out)["install"]
+
+    assert install["file_capabilities"][0]["path"] == "/usr/local/bin/linbpq"
+    assert install["file_capabilities"][0]["capabilities"] == [
+        "CAP_NET_ADMIN",
+        "CAP_NET_RAW",
+        "CAP_NET_BIND_SERVICE",
+    ]
+    gate = next(
+        gate for gate in install["consent_gates"] if gate["profile"] == "file-capabilities:linbpq"
+    )
+    assert gate["env_var"] == "HAMMUNITION_ACCEPT_CAPABILITIES_LINBPQ"
+    assert "privileges" in gate["risk_lines"][0]
+
+
+def _capture_linbpq_install(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    tmp_path: Path,
+) -> dict[str, Any]:
+    captured: dict[str, Any] = {}
+
+    def fake_execute(commands: Any, _runner: Any, *, plan: Any, **_kwargs: Any) -> ExecutionReport:
+        captured["commands"] = tuple(commands)
+        captured["plan"] = plan
+        return ExecutionReport(completed=(), failed=None, stderr="")
+
+    monkeypatch.setattr(CLI_MODULE, "execute", fake_execute)
+    monkeypatch.setattr(
+        CLI_MODULE,
+        "run_with_sudo_ticket",
+        lambda _commands, *, run, **_kwargs: run(),
+    )
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    monkeypatch.setenv("USER", "root")
+    monkeypatch.delenv("SUDO_USER", raising=False)
+    _mock_apt(monkeypatch, populated=True)
+    return captured
+
+
+def _file_capability_consents(tmp_path: Path) -> list[dict[str, Any]]:
+    log = TransactionLog(tmp_path / "state" / "hammunition" / "transactions.jsonl")
+    return [
+        entry
+        for entry in log.read()
+        if entry.get("event") == "consent_affirmed"
+        and entry.get("profile") == "file-capabilities:linbpq"
+    ]
+
+
+def test_file_capability_prompt_requires_typed_yes(monkeypatch: pytest.MonkeyPatch) -> None:
+    answers = iter(("y", "yes"))
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+    assert not _prompt_capability("disclosure")
+    assert _prompt_capability("disclosure")
+
+
+def test_linbpq_exact_environment_grant_applies_capabilities(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    captured = _capture_linbpq_install(monkeypatch, tmp_path=tmp_path)
+    grant = "CAP_NET_ADMIN=ep CAP_NET_RAW=ep CAP_NET_BIND_SERVICE=ep"
+    monkeypatch.setenv("HAMMUNITION_ACCEPT_CAPABILITIES_LINBPQ", grant)
+
+    assert (
+        main(["--catalog", str(CATALOG), "install", "--yes", "--no-refresh", "linbpq"]) == EXIT_OK
+    )
+
+    assert any(
+        isinstance(command, Command) and command.argv[0] == "setcap"
+        for command in captured["commands"]
+    )
+    assert len(captured["plan"].file_capabilities) == 1
+    (record,) = _file_capability_consents(tmp_path)
+    assert record["decision"] == "environment"
+    assert record["extra"] == {
+        "kind": "file_capability",
+        "unit": "linbpq",
+        "binary": "/usr/local/bin/linbpq",
+        "grant": grant,
+    }
+
+
+@pytest.mark.parametrize("given", ["1", "CAP_NET_ADMIN=ep"])
+def test_linbpq_rejects_inexact_environment_capability_grants(
+    given: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: Any
+) -> None:
+    captured = _capture_linbpq_install(monkeypatch, tmp_path=tmp_path)
+    monkeypatch.setenv("HAMMUNITION_ACCEPT_CAPABILITIES_LINBPQ", given)
+    grant = "CAP_NET_ADMIN=ep CAP_NET_RAW=ep CAP_NET_BIND_SERVICE=ep"
+
+    assert (
+        main(["--catalog", str(CATALOG), "install", "--yes", "--no-refresh", "linbpq"]) == EXIT_OK
+    )
+
+    assert not any(
+        isinstance(command, Command) and command.argv[0] == "setcap"
+        for command in captured.get("commands", ())
+    )
+    assert grant in capsys.readouterr().err
+
+
+def test_linbpq_typed_yes_applies_capabilities(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    captured = _capture_linbpq_install(monkeypatch, tmp_path=tmp_path)
+    monkeypatch.delenv("HAMMUNITION_ACCEPT_CAPABILITIES_LINBPQ", raising=False)
+    monkeypatch.setattr(CLI_MODULE.sys, "stdin", type("TTY", (), {"isatty": lambda _self: True})())
+    answers = iter(("yes",))
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+    monkeypatch.setattr(CLI_MODULE, "_prompt", lambda _text: True)
+
+    assert main(["--catalog", str(CATALOG), "install", "--no-refresh", "linbpq"]) == EXIT_OK
+
+    assert any(
+        isinstance(command, Command) and command.argv[0] == "setcap"
+        for command in captured["commands"]
+    )
+    assert len(captured["plan"].file_capabilities) == 1
+    (record,) = _file_capability_consents(tmp_path)
+    assert record["decision"] == "interactive"
+    assert record["extra"] == {
+        "kind": "file_capability",
+        "unit": "linbpq",
+        "binary": "/usr/local/bin/linbpq",
+        "grant": "CAP_NET_ADMIN=ep CAP_NET_RAW=ep CAP_NET_BIND_SERVICE=ep",
+    }
+
+
+def test_yes_alone_does_not_apply_linbpq_capabilities(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: Any
+) -> None:
+    captured = _capture_linbpq_install(monkeypatch, tmp_path=tmp_path)
+    monkeypatch.delenv("HAMMUNITION_ACCEPT_CAPABILITIES_LINBPQ", raising=False)
+    monkeypatch.setattr(CLI_MODULE.sys, "stdin", type("TTY", (), {"isatty": lambda _self: True})())
+    monkeypatch.setattr("builtins.input", lambda _prompt: "no")
+
+    assert (
+        main(["--catalog", str(CATALOG), "install", "--yes", "--no-refresh", "linbpq"]) == EXIT_OK
+    )
+
+    assert not any(
+        isinstance(command, Command) and command.argv[0] == "setcap"
+        for command in captured["commands"]
+    )
+    assert captured["commands"]
+    assert captured["plan"].file_capabilities == ()
+    assert "will remain without CAP_NET_ADMIN=ep" in capsys.readouterr().err
+
+
+def test_declining_linbpq_capabilities_installs_without_the_grant(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: Any
+) -> None:
+    captured = _capture_linbpq_install(monkeypatch, tmp_path=tmp_path)
+    monkeypatch.delenv("HAMMUNITION_ACCEPT_CAPABILITIES_LINBPQ", raising=False)
+    monkeypatch.setattr(CLI_MODULE.sys, "stdin", type("TTY", (), {"isatty": lambda _self: True})())
+    answers = iter(("no",))
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+    monkeypatch.setattr(CLI_MODULE, "_prompt", lambda _text: True)
+
+    assert main(["--catalog", str(CATALOG), "install", "--no-refresh", "linbpq"]) == EXIT_OK
+
+    assert not any(
+        isinstance(command, Command) and command.argv[0] == "setcap"
+        for command in captured["commands"]
+    )
+    assert captured["commands"]
+    assert captured["plan"].file_capabilities == ()
+    assert "will remain without CAP_NET_ADMIN=ep" in capsys.readouterr().err
 
 
 def test_listening_dry_run_plans_supersdr(monkeypatch: pytest.MonkeyPatch, capsys: Any) -> None:

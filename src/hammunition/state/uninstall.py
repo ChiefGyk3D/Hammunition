@@ -49,8 +49,10 @@ reported and left.
 
 Shared dependencies that apt pulled in are left for ``apt autoremove``, and
 the plan says so: removing them by name risks removing what another unit —
-or the user's own work — still needs. Group memberships and written config
-files are not yet reversed; the log records them, and the plan says that too.
+or the user's own work — still needs. File capabilities this engine applied
+are cleared before their attributed binary is removed. Group memberships and
+written config files are not yet reversed; the log records them, and the plan
+says that too.
 """
 
 from __future__ import annotations
@@ -188,6 +190,23 @@ def files_installed_by_hammunition(log: TransactionLog) -> frozenset[str]:
     return frozenset(attributed)
 
 
+def file_capabilities_installed_by_hammunition(log: TransactionLog) -> frozenset[str]:
+    """Paths whose file capabilities this engine set and has not cleared."""
+    attributed: set[str] = set()
+    for entry in log.read():
+        if entry.get("event") != "command_end" or entry.get("returncode") != 0:
+            continue
+        argv = entry.get("argv")
+        if not isinstance(argv, list) or len(argv) != 3 or argv[0] != "setcap":
+            continue
+        path = str(argv[2])
+        if argv[1] == "-r":
+            attributed.discard(path)
+        elif str(argv[1]).startswith("CAP_"):
+            attributed.add(path)
+    return frozenset(attributed)
+
+
 def deb_attributed(log: TransactionLog, *, sha256: str, deb_package: str) -> bool:
     """Whether a vendor .deb with this digest is currently ours to remove.
 
@@ -234,7 +253,7 @@ class ArtifactRemoval:
     and removed only if it carries the engine's generated marker).
     """
 
-    kind: Literal["venv", "tree", "binary", "wrapper", "desktop-entry", "apt-repo"]
+    kind: Literal["venv", "tree", "binary", "capability", "wrapper", "desktop-entry", "apt-repo"]
     path: Path
     basis: Literal["namespaced", "log", "marker"]
     requires_root: bool = False
@@ -296,6 +315,7 @@ def plan_removal(
     states: dict[str, AptPackageState],
     paths: RemovalPaths,
     attributed_files: frozenset[str] = frozenset(),
+    attributed_capabilities: frozenset[str] = frozenset(),
     log: TransactionLog | None = None,
     owners: Callable[[Collection[str]], Mapping[str, str]] | None = None,
 ) -> RemovalPlan:
@@ -356,6 +376,12 @@ def plan_removal(
         for binary in effective_binaries(manifest, block):
             dest = paths.prefix / "bin" / binary.install_as
             if str(dest) in attributed_files:
+                if str(dest) in attributed_capabilities and any(
+                    modification.kind == "file_capability"
+                    and modification.binary == binary.install_as
+                    for modification in manifest.system_modifications
+                ):
+                    add(unit, ArtifactRemoval("capability", dest, "log", requires_root=True))
                 add(unit, ArtifactRemoval("binary", dest, "log", requires_root=True))
             elif dest.exists():
                 left_unattributed.setdefault(unit, []).append(str(dest))

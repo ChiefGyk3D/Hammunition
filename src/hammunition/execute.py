@@ -26,6 +26,7 @@ import pwd
 import re
 import shutil
 import stat
+import subprocess
 import tempfile
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field, is_dataclass, replace
@@ -1520,6 +1521,15 @@ def commands_for(
         )
         track.own(member, membership.package)
         commands.append(member)
+    for capability in plan.file_capabilities:
+        expression = " ".join(f"{name}=ep" for name in capability.capabilities)
+        setcap = Command(
+            argv=("setcap", expression, str(capability.path)),
+            description=(f"Grant {expression} to {capability.path} for {capability.package}"),
+            requires_root=True,
+        )
+        track.own(setcap, capability.package)
+        commands.append(setcap)
     # Last of all, so every other region, the launchers and the group
     # changes have happened before a partial map install fails the run.
     for key, ledger in ledgers.items():
@@ -1586,6 +1596,7 @@ def verify_effects(
     prober: PackageProber | None,
     *,
     group_lookup: Callable[[str], frozenset[str]] = user_groups,
+    capability_lookup: Callable[[Path], str] | None = None,
     prefix: Path | None = None,
     launcher_bin: Path | None = None,
 ) -> Verification:
@@ -1832,7 +1843,48 @@ def verify_effects(
             )
         )
 
+    if capability_lookup is None:
+        capability_lookup = _file_capability_text
+    for capability in plan.file_capabilities:
+        expected = {f"{name}=ep" for name in capability.capabilities}
+        observed = set(capability_lookup(capability.path).split())
+        # getcap writes the pathname before the capability expression.
+        actual = set()
+        for token in observed:
+            if not token.startswith("CAP_") and not token.startswith("cap_"):
+                continue
+            if "=" in token:
+                name, flags = token.split("=", 1)
+                actual.add(f"{name.upper()}={flags.lower()}")
+        present = expected.issubset(actual)
+        checks.append(
+            EffectCheck(
+                kind="file_capability",
+                subject=str(capability.path),
+                confirmed=present,
+                detail=(
+                    f"getcap confirms {' '.join(sorted(expected))}"
+                    if present
+                    else f"getcap does not confirm {' '.join(sorted(expected))}"
+                ),
+            )
+        )
+
     return Verification(checks=tuple(checks))
+
+
+def _file_capability_text(path: Path) -> str:
+    """Read a file's Linux capabilities without changing it."""
+    try:
+        result = subprocess.run(
+            ["getcap", str(path)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return ""
+    return result.stdout if result.returncode == 0 else ""
 
 
 @dataclass(frozen=True)
@@ -1880,6 +1932,7 @@ def execute(
     group_lookup: Callable[[str], frozenset[str]] = user_groups,
     prefix: Path | None = None,
     launcher_bin: Path | None = None,
+    capability_lookup: Callable[[Path], str] | None = None,
     owners: StepOwners | None = None,
 ) -> ExecutionReport:
     """Run every command, stopping at the first failure.
@@ -2078,12 +2131,19 @@ def execute(
     # changed. Re-read the effects from the same sources resolution used, and
     # let the confirmed state -- not the exit code -- be what the log records.
     verification: Verification | None = None
-    if prober is not None or plan.group_memberships or prefix is not None or owners is not None:
+    if (
+        prober is not None
+        or plan.group_memberships
+        or plan.file_capabilities
+        or prefix is not None
+        or owners is not None
+    ):
         try:
             verification = verify_effects(
                 plan,
                 prober,
                 group_lookup=group_lookup,
+                capability_lookup=capability_lookup,
                 prefix=prefix,
                 launcher_bin=launcher_bin,
             )
@@ -2168,7 +2228,15 @@ def artifact_removal_steps(plan: RemovalPlan) -> list[Action | Command]:
     steps: list[Action | Command] = []
     for unit, removals in plan.artifacts.items():
         for removal in removals:
-            if removal.kind in ("tree",):
+            if removal.kind == "capability":
+                steps.append(
+                    Command(
+                        argv=("setcap", "-r", str(removal.path)),
+                        description=f"Clear {unit}'s logged file capabilities",
+                        requires_root=True,
+                    )
+                )
+            elif removal.kind == "tree":
                 steps.append(
                     Command(
                         argv=("rm", "-rf", "--", str(removal.path)),
@@ -2365,6 +2433,8 @@ def run_removal(
     artifact_checks: list[EffectCheck] = []
     for unit, removals in plan.artifacts.items():
         for removal in removals:
+            if removal.kind == "capability":
+                continue
             if str(removal.path) in declined:
                 continue
             still_there = removal.path.exists() or removal.path.is_symlink()

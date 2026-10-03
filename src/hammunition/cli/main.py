@@ -195,6 +195,7 @@ from hammunition.state import (
     RemovalError,
     RemovalPaths,
     TransactionLog,
+    file_capabilities_installed_by_hammunition,
     files_installed_by_hammunition,
     installed_by_hammunition,
     log_path,
@@ -4412,23 +4413,71 @@ def cmd_install(args: argparse.Namespace) -> int:
     # Consent gates come after the plan is printed and before anything runs.
     # --yes is passed so the call site documents that it does not help; the
     # gate never reads it (D-021).
+    approved_capabilities: set[str] = set()
     for profile_name, gate in plan.consent_gates:
+        capability_unit = (
+            profile_name.removeprefix("file-capabilities:")
+            if profile_name.startswith("file-capabilities:")
+            else None
+        )
+        capability = next(
+            (item for item in plan.file_capabilities if item.package == capability_unit),
+            None,
+        )
+        grant = (
+            " ".join(f"{name}=ep" for name in capability.capabilities)
+            if capability is not None
+            else "1"
+        )
         try:
             record = resolve_consent(
                 gate,
                 profile_name,
                 environ=os.environ,
-                prompt=_prompt if sys.stdin.isatty() else None,
+                prompt=(
+                    _prompt_capability
+                    if capability is not None and sys.stdin.isatty()
+                    else _prompt
+                    if sys.stdin.isatty()
+                    else None
+                ),
                 assume_yes=args.yes,
                 actor=user or None,
+                expected_value=grant,
+                extra=(
+                    {
+                        "kind": "file_capability",
+                        "unit": capability.package,
+                        "binary": str(capability.path),
+                        "grant": grant,
+                    }
+                    if capability is not None
+                    else None
+                ),
             )
         except ConsentDeclined as exc:
+            if capability is not None:
+                print(
+                    f"\n{exc}; skipping the setcap step for {capability.package}. "
+                    f"{capability.path} will remain without {grant}.",
+                    file=sys.stderr,
+                )
+                continue
             print(f"\n{exc}. Nothing was changed.", file=sys.stderr)
             return EXIT_CONSENT
         except ConsentUnavailable as exc:
+            if capability is not None:
+                print(
+                    f"\n{exc}\nSkipping the setcap step for {capability.package}; "
+                    f"{capability.path} will remain without {grant}.",
+                    file=sys.stderr,
+                )
+                continue
             print(f"\n{exc}", file=sys.stderr)
             return EXIT_CONSENT
         log.append(record.to_log_entry())
+        if capability is not None:
+            approved_capabilities.add(capability.package)
 
     # One gate per repository, after the profile gates and under the same
     # rules: the environment answer is the pinned fingerprint itself, so an
@@ -4453,6 +4502,29 @@ def cmd_install(args: argparse.Namespace) -> int:
             return EXIT_CONSENT
         log.append(record.to_log_entry())
 
+    skipped_capabilities = {
+        item.package for item in plan.file_capabilities if item.package not in approved_capabilities
+    }
+    execution_plan = plan
+    if skipped_capabilities:
+        skipped_paths = {
+            item.path for item in plan.file_capabilities if item.package in skipped_capabilities
+        }
+        commands = [
+            command
+            for command in commands
+            if not (
+                isinstance(command, Command)
+                and command.argv[0] == "setcap"
+                and Path(command.argv[-1]) in skipped_paths
+            )
+        ]
+        execution_plan = dataclasses.replace(
+            plan,
+            file_capabilities=tuple(
+                item for item in plan.file_capabilities if item.package in approved_capabilities
+            ),
+        )
     if not commands:
         print("\nNothing to do.")
         return EXIT_OK
@@ -4479,7 +4551,7 @@ def cmd_install(args: argparse.Namespace) -> int:
                 commands,
                 runner,
                 log=log,
-                plan=plan,
+                plan=execution_plan,
                 echo=live.print,
                 euid=euid,
                 prober=apt,
@@ -4702,6 +4774,7 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
 
     attributed = installed_by_hammunition(log)
     attributed_files = files_installed_by_hammunition(log)
+    attributed_capabilities = file_capabilities_installed_by_hammunition(log)
     removal_paths = RemovalPaths(
         prefix=DEFAULT_PREFIX,
         venv_root=venv_root(user or None),
@@ -4735,6 +4808,7 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
             states=states,
             paths=removal_paths,
             attributed_files=attributed_files,
+            attributed_capabilities=attributed_capabilities,
             log=log,
         )
     except RemovalError as exc:
@@ -5170,6 +5244,17 @@ def _prompt(text: str) -> bool:
         print()
         return False
     return answer in {"yes", "y"}
+
+
+def _prompt_capability(text: str) -> bool:
+    """Require the exact typed word for an optional file-capability grant."""
+    print(text)
+    try:
+        answer = input("Type 'yes' to grant this capability: ")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+    return answer == "yes"
 
 
 def _confirm_unsafe_interpreter(paths: list[str]) -> bool:
