@@ -156,6 +156,13 @@ Stale package lists are the commonest way a correct plan fails — apt asks
 the mirror for a file the pool has replaced — so the refresh is on by
 default. Pass `--no-refresh` on a local mirror or a station with no uplink.
 
+A command that runs for a while is not silent. On a terminal, one line under
+the step rewrites itself every second with the time so far and the last thing
+the command printed (`… 1m 42s  Receiving objects: 41%`), and a step known to
+be long says `this step can take several minutes` first. Add `-v` to see every
+line the command prints instead; piped or logged, the transcript stays plain.
+Every line is in the run log either way (`hammunition logs --last`).
+
 ## Next
 
 [How much disk you need](disk-space.md) says what a profile or the whole
