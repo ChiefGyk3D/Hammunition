@@ -5,133 +5,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Changelog
 
-One entry per release, written from the merged pull requests, each line
+One entry per release, assembled from the fragments each merged pull request
+adds under `changelog.d/` (never edited here in a pull request), each line
 naming the PR and the decision it rests on. Decisions are authoritative in
 `docs/DECISIONS.md`; this file is the map from a version to them.
 
 ## Unreleased
 
-- **Fix: the weekly ref check reported three correct pins as missing; changed
-  pins are now verified per pull request** (**D-024**, **D-031**; affects the
-  report on v0.19.0, not its installs). `check_pin_reviews.py --verify-refs`
-  compared the tag object's id (what `FETCH_HEAD` is after fetching an
-  *annotated* tag) with the pinned commit, so `librevna` v1.6.5, `nrsc5` v3.2.0
-  and `pihpsdr` v3.0 failed it although each pin is exactly the commit the tag
-  peels to. The install checks out `FETCH_HEAD` and compares `rev-parse HEAD`,
-  the commit, so it was never affected; the check now peels with `^{commit}`
-  and a test with an annotated tag proves it (red before, green after). It also
-  now rejects a pin that is the tag object's id. New `--only` flag (needs `--verify-refs`, skips the calendar review) and a
-  pull-request job, `changed git pins resolve upstream`, run the check for the
-  manifests a diff changed. No manifest changed.
-
-- **The plan groups repeated same-shape steps; `--dry-run --full` expands them**
-  (**D-016** amendment, 2026-10-02). A unit that repeats one step per sheet,
-  tile or book (`ustopo-qmapshack`, contours, SPLAT, terrain tiles, FSTopo,
-  Kiwix, the vector-tile builds) printed hundreds of near-identical blocks. The
-  text now prints the template once with `<placeholders>`, the first item in
-  full, every item's own values and the totals; a group is kept only if it
-  rebuilds every step exactly. `--full` prints every step as before; the JSON
-  document, the transaction log and the real run are unchanged.
-- **Every run leaves a log** (**D-077**). `install`, `uninstall`, `update`,
-  `menus apply`, `hardware apply|unapply|park|wake`, every `maps ...`,
-  `reference serve`, `services ...` and `time mode` -- `--dry-run` included --
-  write `<state dir>/logs/<UTC>-<command>-<pid>.log`: the argv with station
-  flags redacted, everything printed on stdout and stderr, each command run with
-  its output as it arrives and its exit code, a `result` line; 0600, flushed
-  per line, owner-aware under sudo. Rotated at the start of each run to 30
-  files and 200 MB, never a run in progress. New `hammunition logs [--last |
-  --path | --json]`; `doctor` reports the logs; a run ends `Log: <path>`. The
-  transaction log now rotates past 1 MiB into `transactions-<NNNNNN>-<UTC>.jsonl`
-  archives that every reader walks in order (never deleted); `status` is tested
-  identical before and after. `docs/reference/run-logs.md`.
-- **A publisher outage at plan time retries, then defers by name instead of
-  refusing the install** (#200, **D-039** amended 2026-10-02). `install
-  navigation --dry-run` refused whole over a Geofabrik outline answering 502, one
-  timing out and one US Topo sheet answering 503, none of which was a fault in
-  the plan. Every plan-time probe (terrain, 3DEP, US Topo, FSTopo, Kiwix, CoMaps
-  and the outlines they share) now retries an HTTP 5xx or 429, a connection
-  error and a read timeout three times, waiting 1 s, 3 s, 9 s, one stderr line
-  per retry; any other 4xx is final. A profile member's items a publisher still
-  does not answer for are deferred by name with its last answer quoted (printed
-  under "Will NOT happen", in `--json` `deferrals`, in the log and `status`), a
-  dead outline defers that region in every unit that needs it and no other, and
-  a line at the foot says to run the command again; a unit you typed refuses,
-  saying the publisher is not answering rather than naming the stale-index
-  remedy, which a 404 keeps. A deferred sheet leaves its older edition
-  installed, and a deferred book or map suspends the unit's removals for the
-  run. New `hammunition.retry`; tests `tests/test_retry.py`,
-  `tests/test_plan_retry.py`.
-
-- **The engine's own GPS tether copy retired; the ACMA Bunker ruling recorded**
-  (**D-071** note, **D-074**, 2026-10-02). `gps_tether.py` and its tests are
-  deleted: the tether is hammunition-gps-tether, installed by the `gps-tether`
-  unit. `hammunition maps gps-tether` runs the installed program and, absent,
-  refuses naming `hammunition install gps-tether`. `tether_contract.py` holds
-  the ports and the four GeoClue constants shared with the tether, asserted
-  equal to its source by `tests/test_tether_contract.py` (skipped where that
-  source is absent). `reference serve` checks `--position-port` itself. The
-  maintainer's ruling that a Bunker may hold the ACMA register zip (it contains
-  `client.csv`, never opened by the engine) is recorded, with Bunker's
-  `hold_unverified = false` as the opt-out.
-- **HydraSDR RFOne and RigExpert Fobos SDR: host software and device entries,
-  from upstream's own files, for hardware nobody here owns** (**D-024**,
-  **D-027**, **D-028**, **D-029**, **D-032**). Five units: `hydrasdr-host` (the
-  library and its seventeen tools) and `soapysdr-module-hydrasdr`, and
-  `libfobos`, `libfobos-sdr-agile` and `soapysdr-module-fobos`, the last
-  needing both libraries to build. Kali and Ubuntu 26.04 take the HydraSDR
-  units from apt; every other target builds the tags Debian packages
-  (v1.1.1, v1.0.1). Nothing Fobos is packaged anywhere, so `libfobos` (head
-  1e0fab3) and `soapysdr-module-fobos` (aa8d486) are commit pins with a
-  `pin_review`, `libfobos-sdr-agile` is upstream's tag. Two entries under
-  `catalog/hardware/devices/`: `hydrasdr-rfone` (38af:0001, `status:
-  supported` in D-027's shape, with 1d50:60a1 recorded in `rejected_ids`
-  because the Airspy R2 and Mini use it and no rule can tell them apart, and
-  the NXP DFU recovery id marked shared with the HackRF) and `fobos-sdr`
-  (16d0:132e, `untested`; both firmware families present it and differ only
-  in bcdDevice). Identifiers are cited as commit-pinned URLs into the vendors'
-  repositories; `scripts/check_rule_citations.py` now ignores a rules file
-  named inside a URL, since the sweep covers distribution packages only.
-  Built in rootless containers on Debian 13, Ubuntu 24.04, Ubuntu 26.04 and
-  Kali (x86_64): all five units build and install, `hydrasdr_info` and
-  `fobos_devinfo` run without a board, `SoapySDRUtil --info` lists both
-  modules. Three defects of upstream's builds are handled in the manifests,
-  each measured: libfobos-sdr-agile wrote `/etc/udev/rules.d` as root (a
-  CRLF-preserving patch removes it), SoapyHydraSDR also wrote into dpkg's
-  module directory (a define), and nothing a build into `/usr/local` links
-  was found without `ldconfig` (an embedded run path). Not owned, not run
-  against a board; the units stay out of the `sdr` profile (D-020). The
-  HydraSDR tree states two licences (per-directory LICENSE.md files, and a
-  debian/copyright reading "licensed exclusively for HydraSDR products"); the
-  unit's page says so and the catalog follows the LICENSE.md files (D-033).
-
-- **tar1090, the ADS-B aircraft map, as a page in `reference serve`**
-  (**D-071** amended 2026-10-02; D.10b's route). A new `tar1090` unit
-  (`listening`, depends on `readsb`, so deferred by name where readsb is) is a
-  `data` unit: GitHub's archive of upstream's commit `e784ee5` (no tags, no
-  distribution packages it: own-choice pin, D-024), sha256 pinned, `html/` and
-  the GPL-2.0-or-later licence kept. Its root `wget | bash` installer and
-  lighttpd on port 80 are not used. `hammunition reference serve` serves the
-  page at `/aircraft/` on 127.0.0.1, with `data/` read from readsb's directory
-  (`/run/readsb`, or `--readsb-json DIR`), read-only. The page cannot call
-  out: tar1090's settings for photographs, routes and overlays are switched
-  off, its online layers are replaced by the station's PMTiles map (a blank
-  background, with the reason on the page, when `osm-pmtiles` is absent), and
-  every response carries a Content-Security-Policy that names no host. The
-  page is given a reduced `receiver.json` so it reads plain `aircraft.json`
-  (readsb 3.14.1630 also writes `aircraft.binCraft.zst`, which tar1090 would
-  otherwise ask for). The aircraft database is not carried (upstream's one commit cannot be pinned).
-  Tested in headless Chromium: the aircraft appear, no request leaves
-  loopback, the same page as upstream ships it does ask other hosts, and the
-  policy alone refuses them. Not measured: a live receiver, Firefox, a real
-  region at street zoom.
-- **Docs sweep after the 2026-10-02 batch** (documentation only, no code). A
-  guide for the tray's Controls panel and `hammunition services`
-  (`docs/guides/tray-controls.md`); contradictions between pages resolved in
-  favour of the code, the bench record and `docs/DECISIONS.md` (park and wake
-  on hardware, the helper's lists, the rig's default owner, the tether as a
-  service, desktop tray versions); the README status table gains the rows
-  v0.19.0 left out; the nav and entry pages reach every guide; and
-  `docs/contributing/docs-sweep.md` is the checklist, now a release step.
+Nothing yet.
 
 ## v0.19.0 — 2026-10-02 — the rig as station data, repeater sources, infrastructure layers, GraphHopper, terrain for coverage plots, the tether as its own project, device and service control for the tray
 

@@ -452,6 +452,16 @@ head.
   Check the artefact. `scripts/check_commit_claims.py` enforces the commit-message
   half — enable it with `git config core.hooksPath .githooks`; CI runs it over
   every commit in a pull request either way.
+- **Never edit `CHANGELOG.md` in a pull request.** Add one fragment,
+  `changelog.d/<pr-or-branch>.<kind>.md` (kinds `added`, `changed`, `fixed`,
+  `removed`, `docs`, `decision`; the entry as one bullet, naming the PR and the
+  decision). `## Unreleased` only ever says "Nothing yet."; a release is cut
+  with `python3 scripts/changelog.py assemble --version vX.Y.Z --date
+  YYYY-MM-DD`, which writes the section and deletes the fragments.
+  `tests/test_changelog.py` fails a PR that changes `src/`, `catalog/` or
+  `docs/guides/` without one, and one that appends to Unreleased. Every
+  append to Unreleased used to conflict with every other PR. This line is also
+  Copilot's (`AGENTS.md` is a symlink to this file).
 - Small, logically scoped commits
 - **Git workflow (from 2026-09-02, v0.7.0 tagged):** work happens on **feature
   branches, merged to `main` by pull request** — the workflow the README has
