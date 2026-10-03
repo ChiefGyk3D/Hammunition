@@ -1628,7 +1628,10 @@ That brings two units:
   (`graphhopper-web-11.1.jar`, 47 MB) from Maven Central, checked against
   the sha256 Central publishes beside it, under
   `/usr/local/share/hammunition/graphhopper/`, with Java from your
-  distribution (17 or newer; Debian 13 has 21). Central also publishes a
+  distribution (17 or newer; Debian 13 has 21). The plan reads `java -version`
+  and, on a machine whose Java is older (Ubuntu 22.04 and Pop!_OS 22.04 give
+  11), defers it with the Java it found and the `openjdk-N-jre-headless` package
+  that would meet the floor; BRouter's floor is 11. Central also publishes a
   PGP signature; Hammunition records it and does not check it, and the
   plan says so.
 - **`graphhopper-graph`**: GraphHopper's route graph, built on your machine

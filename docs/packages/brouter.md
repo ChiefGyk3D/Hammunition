@@ -8,6 +8,7 @@
 - **Categories:** `navigation-maps`
 - **Upstream:** <https://github.com/abrensch/brouter>
 - **Needs first:** `default-jre-headless`
+- **Needs Java:** 11 or newer — read with `java -version` at plan time (a metapackage's version does not say which Java it brings); deferred from a profile on a machine below it, refused by name, nothing fetched to meet it
 
 ## What it does
 
