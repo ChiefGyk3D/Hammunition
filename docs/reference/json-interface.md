@@ -50,6 +50,7 @@ their text follows.
 - `hammunition hardware state`
 - `hammunition install` (with `--dry-run` only)
 - `hammunition list`
+- `hammunition logs`
 - `hammunition maps infra import`
 - `hammunition maps infra remove`
 - `hammunition maps phone`
@@ -78,6 +79,7 @@ their text follows.
 | `hardware` | [`HardwareDocument`](#hardware) |
 | `infra` | [`InfraDocument`](#infra) |
 | `infra-removed` | [`InfraRemovedDocument`](#infra-removed) |
+| `logs` | [`LogsDocument`](#logs) |
 | `phone` | [`PhoneDocument`](#phone) |
 | `plan` | [`PlanDocument`](#plan) |
 | `profile` | [`ProfileDocument`](#profile) |
@@ -1392,6 +1394,132 @@ not an error: every list is then empty.
     "unregistered"
   ],
   "title": "InfraRemovedDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### logs
+
+The run logs on this machine for this operator, newest first, and the
+limits rotation holds them to (D-077).
+
+| field | type | meaning |
+|---|---|---|
+| `directory` | string | the log directory, `<state dir>/logs` |
+| `total_bytes` | integer | bytes across every run log |
+| `max_files` | integer | rotation keeps at most this many run logs |
+| `max_bytes` | integer | rotation keeps at most this many bytes of run logs |
+| `runs` | list of [`RunEntry`](#runentry) | one entry per run log, newest first |
+
+#### `RunEntry`
+
+One run's log file.
+
+| field | type | meaning |
+|---|---|---|
+| `path` | string | absolute path of the log; `tail -f` it while the run is going |
+| `started` | string | ISO 8601 UTC time the run began, from the file's name |
+| `command` | string | the command as the file's name spells it: `install`, `hardware-apply`, `maps-qmapshack` |
+| `pid` | integer | the process id of the run |
+| `size` | integer | bytes |
+| `result` | string | how the run ended: `ok`, `failed`, `refused` or `not confirmed` (the exit code's words), `running` (a live process holds the file), or `incomplete` (no result line and nothing holds the file: the run was killed) |
+| `exit_code` | integer or null | the run's exit status; null for `running` and `incomplete` |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "RunEntry": {
+      "additionalProperties": false,
+      "description": "One run's log file.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "started": {
+          "title": "Started",
+          "type": "string"
+        },
+        "command": {
+          "title": "Command",
+          "type": "string"
+        },
+        "pid": {
+          "title": "Pid",
+          "type": "integer"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "result": {
+          "title": "Result",
+          "type": "string"
+        },
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Exit Code"
+        }
+      },
+      "required": [
+        "path",
+        "started",
+        "command",
+        "pid",
+        "size",
+        "result",
+        "exit_code"
+      ],
+      "title": "RunEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The run logs on this machine for this operator, newest first, and the\nlimits rotation holds them to (D-077).",
+  "properties": {
+    "directory": {
+      "title": "Directory",
+      "type": "string"
+    },
+    "total_bytes": {
+      "title": "Total Bytes",
+      "type": "integer"
+    },
+    "max_files": {
+      "title": "Max Files",
+      "type": "integer"
+    },
+    "max_bytes": {
+      "title": "Max Bytes",
+      "type": "integer"
+    },
+    "runs": {
+      "items": {
+        "$ref": "#/$defs/RunEntry"
+      },
+      "title": "Runs",
+      "type": "array"
+    }
+  },
+  "required": [
+    "directory",
+    "total_bytes",
+    "max_files",
+    "max_bytes",
+    "runs"
+  ],
+  "title": "LogsDocument",
   "type": "object"
 }
 ```
