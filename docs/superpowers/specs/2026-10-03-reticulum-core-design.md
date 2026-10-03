@@ -2,7 +2,7 @@
 
 **Status:** draft for the maintainer's review, 2026-10-03.
 **Track:** `docs/SCOPE.md` Track C, stage 11; tracking issue #105.
-**Precedes:** PR 1, `docs/reference/mesh-inventory.md` (the measured pins
+**Precedes:** PR 1 (#283), `docs/reference/mesh-inventory.md` (the measured pins
 and licences this design installs; nothing here names a version that page
 does not). **Follows:** PR 3 (`meshtasticd` and the web client), PR 4
 (MeshCore CLI), then Sideband and MeshChat once the inventory says what they
@@ -34,14 +34,14 @@ backend, hash-pinned end to end, exactly as `artemis` and `pygpsclient` do.
 
 ## Scope
 
-**In:** four package units, one profile, one hardware entry, one guide, the
+**In:** three package units, one profile, one hardware entry, one guide, the
 package pages the generator writes, troubleshooting entries, CLI reference
 lines for the new user service, a changelog fragment, and the decision
 record entry (**D-080**, number to be confirmed against `DECISIONS.md` at
 plan time).
 
-**Out, by name:** Sideband (`sbapp`: a Kivy desktop build whose system
-packages and size the inventory measures first), Reticulum MeshChat (an
+**Out, by name:** Sideband (`sbapp`: a 293 MB Kivy venv, CC BY-NC-SA 4.0,
+an arm64 build from source; its own decision), Reticulum MeshChat (an
 AppImage, post-1.0 backend), `meshtasticd`, MeshCore, any TAK software, any
 Reticulum configuration writer beyond what rnsd writes itself, any
 transport the catalog does not already carry, and any claim that a LoRa
@@ -59,10 +59,11 @@ states and the package pages repeat.
 
 | Unit | Upstream (PyPI) | Exposes | Categories | Notes |
 |---|---|---|---|---|
-| `rns` | `rns` | `rnsd`, `rnstatus`, `rnpath`, `rnprobe`, `rnid`, `rncp`, `rnx`, `rnodeconf` | `mesh` | Carries the `hammunition-rnsd` user service (below). `rnodeconf` is the RNode flasher: installed under **D-026** (the means of talking to a device); it downloads firmware itself, from upstream's GitHub releases, and the package page says what it checks and what it does not, as measured. |
+| `rns` | `rns` | `rnsd`, `rnstatus`, `rnpath`, `rnprobe`, `rnid`, `rncp`, `rnx`, `rnsh`, `rnodeconf` | `mesh` | Carries the `hammunition-rnsd` user service (below). `rnodeconf` is the RNode flasher: installed under **D-026** (the means of talking to a device); it downloads firmware itself, from upstream's GitHub releases, and the package page says what it checks and what it does not, as measured. |
 | `lxmf` | `lxmf` | `lxmd` | `mesh` | The message layer and its propagation-node daemon. `lxmd` is **not** a user service in this PR: a propagation node stores other people's messages, and running one is a decision the operator takes in the guide, not a default. |
-| `nomadnet` | `nomadnet` | `nomadnet` | `mesh` | Terminal client; `launchers:` entry with `terminal: true`, `menu_title` "NomadNet (Reticulum messaging and pages)" under *Mesh*. Depends on `rns` running as the shared instance or starts its own. |
-| `rnsh` | `rnsh` | `rnsh` | `mesh` | Shell over Reticulum. MIT. Listed because it is the first thing an EMCOMM operator asks for after messaging works: a terminal on the other laptop. |
+| `nomadnet` | `nomadnet` | `nomadnet` | `mesh` | Terminal client; `launchers:` entry with `terminal: true`, `menu_title` "NomadNet (Reticulum messaging and pages)" under *Mesh*. Depends on `rns` running as the shared instance or starts its own. Its wheel's classifier says MIT and the licence text it ships is GPL v3 (inventory, 2026-10-03): the shipped text governs, the manifest says `GPL-3.0-only` and the page notes the disagreement. |
+
+**No separate `rnsh` unit.** The inventory found `rns` 1.5.6 installs its own `rnsh` script (`RNS.Utilities.rnsh`), and the older PyPI `rnsh` 0.1.7 would collide on the name; the shell is exposed from the `rns` unit and documented there.
 
 **Depends.** `python3-venv` and the system libraries `cryptography`'s
 wheel needs on each target, as the venv backend's existing units already
@@ -72,7 +73,7 @@ that target is **deferred by name** (**D-039**), never built.
 
 **Licence fields.** `license:` as the schema spells it set to the
 inventory's SPDX-style identifier for the Reticulum License on `rns`,
-`lxmf`, `nomadnet`; `MIT` on `rnsh`. `docs/reference/licence-verification.md`
+`lxmf`; `GPL-3.0-only` on `nomadnet`. `docs/reference/licence-verification.md`
 gains one row per unit with the file read and its date.
 
 ## The shared instance: `hammunition-rnsd`
@@ -139,7 +140,7 @@ below.
 ## Profile: `mesh`
 
 `catalog/profiles/mesh.yaml`, `stage: post-1.0`, members: `rns`, `lxmf`,
-`nomadnet`, `rnsh`, `python3-meshtastic`, `gtk-meshtastic-client`. The six
+`nomadnet`, `python3-meshtastic`, `gtk-meshtastic-client`. The six
 `ProfileDocumentation` fields the profile pages generate from (added in
 #276) are filled: what installs and why together; footprint from the
 inventory's measured venv sizes; what it excludes (Sideband, MeshChat,
@@ -224,7 +225,7 @@ decision table gains the row.
 
 - Manifest validation and the existing catalog-wide tests (categories,
   pins, documentation fields, profile membership, SPDX headers).
-- `scripts/check_pin_reviews.py --only` on the four manifests, per the PR
+- `scripts/check_pin_reviews.py --only` on the three manifests, per the PR
   rule for changed pins.
 - A container run on Debian 13 (`scripts/run-targets.sh`, the unit pass):
   `hammunition install rns` as an unprivileged account, then `rnstatus`
@@ -255,4 +256,6 @@ None blocking. Two to confirm at plan review: (a) that
 `hammunition-rnsd` enabled at install is what you want, rather than
 installed and left for `hammunition services enable` (the D-073 precedent
 enables; AutoInterface traffic is link-local only); (b) whether the `mesh`
-profile should include `rnsh`, which is more tool than ecosystem.
+profile should carry the two Meshtastic units now, given Debian's
+autoremoval notice on `python3-meshtastic` (2026-11-03) and its absence on
+Ubuntu 24.04 and Pop!_OS, which **D-039** defers by name.
