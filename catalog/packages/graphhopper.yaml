@@ -22,6 +22,14 @@ categories: [navigation-maps]
 # shell runs, so it does not go in bin/. No launcher: `hammunition reference
 # serve` starts it on 127.0.0.1 while the browser map is open, and the
 # graph is built by `graphhopper-graph`.
+#
+# requires_java (D-037, amended 2026-10-02): 17, measured two ways on
+# 2026-10-02: the 11.x branch's pom.xml compiles with `<release>17</release>`,
+# and the jar's classes are major 61. `default-jre-headless` is a metapackage
+# whose version says nothing about the Java major (Ubuntu 22.04 and Pop!_OS
+# 22.04 give 11), so the plan reads `java -version` instead and defers this
+# unit below 17, naming the archive's JRE that would meet it.
+requires_java: 17
 depends: [default-jre-headless]
 
 install:

@@ -47,6 +47,7 @@ from typing import TYPE_CHECKING, NoReturn, TextIO, cast
 
 from hammunition import navit_config
 from hammunition.acma import AcmaProbe
+from hammunition.attributed import PublisherChecks
 from hammunition.backends import (
     Action,
     AptBackend,
@@ -98,6 +99,7 @@ from hammunition.consent import (
     ConsentUnavailable,
     resolve_consent,
     resolve_repo_consent,
+    resolve_topo_size_consent,
 )
 from hammunition.copernicus import CopernicusError, S3Probe
 from hammunition.country_boundaries import BoundarySource, CountryBoundaryError, boundary_source
@@ -139,6 +141,7 @@ from hammunition.hardware.apply import HardwarePlan
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.interface import envelope
 from hammunition.interface.services import ServicesDocument, ServiceView
+from hammunition.java import JavaProbe
 from hammunition.kernel import KernelProbe
 from hammunition.kiwix import (
     BookFile,
@@ -171,8 +174,9 @@ from hammunition.paths import (
     venv_root,
 )
 from hammunition.phone_plan import build_phone_run
-from hammunition.plan import NO_MAP_REGIONS, Blocker, InstallPlan, PlanError, resolve
+from hammunition.plan import NO_MAP_REGIONS, Blocker, Deferral, InstallPlan, PlanError, resolve
 from hammunition.progress import Progress
+from hammunition.repeater_sources import SnapshotHead
 from hammunition.retry import (
     POLICY,
     Outages,
@@ -209,11 +213,17 @@ from hammunition.terrain_plan import (
     splat_source,
 )
 from hammunition.tiles_plan import build_tiles_run
+from hammunition.topo_bound import ALL, BoundUnavailable, TopoBound, make_bound
 from hammunition.topo_plan import (
     FSTOPO_INDEX,
     MemoProbe,
+    missing_grid_deferral,
+    outside_installed,
     resolve_station_fstopo,
     resolve_station_topo,
+    selection_note,
+    size_consent,
+    topo_units,
 )
 from hammunition.topo_plan import INDEX as USTOPO_INDEX
 from hammunition.update import (
@@ -245,6 +255,7 @@ if TYPE_CHECKING:
     from hammunition.infra_sources import SourceRead
     from hammunition.interface.repeaters import AllSourcesView, RegistrationView
     from hammunition.qmapshack_config import BRouterSetup
+    from hammunition.repeater_sources import SnapshotRead
     from hammunition.repeaters import ParsedInput
     from hammunition.upstream import UpstreamRow
 
@@ -360,7 +371,17 @@ def cmd_list(args: argparse.Namespace) -> int:
 
     catalog_root = find_catalog(args.catalog)
     packages, profiles = load_all(catalog_root)
-    doc = build_catalog(args.what, packages, profiles, detect_target())
+    from hammunition.interface.status import installed_units
+
+    log = TransactionLog(owner=operator(args) or None)
+    doc = build_catalog(
+        args.what,
+        packages,
+        profiles,
+        detect_target(),
+        installed=installed_units(list(log.read())),
+        runner=SubprocessRunner(),
+    )
     if envelope.wanted(args):
         envelope.emit(doc)
         return EXIT_OK
@@ -516,11 +537,39 @@ def cmd_station_set(args: argparse.Namespace) -> int:
         )
         if value
     ] + rig_fields
+    topo_regions = current.topo_regions
+    if args.clear_topo_regions:
+        topo_regions = ()
+        set_fields.append("topo_regions")
+    elif args.topo_regions is not None:
+        topo_regions = tuple(r for r in (p.strip() for p in args.topo_regions.split(",")) if r)
+        if not topo_regions:
+            print(
+                "error: --topo-regions gave no regions after splitting on ',' and "
+                "stripping whitespace; give at least one of the station's map regions.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        set_fields.append("topo_regions")
+    if args.map_regions is not None and args.topo_regions is None and topo_regions:
+        # A narrowed map list must not strand --topo-regions on a region that
+        # is gone: it is dropped, and said.
+        kept = tuple(r for r in topo_regions if r in map_regions)
+        if kept != topo_regions:
+            print(
+                f"note: {len(topo_regions) - len(kept)} --topo-regions entr(ies) are no longer "
+                f"among the map regions and are dropped"
+            )
+            topo_regions = kept
+    if args.topo_radius_km is not None:
+        set_fields.append("topo_radius_km")
+    if args.topo_all is not None:
+        set_fields.append("topo_all")
     if not set_fields and args.unattended is None:
         print(
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
             "--node-alias, --map-regions, --map-freshness, --reference-books, --mirror, "
-            "--clear-mirror, --dem-source, --rig, --rig-device, --rig-baud, "
+            "--clear-mirror, --dem-source, --topo-radius-km, --topo-regions, --topo-all, --rig, --rig-device, --rig-baud, "
             "--rig-ptt-line, --rig-owner, --clear-rig, --unattended.",
             file=sys.stderr,
         )
@@ -540,6 +589,11 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             rig_ptt_line=rig_result.rig_ptt_line,
             rig_owner=rig_result.rig_owner,
             dem_source=args.dem_source or current.dem_source,
+            topo_radius_km=(
+                args.topo_radius_km if args.topo_radius_km is not None else current.topo_radius_km
+            ),
+            topo_regions=topo_regions,
+            topo_all=args.topo_all if args.topo_all is not None else current.topo_all,
         )
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -563,6 +617,12 @@ def cmd_station_set(args: argparse.Namespace) -> int:
                     print(f"  {rig_field:<14} {value}")
         elif field == "dem_source":
             print(f"  {field:<14} {station.elevation}")
+        elif field == "topo_radius_km":
+            print(f"  {field:<14} {station.topo_radius} km")
+        elif field == "topo_regions":
+            print(f"  {field:<14} {len(station.topo_regions)} set")
+        elif field == "topo_all":
+            print(f"  {field:<14} {'yes' if station.topo_all else 'no'}")
         else:
             print(f"  {field:<14} {station.get(field)}")
     for note in rig_notes:
@@ -598,19 +658,29 @@ def _resolve_rig_flags(args: argparse.Namespace, current: Station) -> _RigFlags 
     catalog cross-checks — is it a rig, is the baud in range, does the kind
     allow this flag — are here (D-073 §4).
     """
-    if args.clear_rig:
-        return _RigFlags(None, None, None, None, None, ["rig"], ["  rig            (cleared)"])
-
-    rig: str | None = args.rig or current.rig
-    rig_device: str | None = args.rig_device or current.rig_device
-    rig_baud: int | None = args.rig_baud if args.rig_baud is not None else current.rig_baud
-    ptt_line: str | None = args.rig_ptt_line or current.rig_ptt_line
-    owner: str | None = args.rig_owner or current.rig_owner
-
     touched = any(
         v is not None
         for v in (args.rig, args.rig_device, args.rig_baud, args.rig_ptt_line, args.rig_owner)
     )
+    if args.clear_rig:
+        if touched:
+            print(
+                "error: --clear-rig cannot be combined with rig-setting flags; clear first, "
+                "then set rig values in a second command.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        return _RigFlags(None, None, None, None, None, ["rig"], ["  rig            (cleared)"])
+
+    rig: str | None = args.rig or current.rig
+    rig_changed = args.rig is not None and args.rig != current.rig
+    rig_device: str | None = args.rig_device or current.rig_device
+    rig_baud: int | None = (
+        args.rig_baud if args.rig_baud is not None else None if rig_changed else current.rig_baud
+    )
+    ptt_line: str | None = args.rig_ptt_line or (None if rig_changed else current.rig_ptt_line)
+    owner: str | None = args.rig_owner or current.rig_owner
+
     if not touched:
         return _RigFlags(rig, rig_device, rig_baud, ptt_line, owner, [], [])
 
@@ -848,6 +918,7 @@ def cmd_update(args: argparse.Namespace) -> int:
             station=station,
             repos=repos,
             kernel=KernelProbe.detect(),
+            java=JavaProbe.detect(),
             desktops=scan_sessions(),
             log=read_log,
         )
@@ -1304,6 +1375,7 @@ def cmd_artifacts(args: argparse.Namespace) -> int:
         region_probe=UrllibProbe(),
         tile_probe=S3Probe(),
         register_probe=AcmaProbe(),
+        snapshot_probe=SnapshotHead(),
     )
     doc = ArtifactsDocument(
         map_regions=regions,
@@ -2250,11 +2322,43 @@ def _import_repeater_source(args: argparse.Namespace) -> int:
         return EXIT_FAILED
 
 
+def _snapshot_mirror(args: argparse.Namespace) -> str | None:
+    """The station's LAN mirror for an on-request repeater fetch (D-078), or
+    ``None`` with ``--no-mirror``, no mirror set, or a station file that
+    cannot be read (said once; the publisher is then asked)."""
+    if getattr(args, "no_mirror", False):
+        return None
+    try:
+        return load_station(owner=operator(args)).mirror
+    except StationError as exc:
+        print(f"note: the station file could not be read ({exc}); not asking a mirror.")
+        return None
+
+
+def _snapshot_source_lines(read: SnapshotRead, mirror: str | None) -> str:
+    """What the operator is told about where the bytes came from, and the
+    ``when`` text the layer's licence records.  D-078."""
+    stamp = read.when.isoformat()
+    if read.source == "mirror":
+        print(
+            f"Read from your LAN mirror, {read.where}: a snapshot someone fetched earlier, "
+            f"its own date unknown. Still unverified; its sha256 is only what arrived.",
+            flush=True,
+        )
+        return (
+            f"Read from the LAN mirror {read.where} at {stamp} (a snapshot fetched earlier, "
+            f"date unknown)"
+        )
+    if mirror:
+        why = read.mirror_failure or "it did not have it"
+        print(f"The LAN mirror did not supply it ({why}); asking the publisher.", flush=True)
+    return f"Fetched {stamp}"
+
+
 def _fetch_repeater_list(
     args: argparse.Namespace,
     *,
-    url: str,
-    limit: int,
+    snapshot: str,
     disclosure: str,
     parse: Callable[[bytes, str], ParsedInput],
     licence: Callable[[str, str], str],
@@ -2262,27 +2366,32 @@ def _fetch_repeater_list(
     layer_id: str,
 ) -> int:
     """A list fetched on request through D-064's fetch (bounded, HTTPS-only
-    redirects), parsed from memory, written as its own layer.  D-074."""
+    redirects), parsed from memory, written as its own layer. The station's
+    LAN mirror is asked first, at ``<mirror>/repeater-snapshots/<snapshot>``,
+    unless ``--no-mirror`` (D-078).  D-074."""
+    from hammunition import repeater_sources as rs
     from hammunition import repeaters
 
     if _refuse_root("repeater overlays"):
         return EXIT_FAILED
+    (snap,) = (x for x in rs.snapshots() if x.name == snapshot)
+    mirror = _snapshot_mirror(args)
     print(disclosure, flush=True)
+    if mirror:
+        print(
+            f"Your station names a LAN mirror ({mirror}): it is asked first, for "
+            f"{rs.SNAPSHOT_UNIT}/{snap.name}, and the publisher only if it does not have it.",
+            flush=True,
+        )
     try:
-        body, digest, when = repeaters.fetch_list(url, limit=limit)
-    except repeaters.RepeaterFetchError as exc:
+        read = rs.read_snapshot(snap, parse, mirror=mirror)
+    except (repeaters.RepeaterFetchError, repeaters.RepeaterInputError) as exc:
         print(f"error: {exc}. Nothing was written.", file=sys.stderr)
         return EXIT_FAILED
-    try:
-        parsed = parse(body, url)
-    except repeaters.RepeaterInputError as exc:
-        print(f"error: {exc}. Nothing was written.", file=sys.stderr)
-        return EXIT_FAILED
-    finally:
-        del body  # never kept: Brandmeister's carries every hotspot's position
-    parsed = dataclasses.replace(parsed, sha256=digest)
-    day = when.date()
-    text = licence(f"Fetched {when.isoformat()}", digest)
+    parsed = dataclasses.replace(read.parsed, sha256=read.sha256)
+    when_text = _snapshot_source_lines(read, mirror)
+    day = read.when.date()
+    text = licence(when_text, read.sha256)
     return _write_repeater_layer([parsed], name(day), day, [text], args, layer_id)
 
 
@@ -2296,8 +2405,7 @@ def cmd_maps_repeaters_fetch_etcc(args: argparse.Namespace) -> int:
 
     return _fetch_repeater_list(
         args,
-        url=rs.ETCC_URL,
-        limit=rs.ETCC_LIMIT,
+        snapshot="etcc.csv",
         disclosure=(
             f"This fetches the RSGB ETCC's UK repeater list from {rs.ETCC_URL} (about 62 kB), "
             f"now and only now, and converts it on this machine. ukrepeater.net states no "
@@ -2322,8 +2430,7 @@ def cmd_maps_repeaters_fetch_brandmeister(args: argparse.Namespace) -> int:
 
     return _fetch_repeater_list(
         args,
-        url=rs.BRANDMEISTER_URL,
-        limit=rs.BRANDMEISTER_LIMIT,
+        snapshot="brandmeister.json",
         disclosure=(
             f"This fetches Brandmeister's whole DMR device list from {rs.BRANDMEISTER_URL} "
             f"(about 9.5 MB), now and only now, and converts it on this machine. Most entries "
@@ -2347,43 +2454,52 @@ def cmd_maps_repeaters_fetch_hearham(args: argparse.Namespace) -> int:
     no digest and no dated snapshot, so it is marked unverified (D-033's
     position). No ``--json`` form: the disclosure is printed before the
     request, for a person to read."""
+    from hammunition import repeater_sources as rs
     from hammunition import repeaters
 
     if _refuse_root("repeater overlays"):
         return EXIT_FAILED
-    url = repeaters.HEARHAM_URL
+    (snap,) = (x for x in rs.snapshots() if x.name == "hearham.json")
+    url = snap.url
+    mirror = _snapshot_mirror(args)
     print(
         f"This fetches hearham.com's whole repeater list from {url} (about 9.5 MB), now and "
         f"only now, and converts it on this machine. hearham publishes no checksum, so what "
         f"arrives is recorded by its sha256 and marked unverified.",
         flush=True,
     )
+    if mirror:
+        print(
+            f"Your station names a LAN mirror ({mirror}): it is asked first, for "
+            f"{rs.SNAPSHOT_UNIT}/{snap.name}, and the publisher only if it does not have it.",
+            flush=True,
+        )
+
+    def parse(body: bytes, source: str) -> ParsedInput:
+        with tempfile.TemporaryDirectory(prefix="hammunition-hearham-") as scratch:
+            staged = Path(scratch) / "hearham.json"
+            staged.write_bytes(body)
+            try:
+                parsed = repeaters.read_input(staged)
+            except repeaters.RepeaterInputError as exc:
+                raise repeaters.RepeaterInputError(f"{source}: {exc}") from None
+        if parsed.format != repeaters.HEARHAM:
+            raise repeaters.RepeaterInputError(
+                f"{source} answered with something other than its repeater list ({parsed.format})"
+            )
+        return dataclasses.replace(parsed, path=Path(source))
+
     try:
-        body, digest, when = repeaters.fetch_hearham(url, limit=repeaters.HEARHAM_LIMIT)
-    except repeaters.RepeaterFetchError as exc:
+        read = rs.read_snapshot(snap, parse, mirror=mirror)
+    except (repeaters.RepeaterFetchError, repeaters.RepeaterInputError) as exc:
         print(f"error: {exc}. Nothing was written.", file=sys.stderr)
         return EXIT_FAILED
-    with tempfile.TemporaryDirectory(prefix="hammunition-hearham-") as scratch:
-        staged = Path(scratch) / "hearham.json"
-        staged.write_bytes(body)
-        try:
-            parsed = repeaters.read_input(staged)
-        except repeaters.RepeaterInputError as exc:
-            print(f"error: {url}: {exc}. Nothing was written.", file=sys.stderr)
-            return EXIT_FAILED
-        if parsed.format != repeaters.HEARHAM:
-            print(
-                f"error: {url} answered with something other than its repeater list "
-                f"({parsed.format}). Nothing was written.",
-                file=sys.stderr,
-            )
-            return EXIT_FAILED
-        parsed = dataclasses.replace(parsed, path=Path(url))
-        day = when.date()
-        licence = repeaters.hearham_licence(f"Fetched {when.isoformat()}", digest)
-        return _write_repeater_layer(
-            [parsed], repeaters.hearham_layer_name(day), day, [licence], args
-        )
+    when_text = _snapshot_source_lines(read, mirror)
+    day = read.when.date()
+    licence = repeaters.hearham_licence(when_text, read.sha256)
+    return _write_repeater_layer(
+        [read.parsed], repeaters.hearham_layer_name(day), day, [licence], args
+    )
 
 
 @envelope.json_capable()
@@ -3379,6 +3495,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             # The running kernel is a fact about this machine, not the target
             # (one Pop!_OS 24.04 VM has AX.25 under 7.0.11 and not under 7.1.5).
             kernel=KernelProbe.detect(),
+            java=JavaProbe.detect(),
             # Which desktops the session files offer (D-060): files on disk,
             # so the answer under sudo is the answer outside it.
             desktops=scan_sessions(),
@@ -3482,6 +3599,10 @@ def cmd_install(args: argparse.Namespace) -> int:
     # a unit the operator typed.
     outlines = MemoProbe(RetryingProbe(UrllibProbe()))
     outages = Outages()
+    # #197: what the log attributes as installed is not asked of its publisher
+    # again for a week (`--recheck` asks every one); the real run verifies
+    # whatever it fetches either way.
+    checks = PublisherChecks.from_log(read_log, recheck=args.recheck)
     POLICY.reset()
     try:
         dem_resolution = resolve_station_terrain(
@@ -3492,12 +3613,31 @@ def cmd_install(args: argparse.Namespace) -> int:
             region_probe=outlines,
             tile_probe=RetryingProbe(S3Probe()),
             outages=outages,
+            checks=checks,
         )
     except CopernicusError as exc:
         print(f"error: {exc}", file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)
         refused("terrain", str(exc))
         return EXIT_UNPLANNABLE
+    # Issue #232: the sheets and tiles are bounded by the station (a radius
+    # around its grid square by default). The circle needs the grid square;
+    # without one the unit defers by name and what is installed is kept (D-035).
+    topo_bound: TopoBound | None = ALL
+    topo_deferrals: tuple[Deferral, ...] = ()
+    try:
+        topo_bound = make_bound(
+            radius_km=station.topo_radius_km,
+            regions=station.topo_regions,
+            everything=station.topo_all,
+            grid_square=station.grid_square,
+        )
+    except BoundUnavailable:
+        topo_bound = None
+        topo_deferrals = tuple(
+            missing_grid_deferral(p.name)
+            for p in topo_units(plan, bare_earth=station.elevation == "3dep")
+        )
     # D-068: the US Topo sheets for the same regions, each HEAD-checked
     # against the ETag the carried index lists.
     try:
@@ -3509,6 +3649,8 @@ def cmd_install(args: argparse.Namespace) -> int:
             region_probe=outlines,
             quad_probe=RetryingProbe(ustopo_probe()),
             outages=outages,
+            checks=checks,
+            bound=topo_bound,
         )
     except UstopoError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3528,6 +3670,8 @@ def cmd_install(args: argparse.Namespace) -> int:
             region_probe=outlines,
             tile_probe=RetryingProbe(ustopo_probe()),
             outages=outages,
+            checks=checks,
+            bound=topo_bound,
         )
     except CopernicusError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3543,6 +3687,8 @@ def cmd_install(args: argparse.Namespace) -> int:
             region_probe=outlines,
             gateway=GatewayProbe(),
             outages=outages,
+            checks=checks,
+            bound=topo_bound,
         )
     except FstopoError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3563,6 +3709,7 @@ def cmd_install(args: argparse.Namespace) -> int:
                 installed=data_root(source.prefix) / book_units[0].name,
                 head=retrying_head(KiwixProbe().head),
                 on_outage=reporter_for(outages, book_units[0]),
+                checks=checks,
             )
         except KiwixError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -3582,6 +3729,30 @@ def cmd_install(args: argparse.Namespace) -> int:
     region_notes.extend(topo_notes)
     region_notes.extend(bare_notes)
     region_notes.extend(fstopo_notes)
+    # The walk-through line (issue #232): what the bound chose, and how to
+    # change it, before the plan rather than 29,000 lines of it.
+    ustopo_unit = next(
+        (
+            p
+            for p in plan.packages
+            if isinstance(p.block.install, TopoQuadsInstall)
+            and p.block.install.provider == "usgs-ustopo"
+        ),
+        None,
+    )
+    if ustopo_unit is not None and topo_bound is not None:
+        region_notes.insert(
+            0,
+            selection_note(
+                topo_bound,
+                topo_resolution,
+                outside=outside_installed(
+                    data_root(source.prefix) / ustopo_unit.name, topo_resolution
+                ),
+            ),
+        )
+    if topo_deferrals:
+        plan = dataclasses.replace(plan, deferrals=(*plan.deferrals, *topo_deferrals))
     # D-069: CoMaps' maps for the same regions, from the carried region table,
     # and every map not yet installed HEAD-checked for its pinned size before
     # the plan prints: each map's size, licence and check are the disclosure,
@@ -3596,6 +3767,7 @@ def cmd_install(args: argparse.Namespace) -> int:
                 installed=data_root(source.prefix) / mwm_units[0].name,
                 head=retrying_head(CdnProbe().head),
                 on_outage=reporter_for(outages, mwm_units[0]),
+                checks=checks,
             )
         except ComapsError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -3603,6 +3775,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             refused("CoMaps maps", str(exc))
             return EXIT_UNPLANNABLE
         region_notes.extend(mwm_notes)
+    region_notes.extend(checks.notes())
     mwm = ComapsMapsBackend(
         fetcher=source.fetcher,
         prefix=source.prefix,
@@ -3664,6 +3837,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         contour_source=contour_source(plan),
         fstopo=fstopo_resolution,
         splat_source=splat_source(plan),
+        topo_bound=topo_bound,
     )
     # D-067: the phone converters, from the same regions, as the operator.
     phone = build_phone_run(
@@ -3885,6 +4059,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         suggestion_notes=suggestion_notes,
         maps=maps,
         region_notes=region_notes,
+        publisher_checks=checks.lines,
         terrain=terrain_view,
         sudo_keepalive=args.sudo_keepalive,
         mirror=station.mirror,
@@ -3952,6 +4127,28 @@ def cmd_install(args: argparse.Namespace) -> int:
     if confirmable and not _confirm_unsafe_interpreter(confirmable):
         print("Aborted: not confirmed. Nothing was changed.", file=sys.stderr)
         return EXIT_CONSENT
+
+    # The size of the US Topo selection (issue #232): asked at the keyboard when
+    # it is every sheet (--topo-all) or more than 10 GB, and never answered by
+    # --yes. The plan above printed the same sentence.
+    asked_size = size_consent(terrain_view.topo if terrain_view is not None else None)
+    if asked_size is not None:
+        try:
+            size_record = resolve_topo_size_consent(
+                asked_size.sentence(),
+                asked_size.count,
+                environ=os.environ,
+                prompt=_prompt if sys.stdin.isatty() else None,
+                assume_yes=args.yes,
+                actor=user or None,
+            )
+        except ConsentDeclined as exc:
+            print(f"\n{exc}. Nothing was changed.", file=sys.stderr)
+            return EXIT_CONSENT
+        except ConsentUnavailable as exc:
+            print(f"\n{exc}", file=sys.stderr)
+            return EXIT_CONSENT
+        log.append(size_record.to_log_entry())
 
     # Consent gates come after the plan is printed and before anything runs.
     # --yes is passed so the call site documents that it does not help; the
@@ -5296,6 +5493,22 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         print("error: could not determine whose transaction log to read.", file=sys.stderr)
         return EXIT_FAILED
 
+    import pwd as _pwd
+
+    from hammunition.hardware.linger import LINGER_RECORD, read_record
+
+    linger_record = read_record()
+    linger_ours = linger_record is not None and linger_record.enabled_by_us
+    # Act on the uid the record names, not on operator(args): the record is the
+    # account Hammunition turned linger on for, which may not be whoever runs
+    # unapply (review I3).
+    linger_name: str | None = None
+    if linger_ours and linger_record is not None:
+        try:
+            linger_name = _pwd.getpwuid(linger_record.uid).pw_name
+        except KeyError:
+            linger_ours = False
+
     kept_present = Path(KEPT_RULES).exists()
     from hammunition.gpstime import files as time_files
     from hammunition.gpstime.grants import (
@@ -5374,6 +5587,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         and not resume_present
         and not geo_present
         and not export_present
+        and not linger_ours
         and left_to_tray
     ):
         print(
@@ -5389,6 +5603,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         and not resume_present
         and not geo_present
         and not export_present
+        and not linger_ours
     ):
         print(
             "Nothing to remove: the transaction log records no hardware artefacts "
@@ -5408,6 +5623,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         and not resume_present
         and not geo_present
         and not export_present
+        and not linger_ours
     ):
         print("Nothing to do: no artefact this command owns is recorded.")
         return EXIT_OK
@@ -5423,29 +5639,13 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         and not resume_present
         and not geo_present
         and not export_present
+        and not linger_ours
     ):
         print("Nothing to do: every recorded artefact is already gone.")
         return EXIT_OK
 
-    # Linger (D-073 §5a): disable it and remove its record, but only when the
-    # record says Hammunition turned it on — linger that was on already is not
-    # ours. Run directly as root here (unapply escalates its own commands), so
-    # it does not depend on the helper that this same command removes.
-    import pwd as _pwd
-
-    from hammunition.hardware.linger import LINGER_RECORD, read_record
-
-    linger_record = read_record()
-    linger_ours = linger_record is not None and linger_record.enabled_by_us
-    # Act on the uid the record names, not on operator(args): the record is the
-    # account Hammunition turned linger on for, which may not be whoever runs
-    # unapply (review I3).
-    linger_name: str | None = None
-    if linger_ours and linger_record is not None:
-        try:
-            linger_name = _pwd.getpwuid(linger_record.uid).pw_name
-        except KeyError:
-            linger_ours = False
+    # Linger (D-073 §5a): disable only the linger this record says Hammunition
+    # turned on. Run directly as root; it does not depend on the helper being removed.
     commands = [
         Command(
             argv=("rm", "-f", path),
@@ -6763,17 +6963,32 @@ def build_parser() -> argparse.ArgumentParser:
         "fetch-hearham",
         help="fetch hearham.com's open list now and convert it; recorded as unverified",
     )
+    p_rep_fetch.add_argument(
+        "--no-mirror",
+        action="store_true",
+        help="do not ask the station's LAN mirror first; fetch from the publisher (D-078)",
+    )
     p_rep_fetch.set_defaults(func=cmd_maps_repeaters_fetch_hearham)
     p_rep_etcc = rep_sub.add_parser(
         "fetch-etcc",
         help="fetch the RSGB ETCC's UK repeater list now and convert it; recorded as "
         "unverified (D-074)",
     )
+    p_rep_etcc.add_argument(
+        "--no-mirror",
+        action="store_true",
+        help="do not ask the station's LAN mirror first; fetch from the publisher (D-078)",
+    )
     p_rep_etcc.set_defaults(func=cmd_maps_repeaters_fetch_etcc)
     p_rep_bm = rep_sub.add_parser(
         "fetch-brandmeister",
         help="fetch Brandmeister's DMR repeaters now, hotspots dropped; recorded as "
         "unverified (D-074)",
+    )
+    p_rep_bm.add_argument(
+        "--no-mirror",
+        action="store_true",
+        help="do not ask the station's LAN mirror first; fetch from the publisher (D-078)",
     )
     p_rep_bm.set_defaults(func=cmd_maps_repeaters_fetch_brandmeister)
     p_rep_remove = rep_sub.add_parser(
@@ -6933,6 +7148,15 @@ def build_parser() -> argparse.ArgumentParser:
             "print every step of the plan expanded; without it a run of steps that "
             "repeat one template for many items (a sheet, a tile, a book) is shown "
             "as the template, one example, every item and the totals (D-016)"
+        ),
+    )
+    p_install.add_argument(
+        "--recheck",
+        action="store_true",
+        help=(
+            "ask every data item's publisher at plan time, including the installed "
+            "ones the log attributes (otherwise those are trusted for 7 days; "
+            "#197, D-049)"
         ),
     )
     p_install.add_argument(
@@ -7152,6 +7376,33 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("copernicus", "3dep"),
         help="the elevation QMapShack's hillshade and contours are drawn from: copernicus "
         "(the default, a surface model) or 3dep (USGS bare earth, about 10x larger) (D-068)",
+    )
+    p_station_set.add_argument(
+        "--topo-radius-km",
+        default=None,
+        type=int,
+        metavar="N",
+        help="how far from your grid square's centre US Topo sheets, FSTopo sheets and 3DEP "
+        "tiles are selected: 100 when unset, 0 for none (D-068, issue #232)",
+    )
+    p_station_set.add_argument(
+        "--topo-regions",
+        default=None,
+        metavar="REGION[,REGION…]",
+        help="narrow the topographic selection to these map regions (a subset of "
+        "--map-regions); with no --topo-radius-km they are taken whole",
+    )
+    p_station_set.add_argument(
+        "--clear-topo-regions",
+        action="store_true",
+        help="remove --topo-regions, so the radius applies to every map region again",
+    )
+    p_station_set.add_argument(
+        "--topo-all",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="select every sheet of every region, as before the bound; the install states "
+        "the size and asks a typed yes that --yes does not answer",
     )
     p_station_set.add_argument(
         "--rig",

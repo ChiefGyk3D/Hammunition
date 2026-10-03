@@ -392,7 +392,7 @@ def _machine(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Any:
 
     json_machine(monkeypatch, tmp_path)
     save_station(
-        Station(callsign="N0TST", map_regions=(OCEANIA.region,)),
+        Station(callsign="N0TST", grid_square="JJ00", map_regions=(OCEANIA.region,)),
         path=tmp_path / "xdg_config_home" / "hammunition" / "station.yml",
     )
     monkeypatch.setattr(

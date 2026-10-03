@@ -135,7 +135,15 @@ documentation:
     Choose your map regions first, with Geofabrik's region paths, for
     example `hammunition station set --map-regions
     north-america/us/vermont,north-america/us/new-hampshire`; without them
-    the map units are deferred and only Navit and gpsd install. Optionally
+    the map units are deferred and only Navit and gpsd install. Set your
+    grid square too (`hammunition station set --grid-square <yours>`): the
+    US Topo sheets, and the 3DEP tiles if you choose them, are bounded to a
+    100 km radius around it by default; without one `usgs-ustopo` is
+    deferred by name and says how to fix it. `--topo-radius-km N`,
+    `--topo-regions a,b` and `--topo-all` change the bound, and an install
+    that would fetch every sheet (`--topo-all`) or more than 10 GB of them
+    prints the count and size and asks you to type `yes`, which `--yes` does
+    not answer. Optionally
     `hammunition station set --map-freshness yearly|monthly|latest`
     (yearly is the default and, for the 50 US states and DC, is checked
     against a sha256 Hammunition measured; other regions and modes are
@@ -202,8 +210,13 @@ documentation:
     times the downloads of scratch allowed while they build (not measured)
     and about 650 MB of elevation scratch for one 5-degree square at a
     time. US Topo, for US regions: about 8 MB a sheet, twice over once
-    warped for QMapShack (Delaware about 220 MB of sheets, Vermont about
-    1.6 GB, Virginia about 6 GB, measured from the index on 2026-09-29).
+    warped for QMapShack. By default only the sheets within 100 km of your
+    grid square's centre are fetched: a few hundred sheets, about 1.7 GB
+    of download and 3.5 GB of disk on a station with ten regions, where
+    every sheet of those regions would be 7,284 sheets, 55 GB and 111 GB
+    (measured from the index, 2026-10-02). Whole regions on request
+    (Delaware about 220 MB of sheets, Vermont about 1.6 GB, Virginia
+    about 6 GB, measured from the index on 2026-09-29).
     3DEP, only when chosen: about
     480 MB a tile, ten times Copernicus (Delaware about 0.9 GB, Vermont about
     4.4 GB), and about 8.4 MB of contours a tile with 212 MB of scratch.

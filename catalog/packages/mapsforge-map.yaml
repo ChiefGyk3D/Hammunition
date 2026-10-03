@@ -13,6 +13,11 @@ categories: [navigation-maps]
 # osmosis's own dependency on default-jre-headless, as mkgmap's does. Debian's
 # /usr/bin/osmosis does not load the packaged writer, so the engine runs
 # `java -cp` over osmosis's jars and the writer's (backends/mapsforge.py).
+#
+# No requires_java, measured 2026-10-02: mapsforge's build targets Java 8
+# (`--release 8`), osmosis 0.49 compiles for 17 but is the archive's own build,
+# and its package depends on a JRE its release can run. The archive carries the
+# floor for these, so none is declared here.
 depends: [osm-regions, osmosis, libmapsforge-java]
 
 install:
