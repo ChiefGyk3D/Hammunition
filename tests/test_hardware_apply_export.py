@@ -214,6 +214,41 @@ def test_unapply_dry_run_names_the_lists(
     assert Path(de.DEVICES_PATH).exists()
 
 
+def test_unapply_dry_run_reverses_linger_without_other_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    runner = _machine(tmp_path, monkeypatch, with_export=False)
+    from hammunition.hardware import linger
+
+    record = tmp_path / "linger.yaml"
+    record.write_text(f"uid: {os.getuid()}\nenabled_by_us: true\n")
+    monkeypatch.setattr(linger, "LINGER_RECORD", record)
+    _Log.entries = []
+
+    assert cli.main(["hardware", "unapply", "--dry-run"]) == cli.EXIT_OK
+    assert runner.ran == []
+    out = capsys.readouterr().out
+    assert f"loginctl disable-linger {ME}" in out
+    assert "Remove Hammunition's linger record" in out
+    assert str(record) in out
+    assert "Nothing to remove" not in out
+
+
+def test_unapply_without_linger_record_still_has_nothing_to_remove(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    runner = _machine(tmp_path, monkeypatch, with_export=False)
+    _Log.entries = []
+
+    assert cli.main(["hardware", "unapply", "--dry-run"]) == cli.EXIT_OK
+    assert runner.ran == []
+    assert "Nothing to remove" in capsys.readouterr().out
+
+
 def test_unapply_leaves_a_list_hammunition_did_not_write(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
