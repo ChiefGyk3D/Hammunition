@@ -1177,7 +1177,8 @@ the transaction without granting it. For scripts, set
 plan, for LinBPQ `CAP_NET_ADMIN=ep CAP_NET_RAW=ep CAP_NET_BIND_SERVICE=ep`; a
 value of `1` is refused. Successful
 grants are verified with `getcap`, logged, and cleared on uninstall before the
-attributed binary is removed.
+attributed binary is removed. If LinBPQ cannot open a port afterwards, see
+[troubleshooting](../troubleshooting/running.md#linbpq-capabilities).
 
 **sudo's ticket, for the length of the run (D-062).** Run as a user, the
 engine puts `sudo` in front of each root step and nothing else, and sudo
