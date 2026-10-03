@@ -760,6 +760,13 @@ fetched on your request, never redistributed, and the sha256 of what
 arrived is printed and recorded. Anything but the ETCC's CSV is refused,
 exit 1, and nothing is written. No `--json` form.
 
+`fetch-etcc`, `fetch-brandmeister` and `fetch-hearham` each take `--no-mirror`.
+Without it, when the station names a LAN mirror, each asks
+`<mirror>/repeater-snapshots/<name>` first (`etcc.csv`, `brandmeister.json`,
+`hearham.json`) and the publisher on any failure there, including bytes that
+are not that list; the layer is unverified either way and says where it was
+read from (**D-078**).
+
 ### `hammunition maps repeaters fetch-brandmeister`
 
 Fetches Brandmeister's DMR device list, `https://api.brandmeister.network/v2/device`
