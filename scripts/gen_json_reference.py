@@ -143,6 +143,12 @@ def commands() -> list[str]:
         if func.__module__ != "hammunition.cli.main":
             continue  # a test's probe command, not the engine's
         verb = func.__name__.removeprefix("cmd_").replace("_", " ")
+        if func.__name__ == "cmd_show":
+            out.append(
+                "`hammunition show PROFILE` (profile document); "
+                "`hammunition show UNIT --json` (unit document)"
+            )
+            continue
         out.append(f"`hammunition {verb}`" + (" (with `--dry-run` only)" if dry_run_only else ""))
     return sorted(out)
 
