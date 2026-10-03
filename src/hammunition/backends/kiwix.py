@@ -42,6 +42,7 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 
+from ..attributed import PublisherChecks, recheck_installed
 from ..fetch import Fetcher, MirrorPath, fetch_disclosure, record_fetch
 from ..kiwix import BookFile, KiwixError, load_book_list, load_pin_file, resolve_books
 from ..manifest.schema import KiwixBooksInstall, PackageManifest, RemoteArtifact
@@ -171,6 +172,7 @@ class KiwixBooksBackend:
                     detail=str(dest),
                     perform=partial(self._install, book, fetched, dest, writer),
                     requires_root=writer.privileged,
+                    facts={"size": str(pin.size), "digest": pin.sha256},
                 )
             )
             cached = self.fetcher.path_for(RemoteArtifact(url=pin.url, sha256=pin.sha256))
@@ -255,6 +257,7 @@ def resolve_station_books(
     installed: Path,
     head: Callable[[str], int],
     on_outage: OnOutage | None = None,
+    checks: PublisherChecks | None = None,
 ) -> list[BookFile]:
     """The chosen books as pinned files, checked before the plan prints.
 
@@ -267,10 +270,30 @@ def resolve_station_books(
     A publisher that did not answer after the retries (#200) goes to
     *on_outage* and that book is left out of the returned list, so the rest
     of the books install; without it, it is refused with the others.
+
+    With *checks* (#197), an installed book the log attributes is not asked
+    again until the attribution is a week old; a book that is asked and no
+    longer served is a note in the plan, never a refusal.
     """
     books = resolve_books(selection, load_book_list(catalog_root), load_pin_file(catalog_root))
     problems: list[str] = []
     unavailable: set[str] = set()
+
+    def still_served(book: BookFile) -> None:
+        status = head(book.pin.url)
+        if status != 200:
+            raise KiwixError(f"{book.pin.url} answered HTTP {status}, not 200")
+
+    recheck_installed(
+        checks,
+        installed.name,
+        [b for b in books if book_current(installed / b.pin.file, b)],
+        name=lambda book: book.pin.id,
+        path=lambda book: installed / book.pin.file,
+        check=still_served,
+        digest=lambda book: book.pin.sha256,
+        label="installed Kiwix books against download.kiwix.org",
+    )
     todo = [b for b in books if not book_current(installed / b.pin.file, b)]
     outcomes = run_checks(
         todo, lambda book: head(book.pin.url), label="Kiwix books against download.kiwix.org"

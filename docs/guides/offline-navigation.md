@@ -613,7 +613,7 @@ while QMapShack is open.
 ### Run it as a service
 
 The tether is its own project now, [hammunition-gps-tether](https://github.com/ChiefGyk3D/hammunition-gps-tether),
-and `hammunition install gps-tether` installs it: the project's v0.1.0 source
+and `hammunition install gps-tether` installs it: the project's v0.1.1 source
 (pure Python, nothing to build), checked against a pinned sha256 and unpacked
 to `/usr/local/share/hammunition/gps-tether`, and a systemd **user** service, `hammunition-gps-tether.service`, written to
 `~/.config/systemd/user/` and enabled. The plan lists the file, the command it
@@ -1050,7 +1050,10 @@ arrived and names the layer *unverified*. hearham states no licence for its
 data, and says it should not be relied upon "for medical emergencies, or any
 other life-and-death operations". To combine it with your RepeaterBook
 export, save hearham's JSON yourself and give both files to one
-`maps repeaters import`.
+`maps repeaters import`. If your station names a LAN mirror (`station set
+--mirror`), the three `fetch-*` commands read `repeater-snapshots/<name>` from
+it first, and `--no-mirror` skips it; what a mirror sends is still
+unverified (**D-078**).
 
 ### More sources, one layer each
 
@@ -1223,9 +1226,13 @@ and rebuilds the rest.
   has no positions), the WIA's CSV (all rights reserved, no positions),
   repeatermap.de (a token on request only), and the D-STAR, YSF and NXDN
   lists (personal-use pages, or internet reflectors without positions).
-- An APRS-IS capture, and the US coordinators' and Brandmeister's lists
-  under an explicit licence: those wait on the maintainer's decision
-  (D-074).
+- An APRS-IS capture: that waits on the maintainer's decision (D-074). No
+  one writes to the US coordinators, the RSGB or Brandmeister for a licence
+  on your behalf; you bring your own export or your own key (**D-078**).
+- **Canada.** ISED's TAFL has no amateur rows and carries licensees' names
+  and addresses; its amateur call-sign file is names and addresses only; no
+  open bulk Canadian repeater list exists. Use your own RepeaterBook export
+  or `fetch-hearham` (D-074, 2026-10-03).
 
 ---
 
@@ -1363,20 +1370,61 @@ contours, drawn by USGS. OpenStreetMap already has nearly every trail's
 line; the sheet adds the official names and the look search teams and
 rangers hand out on paper.
 
-Nothing is set for it beyond your map regions. The plan's *US Topo* part,
-under Terrain, lists each region's sheet count and size, every sheet to be
-downloaded with how it is checked, and what is built:
+It needs your map regions and your grid square. Before the plan, the
+install says what it chose:
+
+```
+note: US Topo: using a 100 km radius around your grid square (248 sheets, about 1.7 GB); `hammunition station set --topo-radius-km`, `--topo-regions` or `--topo-all` change this
+```
+
+The plan's *US Topo* part, under Terrain, then lists each region's sheet
+count and size, every sheet to be downloaded with how it is checked, and
+what is built:
 
 ```
 hammunition install navigation --dry-run
 ```
+
+**How many sheets: you choose, and the default is a day's drive.** A region
+is a whole state, and every sheet of three whole-state regions measured 7,284
+sheets, about 55 GB of download and 111 GB of disk (2026-10-02), so the
+selection is bounded (issue #232):
+
+| You set | The sheets are |
+|---|---|
+| nothing (needs `--grid-square`) | those within 100 km of your grid square's centre, in your regions: a few hundred, about 1.7 GB of download |
+| `station set --topo-radius-km N` | the same, within N km. `0` selects none, and what is installed is removed |
+| `station set --topo-regions a,b` | the whole of those regions only; `a` and `b` must be among your `--map-regions`. With a radius as well, the circle cut to those regions |
+| `station set --topo-all` | every sheet of every region, as before. `--no-topo-all` turns it off |
+
+The circle is centred on the grid square's centre, so a four-character
+square (about 110 by 160 km) places it only that closely; a six-character one
+to a few kilometres. FSTopo sheets and 3DEP tiles follow the same bound.
+Copernicus terrain does not: it is a tenth of the size and BRouter needs
+every region whole. With no grid square, and neither `--topo-all` nor
+`--topo-regions`, `usgs-ustopo` is deferred by name with the fix stated, and
+the sheets already installed are kept. Choosing a smaller bound than the last
+install removes the installed sheets outside it; the note before the plan
+says how many, and `--topo-all` keeps them.
+
+**A size you are asked about.** When the selection is `--topo-all`, or the
+download plus the warped copies comes to more than 10 GB, the plan prints one
+sentence, for example "This installs 7,284 US Topo sheets: about 55.4 GB to
+download and about 110.8 GB of disk once the warped copies QMapShack reads
+are added.", and the install asks you to type `yes` to that sentence.
+`--yes` does not answer it, and with no terminal the install stops: a script
+sets `HAMMUNITION_ACCEPT_TOPO_SIZE` to the number of sheets shown, so a
+selection that grew stops it. Under 10 GB the ordinary "Proceed?" covers it.
 
 **How much.** A sheet is about 8 MB (2 to 20 MB). Measured from USGS's
 index on 2026-09-29: Delaware's 38 sheets are about 220 MB, Vermont's 194
 about 1.6 GB, Virginia's 729 about 6 GB. A region's outline touches the
 sheets just across its borders too, so expect a little more than the
 state's own. Each sheet is kept twice once built (the download, and the
-copy made for QMapShack), so allow about twice those figures.
+copy made for QMapShack), so allow about twice those figures. Measured
+2026-10-02 on a station with ten regions: 248 sheets within 100 km, 1.74 GB
+download, about 3.5 GB of disk; 7,284 sheets with `--topo-all`. Not measured
+yet: QMapShack drawing either.
 
 **Outside the United States** a region gets no sheets. The plan says
 `note: no US Topo quad covers <region>` and everything else installs.
@@ -1628,7 +1676,10 @@ That brings two units:
   (`graphhopper-web-11.1.jar`, 47 MB) from Maven Central, checked against
   the sha256 Central publishes beside it, under
   `/usr/local/share/hammunition/graphhopper/`, with Java from your
-  distribution (17 or newer; Debian 13 has 21). Central also publishes a
+  distribution (17 or newer; Debian 13 has 21). The plan reads `java -version`
+  and, on a machine whose Java is older (Ubuntu 22.04 and Pop!_OS 22.04 give
+  11), defers it with the Java it found and the `openjdk-N-jre-headless` package
+  that would meet the floor; BRouter's floor is 11. Central also publishes a
   PGP signature; Hammunition records it and does not check it, and the
   plan says so.
 - **`graphhopper-graph`**: GraphHopper's route graph, built on your machine
@@ -2169,7 +2220,7 @@ one US-state-sized region:
 | BRouter itself | about 8.5 MB, once | `/usr/local/share/hammunition/brouter/` | Until uninstall |
 | BRouter's routing files, all regions | about 0.2× all the regions together (Delaware: 3.3 MB from 22.1 MB) | `/usr/local/share/hammunition/data/brouter-segments/` | Rebuilt when the regions or tiles change |
 | Their build scratch | up to 3× all the regions together (an allowance, not measured), plus the merged regions when there are two or more, and about 650 MB of elevation scratch for one 5-degree square at a time | `~/.cache/hammunition/build/brouter-segments/` | Only while they build |
-| US Topo sheets (US regions) | about 8 MB a sheet | `/usr/local/share/hammunition/data/usgs-ustopo/` | Until uninstall, or no region needs the sheet |
+| US Topo sheets (US regions, within the radius unless `--topo-all`) | about 8 MB a sheet | `/usr/local/share/hammunition/data/usgs-ustopo/` | Until uninstall, or the bound no longer selects the sheet |
 | The sheets made for QMapShack | about 1× each sheet, measured on one | `/usr/local/share/hammunition/data/ustopo-qmapshack/` | As long as the sheets |
 | Their build scratch | about 1× one sheet at a time | `~/.cache/hammunition/build/ustopo-qmapshack/` | Only while it builds |
 | FSTopo sheets (National Forest land, installed by name only) | about 21 MB a sheet | `/usr/local/share/hammunition/data/usfs-fstopo/` | Until uninstall, or no region needs the sheet |
@@ -2544,8 +2595,11 @@ laptop and been recorded in `docs/reference/bench-verification-5430.md`:
 - `UrllibProbe.text` has run live against Geofabrik's region index
   (2026-09-28: `index-v1-nogeom.json`, 555 regions parsed by `region_ids`).
   `UrllibProbe.head` — the reachability check a fetch, and now a plan-time
-  region check, both depend on — remains unmeasured against the live
-  server; the tests stand in for it.
+  region check, both depend on — was exercised live by the whole-profile dry
+  run of bench session 13 (2026-10-02): the plan-time checks of the station's
+  regions, the CoMaps maps and the US Topo sheets against their servers all
+  ran, and nothing was deferred. That is a plan, not an install: no fetch of a
+  region has been measured through it.
 
 For the QMapShack units (**D-061**), the converters and their sizes were
 measured on one region on the development host. None of the following has

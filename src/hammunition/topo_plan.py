@@ -31,19 +31,31 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .attributed import PublisherChecks, recheck_installed
+from .backends.data import human_size
 from .backends.fstopo import FsTopoResolution, RegionSheets
 from .backends.fstopo import read_record as read_sheets
 from .backends.regions import MapResolution, data_root
-from .backends.topo import QUADS, TIF, RegionQuads, TopoResolution, read_record
+from .backends.topo import (
+    QUADS,
+    TIF,
+    RegionQuads,
+    TopoDisclosure,
+    TopoResolution,
+    read_record,
+    stem_of,
+)
+from .backends.topo_mosaic import warp_estimate
 from .copernicus import CopernicusError, TileProbe, parse_poly
 from .fstopo import FsIndex, FsPin, FsQuad, FsQuadFile, FstopoError, GatewayProbe
 from .fstopo import load_index as load_fstopo_index
 from .fstopo import load_pins as load_fstopo_pins
 from .geofabrik import BASE, GeofabrikError, Probe
-from .manifest.schema import DerivedDataInstall, TopoQuadsInstall
-from .plan import InstallPlan, PlannedPackage
+from .manifest.schema import DemTilesInstall, DerivedDataInstall, TopoQuadsInstall
+from .plan import Deferral, InstallPlan, PlannedPackage
 from .progress import run_checks
 from .retry import OnOutage, Outages, PublisherUnavailable, hint_for, reporter_for
+from .topo_bound import ALL, CONSENT_BYTES, DEFAULT_RADIUS_KM, TopoBound
 from .ustopo import Quad, QuadIndex, UstopoError, check_quad, load_index
 
 INDEX = Path("data") / "ustopo-quads.txt"
@@ -87,26 +99,46 @@ class MemoProbe:
 
 
 def region_quads(
-    region: str, slug: str, *, installed: Path, index: QuadIndex, probe: Probe, notes: list[str]
+    region: str,
+    slug: str,
+    *,
+    installed: Path,
+    index: QuadIndex,
+    probe: Probe,
+    notes: list[str],
+    bound: TopoBound = ALL,
 ) -> RegionQuads:
-    """*region*'s sheets: its record when it is current, else its outline."""
+    """*region*'s sheets under *bound*: its record when it was selected under
+    the same bound and is current, else its outline."""
+    token = bound.token
     recorded = read_record(installed / f"{slug}{QUADS}", region, slug)
     listed = index.by_path()
-    if recorded is not None and all(q.path in listed for q in recorded.quads):
+    if (
+        recorded is not None
+        and recorded.bound == token
+        and all(q.path in listed for q in recorded.quads)
+    ):
         # The index's rows, not the record's (review M1): a regenerated index
         # carries a re-uploaded object's new size and ETag under the same name.
-        return RegionQuads(region, slug, tuple(listed[q.path] for q in recorded.quads))
+        return RegionQuads(region, slug, tuple(listed[q.path] for q in recorded.quads), token)
     try:
         outer, holes = parse_poly(probe.text(poly_url(region)))
     except (GeofabrikError, CopernicusError, OSError):
         if recorded is None:
             raise
-        notes.append(
-            f"{region}: a newer US Topo edition is indexed for some of its quads, and its "
-            f"outline could not be fetched to choose them; the installed quads are kept"
-        )
-        return recorded
-    return RegionQuads(region, slug, index.select(outer, holes))
+        if recorded.bound == token:
+            notes.append(
+                f"{region}: a newer US Topo edition is indexed for some of its quads, and its "
+                f"outline could not be fetched to choose them; the installed quads are kept"
+            )
+            return recorded
+        if recorded.bound == "all" and all(q.path in listed for q in recorded.quads):
+            # A whole region on record narrows to the bound with no outline.
+            return RegionQuads(
+                region, slug, bound.select([listed[q.path] for q in recorded.quads]), token
+            )
+        raise
+    return RegionQuads(region, slug, bound.select(index.select(outer, holes)), token)
 
 
 def resolve_topo(
@@ -117,9 +149,13 @@ def resolve_topo(
     region_probe: Probe,
     quad_probe: TileProbe,
     on_outage: OnOutage | None = None,
+    checks: PublisherChecks | None = None,
+    bound: TopoBound = ALL,
 ) -> tuple[TopoResolution, tuple[str, ...]]:
     """*regions* as ``(region, slug)`` pairs resolved to the sheets they
-    need and how each is fetched, and any notes for the plan.
+    need under *bound* and how each is fetched, and any notes for the plan.
+    A region the bound leaves out has no entry, so what is installed for it
+    goes the way any region no longer wanted does (issue #232).
 
     A publisher that did not answer after the retries (#200) is passed to
     *on_outage* with the item it concerned -- a region whose outline is not
@@ -133,10 +169,18 @@ def resolve_topo(
         if (region, slug) in seen:
             continue
         seen.add((region, slug))
+        if bound.mode == "none" or not bound.wants_region(region):
+            continue
         try:
             entries.append(
                 region_quads(
-                    region, slug, installed=installed, index=index, probe=region_probe, notes=notes
+                    region,
+                    slug,
+                    installed=installed,
+                    index=index,
+                    probe=region_probe,
+                    notes=notes,
+                    bound=bound,
                 )
             )
         except PublisherUnavailable as exc:
@@ -157,6 +201,15 @@ def resolve_topo(
             current.append(quad)
         else:
             todo.append(quad)
+    recheck_installed(
+        checks,
+        installed.name,
+        current,
+        name=lambda quad: quad.name,
+        path=lambda quad: installed / f"{quad.name}{TIF}",
+        check=lambda quad: check_quad(quad, quad_probe),
+        label="installed US Topo sheets against the USGS bucket",
+    )
     outcomes = run_checks(
         todo,
         lambda quad: check_quad(quad, quad_probe),
@@ -199,14 +252,20 @@ def resolve_station_topo(
     region_probe: Probe,
     quad_probe: TileProbe,
     outages: Outages | None = None,
+    checks: PublisherChecks | None = None,
+    bound: TopoBound | None = ALL,
 ) -> tuple[TopoResolution, tuple[str, ...]]:
     """The plan's US Topo sheets, or an empty resolution when it holds no
     ``topo-quads`` unit. A missing or empty index is refused by name. With
+    no *bound* (the grid square it needs is not set) what is installed is
+    kept as it is and nothing is chosen (D-035). With
     *outages*, a publisher that is not answering defers what it concerned
     unless the operator typed the unit (#200)."""
     unit = _planned_topo(plan, "usgs-ustopo")
     if unit is None:
         return TopoResolution(), ()
+    if bound is None:
+        return installed_quads(data_root(prefix) / unit.name), ()
     index = load_index(catalog_root / INDEX)
     regions = [(f.region, f.slug) for f in maps.files]
     ours = {slug for _, slug in regions}
@@ -218,6 +277,27 @@ def resolve_station_topo(
         region_probe=region_probe,
         quad_probe=quad_probe,
         on_outage=reporter_for(outages, unit),
+        checks=checks,
+        bound=bound,
+    )
+
+
+def installed_quads(directory: Path) -> TopoResolution:
+    """The US Topo sheets on disk, from their regions' records, offline:
+    what is kept while the bound cannot be computed. Nothing is fetched or
+    removed."""
+    found: dict[str, Quad] = {}
+    entries: list[RegionQuads] = []
+    for record in sorted(directory.glob(f"*{QUADS}")):
+        entry = read_record(record, record.stem, record.stem)
+        if entry is None:
+            continue
+        entries.append(entry)
+        for quad in entry.quads:
+            if (directory / f"{quad.name}{TIF}").is_file():
+                found[quad.path] = quad
+    return TopoResolution(
+        regions=tuple(entries), current=tuple(found[path] for path in sorted(found))
     )
 
 
@@ -236,25 +316,44 @@ def _planned_topo(plan: InstallPlan, provider: str) -> PlannedPackage | None:
 
 
 def region_sheets(
-    region: str, slug: str, *, installed: Path, index: FsIndex, probe: Probe, notes: list[str]
+    region: str,
+    slug: str,
+    *,
+    installed: Path,
+    index: FsIndex,
+    probe: Probe,
+    notes: list[str],
+    bound: TopoBound = ALL,
 ) -> RegionSheets:
-    """*region*'s FSTopo sheets: its record when every sheet in it is still
-    indexed (taken at the index's vintage), else its outline."""
+    """*region*'s FSTopo sheets under *bound*: its record when it was selected
+    under the same bound and every sheet in it is still indexed (taken at the
+    index's vintage), else its outline."""
+    token = bound.token
     recorded = read_sheets(installed / f"{slug}{QUADS}", region, slug)
     listed = index.by_secoord()
-    if recorded is not None and all(q.secoord in listed for q in recorded.quads):
-        return RegionSheets(region, slug, tuple(listed[q.secoord] for q in recorded.quads))
+    if (
+        recorded is not None
+        and recorded.bound == token
+        and all(q.secoord in listed for q in recorded.quads)
+    ):
+        return RegionSheets(region, slug, tuple(listed[q.secoord] for q in recorded.quads), token)
     try:
         outer, holes = parse_poly(probe.text(poly_url(region)))
     except (GeofabrikError, CopernicusError, OSError):
         if recorded is None:
             raise
-        notes.append(
-            f"{region}: the FSTopo index no longer carries some of its quads, and its "
-            f"outline could not be fetched to choose again; the installed quads are kept"
-        )
-        return recorded
-    return RegionSheets(region, slug, index.select(outer, holes))
+        if recorded.bound == token:
+            notes.append(
+                f"{region}: the FSTopo index no longer carries some of its quads, and its "
+                f"outline could not be fetched to choose again; the installed quads are kept"
+            )
+            return recorded
+        if recorded.bound == "all" and all(q.secoord in listed for q in recorded.quads):
+            return RegionSheets(
+                region, slug, bound.select([listed[q.secoord] for q in recorded.quads]), token
+            )
+        raise
+    return RegionSheets(region, slug, bound.select(index.select(outer, holes)), token)
 
 
 def resolve_fstopo(
@@ -266,6 +365,8 @@ def resolve_fstopo(
     region_probe: Probe,
     gateway: GatewayProbe,
     on_outage: OnOutage | None = None,
+    checks: PublisherChecks | None = None,
+    bound: TopoBound = ALL,
 ) -> tuple[FsTopoResolution, tuple[str, ...]]:
     """*regions* resolved to the FSTopo sheets they need; every sheet not
     installed is located through the gateway and sized, and checked against
@@ -280,10 +381,18 @@ def resolve_fstopo(
         if (region, slug) in seen:
             continue
         seen.add((region, slug))
+        if bound.mode == "none" or not bound.wants_region(region):
+            continue
         try:
             entries.append(
                 region_sheets(
-                    region, slug, installed=installed, index=index, probe=region_probe, notes=notes
+                    region,
+                    slug,
+                    installed=installed,
+                    index=index,
+                    probe=region_probe,
+                    notes=notes,
+                    bound=bound,
                 )
             )
         except PublisherUnavailable as exc:
@@ -304,6 +413,15 @@ def resolve_fstopo(
             current.append(quad)
         else:
             todo.append((secoord, quad))
+    recheck_installed(
+        checks,
+        installed.name,
+        current,
+        name=lambda quad: quad.name,
+        path=lambda quad: installed / f"{quad.name}{TIF}",
+        check=lambda quad: gateway.locate(quad.secoord),
+        label="installed FSTopo sheets against the Forest Service gateway",
+    )
     # Each sheet is two requests (the gateway's redirect, then the file's size).
     outcomes = run_checks(
         todo,
@@ -344,17 +462,25 @@ def resolve_fstopo(
     )
 
 
-def installed_sheets(directory: Path) -> FsTopoResolution:
+def installed_sheets(directory: Path, *, records: bool = False) -> FsTopoResolution:
     """The FSTopo sheets on disk, from their regions' records, offline: what
     the mosaic reads when the unit is not in the plan (it is installed by
     name only, D-068 amended 2026-10-01). Nothing is fetched or removed."""
     found: dict[int, FsQuad] = {}
+    entries: list[RegionSheets] = []
     for record in sorted(directory.glob(f"*{QUADS}")):
         entry = read_sheets(record, record.stem, record.stem)
+        if entry is not None:
+            entries.append(entry)
         for quad in entry.quads if entry is not None else ():
             if (directory / f"{quad.name}{TIF}").is_file():
                 found[quad.secoord] = quad
-    return FsTopoResolution(current=tuple(found[s] for s in sorted(found)))
+    # With *records*, the regions' records too: a unit that is planned must not
+    # see its records removed as the records of regions no longer set.
+    return FsTopoResolution(
+        regions=tuple(entries) if records else (),
+        current=tuple(found[s] for s in sorted(found)),
+    )
 
 
 def resolve_station_fstopo(
@@ -366,6 +492,8 @@ def resolve_station_fstopo(
     region_probe: Probe,
     gateway: GatewayProbe,
     outages: Outages | None = None,
+    checks: PublisherChecks | None = None,
+    bound: TopoBound | None = ALL,
 ) -> tuple[FsTopoResolution, tuple[str, ...]]:
     """The plan's FSTopo sheets, or nothing when it holds no ``usfs-fstopo``
     unit. A missing index or a malformed pins file is refused by name."""
@@ -385,6 +513,8 @@ def resolve_station_fstopo(
         if mosaic is None or mosaic.fstopo is None:
             return FsTopoResolution(), ()
         return installed_sheets(data_root(prefix) / mosaic.fstopo), ()
+    if bound is None:
+        return installed_sheets(data_root(prefix) / unit.name, records=True), ()
     index = load_fstopo_index(catalog_root / FSTOPO_INDEX)
     pins = load_fstopo_pins(catalog_root / FSTOPO_PINS)
     regions = [(f.region, f.slug) for f in maps.files]
@@ -398,4 +528,114 @@ def resolve_station_fstopo(
         region_probe=region_probe,
         gateway=gateway,
         on_outage=reporter_for(outages, unit),
+        checks=checks,
+        bound=bound,
     )
+
+
+# ---------------------------------------------------------------------------
+# The size the install asks about (issue #232).
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class TopoSize:
+    """What this run's US Topo work comes to."""
+
+    count: int
+    download: int
+    disk: int
+
+    def sentence(self) -> str:
+        """The one plain sentence the plan prints and the install asks about."""
+        noun = "sheet" if self.count == 1 else "sheets"
+        head = f"This installs {self.count:,} US Topo {noun}: about {human_size(self.download)}"
+        if self.disk == self.download:
+            return f"{head} to download and the same on disk."
+        return (
+            f"{head} to download and about {human_size(self.disk)} of disk once the warped "
+            f"copies QMapShack reads are added."
+        )
+
+
+def topo_size(topo: TopoDisclosure | None) -> TopoSize | None:
+    """The sheets this run downloads, their download and their disk with the
+    warped copies; None when there is nothing to download."""
+    if topo is None or not topo.resolution.fetch:
+        return None
+    download = sum(q.size for q in topo.resolution.fetch)
+    warped = sum(warp_estimate(q.size) for q in topo.warp)
+    return TopoSize(len(topo.resolution.fetch), download, download + warped)
+
+
+def size_consent(topo: TopoDisclosure | None) -> TopoSize | None:
+    """The size to ask a typed ``yes`` about: ``--topo-all`` is always asked
+    (when there is anything to download), any other selection when the
+    download and the warped copies come to more than :data:`CONSENT_BYTES`."""
+    size = topo_size(topo)
+    if size is None or topo is None:
+        return None
+    return size if topo.everything or size.disk > CONSENT_BYTES else None
+
+
+# ---------------------------------------------------------------------------
+# What the plan tells the operator about the bound (issue #232).
+# ---------------------------------------------------------------------------
+
+
+def topo_units(plan: InstallPlan, *, bare_earth: bool) -> list[PlannedPackage]:
+    """The planned units the bound applies to: the US Topo and FSTopo sheets,
+    and the 3DEP tiles when the station chose them."""
+    found = []
+    for planned in plan.packages:
+        block = planned.block.install
+        if isinstance(block, TopoQuadsInstall) or (
+            bare_earth and isinstance(block, DemTilesInstall) and block.provider == "usgs-3dep"
+        ):
+            found.append(planned)
+    return found
+
+
+def missing_grid_deferral(unit: str) -> Deferral:
+    """The deferral a unit gets when the bound needs a grid square and none is
+    set (D-035: nothing is invented; what is installed stays)."""
+    return Deferral(
+        subject=unit,
+        what="will not choose which sheets or tiles to fetch this run; what is installed is kept",
+        why=(
+            "the selection is bounded to a radius around your grid square "
+            f"({DEFAULT_RADIUS_KM} km by default) and no grid square is set"
+        ),
+        remedy=(
+            "`hammunition station set --grid-square <yours>`, or choose the regions with "
+            "`--topo-regions a,b`, or take every sheet with `--topo-all` (its size is "
+            "stated and asked first)"
+        ),
+        kind="package",
+    )
+
+
+def outside_installed(directory: Path, resolution: TopoResolution) -> int:
+    """How many installed US Topo sheets the selection leaves out (and so the
+    install removes), counting a newer edition of one kept as kept."""
+    stems = {stem_of(q.name) for q in resolution.wanted}
+    return sum(
+        1 for path in directory.glob(f"*{TIF}") if stem_of(path.name[: -len(TIF)]) not in stems
+    )
+
+
+def selection_note(bound: TopoBound, resolution: TopoResolution, *, outside: int = 0) -> str:
+    """The one line before the plan: what the bound chose and how to change it."""
+    total = sum(q.size for q in resolution.wanted)
+    line = (
+        f"US Topo: using {bound.describe()} ({len(resolution.wanted):,} "
+        f"{'sheet' if len(resolution.wanted) == 1 else 'sheets'}, about "
+        f"{human_size(total)}); `hammunition station set --topo-radius-km`, "
+        f"`--topo-regions` or `--topo-all` change this"
+    )
+    if outside:
+        line += (
+            f". {outside:,} installed sheets lie outside it and are removed by this install; "
+            f"`--topo-all` keeps them"
+        )
+    return line

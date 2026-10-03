@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING
 
 from ..fetch import Fetcher
 from ..manifest.schema import PackageManifest, TopoQuadsInstall
+from ..topo_bound import bound_line, split_bound
 from ..ustopo import Quad, UstopoError, parse_row, render_row
 from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
@@ -115,13 +116,20 @@ class RegionQuads:
     region: str
     slug: str
     quads: tuple[Quad, ...]
+    bound: str = "all"
+    """What the selection was made under (:attr:`TopoBound.token`): ``all`` for
+    the whole region, a digest of the circle, or ``none`` (issue #232)."""
 
 
 def render_record(entry: RegionQuads) -> str:
     """The region's sheets as whole index rows, box, size and ETag included,
     so an offline plan can warp and verify from the record alone even after
     the carried index has moved on to a newer edition."""
-    return f"{_HEADER}{len(entry.quads)}\n" + "".join(f"{render_row(q)}\n" for q in entry.quads)
+    return (
+        f"{_HEADER}{len(entry.quads)}\n"
+        + bound_line(entry.bound)
+        + "".join(f"{render_row(q)}\n" for q in entry.quads)
+    )
 
 
 def read_record(path: Path, region: str, slug: str) -> RegionQuads | None:
@@ -139,14 +147,14 @@ def read_record(path: Path, region: str, slug: str) -> RegionQuads | None:
     if not lines or not lines[0].startswith(_HEADER):
         return None
     count = lines[0][len(_HEADER) :]
-    rows = lines[1:]
+    bound, rows = split_bound(lines[1:])
     if not count.isdigit() or int(count) != len(rows):
         return None
     try:
         quads = [parse_row(row, number) for number, row in enumerate(rows, 2)]
     except UstopoError:
         return None
-    return RegionQuads(region, slug, tuple(sorted(quads, key=lambda q: q.path)))
+    return RegionQuads(region, slug, tuple(sorted(quads, key=lambda q: q.path)), bound)
 
 
 @dataclass(frozen=True)
@@ -190,6 +198,11 @@ class TopoDisclosure:
     building: bool = False
     """Whether ``ustopo-mosaic`` has anything to do this run: a warp, a
     removal, or the VRT rebuilt because the set of sheets changed."""
+    selection: str = ""
+    """The station's bound in words (:meth:`TopoBound.describe`); empty when
+    the disclosure was not built under one."""
+    everything: bool = False
+    """Whether ``--topo-all`` chose every sheet of every region."""
 
 
 @dataclass(frozen=True)
@@ -254,6 +267,7 @@ class TopoQuadsBackend:
                     detail=str(dest),
                     perform=partial(self._install, quad, fetched, dest, writer),
                     requires_root=writer.privileged,
+                    facts={"size": str(quad.size)},
                 )
             )
         for entry in self.resolution.regions:

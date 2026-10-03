@@ -52,6 +52,7 @@ from hammunition.backends.pmtiles import TILEMAKER_FLOOR
 from hammunition.backends.source import IMPLEMENTED_BUILD_SYSTEMS
 from hammunition.desktop import Desktop, SessionScan, describe_set
 from hammunition.distro import Target
+from hammunition.java import JRE_CANDIDATES, JavaProbe, jre_package
 from hammunition.kernel import (
     DESCRIBE,
     KERNEL_REMOVAL,
@@ -892,6 +893,89 @@ def _check_node_floor(
     )
 
 
+def _check_java_floor(
+    manifest: PackageManifest,
+    floor: int,
+    java: JavaProbe | None,
+    states: Mapping[str, AptPackageState],
+    notes: list[str],
+) -> Blocker | None:
+    """The Java gate: a Blocker below the floor, ``None`` when it is met or
+    will be met by this transaction's own ``depends`` (a note says so).
+
+    A concrete ``openjdk-N-jre*`` package in ``depends`` with N at or above the
+    floor and a candidate in the archive satisfies the floor in this very
+    transaction, however old the Java on the machine now. A metapackage
+    (``default-jre*``) does not say which Java it brings: with a Java already
+    installed the measured one stands, and with none the major cannot be known
+    before the install, which is disclosed rather than refused (nothing would
+    ever pass otherwise on a clean machine).
+    """
+    concrete = [
+        (int(m.group(1)), d)
+        for d in manifest.depends
+        if (m := re.fullmatch(r"openjdk-(\d+)-jre(?:-headless)?", d))
+    ]
+    meets = sorted((n, d) for n, d in concrete if n >= floor and d in states and states[d].known)
+    if meets:
+        n, d = meets[0]
+        notes.append(
+            f"{manifest.name} needs Java {floor} or newer; its `depends` installs {d} "
+            f"in this transaction, which provides Java {n}."
+        )
+        return None
+    metapackage = any(d in {"default-jre", "default-jre-headless"} for d in manifest.depends)
+    if java is None:
+        notes.append(
+            f"{manifest.name} needs Java {floor} or newer, and the machine's Java was not "
+            f"read, so it cannot be checked before this plan executes."
+        )
+        return None
+    found = java.major
+    if found is not None and found >= floor:
+        notes.append(
+            f"{manifest.name} needs Java {floor} or newer (this machine: {java.version_line})."
+        )
+        return None
+    if found is None and java.version_line == "" and metapackage:
+        notes.append(
+            f"{manifest.name} needs Java {floor} or newer and this machine has no java yet: "
+            f"its `depends` installs the distribution's default JRE, whose major is only "
+            f"known once it is installed. Check with `java -version` afterwards; below "
+            f"{floor}, install a newer JRE by hand."
+        )
+        return None
+    newer = next(
+        (
+            jre_package(n)
+            for n in JRE_CANDIDATES
+            if n >= floor and jre_package(n) in states and states[jre_package(n)].known
+        ),
+        None,
+    )
+    have = (
+        f"this machine's java is {java.version_line} (Java {found}), below the floor"
+        if found is not None
+        else f"{java.reason}"
+    )
+    if newer is not None:
+        remedy = (
+            f"install {newer} from this distribution's archive (`sudo apt-get install "
+            f"{newer}`) and select it with `update-alternatives --config java`; nothing "
+            f"is fetched to meet the floor (D-037)"
+        )
+    else:
+        remedy = (
+            f"a release of this distribution that carries Java {floor} or newer, or skip "
+            f"this unit; nothing is fetched to meet the floor (D-037)"
+        )
+    return Blocker(
+        subject=manifest.name,
+        reason=f"needs Java {floor} or newer, and {have}",
+        remedy=remedy,
+    )
+
+
 def _resolve_from_installed_release(
     apt: AptBackend,
     packages: Sequence[str],
@@ -945,7 +1029,9 @@ def _indent(text: str, prefix: str = "      ") -> str:
     return "\n".join(prefix + line for line in text.splitlines())
 
 
-def _target_deferral(name: str, wanted: Mapping[str, Sequence[str]], why: str) -> Deferral:
+def _target_deferral(
+    name: str, wanted: Mapping[str, Sequence[str]], why: str, remedy: str | None = None
+) -> Deferral:
     """Q-017: a profile member this target does not offer, deferred by name.
 
     Only for a member the operator did not ask for by name -- ``wanted`` says
@@ -962,6 +1048,8 @@ def _target_deferral(name: str, wanted: Mapping[str, Sequence[str]], why: str) -
         remedy=(
             f"the rest installs without it; `hammunition install {name}` shows the "
             f"refusal in full, and a release that carries it needs no change here"
+            if remedy is None
+            else f"the rest installs without it; {remedy}"
         ),
         kind="package",
     )
@@ -1215,6 +1303,7 @@ def resolve(
     devices: Mapping[str, DeviceManifest | DeviceClass] | None = None,
     repos: AptRepoBackend | None = None,
     kernel: KernelProbe | None = None,
+    java: JavaProbe | None = None,
     desktops: SessionScan | frozenset[Desktop] | None = None,
     log: TransactionLog | None = None,
 ) -> InstallPlan:
@@ -1228,6 +1317,10 @@ def resolve(
     ``kernel`` is the running kernel's module tree, consulted only for units
     that declare ``requires_kernel``; ``None`` means it was not read, which is
     disclosed on those units rather than assumed either way.
+
+    ``java`` is the machine's Java, measured with ``java -version`` and only
+    when a unit declares ``requires_java`` (D-037, amended 2026-10-02); ``None``
+    means it was not read, which is disclosed on those units.
 
     ``desktops`` is what the session files offer (:func:`hammunition.desktop.
     scan_sessions`; a bare set of desktops is read as a scan that saw no
@@ -1490,7 +1583,14 @@ def resolve(
                     )
                 )
         else:
-            states = apt.probe(sorted({*all_apt, *all_conflicts, *all_debs}))
+            # A unit with a Java floor also asks about the archive's concrete
+            # JREs, so a refusal can name the one that would meet it.
+            jre_names = (
+                {jre_package(n) for n in JRE_CANDIDATES}
+                if any(m.requires_java for m, _, _, _ in resolved)
+                else set()
+            )
+            states = apt.probe(sorted({*all_apt, *all_conflicts, *all_debs, *jre_names}))
             for manifest, block, packages, _ in resolved:
                 missing = [p for p in packages if p not in states or not states[p].known]
                 own = (
@@ -1570,6 +1670,30 @@ def resolve(
                 blockers.append(outcome)
         else:
             notes.append(outcome)
+
+    # -- Java floor, from `java -version` (D-037, amended 2026-10-02) -------
+    # `default-jre-headless` is a metapackage: its version does not say which
+    # Java it brings, and Ubuntu 22.04 / Pop!_OS 22.04 resolve it to 11 while
+    # GraphHopper's classes are major 61. So the version that counts is the
+    # one `java` reports. Measured once per plan, never fetched.
+    java_caused: set[str] = set()
+    for manifest, _, _, _ in resolved:
+        floor_java = manifest.requires_java
+        if floor_java is None or manifest.name in deferred:
+            continue
+        outcome_java = _check_java_floor(manifest, floor_java, java, states, notes)
+        if outcome_java is None:
+            continue
+        if manifest.name in deferrable:
+            deferred[manifest.name] = _target_deferral(
+                manifest.name,
+                wanted,
+                f"{manifest.name} {outcome_java.reason}",
+                outcome_java.remedy,
+            )
+            java_caused.add(manifest.name)
+        else:
+            blockers.append(outcome_java)
 
     # -- A converter's program below the version its output needs (D-071) ---
     # tilemaker writes PMTiles from 3.0; Ubuntu 24.04 carries 2.4.0. Read from
@@ -1672,7 +1796,7 @@ def resolve(
             gone = sorted(d for d in manifest.depends if d in deferred)
             if not gone:
                 continue
-            by_desktop = [d for d in gone if d in desktop_caused]
+            by_desktop = [d for d in gone if d in desktop_caused or d in java_caused]
             if by_desktop:
                 # D-060: the dependency is missing because of the machine's
                 # desktop, so the dependent's reason and remedy are its.
@@ -1690,7 +1814,10 @@ def resolve(
                         remedy=deferred[by_desktop[0]].remedy,
                         kind="package",
                     )
-                    desktop_caused.add(manifest.name)
+                    if by_desktop[0] in java_caused:
+                        java_caused.add(manifest.name)
+                    else:
+                        desktop_caused.add(manifest.name)
                 else:
                     deferred[manifest.name] = _target_deferral(manifest.name, wanted, why)
                 changed = True

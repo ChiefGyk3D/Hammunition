@@ -1,0 +1,4 @@
+- **A publisher outage at plan time retries, then defers by name instead of
+- **FCC ASR construction-date field deliberately not read** (#221, D-075).
+- **The engine's own GPS tether copy retired; the ACMA Bunker ruling recorded**
+- **HydraSDR RFOne and RigExpert Fobos SDR: host software and device entries,
