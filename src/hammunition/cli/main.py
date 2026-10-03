@@ -2410,7 +2410,10 @@ def cmd_maps_repeaters_fetch_hearham(args: argparse.Namespace) -> int:
         with tempfile.TemporaryDirectory(prefix="hammunition-hearham-") as scratch:
             staged = Path(scratch) / "hearham.json"
             staged.write_bytes(body)
-            parsed = repeaters.read_input(staged)
+            try:
+                parsed = repeaters.read_input(staged)
+            except repeaters.RepeaterInputError as exc:
+                raise repeaters.RepeaterInputError(f"{source}: {exc}") from None
         if parsed.format != repeaters.HEARHAM:
             raise repeaters.RepeaterInputError(
                 f"{source} answered with something other than its repeater list ({parsed.format})"

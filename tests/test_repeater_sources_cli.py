@@ -652,3 +652,15 @@ def test_from_osm_with_the_real_osmium_over_a_synthetic_extract(
     assert code == 0, out
     assert "Written: 4 repeaters" in out
     _no_private(out)
+
+
+def test_both_sources_failing_names_both_reasons_and_the_publisher_url(
+    station: Station,
+    served: type[_Handler],
+    mirror: type[_Mirror],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    served.body = b"<html>a login page</html>"
+    code, _, err = _run(["maps", "repeaters", "fetch-etcc"], capsys)
+    assert code == cli.EXIT_FAILED and "the LAN mirror had failed first" in err
+    assert "Nothing was written" in err

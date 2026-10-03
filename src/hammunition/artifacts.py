@@ -23,6 +23,7 @@ Pure apart from the injected probes.
 
 from __future__ import annotations
 
+import http.client
 from collections.abc import Mapping, Sequence
 from datetime import date
 from pathlib import Path
@@ -272,7 +273,7 @@ def _snapshots(probe: SnapshotProbe | None) -> list[ArtifactEntry]:
             continue
         try:
             size = probe.size(snap.url)
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, http.client.HTTPException) as exc:
             out.append(
                 _deferred(
                     SNAPSHOT_UNIT, snap.name, snap.position, f"its size could not be read: {exc}"

@@ -361,6 +361,17 @@ def test_the_on_request_repeater_lists_are_listed_unverified_for_a_bunker(
     assert [e.size for e in entries] == [62_000, None, None]
 
 
+def test_a_head_that_raises_an_http_error_defers_rather_than_crashing(tmp_path: Path) -> None:
+    import http.client
+
+    class Broken:
+        def size(self, url: str) -> int | None:
+            raise http.client.BadStatusLine("garbage")
+
+    entries = _snapshots(tmp_path, Broken())  # type: ignore[arg-type]
+    assert len(entries) == 3 and all(e.deferred is not None for e in entries)
+
+
 def test_an_on_request_list_whose_size_cannot_be_read_is_deferred_by_name(
     tmp_path: Path,
 ) -> None:

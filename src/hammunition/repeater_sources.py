@@ -251,7 +251,7 @@ class SnapshotHead:
             raise OSError(f"no handler would ask {url!r}")
         with response:
             length = response.headers.get("Content-Length") or ""
-            return int(length) if length.isdigit() else None
+            return int(length) if length.isdecimal() else None
 
 
 @dataclass(frozen=True)
@@ -298,11 +298,17 @@ def read_snapshot(
             return SnapshotRead(parsed, digest, when, "mirror", where, None)
         except (repeaters.RepeaterFetchError, repeaters.RepeaterInputError) as exc:
             failure = str(exc)
-    body, digest, when = get(snapshot.url, limit=snapshot.limit)
     try:
-        parsed = parse(body, snapshot.url)
-    finally:
-        del body
+        body, digest, when = get(snapshot.url, limit=snapshot.limit)
+        try:
+            parsed = parse(body, snapshot.url)
+        finally:
+            del body
+    except (repeaters.RepeaterFetchError, repeaters.RepeaterInputError) as exc:
+        if failure is None:
+            raise
+        # Both sources failed: say so, the mirror's reason too.
+        raise type(exc)(f"{exc} (the LAN mirror had failed first: {failure})") from None
     return SnapshotRead(parsed, digest, when, "publisher", snapshot.url, failure)
 
 

@@ -9816,8 +9816,10 @@ lists the three on-request repeater lists (`etcc.csv`, `brandmeister.json`,
 `hearham.json`) under the unit `repeater-snapshots` (not a catalog unit: nothing
 is installed from it; it is listed by default and when named with `--units`),
 check `unverified-fetch` in the contract: `digest` null, `url` the publisher's,
-`size` from one `HEAD` (null when the server states none, deferred only when it
-does not answer), `licence` the project's position text, never a licence. The
+`size` from one `HEAD` (null when the server answers with an error or states no
+length, deferred when it does not answer at all). The default listing therefore
+sends three `HEAD`s, to ukrepeater.net, Brandmeister and hearham, as the ACMA
+probe sends one, `licence` the project's position text, never a licence. The
 check is size and date only; nothing a mirror serves under that name can be
 verified, and everything read from one is marked unverified, as when read from
 the publisher.
