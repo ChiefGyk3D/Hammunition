@@ -254,6 +254,7 @@ class TopoQuadsBackend:
                     detail=str(dest),
                     perform=partial(self._install, quad, fetched, dest, writer),
                     requires_root=writer.privileged,
+                    facts={"size": str(quad.size)},
                 )
             )
         for entry in self.resolution.regions:

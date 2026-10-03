@@ -177,6 +177,7 @@ class FsTopoBackend:
                     detail=str(dest),
                     perform=partial(self._install, sheet, fetched, dest, writer),
                     requires_root=writer.privileged,
+                    facts={"size": str(sheet.size)},
                 )
             )
         for entry in self.resolution.regions:

@@ -1090,7 +1090,7 @@ With `--json`, prints a `profile` document
 document carrying its manifest; the text `show` still describes profiles
 only.
 
-### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--full] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
+### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--recheck] [--full] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
 **A re-run rebuilds nothing it has already built** (**D-051**): a source, git
 or prebuilt-archive unit whose binaries are on the machine *and* whose build
@@ -1107,6 +1107,7 @@ Names may be packages or profiles, mixed freely.
 | `--yes` | Skip the confirmation. **Does not satisfy a consent gate** (D-021). Also suppresses the station prompt |
 | `--no-refresh` | Skip the `apt-get update` that otherwise opens every transaction with apt work (**D-044**). For a local mirror, or a station with no uplink. `--refresh` is the default and still parses |
 | `--no-sudo-keepalive` | Do not hold sudo's ticket for the run (**D-062**). By default a run as a user that mixes root steps with steps that are not asks the password once, by `sudo -v`, before the first step, and keeps the ticket valid with `sudo -n -v` every 4 minutes until the run ends. With this flag each root step asks for itself, and one that follows a long step may prompt again. `--sudo-keepalive` is the default and still parses |
+| `--recheck` | Ask every data item's publisher at plan time, including installed items the transaction log attributes. Without it those are trusted for 7 days (`attributed.RECHECK_AFTER_DAYS`): the plan prints `N installed data item(s) were not re-checked against their publishers` with the oldest attribution date, `--json` carries a `publisher_checks` line per item with `checked: false` and the reason, and an item attributed 7 or more days ago, or whose file is not the one the log recorded, is asked again. A re-check that fails is a `note:`, never a refusal; the real run verifies everything it fetches either way (**D-049**, #197) |
 | `--no-mirror` | Ignore the LAN mirror set in station config for this run (**D-070**): every data download comes from its publisher. With no mirror set it changes nothing |
 | `--full` | Print every step of the plan expanded. Without it, a run of steps that repeat one template for many items (a US Topo sheet, a terrain tile, a Kiwix book) is printed as the template with `<placeholders>`, the first item written out in full, every item's own values on a line, and the totals; `--dry-run --full` prints the plan exactly as it was before grouping (**D-016**, amended 2026-10-02). `--json` always carries every step, with or without it |
 | `--user NAME` | Who to add to groups. Defaults to `$SUDO_USER`, then `$USER` |

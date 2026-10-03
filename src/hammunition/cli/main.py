@@ -47,6 +47,7 @@ from typing import TYPE_CHECKING, NoReturn, TextIO, cast
 
 from hammunition import navit_config
 from hammunition.acma import AcmaProbe
+from hammunition.attributed import PublisherChecks
 from hammunition.backends import (
     Action,
     AptBackend,
@@ -3482,6 +3483,10 @@ def cmd_install(args: argparse.Namespace) -> int:
     # a unit the operator typed.
     outlines = MemoProbe(RetryingProbe(UrllibProbe()))
     outages = Outages()
+    # #197: what the log attributes as installed is not asked of its publisher
+    # again for a week (`--recheck` asks every one); the real run verifies
+    # whatever it fetches either way.
+    checks = PublisherChecks.from_log(read_log, recheck=args.recheck)
     POLICY.reset()
     try:
         dem_resolution = resolve_station_terrain(
@@ -3492,6 +3497,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             region_probe=outlines,
             tile_probe=RetryingProbe(S3Probe()),
             outages=outages,
+            checks=checks,
         )
     except CopernicusError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3509,6 +3515,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             region_probe=outlines,
             quad_probe=RetryingProbe(ustopo_probe()),
             outages=outages,
+            checks=checks,
         )
     except UstopoError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3528,6 +3535,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             region_probe=outlines,
             tile_probe=RetryingProbe(ustopo_probe()),
             outages=outages,
+            checks=checks,
         )
     except CopernicusError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3543,6 +3551,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             region_probe=outlines,
             gateway=GatewayProbe(),
             outages=outages,
+            checks=checks,
         )
     except FstopoError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -3563,6 +3572,7 @@ def cmd_install(args: argparse.Namespace) -> int:
                 installed=data_root(source.prefix) / book_units[0].name,
                 head=retrying_head(KiwixProbe().head),
                 on_outage=reporter_for(outages, book_units[0]),
+                checks=checks,
             )
         except KiwixError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -3579,6 +3589,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         else False,
     )
     region_notes = list(resolution.notes)
+    region_notes.extend(checks.notes())
     region_notes.extend(topo_notes)
     region_notes.extend(bare_notes)
     region_notes.extend(fstopo_notes)
@@ -3596,6 +3607,7 @@ def cmd_install(args: argparse.Namespace) -> int:
                 installed=data_root(source.prefix) / mwm_units[0].name,
                 head=retrying_head(CdnProbe().head),
                 on_outage=reporter_for(outages, mwm_units[0]),
+                checks=checks,
             )
         except ComapsError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -3885,6 +3897,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         suggestion_notes=suggestion_notes,
         maps=maps,
         region_notes=region_notes,
+        publisher_checks=checks.lines,
         terrain=terrain_view,
         sudo_keepalive=args.sudo_keepalive,
         mirror=station.mirror,
@@ -6933,6 +6946,15 @@ def build_parser() -> argparse.ArgumentParser:
             "print every step of the plan expanded; without it a run of steps that "
             "repeat one template for many items (a sheet, a tile, a book) is shown "
             "as the template, one example, every item and the totals (D-016)"
+        ),
+    )
+    p_install.add_argument(
+        "--recheck",
+        action="store_true",
+        help=(
+            "ask every data item's publisher at plan time, including the installed "
+            "ones the log attributes (otherwise those are trusted for 7 days; "
+            "#197, D-049)"
         ),
     )
     p_install.add_argument(

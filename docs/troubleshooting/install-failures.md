@@ -18,7 +18,12 @@ answer (size, checksum) is part of what the plan tells you. On a terminal it
 says so on stderr (`checking 412 terrain tiles … (needs the network)…`) with a
 count. If you see nothing at all, stderr is not a terminal; run it with
 `HAMMUNITION_PROGRESS=1` in front, or in a terminal rather than through a pipe
-or a log. A tile already installed is not asked about. With the network down
+or a log. A repeat dry run is fast now: an item already installed that the transaction
+log attributes to the engine is not asked about again for seven days (the plan
+says `N installed data item(s) were not re-checked`, and `--json` lists each in
+`publisher_checks`), and only a first install or an older attribution costs the
+requests. `hammunition install … --recheck` asks every publisher regardless, for
+when you suspect one re-issued a file. With the network down
 a request that cannot connect is retried, then the host is given up on after
 three such failures in a row and each remaining request is asked once (a
 publisher answering 503 for everything is treated the same); a blackholed

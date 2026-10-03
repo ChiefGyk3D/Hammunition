@@ -31,6 +31,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .attributed import PublisherChecks, recheck_installed
 from .backends.fstopo import FsTopoResolution, RegionSheets
 from .backends.fstopo import read_record as read_sheets
 from .backends.regions import MapResolution, data_root
@@ -117,6 +118,7 @@ def resolve_topo(
     region_probe: Probe,
     quad_probe: TileProbe,
     on_outage: OnOutage | None = None,
+    checks: PublisherChecks | None = None,
 ) -> tuple[TopoResolution, tuple[str, ...]]:
     """*regions* as ``(region, slug)`` pairs resolved to the sheets they
     need and how each is fetched, and any notes for the plan.
@@ -157,6 +159,15 @@ def resolve_topo(
             current.append(quad)
         else:
             todo.append(quad)
+    recheck_installed(
+        checks,
+        installed.name,
+        current,
+        name=lambda quad: quad.name,
+        path=lambda quad: installed / f"{quad.name}{TIF}",
+        check=lambda quad: check_quad(quad, quad_probe),
+        label="installed US Topo sheets against the USGS bucket",
+    )
     outcomes = run_checks(
         todo,
         lambda quad: check_quad(quad, quad_probe),
@@ -199,6 +210,7 @@ def resolve_station_topo(
     region_probe: Probe,
     quad_probe: TileProbe,
     outages: Outages | None = None,
+    checks: PublisherChecks | None = None,
 ) -> tuple[TopoResolution, tuple[str, ...]]:
     """The plan's US Topo sheets, or an empty resolution when it holds no
     ``topo-quads`` unit. A missing or empty index is refused by name. With
@@ -218,6 +230,7 @@ def resolve_station_topo(
         region_probe=region_probe,
         quad_probe=quad_probe,
         on_outage=reporter_for(outages, unit),
+        checks=checks,
     )
 
 
@@ -266,6 +279,7 @@ def resolve_fstopo(
     region_probe: Probe,
     gateway: GatewayProbe,
     on_outage: OnOutage | None = None,
+    checks: PublisherChecks | None = None,
 ) -> tuple[FsTopoResolution, tuple[str, ...]]:
     """*regions* resolved to the FSTopo sheets they need; every sheet not
     installed is located through the gateway and sized, and checked against
@@ -304,6 +318,15 @@ def resolve_fstopo(
             current.append(quad)
         else:
             todo.append((secoord, quad))
+    recheck_installed(
+        checks,
+        installed.name,
+        current,
+        name=lambda quad: quad.name,
+        path=lambda quad: installed / f"{quad.name}{TIF}",
+        check=lambda quad: gateway.locate(quad.secoord),
+        label="installed FSTopo sheets against the Forest Service gateway",
+    )
     # Each sheet is two requests (the gateway's redirect, then the file's size).
     outcomes = run_checks(
         todo,
@@ -366,6 +389,7 @@ def resolve_station_fstopo(
     region_probe: Probe,
     gateway: GatewayProbe,
     outages: Outages | None = None,
+    checks: PublisherChecks | None = None,
 ) -> tuple[FsTopoResolution, tuple[str, ...]]:
     """The plan's FSTopo sheets, or nothing when it holds no ``usfs-fstopo``
     unit. A missing index or a malformed pins file is refused by name."""
@@ -398,4 +422,5 @@ def resolve_station_fstopo(
         region_probe=region_probe,
         gateway=gateway,
         on_outage=reporter_for(outages, unit),
+        checks=checks,
     )
