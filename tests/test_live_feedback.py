@@ -206,4 +206,6 @@ def test_the_status_line_never_draws_over_a_sudo_prompt(tmp_path: Path) -> None:
     between = out[prompt:first]
     assert between.count("\x1b[2K") == 1, "only the first draw's own erase, after the prompt"
     assert between.endswith(ERASE)
-    assert len(STATUS.findall(out)) >= 2, "the status line appears once the command prints"
+    shown = STATUS.findall(out)
+    assert len(shown) >= 2, "the status line appears once the command prints"
+    assert all(text for _, text in shown), "a line drawn before any output erases the prompt"
