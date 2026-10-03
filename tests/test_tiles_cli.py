@@ -92,6 +92,70 @@ def test_a_disk_short_of_the_tiles_needs_names_their_factors(
     assert "vector-tile maps" in err and "not measured" in err
 
 
+def test_the_books_disk_check_counts_tiles_in_the_same_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from dataclasses import replace
+
+    from hammunition.backends.kiwix import books_shortfall
+    from hammunition.backends.terrain import combined_shortfall
+    from hammunition.kiwix import KiwixProbe
+    from hammunition.station import load_station, save_station
+    from hammunition.tiles_plan import TilesRun
+
+    cli = _machine(monkeypatch, tmp_path, "3.0.0-1")
+    catalog = Path(_catalog(tmp_path))
+    shutil.copy(REPO / "catalog" / "packages" / "kiwix-library.yaml", catalog / "packages")
+    shutil.copytree(REPO / "catalog" / "data", catalog / "data", dirs_exist_ok=True)
+    station_path = tmp_path / "xdg_config_home" / "hammunition" / "station.yml"
+    save_station(
+        replace(load_station(station_path), reference_books=("ham.stackexchange.com_en_all",)),
+        path=station_path,
+    )
+    monkeypatch.setattr(KiwixProbe, "head", lambda self, url: 200)
+    monkeypatch.setattr(
+        TilesRun, "needs", lambda self, plan, *, prefix: {tmp_path / "tile-needs": 58}
+    )
+
+    tile_needs: dict[Path, int] = {}
+    combined = combined_shortfall
+
+    def allow_combined(maps: Any, terrain: Any, **kwargs: Any) -> str | None:
+        nonlocal tile_needs
+        tile_needs = kwargs["tiles"]
+        return combined(maps, terrain, free_at=lambda _path: 10**18, **kwargs)
+
+    monkeypatch.setattr(cli, "combined_shortfall", allow_combined)
+    shortfall = books_shortfall
+    expected: dict[str, int] = {}
+
+    def check_books(needs: Any, others: Any) -> str | None:
+        extras = others or {}
+        tiles = sum(tile_needs.values())
+        assert tiles > 0
+        tile_amount_already_counted = sum(
+            min(extras.get(path, 0), amount) for path, amount in tile_needs.items()
+        )
+        free = sum(needs.values()) + sum(extras.values()) - tile_amount_already_counted
+        expected.update(free=free, tiles=tiles)
+        return shortfall(needs, others, free_at=lambda _path: free, device_of=lambda _path: 1)
+
+    monkeypatch.setattr(cli, "books_shortfall", check_books)
+    argv = [
+        "--catalog",
+        str(catalog),
+        "install",
+        "--dry-run",
+        "osm-pmtiles",
+        "kiwix-library",
+    ]
+    assert cli.main(argv) == 2
+    err = capsys.readouterr().err
+    assert "not enough disk space for the reference books" in err
+    assert f"({expected['free'] + expected['tiles']} bytes) is needed" in err
+    assert f"({expected['free']} bytes) is free" in err
+
+
 def test_update_names_the_tiles_in_the_rebuild_command() -> None:
     from hammunition.update import BEHIND_PIN, UpdateReport, UpdateRow, rebuild_command
 

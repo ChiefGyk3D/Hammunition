@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 104 | 2 | 214 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 102 | 2 | 216 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 101 | 3 | 216 |
-| kali-rolling *(unswept)* | 0 | 0 | 95 | 1 | 224 |
-| parrot *(unswept)* | 0 | 0 | 102 | 2 | 216 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 101 | 3 | 216 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 99 | 7 | 214 |
+| debian-13 *(unswept)* | 0 | 0 | 105 | 2 | 214 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 103 | 2 | 216 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 102 | 3 | 216 |
+| kali-rolling *(unswept)* | 0 | 0 | 96 | 1 | 224 |
+| parrot *(unswept)* | 0 | 0 | 103 | 2 | 216 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 102 | 3 | 216 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 100 | 7 | 214 |
 
-**320 manifests** against **7 targets**.
+**321 manifests** against **7 targets**.
 
 ---
 
@@ -330,6 +330,7 @@ build HAS been run in a container say so in their own install notes.
 | `svxlink-gpio` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `svxlink-server` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `svxreflector` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `tar1090` | data | data | data | data | data | data | data |
 | `tcpdump` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `tempest-for-eliza` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `thunderbird` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
