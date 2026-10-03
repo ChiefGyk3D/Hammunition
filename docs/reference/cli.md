@@ -1115,7 +1115,7 @@ its manifest. Names are resolved against profiles first, then units, so a
 profile wins if the same name exists in both. The text form still describes
 profiles only.
 
-### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--recheck] [--full] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
+### `hammunition install NAME... [--dry-run] [--yes] [-v|--verbose] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--recheck] [--full] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
 **A re-run rebuilds nothing it has already built** (**D-051**): a source, git
 or prebuilt-archive unit whose binaries are on the machine *and* whose build
@@ -1126,10 +1126,37 @@ build steps -- is rebuilt, because nothing confirmed it.
 
 Names may be packages or profiles, mixed freely.
 
+**What a running command shows** (**#270**). Each step prints its `$` line. On a
+terminal, a command that runs longer than two seconds gets one status line
+under it, rewritten in place every second:
+
+```
+  $ git -C … submodule update --init --recursive --depth 1
+    this step can take several minutes
+  … 1m 42s  Receiving objects:  41% (3120/7600), 612.00 MiB | 4.10 MiB/s
+```
+
+It shows the time the command has been running and the last line it printed
+(colour and control characters removed, cut to the terminal's width), and is
+erased when the command ends. Nothing is added when stdout is not a terminal
+(a pipe, CI, a file), so a transcript there is what it was. With `--verbose`
+every output line is written as it arrives instead, indented under the `$`
+line, on a terminal or not. The sudo keepalive's warnings (**D-062**) go
+through the same writer, so they cannot land in the middle of the status line.
+Neither mode changes the run log (**D-077**): it holds every line of every
+command either way, and what the terminal shows is never written into it.
+
+`this step can take several minutes` is printed under a step the backend knows
+is long: a git block's submodule fetch, a `cmake`, `make` or `qmake` compile, a
+virtualenv's `pip install`, a node build. The plan prints the same line under
+those steps (`StepView.long_running` in `--json`). It states no duration; none
+has been measured.
+
 | Flag | Effect |
 |---|---|
 | `--dry-run` | Resolve everything, print exactly what would run, change nothing |
 | `--yes` | Skip the confirmation. **Does not satisfy a consent gate** (D-021). Also suppresses the station prompt |
+| `-v`, `--verbose` | Stream every line each command prints, as it arrives, in place of the status line described below (**#270**). The run log is the same either way |
 | `--no-refresh` | Skip the `apt-get update` that otherwise opens every transaction with apt work (**D-044**). For a local mirror, or a station with no uplink. `--refresh` is the default and still parses |
 | `--no-sudo-keepalive` | Do not hold sudo's ticket for the run (**D-062**). By default a run as a user that mixes root steps with steps that are not asks the password once, by `sudo -v`, before the first step, and keeps the ticket valid with `sudo -n -v` every 4 minutes until the run ends. With this flag each root step asks for itself, and one that follows a long step may prompt again. `--sudo-keepalive` is the default and still parses |
 | `--recheck` | Ask every data item's publisher at plan time, including installed items the transaction log attributes. Without it those are trusted for 7 days (`attributed.RECHECK_AFTER_DAYS`): the plan prints `N installed data item(s) were not re-checked against their publishers` with the oldest attribution date, `--json` carries a `publisher_checks` line per item with `checked: false` and the reason, and an item attributed 7 or more days ago, or whose file is not the one the log recorded, is asked again. A re-check that fails is a `note:`, never a refusal; the real run verifies everything it fetches either way (**D-049**, #197) |
@@ -1442,7 +1469,7 @@ in your home and the station's map regions, so the document is for a local
 program, not for pasting into an issue. It never carries a rendered
 configuration file, so the callsign in one is not in it.
 
-### `hammunition uninstall NAME... [--dry-run] [--yes] [--user NAME]`
+### `hammunition uninstall NAME... [--dry-run] [--yes] [-v|--verbose] [--user NAME]`
 
 Removes what Hammunition itself installed, and only that (**D-004**). Names
 may be packages or profiles, mixed freely.
@@ -1455,6 +1482,7 @@ line before starting each step.
 |---|---|
 | `--dry-run` | Resolve the removal, print exactly what would run, change nothing |
 | `--yes` | Skip the confirmation |
+| `-v`, `--verbose` | Stream every output line as it arrives; see `install` |
 | `--user NAME` | Whose transaction log to read. Defaults to `$SUDO_USER`, then `$USER` |
 
 "Installed by Hammunition" is read from the transaction log, by replaying the

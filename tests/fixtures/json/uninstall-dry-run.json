@@ -76,7 +76,8 @@
         "action": null,
         "requires_root": true,
         "sources": [],
-        "index": 1
+        "index": 1,
+        "long_running": false
       },
       {
         "description": "Remove fixture-source's installed binary (log)",
@@ -90,7 +91,8 @@
         "action": null,
         "requires_root": false,
         "sources": [],
-        "index": 2
+        "index": 2,
+        "long_running": false
       }
     ]
   }
