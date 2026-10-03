@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**321 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**322 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -301,12 +301,13 @@ Contact logging, awards tracking, Logbook of the World and the lookups a log nee
 - [tucnak](tucnak.md) — VHF and above contest logger, built around locator scoring and networking
 - [xlog](xlog.md) — Small GTK station log that opens instantly and does the basics well
 
-### `mesh` — 2
+### `mesh` — 3
 
 Meshtastic, MeshCore and Reticulum: off-grid text over LoRa.
 
 - [gtk-meshtastic-client](gtk-meshtastic-client.md) — Desktop GUI for Meshtastic nodes
 - [python3-meshtastic](python3-meshtastic.md) — Meshtastic command-line client and Python API
+- [rns](rns.md) — Reticulum, encrypted networking over any medium, with its shared instance and the RNode flasher
 
 ### `morse-training` — 11
 
@@ -970,6 +971,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [readsb](readsb.md) | Efficient Mode S and ADS-B decoder — the maintained dump1090 successor | apt |
 | [remotetrx](remotetrx.md) | Puts an SvxLink receiver or transceiver at the end of a network link | apt |
 | [rig-service](rig-service.md) | One shared rigctld for the station's rig, as a systemd user service | apt |
+| [rns](rns.md) | Reticulum, encrypted networking over any medium, with its shared instance and the RNode flasher | venv |
 | [routino](routino.md) | Offline routing over OpenStreetMap data, on foot, by bike or by car | apt |
 | [rtl-433](rtl-433.md) | Decoder for the unlicensed ISM bands — weather stations, sensors, tyre monitors | apt |
 | [rtl-ais](rtl-ais.md) | Receives both AIS channels at once from one cheap dongle | apt |
