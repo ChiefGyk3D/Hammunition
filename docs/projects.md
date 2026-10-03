@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**321 programs and packages** from the catalog, laid out the way the
+**322 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -653,6 +653,7 @@ The machine the station runs on.
 | [code](packages/code.md) | Microsoft's Visual Studio Code build — optional alternative to the VSCodium your distro ships | [code.visualstudio.com](https://code.visualstudio.com/) |
 | [codium](packages/codium.md) | VSCodium — Microsoft's VS Code source, built without their telemetry or branding | [vscodium.com](https://vscodium.com/) |
 | [git](packages/git.md) | Distributed version control — the tool this project is distributed with | [git-scm.com](https://git-scm.com/) |
+| [hammunition-console](packages/hammunition-console.md) | A terminal front end for the engine -- install, station, logs and updates in one full-screen program | [github.com/ChiefGyk3D/hammunition-console](https://github.com/ChiefGyk3D/hammunition-console) |
 | [pipx](packages/pipx.md) | Installs Python applications in their own environments, on the PATH | [github.com/pypa/pipx](https://github.com/pypa/pipx) |
 | [screen](packages/screen.md) | Terminal multiplexer, and the serial console of last resort | [gnu.org/software/screen](https://www.gnu.org/software/screen/) |
 | [tmux](packages/tmux.md) | Terminal multiplexer for sessions that outlive the connection | [github.com/tmux/tmux](https://github.com/tmux/tmux) |
