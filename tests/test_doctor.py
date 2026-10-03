@@ -11,6 +11,7 @@ value of the command.
 from __future__ import annotations
 
 import os
+import shutil
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,7 +19,15 @@ from typing import Any
 
 import pytest
 
-from hammunition.doctor import Check, run_checks, summarize, writable_or_creatable
+from hammunition.doctor import (
+    Check,
+    RigStatus,
+    rig_checks,
+    run_checks,
+    summarize,
+    writable_or_creatable,
+)
+from hammunition.geoclue import GeoClueState
 from hammunition.gpstime.state import TimeState
 
 HEALTHY: dict[str, object] = {
@@ -70,6 +79,7 @@ def test_missing_venv_is_a_warn_with_the_apt_fix() -> None:
     venv = _by_name(checks)["python venv"]
     assert venv.status == "warn"
     assert venv.fix is not None and "python3-venv" in venv.fix
+    assert venv.fix_argv == ["sudo", "apt", "install", "python3-venv"]
 
 
 def test_unset_station_is_a_warn_not_a_fail() -> None:
@@ -83,13 +93,53 @@ def test_missing_groups_are_named() -> None:
     groups = _by_name(checks)["device groups"]
     assert groups.status == "warn"
     assert "dialout" in groups.detail and "plugdev" not in groups.detail
+    assert groups.fix_argv == ["hammunition", "hardware", "apply"]
 
 
 def test_unapplied_udev_is_info_not_warn() -> None:
     checks = run_checks(**{**HEALTHY, "rules_applied": False})  # type: ignore[arg-type]
-    assert _by_name(checks)["udev rules"].status == "info"
+    udev = _by_name(checks)["udev rules"]
+    assert udev.status == "info"
+    assert udev.fix_argv == ["hammunition", "hardware", "apply"]
     # info never contributes to the blocking or warning counts
     assert summarize(checks)[:2] == (0, 0)
+
+
+def test_every_single_command_fix_starts_with_a_program_available_on_path() -> None:
+    checks = run_checks(
+        **{  # type: ignore[arg-type]
+            **HEALTHY,
+            "has_venv_module": False,
+            "tools": {"cc": False, "git": False},
+            "groups_now": frozenset(),
+            "rules_applied": False,
+            "run_logs": (1, 0, "latest", "succeeded"),
+            "qmapshack_without_translations": True,
+            "gps_resume": "absent",
+            "geoclue_state": GeoClueState(True, True, "absent", None),
+            "time_state": replace(TIME, grants=False, following="unknown"),
+            "rig": RigStatus(configured=True, service_state="absent"),
+        }
+    )
+    checks.extend(rig_checks(RigStatus(configured=True, service_state="failed")))
+    checks.extend(rig_checks(RigStatus(configured=True, service_state="active", answering=False)))
+    checks.extend(
+        run_checks(
+            **{  # type: ignore[arg-type]
+                **HEALTHY,
+                "engine_on_path": "/other/checkout/.venv/bin/hammunition",
+                "engine_found_link": "/other/checkout/.venv/bin/hammunition",
+            }
+        )
+    )
+
+    for check in checks:
+        if check.fix_argv is not None:
+            program = check.fix_argv[0]
+            assert program in {"hammunition", "sudo"} or shutil.which(program), (
+                check.name,
+                check.fix_argv,
+            )
 
 
 def test_a_readonly_state_dir_warns() -> None:
@@ -249,6 +299,7 @@ def test_hammunition_from_another_checkout_is_a_warn_with_the_quoted_switch() ->
     check = _by_name(checks)["hammunition"]
     assert check.status == "warn" and other in check.detail
     assert check.fix == f"ln -sfn '{expected}' {local}"
+    assert check.fix_argv == ["ln", "-sfn", expected, local]
 
 
 def test_a_foreign_file_in_local_bin_is_named_never_replaced() -> None:
@@ -310,6 +361,7 @@ def test_qmapshack_without_routino_translations_warns_with_the_fix() -> None:
     assert check.status == "warn"
     assert "/usr/share/routino/translations.xml" in check.detail
     assert check.fix == "sudo apt-get install --reinstall routino-common"
+    assert check.fix_argv == ["sudo", "apt-get", "install", "--reinstall", "routino-common"]
     assert not [c for c in run_checks(**HEALTHY) if c.name == "qmapshack"]  # type: ignore[arg-type]
 
 
@@ -369,7 +421,8 @@ def test_never_synchronised_warns() -> None:
 
 def test_missing_grants_warn_with_hardware_apply() -> None:
     checks = _time_checks(grants=False)
-    assert any(c.status == "warn" and c.fix == "hammunition hardware apply" for c in checks)
+    check = next(c for c in checks if c.status == "warn" and c.fix == "hammunition hardware apply")
+    assert check.fix_argv == ["hammunition", "hardware", "apply"]
 
 
 def test_a_target_without_ntpsec_is_stated_not_failed() -> None:
