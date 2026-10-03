@@ -180,14 +180,21 @@ the wake ([bench record](../reference/bench-verification-5430.md)). That run
 used the engine's own copy of the helper and the applet before the Controls
 panel and hammunition-tray 0.5.0's helper existed.
 
-**Not measured.** The Controls panel itself, and everything under it: the
-tray's helper with the `services` and `radio` verbs has been exercised
-against fakes only, never against a real `systemctl`, NetworkManager or BlueZ
-(and whether a modem ModemManager has disabled is still listed by `nmcli` is
-open). The engine's install of the tray's helper as root on a real machine,
-that Plasma lists an applet placed without a `.deb`, the polkit prompt for a
-system service, the Xfce, LXQt, LXDE, MATE and Cinnamon trays, and every
-park of a modem, a Bluetooth controller or a camera are all unrun. A device
+**Measured** (field laptop, 2026-10-02 and 03, bench session 13): the
+engine's install of the tray's helper as root on a real machine, which left
+`hammunition-devctl contract 1` answering `--version` and the applet's
+directory in place; the helper's read-only views against the real system
+(`state` listing four devices, `radio state` through `nmcli` and
+`bluetoothctl`, `services state`), and `hammunition services` listing gpsd,
+time, the resume step and the tether. The applet survived a reboot on disk
+and logged no QML error of its own.
+
+**Not measured.** The Controls panel on screen, and every change made from
+it: a service started or stopped, a radio toggled, a polkit prompt for a
+system service, and whether a modem ModemManager has disabled is still listed
+by `nmcli` (open). That Plasma lists an applet placed without a `.deb` has
+not been seen either. The Xfce, LXQt, LXDE, MATE and Cinnamon trays, and
+every park of a modem, a Bluetooth controller or a camera are unrun. A device
 kept off across a reboot, which the panel shows as "kept off", is built and
 has not been rebooted on hardware. Treat each as an expectation from the
 design until the bench page says otherwise.

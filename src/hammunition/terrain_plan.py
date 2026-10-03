@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
 
+from .attributed import PublisherChecks, recheck_installed
 from .backends.base import CommandRunner
 from .backends.brouter import JAR_GLOB, BRouterConverter, InputPins
 from .backends.brouter import Source as BRouterSource
@@ -77,8 +78,10 @@ from .manifest.schema import BinaryInstall, DemTilesInstall, DerivedDataInstall,
 from .plan import InstallPlan, PlannedPackage
 from .progress import run_checks
 from .retry import OnOutage, Outages, PublisherUnavailable, hint_for, reporter_for
+from .topo_bound import ALL, TopoBound
 from .usgs3dep import TileRow, check_tile, tile_url
 from .usgs3dep import load_tile_list as load_threedep_list
+from .usgs3dep import square_of as threedep_square
 from .usgs3dep import tile_name as threedep_name
 
 
@@ -107,6 +110,7 @@ def resolve_terrain(
     region_probe: Probe,
     tile_probe: TileProbe,
     on_outage: OnOutage | None = None,
+    checks: PublisherChecks | None = None,
 ) -> DemResolution:
     """*regions* as ``(region, slug)`` pairs -- this run's and the kept ones --
     resolved to the tiles they need and how each is fetched. A pair named
@@ -146,6 +150,18 @@ def resolve_terrain(
                 raise CopernicusError(f"{tile.url} answered HTTP {status}, not 200")
         return tile
 
+    # #197: an installed tile the log attributes is not asked again until the
+    # attribution is a week old; a failed re-check is a note, never a refusal.
+    recheck_installed(
+        checks,
+        installed.name,
+        current,
+        name=lambda tile: tile,
+        path=lambda tile: installed / f"{tile}{TIF}",
+        check=check,
+        label="installed terrain tiles against the Copernicus DEM bucket",
+    )
+
     fetch: list[TileFile] = []
     deferred: list[str] = []
     outcomes = run_checks(todo, check, label="terrain tiles against the Copernicus DEM bucket")
@@ -184,8 +200,10 @@ def resolve_bare_earth(
     region_probe: Probe,
     tile_probe: TileProbe,
     on_outage: OnOutage | None = None,
+    checks: PublisherChecks | None = None,
+    bound: TopoBound = ALL,
 ) -> DemResolution:
-    """*regions* resolved to their USGS 3DEP tiles (D-068, amended
+    """*regions* resolved to their USGS 3DEP tiles, under *bound* (issue #232) (D-068, amended
     2026-10-01): each region's record, else its outline's squares named by
     their north-west corner and kept where the carried list has a tile; then
     every tile not installed HEAD-checked against the list's size and ETag.
@@ -197,8 +215,10 @@ def resolve_bare_earth(
         if (region, slug) in seen:
             continue
         seen.add((region, slug))
+        if bound.mode == "none" or not bound.wants_region(region):
+            continue
         recorded = read_record(installed / f"{slug}{TILES}", region, slug)
-        if recorded is not None:
+        if recorded is not None and recorded.bound == bound.token:
             entries.append(recorded)
             continue
         try:
@@ -214,7 +234,12 @@ def resolve_bare_earth(
             continue
         names = {threedep_name(square) for square in squares_touching(outer, holes)}
         found = tuple(sorted(name for name in names if name in tiles))
-        entries.append(RegionTiles(region, slug, found, len(names) - len(found)))
+        unpublished = len(names) - len(found)
+        found = tuple(name for name in found if bound.keeps(tile_box(name)))
+        if not found and unpublished and bound.token != "all":
+            # Left out by the bound, not unpublished: never "no terrain here".
+            unpublished = 0
+        entries.append(RegionTiles(region, slug, found, unpublished, bound.token))
     wanted = sorted({name for entry in entries for name in entry.tiles})
     current = [name for name in wanted if (installed / f"{name}{TIF}").is_file()]
     held = set(current)
@@ -232,6 +257,16 @@ def resolve_bare_earth(
             raise CopernicusError(absent)
         check_tile(row, tile_probe)
         return row
+
+    recheck_installed(
+        checks,
+        installed.name,
+        current,
+        name=lambda tile: tile,
+        path=lambda tile: installed / f"{tile}{TIF}",
+        check=check,
+        label="installed 3DEP terrain tiles against the USGS bucket",
+    )
 
     outcomes = run_checks(todo, check, label="3DEP terrain tiles against the USGS bucket")
     for name, outcome in zip(todo, outcomes, strict=True):
@@ -273,6 +308,35 @@ def copernicus_chosen_note(unit: str) -> str:
     )
 
 
+@dataclass(frozen=True)
+class _TileBox:
+    south: float
+    west: float
+    north: float
+    east: float
+
+
+def tile_box(name: str) -> _TileBox:
+    """The degree square a 3DEP tile covers, as a box."""
+    lat, lon = threedep_square(name)
+    return _TileBox(lat, lon, lat + 1, lon + 1)
+
+
+def installed_tiles(directory: Path) -> DemResolution:
+    """The 3DEP tiles on disk, from their regions' records, offline: what is
+    kept while the bound cannot be computed (D-035). Nothing is fetched or
+    removed."""
+    entries: list[RegionTiles] = []
+    current: set[str] = set()
+    for record in sorted(directory.glob(f"*{TILES}")):
+        entry = read_record(record, record.stem, record.stem)
+        if entry is None:
+            continue
+        entries.append(entry)
+        current.update(n for n in entry.tiles if (directory / f"{n}{TIF}").is_file())
+    return DemResolution(regions=tuple(entries), current=tuple(sorted(current)))
+
+
 def resolve_station_3dep(
     plan: InstallPlan,
     maps: MapResolution,
@@ -283,6 +347,8 @@ def resolve_station_3dep(
     region_probe: Probe,
     tile_probe: TileProbe,
     outages: Outages | None = None,
+    checks: PublisherChecks | None = None,
+    bound: TopoBound | None = ALL,
 ) -> tuple[DemResolution, tuple[str, ...]]:
     """The plan's 3DEP tiles and notes (D-068, amended 2026-10-01). Nothing
     unless the plan holds a ``usgs-3dep`` unit; with the station's
@@ -293,6 +359,8 @@ def resolve_station_3dep(
         return DemResolution(), ()
     if source != "3dep":
         return DemResolution(), (copernicus_chosen_note(unit.name),)
+    if bound is None:
+        return installed_tiles(data_root(prefix) / unit.name), ()
     tiles = load_threedep_list(catalog_root / THREEDEP_LIST)
     regions = [(f.region, f.slug) for f in maps.files]
     ours = {slug for _, slug in regions}
@@ -304,6 +372,8 @@ def resolve_station_3dep(
         region_probe=region_probe,
         tile_probe=tile_probe,
         on_outage=reporter_for(outages, unit),
+        checks=checks,
+        bound=bound,
     )
     return resolution, ()
 
@@ -352,6 +422,7 @@ def resolve_station_terrain(
     region_probe: Probe,
     tile_probe: TileProbe,
     outages: Outages | None = None,
+    checks: PublisherChecks | None = None,
 ) -> DemResolution:
     """The plan's terrain, or an empty resolution when it holds no dem-tiles unit.
 
@@ -388,6 +459,7 @@ def resolve_station_terrain(
         region_probe=region_probe,
         tile_probe=tile_probe,
         on_outage=reporter_for(outages, unit),
+        checks=checks,
     )
 
 
@@ -443,6 +515,8 @@ class TerrainRun:
     splat: SplatSdfConverter
     dem_source: str = "copernicus"
     """The station's ``dem_source`` this run (D-068, amended 2026-10-01)."""
+    topo_bound: TopoBound | None = ALL
+    """The bound the topographic selection was made under (issue #232)."""
 
     @property
     def converters(self) -> dict[str, Converter]:
@@ -473,6 +547,12 @@ class TerrainRun:
             licence_url=block.licence_url if isinstance(block, TopoQuadsInstall) else "",
             warp=tuple(self.mosaic.pending(mosaic.manifest)) if mosaic is not None else (),
             building=building,
+            selection=(
+                self.topo_bound.describe()
+                if self.topo_bound is not None
+                else "what is installed is kept (no grid square is set)"
+            ),
+            everything=self.topo_bound is not None and self.topo_bound.mode == "all",
         )
 
     def _fstopo(self, plan: InstallPlan) -> FsTopoDisclosure | None:
@@ -646,6 +726,7 @@ def build_terrain_run(
     contour_source: str | None = None,
     fstopo: FsTopoResolution | None = None,
     splat_source: str | None = None,
+    topo_bound: TopoBound | None = ALL,
 ) -> TerrainRun:
     """Every piece-2 backend for one run. Each converter stages in its own
     directory under the operator's build tree and runs as the operator."""
@@ -663,6 +744,7 @@ def build_terrain_run(
     return TerrainRun(
         ledger=ledger,
         dem_source=dem_source,
+        topo_bound=topo_bound,
         dem=DemTilesBackend(
             fetcher=fetcher,
             prefix=prefix,

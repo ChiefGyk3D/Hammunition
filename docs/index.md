@@ -29,9 +29,14 @@ hammunition install station --dry-run
 The last line changes nothing. It prints every package, every file and
 every system change the install *would* make. Read it, then run it again
 without `--dry-run`. [Getting started](getting-started/index.md) walks the
-whole path.
+whole path, and [How much disk you need](getting-started/disk-space.md) says
+what to have free first: about 5 GB for one or two profiles, about 55 GB for
+the whole catalog.
 
 ## What do you want to do?
+
+Find your situation, then follow the link. Each guide says what to install,
+what to run and what you should see.
 
 | I want to… | Start here | Profile |
 |---|---|---|
@@ -49,6 +54,13 @@ whole path.
 | See repeaters, airfields and hospitals on an offline map | [Offline navigation](guides/offline-navigation.md) | [`navigation`](profiles/navigation.md) |
 | Read Wikipedia and the ICS forms with no network | [Offline reference](guides/offline-reference.md) | [`reference`](profiles/reference.md) |
 | Study wireless security | [RF security](rf-security/index.md) | [`rf-security`](profiles/rf-security.md) |
+| Use an SDR dongle I already own | [SDR first steps](guides/sdr.md), then the device's page, for example [RTL-SDR](hardware/rtl-sdr.md) | [`sdr`](profiles/sdr.md) |
+| Find my radio or adapter and see what Linux needs for it | [Hardware](hardware/index.md) | — |
+| Know how big a disk to buy | [How much disk you need](getting-started/disk-space.md) | — |
+| Run this on Ubuntu, Kali, Mint, a Pi or a desktop other than Plasma | [What works on which desktop](desktops.md), then [Getting started](getting-started/index.md) | — |
+| Understand what an install will do to my machine | [Your first profile](getting-started/first-profile.md): read the plan, then run it | — |
+| Fix something that broke | [Troubleshooting](troubleshooting/index.md), by symptom | — |
+| Add a program or a device's identifiers to the catalog | [Contributing](contributing/manifests.md) | — |
 
 Every guide says which parts were measured on real hardware and which were
 not. Where it has not been measured, it says *unmeasured* rather than
@@ -80,8 +92,8 @@ reference](packages/index.md) says where to get real help with it.
 
 ## Where things are
 
-- **[Getting started](getting-started/index.md)** — install the engine, the
-  first profile, the first decode.
+- **[Getting started](getting-started/index.md)** — install the engine, size
+  your disk, the first profile, the first decode.
 - **[Guides](guides/index.md)** — one task each, start to finish.
 - **[Profiles](profiles/index.md)** — the bundles, what each installs and
   what it leaves for you to set up.
@@ -90,6 +102,8 @@ reference](packages/index.md) says where to get real help with it.
 - **[Hardware](hardware/index.md)** — radios, SDRs, GPS and the rest: what
   Linux needs to talk to each.
 - **[Troubleshooting](troubleshooting/index.md)** — by symptom.
+- **[What works on which desktop](desktops.md)** — the tray and the menus on
+  Plasma, Xfce, LXQt, GNOME and the rest.
 - **[Reference](reference/cli.md)** — the command line and the measurements
   everything here rests on.
 - **[Contributing](contributing/manifests.md)** — add a program, send a
