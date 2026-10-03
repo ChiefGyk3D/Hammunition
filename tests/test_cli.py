@@ -39,6 +39,7 @@ from hammunition.backends import (  # noqa: E402
     CommandResult,
     RecordingRunner,
     SourceBackend,
+    SubprocessRunner,
 )
 from hammunition.backends.apt import AptPackageState  # noqa: E402
 from hammunition.cli.main import (  # noqa: E402
@@ -548,9 +549,14 @@ def test_list_runs_against_the_real_catalog(
 ) -> None:
     # `list` reads the transaction log (E1); an empty one keeps dpkg out of it.
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    monkeypatch.delenv("SUDO_USER", raising=False)
+    monkeypatch.setenv("USER", "root")
+    runner = RecordingRunner()
+    monkeypatch.setattr(SubprocessRunner, "run", lambda self, command: runner.run(command))
     assert main(["--catalog", str(CATALOG), "list", "profiles"]) == EXIT_OK
     out = capsys.readouterr().out
     assert "rf-security" in out
+    assert not any(command.argv[0] == "dpkg-query" for command in runner.commands)
 
 
 def test_show_prints_the_disclosure_for_a_gated_profile(capsys: Any) -> None:
