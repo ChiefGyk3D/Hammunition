@@ -165,9 +165,8 @@ _OUTCOMES: Mapping[str, Mapping[str, str]] = {
 }
 
 
-def _recorded(
-    entries: Sequence[Mapping[str, Any]], packages: Mapping[str, PackageManifest], target: Target
-) -> tuple[RecordedUnit, ...]:
+def _last_outcomes(entries: Sequence[Mapping[str, Any]]) -> dict[str, tuple[str | None, str]]:
+    """Each unit the log names, with when it was last named and how that ended."""
     last: dict[str, tuple[str | None, str]] = {}
     # The open transaction: its start, the units it names, and the outcome
     # each ending gives them. An uninstall is the latest word on a unit until
@@ -194,9 +193,25 @@ def _recorded(
             close(str(event))
             current = None
     close("")
+    return last
 
+
+def installed_units(entries: Sequence[Mapping[str, Any]]) -> frozenset[str]:
+    """The units whose latest word in the log is a completed install.
+
+    The same reading `status` reports as ``last_outcome == "completed"``; an
+    absent log (no entries) is the empty set, never an error.
+    """
+    return frozenset(
+        name for name, (_when, outcome) in _last_outcomes(entries).items() if outcome == "completed"
+    )
+
+
+def _recorded(
+    entries: Sequence[Mapping[str, Any]], packages: Mapping[str, PackageManifest], target: Target
+) -> tuple[RecordedUnit, ...]:
     units: list[RecordedUnit] = []
-    for name, (when, outcome) in last.items():
+    for name, (when, outcome) in _last_outcomes(entries).items():
         manifest = packages.get(name)
         block = manifest.resolve(target.distro, target.version, target.arch) if manifest else None
         pin = (

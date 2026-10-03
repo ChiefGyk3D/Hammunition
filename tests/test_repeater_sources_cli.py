@@ -23,6 +23,7 @@ import subprocess
 import threading
 from collections.abc import Iterator
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -388,6 +389,114 @@ def test_fetch_brandmeister_drops_hotspots_before_anything_is_written(
     _no_private(out)
 
 
+class _Mirror(http.server.BaseHTTPRequestHandler):
+    """A fake LAN mirror: serves what is in `files` by path, 404 otherwise,
+    and records every path asked."""
+
+    files: ClassVar[dict[str, bytes]]
+    asked: ClassVar[list[str]]
+
+    def do_GET(self) -> None:
+        self.asked.append(self.path)
+        body = self.files.get(self.path)
+        self.send_response(200 if body is not None else 404)
+        self.send_header("Content-Length", str(len(body or b"")))
+        self.end_headers()
+        self.wfile.write(body or b"")
+
+    def log_message(self, *args: object) -> None:
+        pass
+
+
+@pytest.fixture
+def mirror(station: Station, monkeypatch: pytest.MonkeyPatch) -> Iterator[type[_Mirror]]:
+    """A loopback mirror set as the station's, which the publisher's `served`
+    handler never sees."""
+    from hammunition.station import Station as Saved
+    from hammunition.station import save_station
+
+    handler = type("Mirror", (_Mirror,), {"files": {}, "asked": []})
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    monkeypatch.setenv("USER", "op")
+    save_station(
+        Saved(mirror=f"http://127.0.0.1:{server.server_address[1]}/"),
+        path=station.config / "hammunition" / "station.yml",
+    )
+    try:
+        yield handler
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+@pytest.mark.parametrize(
+    ("verb", "name", "fixture"),
+    [
+        ("fetch-etcc", "etcc.csv", "etcc.csv"),
+        ("fetch-brandmeister", "brandmeister.json", "brandmeister.json"),
+        ("fetch-hearham", "hearham.json", "hearham.json"),
+    ],
+)
+def test_a_fetch_reads_the_stations_mirror_first_and_stays_unverified(
+    verb: str,
+    name: str,
+    fixture: str,
+    station: Station,
+    served: type[_Handler],
+    mirror: type[_Mirror],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """D-078: `<mirror>/repeater-snapshots/<name>` is asked first; the
+    publisher (here a handler that would serve a login page) is never reached
+    when the mirror has it."""
+    body = (REPEATERS / fixture).read_bytes()
+    mirror.files[f"/repeater-snapshots/{name}"] = body
+    served.body = b"<html>the publisher was asked</html>"
+    monkeypatch.setattr(
+        repeaters, "HEARHAM_URL", repeater_sources.ETCC_URL.replace("csvcreate_all.php", "h")
+    )
+    code, out, err = _run(["maps", "repeaters", verb], capsys)
+    assert code == 0, out + err
+    assert mirror.asked == [f"/repeater-snapshots/{name}"]
+    assert "Read from your LAN mirror" in out and "Still unverified" in out
+    assert "Read from the LAN mirror http://127.0.0.1" in out.replace("\n", " ")
+    assert hashlib.sha256(body).hexdigest() in out and "not verifiable" in out
+    assert "unverified)" in out
+    _no_private(out)
+
+
+def test_a_fetch_falls_back_to_the_publisher_when_the_mirror_lacks_it_or_sends_the_wrong_list(
+    station: Station,
+    served: type[_Handler],
+    mirror: type[_Mirror],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    served.body = (REPEATERS / "etcc.csv").read_bytes()
+    code, out, _ = _run(["maps", "repeaters", "fetch-etcc"], capsys)  # mirror 404
+    assert code == 0 and mirror.asked == ["/repeater-snapshots/etcc.csv"]
+    assert "did not supply it" in out and "asking the publisher" in out
+    flat = out.replace("\n", " ")
+    assert "Fetched 20" in flat and "Read from the LAN mirror" not in flat
+    mirror.files["/repeater-snapshots/etcc.csv"] = b"<html>a login page</html>"
+    code, out, _ = _run(["maps", "repeaters", "fetch-etcc"], capsys)  # mirror sends junk
+    assert code == 0 and "did not supply it" in out and "Fetched 20" in out.replace("\n", " ")
+
+
+def test_no_mirror_and_no_station_mirror_leave_the_publisher_path_unchanged(
+    station: Station,
+    served: type[_Handler],
+    mirror: type[_Mirror],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    served.body = (REPEATERS / "etcc.csv").read_bytes()
+    mirror.files["/repeater-snapshots/etcc.csv"] = served.body
+    code, out, _ = _run(["maps", "repeaters", "fetch-etcc", "--no-mirror"], capsys)
+    assert code == 0 and mirror.asked == [] and "LAN mirror" not in out
+
+
 @pytest.mark.parametrize("verb", ["fetch-etcc", "fetch-brandmeister"])
 def test_a_fetch_refuses_what_is_not_its_list(
     verb: str, station: Station, served: type[_Handler], capsys: pytest.CaptureFixture[str]
@@ -543,3 +652,15 @@ def test_from_osm_with_the_real_osmium_over_a_synthetic_extract(
     assert code == 0, out
     assert "Written: 4 repeaters" in out
     _no_private(out)
+
+
+def test_both_sources_failing_names_both_reasons_and_the_publisher_url(
+    station: Station,
+    served: type[_Handler],
+    mirror: type[_Mirror],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    served.body = b"<html>a login page</html>"
+    code, _, err = _run(["maps", "repeaters", "fetch-etcc"], capsys)
+    assert code == cli.EXIT_FAILED and "the LAN mirror had failed first" in err
+    assert "Nothing was written" in err

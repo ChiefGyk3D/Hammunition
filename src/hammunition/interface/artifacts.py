@@ -26,6 +26,10 @@ __all__ = ["CHECKS", "ArtifactEntry", "ArtifactsDocument", "render_artifacts"]
 #: ``unverified-zip`` is the ACMA register (D-074, amended 2026-10-01): no
 #: digest is published and the file changes daily, so ``digest`` is null and
 #: the zip's own CRC-32s and tables are what is checked, from either source.
+#: ``unverified-fetch`` is the three on-request repeater lists (D-078, unit
+#: ``repeater-snapshots``: ETCC, Brandmeister, hearham): no digest, the
+#: publisher's URL, the size from the last ``HEAD``, and only the size and
+#: date to check; the licence line is the project's position, never a licence.
 CHECKS = (
     "sha256",
     "md5-publisher",
@@ -33,6 +37,7 @@ CHECKS = (
     "sha1-publisher",
     "sha256-publisher",
     "unverified-zip",
+    "unverified-fetch",
 )
 
 
@@ -55,21 +60,24 @@ class ArtifactEntry(Strict):
         "`sha1-publisher` (the SHA-1 and size in CoMaps' own map index at the pinned "
         "commit, carried in the catalog), `sha256-publisher` (no unit uses it today) or "
         "`unverified-zip` (the ACMA register: no digest exists, so the zip's own CRC-32s "
-        "and the tables its reader needs are checked; D-074, amended 2026-10-01); null when "
-        "deferred"
+        "and the tables its reader needs are checked; D-074, amended 2026-10-01) or "
+        "`unverified-fetch` (an on-request repeater list of unit `repeater-snapshots`: "
+        "no digest, no licence stated by its publisher, only size and date can be "
+        "checked; D-078); null when deferred"
     )
     digest: str | None = described(
         "the expected digest, in hex, of the kind `check` names: the pin, or the publisher's "
         "checksum as the engine read it while resolving; null when deferred and for "
-        "`unverified-zip`, which has none"
+        "`unverified-zip` and `unverified-fetch`, which have none"
     )
     checksum_url: str | None = described(
         "where a publisher checksum is read: the `.md5` beside a Geofabrik file, or the tile "
         "URL whose `HEAD` carries the ETag; null for a pinned sha256 and when deferred"
     )
     size: int | None = described(
-        "bytes, known before the fetch (for `unverified-zip`, the publisher's `HEAD` "
-        "today: the file changes daily); null when deferred"
+        "bytes, known before the fetch (for `unverified-zip` and `unverified-fetch`, the "
+        "publisher's `HEAD` today: the file changes; null for `unverified-fetch` when the "
+        "server states no length); null when deferred"
     )
     licence: str = described(
         "the licence line the plan prints for the unit, or for a Kiwix book that book's own"

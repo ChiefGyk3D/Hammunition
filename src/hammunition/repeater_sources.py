@@ -39,9 +39,12 @@ import json
 import os
 import re
 import subprocess
+import urllib.error
+import urllib.request
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterable, Sequence
-from datetime import date
+from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -87,6 +90,11 @@ __all__ = [
     "HOTSPOT_ID",
     "HOTSPOT_SIMPLEX",
     "PRECEDENCE",
+    "SNAPSHOT_CHECK",
+    "SNAPSHOT_UNIT",
+    "Snapshot",
+    "SnapshotHead",
+    "SnapshotRead",
     "acma_date",
     "acma_layer_name",
     "acma_licence",
@@ -114,6 +122,8 @@ __all__ = [
     "read_direwolf_logs",
     "read_open_repeater",
     "read_osm_xml",
+    "read_snapshot",
+    "snapshots",
 ]
 
 #: The ETCC's whole list as CSV, offered openly on ukrepeater.net's CSV page;
@@ -124,6 +134,14 @@ ETCC_LIMIT = 8 * 1024 * 1024
 #: 2026-10-01, a cached snapshot.
 BRANDMEISTER_URL = "https://api.brandmeister.network/v2/device"
 BRANDMEISTER_LIMIT = 64 * 1024 * 1024
+
+#: The unit name a Bunker's mirror files the on-request snapshots under
+#: (D-070's ``<mirror>/<unit>/<name>``); not a catalog unit, because nothing
+#: is installed from it: the ``fetch-*`` commands read it (D-078).
+SNAPSHOT_UNIT = "repeater-snapshots"
+#: ``hammunition artifacts``' name for the check (D-078): no digest exists and
+#: nothing but size and date is checked.
+SNAPSHOT_CHECK = "unverified-fetch"
 
 HOTSPOT_ID = "a hotspot or personal id (not 6 digits), dropped as a personal location"
 HOTSPOT_SIMPLEX = "transmit equals receive (a simplex hotspot), dropped as a personal location"
@@ -157,6 +175,141 @@ SAME_CALL_DEGREES = 0.25
 
 
 # --- licences and names -------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Snapshot:
+    """One list fetched on request: where the publisher serves it, what it is
+    called on a mirror, the most that is read, and its licence position."""
+
+    name: str
+    url: str
+    limit: int
+    position: str
+
+
+def snapshots() -> tuple[Snapshot, ...]:
+    """The three on-request fetches (D-064, D-074), read at call time so a
+    test can point the URLs at loopback. Each is unverified: the publisher
+    states no licence and no digest, and the list changes under the URL."""
+    from . import repeaters
+
+    return (
+        Snapshot(
+            "etcc.csv",
+            ETCC_URL,
+            ETCC_LIMIT,
+            "RSGB ETCC (ukrepeater.net): no licence stated for a list its CSV page offers "
+            "openly; D-033's position, fetched on request, never redistributed by the project; "
+            "an operator's own Bunker may hold it for their LAN",
+        ),
+        Snapshot(
+            "brandmeister.json",
+            BRANDMEISTER_URL,
+            BRANDMEISTER_LIMIT,
+            "BrandMeister: no terms published for the device API; D-033's position, fetched on "
+            "request, never redistributed by the project; hotspots are personal locations and "
+            "are dropped on import; an operator's own Bunker may hold it for their LAN",
+        ),
+        Snapshot(
+            "hearham.json",
+            repeaters.HEARHAM_URL,
+            repeaters.HEARHAM_LIMIT,
+            "hearham.com: no data licence stated; D-033's position, fetched on request, never "
+            "redistributed by the project; an operator's own Bunker may hold it for their LAN",
+        ),
+    )
+
+
+class SnapshotHead:
+    """A ``HEAD`` to one of :func:`snapshots`' URLs, for ``hammunition
+    artifacts``: the size the server states, or ``None`` when it states none
+    or does not answer a ``HEAD`` with a body length. HTTPS handlers only, no
+    redirect followed, nothing but a snapshot's own URL asked.  D-078."""
+
+    def __init__(self, *, timeout: float = 30.0) -> None:
+        self.timeout = timeout
+        opener = urllib.request.OpenerDirector()
+        for handler in (
+            urllib.request.HTTPSHandler(),
+            urllib.request.HTTPErrorProcessor(),
+            urllib.request.HTTPDefaultErrorHandler(),
+        ):
+            opener.add_handler(handler)
+        self._opener = opener
+
+    def size(self, url: str) -> int | None:
+        if url not in {x.url for x in snapshots()}:
+            raise ValueError(f"refusing {url!r}: not an on-request repeater list")
+        request = urllib.request.Request(url, headers={"User-Agent": "hammunition"})
+        request.method = "HEAD"
+        try:
+            response = self._opener.open(request, timeout=self.timeout)
+        except urllib.error.HTTPError:
+            return None  # an answer, but not a length: listed, size unknown
+        if response is None:  # pragma: no cover - no handler claimed the scheme
+            raise OSError(f"no handler would ask {url!r}")
+        with response:
+            length = response.headers.get("Content-Length") or ""
+            return int(length) if length.isdecimal() else None
+
+
+@dataclass(frozen=True)
+class SnapshotRead:
+    """A snapshot read and parsed: from the LAN mirror or the publisher."""
+
+    parsed: ParsedInput
+    sha256: str
+    when: datetime
+    source: str  # "mirror" or "publisher"
+    where: str  # the URL the bytes came from
+    mirror_failure: str | None
+
+
+def read_snapshot(
+    snapshot: Snapshot,
+    parse: Callable[[bytes, str], ParsedInput],
+    *,
+    mirror: str | None,
+    fetch: Callable[..., tuple[bytes, str, datetime]] | None = None,
+) -> SnapshotRead:
+    """*snapshot*, from ``<mirror>/<SNAPSHOT_UNIT>/<name>`` first when a
+    *mirror* is given (D-070's shape), else or on any failure there -- it
+    did not answer, was too large, or what it sent does not parse as this
+    list -- from the publisher.  D-078.
+
+    A mirror is trusted for speed, never for content: what it sent is parsed
+    exactly as the publisher's would be, and is still marked unverified, its
+    sha256 being only what was observed. Raises the publisher path's own
+    :class:`RepeaterFetchError` / :class:`RepeaterInputError`."""
+    from . import repeaters
+    from .fetch import MirrorPath, mirror_url
+
+    get = fetch or repeaters.fetch_list
+    failure: str | None = None
+    if mirror:
+        where = mirror_url(mirror, MirrorPath(SNAPSHOT_UNIT, snapshot.name))
+        try:
+            body, digest, when = get(where, limit=snapshot.limit)
+            try:
+                parsed = parse(body, snapshot.url)
+            finally:
+                del body
+            return SnapshotRead(parsed, digest, when, "mirror", where, None)
+        except (repeaters.RepeaterFetchError, repeaters.RepeaterInputError) as exc:
+            failure = str(exc)
+    try:
+        body, digest, when = get(snapshot.url, limit=snapshot.limit)
+        try:
+            parsed = parse(body, snapshot.url)
+        finally:
+            del body
+    except (repeaters.RepeaterFetchError, repeaters.RepeaterInputError) as exc:
+        if failure is None:
+            raise
+        # Both sources failed: say so, the mirror's reason too.
+        raise type(exc)(f"{exc} (the LAN mirror had failed first: {failure})") from None
+    return SnapshotRead(parsed, digest, when, "publisher", snapshot.url, failure)
 
 
 def open_repeater_licence() -> str:

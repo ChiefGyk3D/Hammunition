@@ -17,6 +17,10 @@ here. Where a fix is distribution-specific it says so.
 
 ## Installing
 
+- **[An install stops because the disk is full, or the plan quotes more than
+  you have](../getting-started/disk-space.md)** — what each profile, the
+  build cache and each data layer cost, and what you can delete to get space
+  back (`~/.cache/hammunition/build`, `sudo apt clean`).
 - **[The dry run seems to hang, or an install sits silent](install-failures.md#slow-plan)** —
   the plan is checking publishers over the network; on a terminal it says
   what it is waiting on, and `HAMMUNITION_PROGRESS=1` makes it say so when
@@ -25,6 +29,8 @@ here. Where a fix is distribution-specific it says so.
   the ticket expired during a long conversion; the engine now keeps it alive.
 - **[A source build fails to fetch — HTTP 404](install-failures.md#dead-url)** —
   a pinned upstream URL moved. Report it; run the URL sweep.
+- **[A git build stops in a text editor](install-failures.md#git-editor)** — your
+  own `tag.gpgsign` setting; fixed in the engine from v0.20.0.
 - **[apt refuses with "held broken packages" on Parrot](install-failures.md#parrot-backports)** —
   the backports-vs-base development-library skew. Install the -dev packages
   from backports.

@@ -623,7 +623,11 @@ def _subparser_help(parser: Any, name: str) -> str:
     raise AssertionError(f"no subparser named {name!r}")
 
 
-def test_list_runs_against_the_real_catalog(capsys: Any) -> None:
+def test_list_runs_against_the_real_catalog(
+    capsys: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # `list` reads the transaction log (E1); an empty one keeps dpkg out of it.
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     assert main(["--catalog", str(CATALOG), "list", "profiles"]) == EXIT_OK
     out = capsys.readouterr().out
     assert "rf-security" in out
