@@ -3,7 +3,7 @@ Units (2):
   fixture-apt     candidate differs      fixture-apt 1.0 -> 1.1
   fixture-source  unknown                declares no binaries and no tree marker, so nothing on disk can be checked
 
-0 up to date, 1 with a different apt candidate, 0 behind the catalog's pin, 0 not installed, 1 unknown, 0 re-checked on install, 0 manual.
+0 up to date, 1 with a different apt candidate, 0 behind the catalog's pin, 0 not installed, 1 unknown, 0 re-checked on install, 0 manual, 0 retired.
 apt lists: last refreshed 2026-09-28 08:00 EDT (`sudo apt-get update` refreshes them; this report does not)
 
 To take apt's candidates (upgrade only, never a removal; apt decides the rest):
