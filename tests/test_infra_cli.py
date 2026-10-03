@@ -40,7 +40,7 @@ NAVIT_STOCK = (FIXTURES / "navit.xml").read_text()
 #: The fixture's region box: Delaware's, as the spike's extract carried it.
 DELAWARE = (-75.79, -74.96, 40.03, 38.45)  # left, right, top, bottom
 #: Nothing named or placed may reach the terminal or a document (D-057).
-PRIVATE = ("Testville", "testville", "38.7", "-75.5", "38.45", "-75.79")
+PRIVATE = ("Testville", "testville", "boxless", "38.7", "-75.5", "38.45", "-75.79")
 
 
 class Station:
@@ -370,6 +370,34 @@ def test_from_nasr_reads_the_installed_unit_into_its_own_layer(
     assert "FAA NASR 2026-10-01, public domain" in out
     assert "Airports and heliports (FAA NASR 2026-10-01): 3 points" in out
     assert "Outside your regions' boxes: 1" in out
+    assert infra.present_layers(station.layer) == ("faa-airports",)
+    _no_private(out + err)
+
+
+def test_from_nasr_skips_an_extract_without_a_box_and_names_it_by_number(
+    station: Station, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    station.install_region("a-testville")
+    station.install_region("b-boxless", box=None)
+    _install_unit(station, "nasr", sources_test._nasr(tmp_path, sources_test.NASR_ROWS))
+    code, out, err = _run(["maps", "infra", "import", "--from-nasr"], capsys)
+    assert code == 0, err
+    assert "region extract 2 of 2 has no bounding box in its header; left out" in out
+    assert infra.present_layers(station.layer) == ("faa-airports",)
+    _no_private(out + err)
+
+
+def test_from_nasr_json_notes_an_extract_without_a_box(
+    station: Station, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    station.install_region("a-testville")
+    station.install_region("b-boxless", box=None)
+    _install_unit(station, "nasr", sources_test._nasr(tmp_path, sources_test.NASR_ROWS))
+    code, out, err = _run(["maps", "infra", "import", "--from-nasr", "--json"], capsys)
+    assert code == 0, err
+    doc = parse_one(out)
+    validate(doc)
+    assert "region extract 2 of 2 has no bounding box in its header; left out" in doc["notes"]
     assert infra.present_layers(station.layer) == ("faa-airports",)
     _no_private(out + err)
 
