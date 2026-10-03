@@ -86,29 +86,34 @@ exit does.
 | `command_end` | After each command that ran | `argv`, `returncode`. |
 | `action_begin` | Before each in-process step | `kind` (`fetch`, `extract`, `config`, `requirements`, `wrapper`, `desktop-entry`, `patch`, `prepare`, `install-binary`, `verify-pin`, `remove-venv`, `remove-wrapper`, `remove-desktop-entry`), `detail`, `description`. |
 | `action_end` | After each in-process step | `kind`, `detail`, `outcome` — one line saying what actually happened. `detail` (added 2026-08-31) is what uninstall's file-attribution replay reads back for `install-binary`; older entries without it leave those installs unattributed, reported and left in place. A step's own facts follow, never over one of those keys: a data download (a `data` unit's file, a map region, a terrain tile) adds `source` (`cache`, `mirror` or `publisher`), `fetched_from` (the URL the bytes came from, absent for `cache`) and, when a LAN mirror was passed over for the publisher, `mirror_failure` saying why (**D-070**). |
-| `unit_end` | When a unit's last step exits 0, inside the transaction (#272) | `unit`, `ok` (`true`), `run` (the `timestamp` of this run's `transaction_begin`), `catalog_version`, and `pin` for a source, git or non-deb binary unit: its build directory, whose name encodes the manifest's pin. A unit's steps are everything planned for it: its fetches, its build, its config files, its launchers, and its group memberships; an apt unit's are the apt commands. Written even though a later unit fails, so the run still ends `transaction_failed` while the units that finished stay recorded. Not written for the map units that share a ledger (`osm-regions`, the converters, the terrain and topo units) nor for a unit with a user service: their completion is the run's, not theirs alone. A reader that does not know the event ignores it. |
+| `unit_end` | When a unit's last owned step exits 0, inside the transaction (#272, #279) | `unit`, `ok` (`true`), `run` (the `timestamp` of this run's `transaction_begin`), `catalog_version`, and either `pin` for a source, git or non-deb binary unit, or opaque SHA-256 `state` for regional, derived, DEM, topo and CoMaps data. Shared map-ledger checks belong to the units they validate. A later failure does not erase finished units; on success, records follow `verify_effects` and are omitted if verification fails. A reader that does not know the event ignores it. |
 | `transaction_failed` | Instead of the rest, on the first failure | the failing `argv`, its `returncode` (or `error` for a missing binary), and how many commands `completed` before it. For an in-process step, `kind` and `detail` in place of `argv`. |
 | `transaction_end` | Once, on the success path | `completed`, and the effect check below. |
 
-### `unit_end` — what a rerun may trust (#272)
+### `unit_end` — what a rerun may trust (#272, #279)
 
 ```json
 {"event": "unit_end", "version": 1, "timestamp": "2026-10-03T15:02:11+00:00",
- "unit": "comaps", "ok": true, "run": "2026-10-03T14:31:07+00:00",
- "catalog_version": "1.0", "pin": "/home/op/.cache/hammunition/build/comaps-v2026.09.1/src"}
+ "unit": "osm-pmtiles", "ok": true, "run": "2026-10-03T14:31:07+00:00",
+ "catalog_version": "1.0", "state": "…sha256…"}
 ```
 
 `status` reads it: a unit with a `unit_end` in an install that then failed, or
 was killed, reports `last_outcome: completed`, with `completed_in_failed_run`
 naming that install; a unit whose steps only partly ran keeps the run's own
-word (`failed`, or `interrupted` with no ending). The plan trusts it for a
-build only after the check it always makes: the declared binaries and the tree
-marker are on disk, and the `pin` is exactly this manifest's build directory,
-so a moved ref or a re-pinned digest is a different path and is built again.
-A later `uninstall_begin` naming the unit voids it. `uninstall` replays
-commands and actions and is unaffected; `update` reads the same attribution
-as the plan. Logs written before this event read as before, and the event
-reads across rotation, since every reader walks the archives in order.
+word (`failed`, or `interrupted` with no ending). The plan trusts a build only
+when its declared outputs are on disk and its `pin` is exactly this manifest's
+build directory. Map and terrain units require both a matching opaque `state`
+fingerprint over resolved input pins/digests and selection, and an on-disk
+check by their own backend (regional attribution, derived outputs, or DEM/topo
+records and files). Changing a region set, input digest or topo bound, or
+losing an output, replans the unit. The fingerprint does not store raw station
+region selections. A later `uninstall_begin` naming the unit voids it. On
+success, `unit_end` follows `verify_effects`; failed verification writes no
+completion records. `uninstall` replays commands and actions and is
+unaffected; `update` reads the same attribution as the plan. Logs written
+before this event read as before, and the event reads across rotation, since
+every reader walks the archives in order.
 
 ### `transaction_end` — version 2, the effect check (D-031)
 

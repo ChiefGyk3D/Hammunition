@@ -162,17 +162,17 @@ def test_arguments_that_do_not_parse_are_a_document_with_argparses_code(
     assert "invalid choice" in doc["message"]
 
 
-def test_a_command_with_no_json_form_is_refused_and_runs_nothing(
+def test_station_set_json_writes_a_station_set_document(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    """`station set` writes a file; under --json it must refuse before that."""
+    """`station set` has a JSON form which reports the values it writes."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    rc = cli.main(["station", "set", "--callsign", "N0TST", "--json"])
-    assert rc == cli.EXIT_UNPLANNABLE
+    rc = cli.main(["station", "set", "--dem-source", "3dep", "--json"])
+    assert rc == cli.EXIT_OK
     doc = parse_one(capsys.readouterr().out)
-    assert doc["kind"] == "error" and doc["command"] == "station set"
-    assert "no --json form" in doc["message"]
-    assert not any(tmp_path.rglob("station.yml")), "a refused --json run wrote the station file"
+    assert doc["kind"] == "station-set"
+    assert doc["saved"] == {"dem_source": "3dep"}
+    assert any(tmp_path.rglob("station.yml")), "station set did not write its configuration"
 
 
 def test_help_under_json_prints_no_document(capsys: pytest.CaptureFixture[str]) -> None:
