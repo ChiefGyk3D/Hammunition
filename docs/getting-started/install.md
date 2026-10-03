@@ -141,6 +141,16 @@ written out in full, every item's own values on a line, and the total. Nothing
 is left out of it. `hammunition install <profile> --dry-run --full` prints every
 step expanded, and `--dry-run --json` always carries every step.
 
+A profile that carries US Topo map sheets (`navigation`) is bounded by your
+station: set your grid square (`hammunition station set --grid-square <yours>`)
+and the sheets are those within 100 km of it, a few hundred, with a line before
+the plan saying so and how to change it (`--topo-radius-km`, `--topo-regions`,
+`--topo-all`). Every sheet of a whole-state region is tens of gigabytes, so
+`--topo-all`, or any selection over 10 GB, prints its size in one sentence and
+asks you to type `yes`; `--yes` does not answer that question. Without a grid
+square the sheets are deferred by name and the plan says how to fix it. See
+[Offline navigation](../guides/offline-navigation.md#15-official-topo-us-topo-fstopo-and-3dep).
+
 The first command of any run that installs from apt is `apt-get update`.
 Stale package lists are the commonest way a correct plan fails — apt asks
 the mirror for a file the pool has replaced — so the refresh is on by

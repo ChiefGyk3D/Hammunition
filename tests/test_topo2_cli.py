@@ -134,7 +134,9 @@ def _cli(
 
     monkeypatch.setattr(cli, "GatewayProbe", lambda: GatewayProbe(gateway))
     save_station(
-        Station(callsign="N0TST", map_regions=(OCEANIA.region,), dem_source=source),
+        Station(
+            callsign="N0TST", grid_square="JJ00", map_regions=(OCEANIA.region,), dem_source=source
+        ),
         path=tmp_path / "xdg_config_home" / "hammunition" / "station.yml",
     )
     return cli, bucket, gateway

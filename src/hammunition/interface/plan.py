@@ -73,6 +73,7 @@ from hammunition.plan import Blocker, InstallPlan, PlannedPackage
 from hammunition.rig import elide_serial
 from hammunition.state import RemovalPlan
 from hammunition.sudo_ticket import KEEPALIVE_INTERVAL, keepalive_wanted
+from hammunition.topo_plan import size_consent
 
 __all__ = [
     "PlanDocument",
@@ -425,6 +426,15 @@ class TopoSectionView(Strict):
     disk_total: int = described("bytes: the downloads plus the warped quads")
     disk_total_human: str = described("as the text prints it")
     estimate_note: str = described("how the estimate was measured")
+    selection: str = described(
+        "how the station's bound chose the sheets: a radius around the grid square (the "
+        "default), the --topo-regions, or every sheet (--topo-all); empty when not known"
+    )
+    size_consent: str | None = described(
+        "the one sentence the install asks a typed yes about, which --yes does not answer: "
+        "set when --topo-all is chosen or the download and warped copies exceed 10 GB; "
+        "null otherwise"
+    )
 
 
 @dataclass(frozen=True)
@@ -897,6 +907,8 @@ def _topo_section(topo: TopoDisclosure | None) -> TopoSectionView | None:
         disk_total=download + warped,
         disk_total_human=human_size(download + warped),
         estimate_note=TOPO_MEASURED,
+        selection=topo.selection,
+        size_consent=asked.sentence() if (asked := size_consent(topo)) else None,
     )
 
 
@@ -1801,6 +1813,8 @@ def _render_fstopo(fstopo: FsTopoSectionView) -> list[str]:
 def _render_topo(topo: TopoSectionView) -> list[str]:
     """The US Topo block, after the terrain (D-068)."""
     lines = ["  US Topo, USGS 7.5-minute quads (D-068):"]
+    if topo.selection:
+        lines.append(f"    selection: {topo.selection}")
     if topo.regions:
         width = max(len(r.region) for r in topo.regions)
         for region in topo.regions:
@@ -1830,6 +1844,12 @@ def _render_topo(topo: TopoSectionView) -> list[str]:
             f"{topo.warp_estimate_human} ({WARP_FACTOR}x each download, {topo.estimate_note})"
         )
     lines.append(f"      about {topo.disk_total_human} of disk for US Topo ({topo.estimate_note})")
+    if topo.size_consent:
+        lines.append(f"    {topo.size_consent}")
+        lines.append("    The install asks you to type yes to that; --yes does not answer it.")
+        lines.append(
+            "    `hammunition station set --topo-radius-km N` or `--topo-regions` asks for fewer."
+        )
     return lines
 
 

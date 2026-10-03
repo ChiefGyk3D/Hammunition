@@ -98,11 +98,21 @@ _MAP_FIELDS = frozenset({"map_regions", "map_freshness"})
 #: Station values that are never a `{station.*}` template variable: the map
 #: settings, the LAN mirror the verified fetch tries first (D-070), and the
 #: Kiwix books chosen for `kiwix-library` (D-066).
-_NOT_TEMPLATES = _MAP_FIELDS | {"mirror", "reference_books", "dem_source"}
+_NOT_TEMPLATES = _MAP_FIELDS | {
+    "mirror",
+    "reference_books",
+    "dem_source",
+    "topo_radius_km",
+    "topo_regions",
+    "topo_all",
+}
 
 #: Where QMapShack's elevation is drawn from (D-068, amended 2026-10-01):
 #: Copernicus GLO-30, a surface model, by default; USGS 3DEP bare earth by
 #: choice. Each names the ``dem-tiles`` provider it selects.
+#: The furthest a radius can usefully be: half the earth's circumference.
+MAX_TOPO_RADIUS_KM = 20000
+
 DEM_SOURCES = ("copernicus", "3dep")
 DEM_PROVIDERS = {"copernicus": "copernicus-glo30", "3dep": "usgs-3dep"}
 
@@ -209,6 +219,15 @@ class Station:
     """``copernicus`` (the default when unset) or ``3dep``: the elevation
     QMapShack's hillshade, slope and contours are drawn from (D-068,
     amended 2026-10-01)."""
+    topo_radius_km: int | None = None
+    """How far from the grid square's centre a US Topo sheet (and an FSTopo
+    sheet, and a 3DEP tile) is still selected; 100 when unset, 0 for none
+    (D-068, amended 2026-10-02, issue #232)."""
+    topo_regions: tuple[str, ...] = ()
+    """A subset of :attr:`map_regions` the topographic selection is narrowed to."""
+    topo_all: bool | None = None
+    """Every sheet of every region, as before the bound; always disclosed with
+    its size and asked for by a typed ``yes``."""
 
     def __post_init__(self) -> None:
         if self.callsign is not None:
@@ -309,6 +328,39 @@ class Station:
             raise StationError(
                 f"dem source {self.dem_source!r} is not one of {', '.join(DEM_SOURCES)}"
             )
+        if self.topo_radius_km is not None:
+            try:
+                radius = int(self.topo_radius_km)
+            except (TypeError, ValueError) as exc:
+                raise StationError(
+                    f"topo radius {self.topo_radius_km!r} is not a whole number of kilometres"
+                ) from exc
+            if not 0 <= radius <= MAX_TOPO_RADIUS_KM:
+                raise StationError(
+                    f"topo radius {radius} km is outside 0 to {MAX_TOPO_RADIUS_KM}; "
+                    f"0 selects no sheets, and --topo-all selects every sheet"
+                )
+            object.__setattr__(self, "topo_radius_km", radius)
+        topo = tuple(dict.fromkeys(r.strip() for r in self.topo_regions))
+        for region in topo:
+            if not REGION.fullmatch(region):
+                raise StationError(f"topo region {region!r} is not a Geofabrik region path")
+        outside = [r for r in topo if r not in self.map_regions]
+        if outside:
+            raise StationError(
+                f"--topo-regions must be a subset of the station's map regions; "
+                f"{len(outside)} of the {len(topo)} given "
+                f"{'is' if len(outside) == 1 else 'are'} not one ({', '.join(outside)}). "
+                f"Set it with --map-regions first, or give a region already set."
+            )
+        object.__setattr__(self, "topo_regions", topo)
+        if self.topo_all is not None and not isinstance(self.topo_all, bool):
+            raise StationError(f"topo_all {self.topo_all!r} must be true or false")
+
+    @property
+    def topo_radius(self) -> int:
+        """The effective radius in kilometres: what is stored, or 100."""
+        return 100 if self.topo_radius_km is None else self.topo_radius_km
 
     @property
     def elevation(self) -> str:
@@ -385,6 +437,12 @@ class Station:
             result["rig_baud"] = self.rig_baud
         if self.dem_source is not None:
             result["dem_source"] = self.dem_source
+        if self.topo_radius_km is not None:
+            result["topo_radius_km"] = self.topo_radius_km
+        if self.topo_regions:
+            result["topo_regions"] = list(self.topo_regions)
+        if self.topo_all is not None:
+            result["topo_all"] = self.topo_all
         return result
 
 
@@ -490,6 +548,15 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         rig_baud = int(raw_baud) if raw_baud is not None else None
     except (TypeError, ValueError) as exc:
         raise StationError(f"{target}: rig_baud {raw_baud!r} is not a number") from exc
+    raw_radius = data.get("topo_radius_km")
+    try:
+        topo_radius = int(raw_radius) if raw_radius is not None else None
+    except (TypeError, ValueError) as exc:
+        raise StationError(f"{target}: topo_radius_km {raw_radius!r} is not a number") from exc
+    topo_regions = data.get("topo_regions")
+    topo_all = data.get("topo_all")
+    if topo_all is not None and not isinstance(topo_all, bool):
+        raise StationError(f"{target}: topo_all {topo_all!r} must be true or false")
     return Station(
         callsign=_str("callsign"),
         grid_square=_str("grid_square"),
@@ -504,6 +571,9 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         rig_ptt_line=_str("rig_ptt_line"),
         rig_owner=_str("rig_owner"),
         dem_source=_str("dem_source"),
+        topo_radius_km=topo_radius,
+        topo_regions=tuple(str(r) for r in topo_regions) if topo_regions is not None else (),
+        topo_all=topo_all,
     )
 
 
@@ -554,6 +624,9 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
                     mirror=station.mirror,
                     rig_baud=station.rig_baud,
                     dem_source=station.dem_source,
+                    topo_radius_km=station.topo_radius_km,
+                    topo_regions=station.topo_regions,
+                    topo_all=station.topo_all,
                     **{**values, variable: answer},
                 )
             except StationError as exc:
@@ -568,6 +641,9 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
         mirror=station.mirror,
         rig_baud=station.rig_baud,
         dem_source=station.dem_source,
+        topo_radius_km=station.topo_radius_km,
+        topo_regions=station.topo_regions,
+        topo_all=station.topo_all,
         **values,
     )
 
