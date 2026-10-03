@@ -25,7 +25,7 @@ Pi OS. Pop!_OS 24.04 passed the VM campaign but is not declared yet. Parrot with
 
 | Tier | For | Free space on top of your OS |
 |---|---|---|
-| Minimum | One or two software profiles, such as `station` and `digital-modes` | about 5 GB |
+| Minimum | One or two software profiles, such as `station` and `digital-modes` | about 5 GB, suggested SSD 128 GB |
 | Recommended | The whole catalog and a few map regions | about 55 GB, suggested SSD 256 GB |
 | Large | Official topo sheets, full Wikipedia, many regions | about 220 to 300 GB, suggested SSD 512 GB or more |
 

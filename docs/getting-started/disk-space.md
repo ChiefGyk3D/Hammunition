@@ -31,7 +31,7 @@ before you have one.
 
 | Tier | For | Free space on top of your OS | Suggested SSD |
 |---|---|---|---|
-| **Minimum** | One or two software profiles, for example `station` and `digital-modes` | About 5 GB, including the build cache and some headroom | Your distribution's own minimum, plus 5 GB. We have not measured a bare Parrot, Debian or Kali install, so check your distribution's page. |
+| **Minimum** | One or two software profiles, for example `station` and `digital-modes` | About 5 GB, including the build cache and some headroom | 128 GB suggested. A 64 GB drive runs the OS and one profile with no room for maps or a second profile. The 128 is a judgement: the distribution's own stated minimum plus these 5 GB plus one or two map regions. We have not measured a bare Parrot, Debian or Kali install, so check your distribution's page for its part. |
 | **Recommended** | The whole catalog and a few map regions | About 55 GB, plus the regions you pick (see below) | 256 GB |
 | **Large** | Official topo sheets for several states, full English Wikipedia, many regions, terrain for large states | About 220 to 300 GB | 512 GB, and 1 TB if you add more |
 
