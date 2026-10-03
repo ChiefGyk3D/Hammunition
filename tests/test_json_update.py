@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -62,8 +63,10 @@ def _machine(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(cli, "_apt_lists_note", lambda apt: LISTS)
 
 
-def _run(capsys: pytest.CaptureFixture[str], *argv: str) -> tuple[int, str]:
-    rc = cli.main(["--catalog", str(FIXTURE_CATALOG), "update", *argv])
+def _run(
+    capsys: pytest.CaptureFixture[str], *argv: str, catalog: Path = FIXTURE_CATALOG
+) -> tuple[int, str]:
+    rc = cli.main(["--catalog", str(catalog), "update", *argv])
     return rc, capsys.readouterr().out
 
 
@@ -100,6 +103,65 @@ def test_nothing_to_compare_is_still_a_document(
     doc = parse_one(out)
     assert rc == 0 and doc["rows"] == [] and doc["from_log"] is True
     validate(doc)
+
+
+def test_a_logged_retired_unit_is_reported_in_text_and_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from hammunition.state import TransactionLog
+
+    _machine(monkeypatch, tmp_path)
+    catalog = tmp_path / "catalog"
+    shutil.copytree(FIXTURE_CATALOG, catalog)
+    (catalog / "packages" / "fixture-retired.yaml").write_text(
+        """\
+name: fixture-retired
+version: "1.0"
+summary: Retired fixture
+categories: [sdr]
+status: retired
+retire_reason: out_of_scope
+status_reason: This fixture is retained for removal from older installs.
+status_date: 2026-10-03
+status_verdict: tested
+install:
+  - install:
+      method: apt
+      packages: [fixture-retired]
+update:
+  probe:
+    method: none
+  strategy: reinstall
+documentation:
+  what_it_does: A retired test fixture.
+  why_you_want_it: To test update reporting.
+  upstream_url: https://example.invalid/
+"""
+    )
+    log = TransactionLog()
+    log.append({"event": "transaction_begin", "version": 2, "packages": ["fixture-retired"]})
+    log.append({"event": "transaction_end", "completed": 1})
+
+    rc, text = _run(capsys, catalog=catalog)
+    assert rc == 0
+    assert "fixture-retired" in text
+    assert "retired" in text
+    assert "out_of_scope: This fixture is retained for removal from older installs." in text
+
+    rc, out = _run(capsys, "--json", catalog=catalog)
+    doc = parse_one(out)
+    assert rc == 0
+    validate(doc)
+    assert doc["rows"] == [
+        {
+            "unit": "fixture-retired",
+            "state": "retired",
+            "detail": "out_of_scope: This fixture is retained for removal from older installs.",
+            "strategy": "reinstall",
+            "upgradable": [],
+        }
+    ]
+    assert doc["counts"]["retired"] == 1
 
 
 def test_upstream_rows_are_carried_when_asked(

@@ -99,14 +99,19 @@ def test_a_terminal_sees_one_status_line_that_refreshes_and_is_erased(tmp_path: 
 def test_a_pipe_gets_no_status_line_and_the_transcript_is_unchanged(tmp_path: Path) -> None:
     out, _ = _run(tmp_path, tty=False)
     assert "…" not in out and "\r" not in out and "\x1b" not in out
-    assert out.splitlines()[0].startswith("  $ ")
+    assert out.splitlines()[0].startswith("  step 1/1: ")
+    assert out.splitlines()[1].startswith("  $ ")
     assert out.splitlines()[-1] == "done"
-    assert len(out.splitlines()) == 2
+    assert len(out.splitlines()) == 3
 
 
 def test_verbose_streams_every_line_in_order(tmp_path: Path) -> None:
     out, _ = _run(tmp_path, "--verbose", tty=True)
-    got = [line.strip() for line in out.splitlines() if line.strip().startswith(("step ", "fin"))]
+    got = [
+        line.strip()
+        for line in out.splitlines()
+        if line.strip().startswith(("step ", "fin")) and not line.strip().startswith("step 1/")
+    ]
     assert [g.replace("\x1b[32m", "").replace("\x1b[0m", "") for g in got] == [
         *(f"step {i} green" for i in range(10)),
         "finished",
@@ -125,7 +130,9 @@ def test_the_run_log_is_identical_across_the_three_modes(tmp_path: Path) -> None
 def test_a_long_step_says_so_at_step_start(tmp_path: Path) -> None:
     out, _ = _run(tmp_path, "--long", tty=False)
     lines = out.splitlines()
-    assert lines[1] == f"    {LONG_STEP_NOTE}"
+    assert lines[0].startswith("  step 1/1: ")
+    assert lines[1].startswith("  $ ")
+    assert lines[2] == f"    {LONG_STEP_NOTE}"
     plain, _ = _run(tmp_path / "p", tty=False)
     assert LONG_STEP_NOTE not in plain
 

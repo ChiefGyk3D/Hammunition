@@ -257,6 +257,86 @@ def test_the_echoed_line_matches_the_process_table(tmp_path: Path) -> None:
     assert shown and "sudo" in shown[0]
 
 
+def test_step_indices_match_the_plan_progress_and_run_log(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from hammunition import runlog
+    from hammunition.interface.plan import step_view
+
+    steps = [
+        Command(argv=("first",), description="First fixture step", requires_root=False),
+        Command(argv=("second",), description="Second fixture step", requires_root=False),
+    ]
+    views = [step_view(step, euid=1000, index=index) for index, step in enumerate(steps, 1)]
+    assert [view.index for view in views] == [1, 2]
+
+    active = runlog._open(tmp_path / "run.log", None)
+    monkeypatch.setattr(runlog, "_active", active)
+    lines: list[str] = []
+    try:
+        execute(
+            steps,
+            RecordingRunner(),
+            log=TransactionLog(tmp_path / "log.jsonl"),
+            plan=_plan(),
+            echo=lines.append,
+            euid=1000,
+        )
+    finally:
+        runlog._active = None
+        active.close(0, 0.0)
+
+    expected = [
+        "step 1/2: First fixture step",
+        "step 2/2: Second fixture step",
+    ]
+    assert [line for line in lines if line.startswith("  step ")] == [
+        f"  {line}" for line in expected
+    ]
+    logged = [line for line in (tmp_path / "run.log").read_text().splitlines() if "step " in line]
+    assert [line.split("meta    ", 1)[1] for line in logged] == expected
+
+
+def test_uninstall_step_indices_match_progress_and_run_log(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from hammunition import runlog
+    from hammunition.execute import run_removal
+    from hammunition.state import RemovalPlan
+
+    steps = [
+        Command(argv=("first",), description="First fixture removal", requires_root=False),
+        Command(argv=("second",), description="Second fixture removal", requires_root=False),
+    ]
+    active = runlog._open(tmp_path / "uninstall.log", None)
+    monkeypatch.setattr(runlog, "_active", active)
+    lines: list[str] = []
+    try:
+        report = run_removal(
+            steps,
+            RecordingRunner(),
+            log=TransactionLog(tmp_path / "uninstall.jsonl"),
+            plan=RemovalPlan(to_remove={}, left_foreign={}, already_absent={}),
+            target=TARGET,
+            echo=lines.append,
+            euid=1000,
+        )
+    finally:
+        runlog._active = None
+        active.close(0, 0.0)
+
+    assert report.ok
+    expected = [
+        "step 1/2: First fixture removal",
+        "step 2/2: Second fixture removal",
+    ]
+    assert [line.strip() for line in lines if line.startswith("  step ")] == expected
+    logged = [
+        line for line in (tmp_path / "uninstall.log").read_text().splitlines() if "step " in line
+    ]
+    assert [line.split("meta    ", 1)[1] for line in logged] == expected
+
+
 def test_a_successful_transaction_is_closed(tmp_path: Path) -> None:
     log = TransactionLog(tmp_path / "log.jsonl")
     report = execute(
@@ -1381,9 +1461,9 @@ def test_a_bad_callsign_is_an_error_message_not_a_traceback(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """StationError from operator input gets the validator's message and the
-    planning exit code. Found on the first Parrot VM run that passed
-    --callsign N0CALL: the run ended in a raw traceback."""
-    code = main(["install", "linbpq", "--dry-run", "--callsign", "N0CALL"])
+    planning exit code. Five characters after the digit exceed the accepted
+    four-character callsign shape."""
+    code = main(["install", "linbpq", "--dry-run", "--callsign", "N0CALLL"])
     assert code == EXIT_UNPLANNABLE
     err = capsys.readouterr().err
     assert "does not look like a callsign" in err

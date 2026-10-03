@@ -714,6 +714,7 @@ class StepView(Strict):
         "is fetched from in the order tried: the LAN mirror, then the publisher (D-070); "
         "the publisher alone with no mirror; empty for any other step"
     )
+    index: int = described("this step's 1-based position in execution order")
     long_running: bool = field(
         default=False,
         metadata={
@@ -844,6 +845,7 @@ class PlanDocument(Strict):
     action: str = described("`install` or `uninstall`")
     requested: tuple[str, ...] = described("the names given on the command line")
     outcome: str = described("`planned`, or `refused` with the blockers")
+    step_count: int = described("the number of steps in this transaction; zero when refused")
     target: TargetView = described("the system planned against")
     blockers: tuple[BlockerLine, ...] = described("empty unless refused")
     install: InstallPlanView | None = described(
@@ -880,7 +882,7 @@ def _desktops_read(plan: InstallPlan) -> DesktopsReadView | None:
     )
 
 
-def step_view(step: Step, *, euid: int) -> StepView:
+def step_view(step: Step, *, euid: int, index: int) -> StepView:
     if isinstance(step, Action):
         return StepView(
             description=step.description,
@@ -889,6 +891,7 @@ def step_view(step: Step, *, euid: int) -> StepView:
             action=step.kind,
             requires_root=step.requires_root,
             sources=step.sources,
+            index=index,
         )
     return StepView(
         description=step.description,
@@ -897,6 +900,7 @@ def step_view(step: Step, *, euid: int) -> StepView:
         action=None,
         requires_root=step.requires_root,
         sources=(),
+        index=index,
         long_running=step.long_running,
     )
 
@@ -1369,7 +1373,7 @@ def build_install_view(
             else None
         ),
         sudo=_sudo_line(commands, euid=euid, keepalive=sudo_keepalive),
-        commands=tuple(step_view(c, euid=euid) for c in commands),
+        commands=tuple(step_view(c, euid=euid, index=index) for index, c in enumerate(commands, 1)),
         suggestion_notes=tuple(suggestion_notes),
         region_notes=tuple(region_notes),
         publisher_checks=tuple(
@@ -1930,7 +1934,7 @@ def build_removal_view(
             f"{', '.join(paths)}"
             for unit, paths in plan.kept_shared.items()
         ),
-        commands=tuple(step_view(c, euid=euid) for c in commands),
+        commands=tuple(step_view(c, euid=euid, index=index) for index, c in enumerate(commands, 1)),
     )
 
 
@@ -1965,7 +1969,7 @@ def render_removal_view(view: RemovalPlanView, *, target: TargetView) -> list[st
     if view.commands:
         lines += ["", f"Commands ({len(view.commands)}):"]
         for command in view.commands:
-            lines.append(f"  # {command.description}")
+            lines.append(f"  # {command.index}: {command.description}")
             lines.append(f"  $ {command.display}")
     else:
         lines += ["", "Nothing to do: none of this is installed, or none of it was ours."]
@@ -1979,6 +1983,7 @@ def refused_plan(
         action=action,
         requested=tuple(requested),
         outcome="refused",
+        step_count=0,
         target=target,
         blockers=tuple(
             BlockerLine(subject=b.subject, reason=b.reason, remedy=b.remedy) for b in blockers

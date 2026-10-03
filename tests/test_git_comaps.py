@@ -549,7 +549,7 @@ def test_the_plan_and_the_run_print_the_long_step_note(tmp_path: Path) -> None:
 
     backend, _ = _backend(tmp_path)
     commands = [s for s in _steps(backend, _manifest(submodules=True)) if isinstance(s, Command)]
-    views = [step_view(c, euid=1000) for c in commands]
+    views = [step_view(c, euid=1000, index=i) for i, c in enumerate(commands, 1)]
     text = render_steps(views)
     notes = [i for i, line in enumerate(text) if line.strip() == LONG_STEP_NOTE]
     assert len(notes) == sum(c.long_running for c in commands) >= 2

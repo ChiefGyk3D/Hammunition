@@ -82,6 +82,8 @@ class Renderable(Protocol):
     @property
     def requires_root(self) -> bool: ...
     @property
+    def index(self) -> int: ...
+    @property
     def long_running(self) -> bool: ...
 
 
@@ -362,14 +364,17 @@ def _human(size: float) -> str:
     return f"{size / 1e3:.0f} KB"
 
 
-def _render_group(group: Group) -> list[str]:
+def _render_group(group: Group, step_count: int) -> list[str]:
     repeats = len(group.items)
     noun = "item"
     lines = [
+        f"  Steps {group.steps[0].index}-{group.steps[-1].index} of {step_count}:",
         f"  Repeated {repeats} times, once for each {noun} listed below "
         f"({group.period} step{'s' if group.period != 1 else ''} each, in this order); "
-        f"--full prints every one:"
+        f"--full prints every one:",
     ]
+    if any(step.long_running for step in group.steps):
+        lines.append(f"  Each repeat: {LONG_STEP_NOTE}")
     for template in group.templates:
         text = _fill(template, group.columns)
         description, _, display = text.partition("\n")
@@ -378,7 +383,7 @@ def _render_group(group: Group) -> list[str]:
     lines.append(f"  First {noun} written out in full:")
     for phase in range(group.period):
         step = group.steps[phase]
-        lines.append(f"  # {step.description}")
+        lines.append(f"  # {step.index}: {step.description}")
         lines.append(f"  $ {step.display}")
         if step.long_running:
             lines.append(f"    {LONG_STEP_NOTE}")
@@ -401,9 +406,9 @@ def render_steps(steps: Sequence[Renderable], *, full: bool = False) -> list[str
     items: Sequence[Renderable | Group] = steps if full else group_steps(steps)
     for item in items:
         if isinstance(item, Group):
-            lines.extend(_render_group(item))
+            lines.extend(_render_group(item, len(steps)))
         else:
-            lines.append(f"  # {item.description}")
+            lines.append(f"  # {item.index}: {item.description}")
             lines.append(f"  $ {item.display}")
             if item.long_running:
                 lines.append(f"    {LONG_STEP_NOTE}")

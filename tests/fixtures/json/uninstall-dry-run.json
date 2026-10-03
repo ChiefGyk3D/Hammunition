@@ -7,6 +7,7 @@
     "fixture-apt"
   ],
   "outcome": "planned",
+  "step_count": 2,
   "target": {
     "distro": "debian",
     "version": "13",
@@ -75,6 +76,7 @@
         "action": null,
         "requires_root": true,
         "sources": [],
+        "index": 1,
         "long_running": false
       },
       {
@@ -89,6 +91,7 @@
         "action": null,
         "requires_root": false,
         "sources": [],
+        "index": 2,
         "long_running": false
       }
     ]

@@ -1755,6 +1755,7 @@ operator; for local programs, not for pasting.
 | `action` | string | `install` or `uninstall` |
 | `requested` | list of string | the names given on the command line |
 | `outcome` | string | `planned`, or `refused` with the blockers |
+| `step_count` | integer | the number of steps in this transaction; zero when refused |
 | `target` | [`TargetView`](#targetview) | the system planned against |
 | `blockers` | list of [`BlockerLine`](#blockerline) | empty unless refused |
 | `install` | [`InstallPlanView`](#installplanview) or null | the install plan; null for an uninstall or a refusal |
@@ -2243,6 +2244,7 @@ One step, exactly as the real run performs it.
 | `action` | string or null | the in-process step's kind (`fetch`, `extract`, ...); null for a command |
 | `requires_root` | boolean | whether it runs as root |
 | `sources` | list of string | for a data download (a `data` artifact, a map region, a terrain tile), the URLs it is fetched from in the order tried: the LAN mirror, then the publisher (D-070); the publisher alone with no mirror; empty for any other step |
+| `index` | integer | this step's 1-based position in execution order |
 | `long_running` | boolean | true when the backend knows the step can take several minutes (a submodule fetch, a compile, a venv install, a node build); the text prints one fixed note under it and claims no duration (#270) |
 
 #### `PublisherCheckLine`
@@ -3734,6 +3736,10 @@ A unit and files.
           "title": "Sources",
           "type": "array"
         },
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
         "long_running": {
           "default": false,
           "title": "Long Running",
@@ -3746,7 +3752,8 @@ A unit and files.
         "argv",
         "action",
         "requires_root",
-        "sources"
+        "sources",
+        "index"
       ],
       "title": "StepView",
       "type": "object"
@@ -4337,6 +4344,10 @@ A unit and files.
       "title": "Outcome",
       "type": "string"
     },
+    "step_count": {
+      "title": "Step Count",
+      "type": "integer"
+    },
     "target": {
       "$ref": "#/$defs/TargetView"
     },
@@ -4372,6 +4383,7 @@ A unit and files.
     "action",
     "requested",
     "outcome",
+    "step_count",
     "target",
     "blockers",
     "install",
@@ -6137,7 +6149,7 @@ One unit: installed versus the catalog.
 | field | type | meaning |
 |---|---|---|
 | `unit` | string | the catalog unit |
-| `state` | string | `up to date`, `candidate differs`, `behind the pin`, `not installed`, `unknown`, `re-checked on install` or `manual` |
+| `state` | string | `up to date`, `candidate differs`, `behind the pin`, `not installed`, `unknown`, `re-checked on install`, `manual` or `retired` |
 | `detail` | string | what was compared, as the text prints it |
 | `strategy` | string | the manifest's update strategy |
 | `upgradable` | list of string | apt packages whose candidate differs |
@@ -6155,6 +6167,7 @@ How many rows are in each state.
 | `unknown` | integer | nothing on disk can be checked |
 | `on_install` | integer | resolved again on every install |
 | `manual` | integer | re-pinned by hand |
+| `retired` | integer | catalog units retained as retired |
 
 #### `UpstreamRowView`
 
@@ -6260,6 +6273,10 @@ The catalog's pin against what upstream publishes (`--upstream` only).
         "manual": {
           "title": "Manual",
           "type": "integer"
+        },
+        "retired": {
+          "title": "Retired",
+          "type": "integer"
         }
       },
       "required": [
@@ -6269,7 +6286,8 @@ The catalog's pin against what upstream publishes (`--upstream` only).
         "not_installed",
         "unknown",
         "on_install",
-        "manual"
+        "manual",
+        "retired"
       ],
       "title": "UpdateCounts",
       "type": "object"

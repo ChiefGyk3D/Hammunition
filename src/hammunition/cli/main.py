@@ -164,6 +164,7 @@ from hammunition.manifest.schema import (
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
+    Status,
     TopoQuadsInstall,
 )
 from hammunition.paths import (
@@ -903,6 +904,26 @@ def cmd_update(args: argparse.Namespace) -> int:
             return EXIT_OK
         print(f"Comparing the {len(names)} unit(s) the transaction log has ever named here.")
 
+    retired: dict[str, PackageManifest] = {}
+    update_profiles = dict(profiles)
+    for name in names:
+        manifest = packages.get(name)
+        if name not in profiles and manifest is not None and manifest.status is Status.retired:
+            retired.setdefault(name, manifest)
+        profile = profiles.get(name)
+        if profile is None:
+            continue
+        active_members: list[str] = []
+        for member in profile.packages:
+            member_manifest = packages.get(member)
+            if member_manifest is not None and member_manifest.status is Status.retired:
+                retired.setdefault(member, member_manifest)
+            else:
+                active_members.append(member)
+        if len(active_members) != len(profile.packages):
+            update_profiles[name] = profile.model_copy(update={"packages": active_members})
+    update_names = [name for name in names if name not in retired]
+
     try:
         station = load_station(owner=user)
     except StationError:
@@ -910,9 +931,9 @@ def cmd_update(args: argparse.Namespace) -> int:
     repos = AptRepoBackend(owner=user or None)
     try:
         plan = resolve(
-            names,
+            update_names,
             catalog=packages,
-            profiles=profiles,
+            profiles=update_profiles,
             target=target,
             apt=apt,
             user=user,
@@ -1041,6 +1062,7 @@ def cmd_update(args: argparse.Namespace) -> int:
         quads=installed_quad_counts(plan, source.prefix, catalog_root),
         books=books_by_unit,
         mwm=mwm_by_unit,
+        retired=tuple(retired.values()),
     )
     lists_note = _apt_lists_note(apt)
     upstream = (
@@ -4135,6 +4157,7 @@ def cmd_install(args: argparse.Namespace) -> int:
                 action="install",
                 requested=tuple(args.names),
                 outcome="planned",
+                step_count=len(view.commands),
                 target=target_view(target),
                 blockers=(),
                 install=view,
@@ -4525,6 +4548,7 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
                     action="uninstall",
                     requested=tuple(args.names),
                     outcome="refused",
+                    step_count=0,
                     target=target_view(target),
                     blockers=(BlockerLine(subject="uninstall", reason=str(exc), remedy=None),),
                     install=None,
@@ -4594,6 +4618,7 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
                 action="uninstall",
                 requested=tuple(args.names),
                 outcome="planned",
+                step_count=len(view.commands),
                 target=target_view(target),
                 blockers=(),
                 install=None,
