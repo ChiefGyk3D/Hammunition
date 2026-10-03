@@ -8864,10 +8864,14 @@ The first plain service is the `gps-tether` unit: `hammunition-gps-tether`
 pinned by sha256 and unpacked with `install_tree` beside skid-finder's, run in
 place by the unit with `/usr/bin/env PYTHONPATH=… /usr/bin/python3 -P -m
 hammunition_gps_tether` on 127.0.0.1:10110 and :10111 (D-071 note). Pin: tag
-`v0.1.0`, commit `58d4bb7eab9fbf5c8b6e8ccce2b0f3178b17d44e`, tarball sha256
-`a707794b330b2127d458ff0741f3a9a506689b4e60b25de3926a4c7e9f76b90a` (fetched
-three times, identical). The project publishes no wheel or release file for
-v0.1.0, which is why the pin is the tag's own tarball; a wheel would be the
+`v0.1.1`, commit `d68bc888d1a44ecce74604d6299f991a72a7ae54`, tarball sha256
+`8d2c78b760a622bf682ecd3616af5b807e6653fd1bb05fd6fa28a5761ef456f6` (fetched
+twice, identical). **Amended 2026-10-02 (v0.1.1, the maintainer's ruling):** the
+tether exits 3 on a refusal (a taken port or socket, root, an unusable option),
+1 on an uncaught crash and 2 on a usage error, and the unit carries
+`RestartPreventExitStatus=3`, so a refusal is not retried and a crash is; v0.1.0
+exited 1 for both and the unit stopped retrying both. The project publishes no
+wheel or release file for v0.1.1, which is why the pin is the tag's own tarball; a wheel would be the
 better artifact. A venv requirement carrying the all-zero digest
 (`UNPINNED_SHA256`), the convention for an unfinished pin, is refused by name at
 plan time (a binary artifact is not: fixtures across the suite use zeros for a
