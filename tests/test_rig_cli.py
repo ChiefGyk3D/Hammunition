@@ -256,7 +256,7 @@ def test_clear_rig_refuses_setting_rig_flags(
 
     rc = _run(monkeypatch, tmp_path, *flags, "--clear-rig")
 
-    assert rc == cli.EXIT_UNPLANNABLE
+    assert rc == cli.EXIT_FAILED
     error = capsys.readouterr().err
     assert "--clear-rig" in error
     assert "second command" in error

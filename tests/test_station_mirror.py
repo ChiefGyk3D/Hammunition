@@ -102,7 +102,7 @@ def test_station_set_refuses_a_bad_mirror_and_writes_nothing(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     path = _env(monkeypatch, tmp_path)
-    assert cli.main(["station", "set", "--mirror", "http://u:p@bunker.lan/"]) == 2
+    assert cli.main(["station", "set", "--mirror", "http://u:p@bunker.lan/"]) == 1
     assert not path.exists()
     assert "mirror" in capsys.readouterr().err
 

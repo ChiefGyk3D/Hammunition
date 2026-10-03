@@ -118,3 +118,40 @@ def test_station_set_text_success_is_unchanged(
     assert cli.main(["station", "set", "--dem-source", "3dep"]) == 0
 
     assert capsys.readouterr().out == f"Saved to {path} (mode 0600).\n  dem_source     3dep\n"
+
+
+def test_station_set_text_refusal_does_not_save_other_valid_flags(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = _set_env(monkeypatch, tmp_path)
+
+    result = cli.main(
+        [
+            "station",
+            "set",
+            "--map-regions",
+            ",",
+            "--map-freshness",
+            "monthly",
+        ]
+    )
+
+    assert result == cli.EXIT_FAILED
+    assert "give at least one region" in capsys.readouterr().err
+    assert not path.exists()
+
+
+def test_station_set_json_nothing_to_set_is_an_error_document(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = _set_env(monkeypatch, tmp_path)
+
+    result = cli.main(["station", "set", "--json"])
+
+    assert result == cli.EXIT_FAILED
+    doc = parse_one(capsys.readouterr().out)
+    assert doc["kind"] == "error"
+    assert doc["command"] == "station set"
+    assert doc["exit_code"] == cli.EXIT_FAILED
+    assert "nothing to set" in doc["message"]
+    assert not path.exists()
