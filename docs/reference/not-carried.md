@@ -7,7 +7,7 @@ regenerate. The reasons live in that script and are validated against
 the complete index in `docs/reference/dispositions.md`: a disposition
 added there without a reason here fails generation by name.
 
-**Generated:** 2026-10-02
+**Generated:** 2026-10-03
 
 If you came here from Andy's Ham Radio Linux or 73Linux and something
 you used is missing, this page says why. `PARITY-POLICY.md` promises
@@ -85,7 +85,7 @@ reviewable at the manifest rather than only here.
 | `rtl_sdr_v4` | the distribution's `librtlsdr` (manifest `rtl-sdr`) | AHRL hand-deletes the distro library and installs the RTL-SDR Blog fork from an unpinned clone. We carry the distribution package and handle the V4 situation by disclosure, not displacement (D-022). |
 | `source_libs` | the Hammunition engine | Manifests declare their own build dependencies; a blanket toolchain install is replaced by per-unit `build_depends` (SUPERSEDE #8-12). |
 | `vdlm2dec` | `dumpvdl2` | dumpvdl2 is the maintained VDL Mode 2 decoder; vdlm2dec's upstream is archived. The manifest records `superseded_by`. |
-| `virtual_radar_server` | `readsb` | VRS is a dormant Mono application that needs a bundled config patch just to start. readsb is native and maintained; the tar1090 web front end it pairs with is in no target's archive, which is a documented gap rather than a shim; its route, measured 2026-10-01, is in the gap-analysis table below. |
+| `virtual_radar_server` | `readsb` | VRS is a dormant Mono application that needs a bundled config patch just to start. readsb is native and maintained; the tar1090 web front end it pairs with is carried as the `tar1090` unit, a page in `hammunition reference serve` on 127.0.0.1 (D-071, 2026-10-02). |
 
 ## Revived — AHRL shipped it broken or disabled; we are bringing it back
 
@@ -122,7 +122,6 @@ decision record ruled out. Each says what would change the answer.
 |---|---|---|
 | `freedv-rade` | Measured build, 2026-10-01 | FreeDV 2.x, the release with the RADE neural voice mode, is in no target's archive (all seven carry 1.8.11, which is the catalog's `freedv` and has the pre-RADE modes), and its build cannot be pinned from outside. v2.4.0 builds on Debian 13, but its CMake fetches its own dependencies while building: `freedv-backend` at a tag, and underneath it RADE's C port (`freedv/rade_c`) and RNNoise from their `main` branches, and Opus as an unhashed archive. Two of those are moving branches, which the security rules refuse, and the engine cannot pin a fetch made inside someone else's build (`source-build-gaps.md` #9). The install rule also leaves out the `librade` library the binary links. Upstream's Linux binary is an AppImage, which is refused by name. It is carried when a distribution packages FreeDV 2.x or upstream pins those fetches. |
 | `gpsprune` | D-061 | Offered on all seven targets, and not carried: D-061 measured it on 2026-09-28 and left it out because it draws its maps from online tiles, which is what the `navigation` profile's exclusions say. Carrying it needs the maintainer to amend D-061. |
-| `tar1090` | Measured, 2026-10-01; the route is engine work | The ADS-B web map that pairs with `readsb`. Its install is a script run as root from a pipe (`sudo bash -c "$(wget -O - ...)"`, its README), which clones tar1090 and its aircraft database from their `master` branches and writes a lighttpd stanza and a systemd service; Debian's lighttpd listens on port 80 on every address (`server.port = 80`, no bind). It was read and not run. Measured instead, in a debian:13 container: the page is static files, and served from `html/` at commit e784ee5 by a plain web server on 127.0.0.1, with `data/` pointing at the JSON directory readsb writes (Debian's readsb service writes /run/readsb), it drew the 21 aircraft readsb decoded from dump978's sample, with no lighttpd, no history service and no database. So the route is a page in `hammunition reference serve` (D-071's loopback server) over a pinned checkout of the page, which is engine code, not a manifest. Two things it would still lack: the aircraft database (`wiedehopf/tar1090-db`) cannot be pinned, because upstream replaces its one commit regularly, so type, operator and registration lookups would be empty; and the base map is OpenStreetMap's online tiles. |
 
 ---
 

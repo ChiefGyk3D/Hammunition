@@ -73,8 +73,8 @@ documentation:
   manual_configuration: >-
     **A dongle that works under `sudo` and not otherwise is a permissions
     problem.** Device access needs a udev rule and usually the `plugdev` group;
-    the hardware catalog carries the rules and applying them is M4 work that is
-    not written, so today that is a manual step. `SoapySDRUtil --find` is the
+    the hardware catalog carries the rules and `hammunition hardware apply` writes
+    them and adds you to the groups (log out and back in afterward). `SoapySDRUtil --find` is the
     first command to run when a radio is invisible — it separates a USB or
     permissions problem from a missing module from an application bug.
 
