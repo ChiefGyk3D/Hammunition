@@ -24,6 +24,7 @@ from hammunition.update import (
     MANUAL,
     NOT_INSTALLED,
     ON_INSTALL,
+    RETIRED,
     UNKNOWN,
     UP_TO_DATE,
     UpdateReport,
@@ -42,7 +43,7 @@ class UpdateRowView(Strict):
     unit: str = described("the catalog unit")
     state: str = described(
         "`up to date`, `candidate differs`, `behind the pin`, `not installed`, `unknown`, "
-        "`re-checked on install` or `manual`"
+        "`re-checked on install`, `manual` or `retired`"
     )
     detail: str = described("what was compared, as the text prints it")
     strategy: str = described("the manifest's update strategy")
@@ -60,6 +61,7 @@ class UpdateCounts(Strict):
     unknown: int = described("nothing on disk can be checked")
     on_install: int = described("resolved again on every install")
     manual: int = described("re-pinned by hand")
+    retired: int = described("catalog units retained as retired")
 
 
 @dataclass(frozen=True)
@@ -122,6 +124,7 @@ def build_update(
             unknown=report.count(UNKNOWN),
             on_install=report.count(ON_INSTALL),
             manual=report.count(MANUAL),
+            retired=report.count(RETIRED),
         ),
         lists_note=lists_note,
         upgrade_command=upgrade_command(report),
