@@ -3770,6 +3770,38 @@ docs generator's rendering; `capability_matrix.py` knows the method.
 `country_files.yaml` is the proof. Q-021 is closed by this record; Q-015
 decision 8's deferral ends with it.
 
+**Amended 2026-10-02 (maintainer's ruling on #197): an installed item the log
+attributes is not re-asked of its publisher at plan time, and is re-checked
+after seven days.** A plan used to ask the publisher about every item it would
+fetch and nothing about an item already on disk, so a repeated dry run cost
+what the first did only while the first had not installed; the ruling adds a
+bound on trust in the other direction. The rule, for a terrain or 3DEP tile, a
+US Topo or FSTopo sheet, a Kiwix book and a CoMaps map:
+
+1. An item on disk that the transaction log attributes (the last
+   `install-data` `action_end` for its destination, replayed through
+   `TransactionLog.read()` so rotated archives count, D-077, and cancelled by a
+   later `remove-data`) and whose attribution is **younger than seven days**
+   (`attributed.RECHECK_AFTER_DAYS`) is planned as "installed, not re-checked
+   (attributed DATE)" and makes no request.
+2. One attributed **seven days or more ago**, or any attributed item under
+   `install --recheck`, is asked again, as a missing one is. That re-check
+   **never refuses and never defers**: the item is installed. A publisher that
+   no longer serves it as pinned, or does not answer, becomes a `note:` line
+   and the installed copy is kept; replacing it is the operator's decision.
+3. An item on disk the log does **not** attribute (copied in by hand, or
+   installed before the log recorded it) keeps what it had: its file counts and
+   nothing is asked. An attributed item whose file is not the one the log
+   recorded (a different size, or a catalog pin that is no longer the digest
+   attributed) is not trusted and is asked again. `install-data` entries now
+   carry `size` (and `digest` for books and maps); an older entry has neither
+   and is trusted on its timestamp alone.
+4. The plan says how many items were not re-checked and the oldest attribution
+   among them; `install --json` carries `publisher_checks`, one line per item on
+   disk with `checked`, the `reason` and the `attributed` date.
+5. Nothing about the real run changes: whatever it fetches it verifies, so a
+   skipped item can only have been skipped when there was nothing to fetch.
+
 ## D-050 — The menu is shaped like Parrot's: one top menu, ordered groups, one submenu per category, and an entry for every installed unit
 
 **Date:** 2026-09-12. **Status:** accepted (maintainer, in the field-laptop

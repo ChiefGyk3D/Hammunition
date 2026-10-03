@@ -1778,6 +1778,7 @@ Everything an install will do, section by section as the text prints it.
 | `commands` | list of [`StepView`](#stepview) | every step, in order |
 | `suggestion_notes` | list of string | what happened to the profiles' suggestion groups; the text prints these as `note:` lines |
 | `region_notes` | list of string | notes from resolving the map regions; the text prints these as `note:` lines |
+| `publisher_checks` | list of [`PublisherCheckLine`](#publishercheckline) | one line per data item already on disk: whether its publisher was asked at plan time (#197); empty when the plan holds no data unit with installed items |
 
 #### `PackageLine`
 
@@ -2224,6 +2225,18 @@ One step, exactly as the real run performs it.
 | `action` | string or null | the in-process step's kind (`fetch`, `extract`, ...); null for a command |
 | `requires_root` | boolean | whether it runs as root |
 | `sources` | list of string | for a data download (a `data` artifact, a map region, a terrain tile), the URLs it is fetched from in the order tried: the LAN mirror, then the publisher (D-070); the publisher alone with no mirror; empty for any other step |
+
+#### `PublisherCheckLine`
+
+What the plan did about one installed data item's publisher (#197).
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the data unit the item belongs to |
+| `item` | string | the tile, sheet, book or map |
+| `checked` | boolean | whether the plan asked the item's publisher; false for an item the log attributes as installed less than seven days ago, and for one on disk the log does not attribute |
+| `reason` | string | why, in a sentence; a failed re-check says so and that the copy is kept |
+| `attributed` | string or null | the date of the attribution in the log (YYYY-MM-DD); null when the log has none |
 
 #### `RemovalPlanView`
 
@@ -3027,6 +3040,13 @@ A unit and files.
           },
           "title": "Region Notes",
           "type": "array"
+        },
+        "publisher_checks": {
+          "items": {
+            "$ref": "#/$defs/PublisherCheckLine"
+          },
+          "title": "Publisher Checks",
+          "type": "array"
         }
       },
       "required": [
@@ -3049,7 +3069,8 @@ A unit and files.
         "sudo",
         "commands",
         "suggestion_notes",
-        "region_notes"
+        "region_notes",
+        "publisher_checks"
       ],
       "title": "InstallPlanView",
       "type": "object"
@@ -3322,6 +3343,48 @@ A unit and files.
         "apt"
       ],
       "title": "PackageLine",
+      "type": "object"
+    },
+    "PublisherCheckLine": {
+      "additionalProperties": false,
+      "description": "What the plan did about one installed data item's publisher (#197).",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "item": {
+          "title": "Item",
+          "type": "string"
+        },
+        "checked": {
+          "title": "Checked",
+          "type": "boolean"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "attributed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Attributed"
+        }
+      },
+      "required": [
+        "unit",
+        "item",
+        "checked",
+        "reason",
+        "attributed"
+      ],
+      "title": "PublisherCheckLine",
       "type": "object"
     },
     "QuadLine": {

@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from hammunition import acma
+from hammunition.attributed import CheckLine
 from hammunition.backends import Action
 from hammunition.backends.data import human_size
 from hammunition.backends.dem import (
@@ -370,6 +371,24 @@ class TileLine(Strict):
     size: int = described("bytes")
     size_human: str = described("the size as the text prints it")
     verified_by: str = described("how the download is checked")
+
+
+@dataclass(frozen=True)
+class PublisherCheckLine(Strict):
+    """What the plan did about one installed data item's publisher (#197)."""
+
+    unit: str = described("the data unit the item belongs to")
+    item: str = described("the tile, sheet, book or map")
+    checked: bool = described(
+        "whether the plan asked the item's publisher; false for an item the log attributes "
+        "as installed less than seven days ago, and for one on disk the log does not attribute"
+    )
+    reason: str = described(
+        "why, in a sentence; a failed re-check says so and that the copy is kept"
+    )
+    attributed: str | None = described(
+        "the date of the attribution in the log (YYYY-MM-DD); null when the log has none"
+    )
 
 
 @dataclass(frozen=True)
@@ -747,6 +766,10 @@ class InstallPlanView(Strict):
     )
     region_notes: tuple[str, ...] = described(
         "notes from resolving the map regions; the text prints these as `note:` lines"
+    )
+    publisher_checks: tuple[PublisherCheckLine, ...] = described(
+        "one line per data item already on disk: whether its publisher was asked at plan "
+        "time (#197); empty when the plan holds no data unit with installed items"
     )
 
 
@@ -1186,6 +1209,7 @@ def build_install_view(
     suggestion_notes: Sequence[str] = (),
     maps: MapDisclosure | None = None,
     region_notes: Sequence[str] = (),
+    publisher_checks: Sequence[CheckLine] = (),
     terrain: TerrainDisclosure | None = None,
     sudo_keepalive: bool = True,
     mirror: str | None = None,
@@ -1339,6 +1363,16 @@ def build_install_view(
         commands=tuple(step_view(c, euid=euid) for c in commands),
         suggestion_notes=tuple(suggestion_notes),
         region_notes=tuple(region_notes),
+        publisher_checks=tuple(
+            PublisherCheckLine(
+                unit=c.unit,
+                item=c.item,
+                checked=c.checked,
+                reason=c.reason,
+                attributed=c.attributed,
+            )
+            for c in publisher_checks
+        ),
     )
 
 
