@@ -598,7 +598,18 @@ def _resolve_rig_flags(args: argparse.Namespace, current: Station) -> _RigFlags 
     catalog cross-checks — is it a rig, is the baud in range, does the kind
     allow this flag — are here (D-073 §4).
     """
+    touched = any(
+        v is not None
+        for v in (args.rig, args.rig_device, args.rig_baud, args.rig_ptt_line, args.rig_owner)
+    )
     if args.clear_rig:
+        if touched:
+            print(
+                "error: --clear-rig cannot be combined with rig-setting flags; clear first, "
+                "then set rig values in a second command.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
         return _RigFlags(None, None, None, None, None, ["rig"], ["  rig            (cleared)"])
 
     rig: str | None = args.rig or current.rig
@@ -607,10 +618,6 @@ def _resolve_rig_flags(args: argparse.Namespace, current: Station) -> _RigFlags 
     ptt_line: str | None = args.rig_ptt_line or current.rig_ptt_line
     owner: str | None = args.rig_owner or current.rig_owner
 
-    touched = any(
-        v is not None
-        for v in (args.rig, args.rig_device, args.rig_baud, args.rig_ptt_line, args.rig_owner)
-    )
     if not touched:
         return _RigFlags(rig, rig_device, rig_baud, ptt_line, owner, [], [])
 
