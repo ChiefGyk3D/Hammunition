@@ -101,6 +101,7 @@ def _resolve(tmp_path: Path, names: list[str], **kwargs: Any) -> Any:
         user=kwargs.pop("user", "operator"),
         apply_capabilities=kwargs.pop("apply_capabilities", False),
         kernel=kwargs.pop("kernel", None),
+        java=kwargs.pop("java", None),
         desktops=kwargs.pop("desktops", None),
         log=kwargs.pop("log", None),
         station=kwargs.pop("station", None),

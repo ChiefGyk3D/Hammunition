@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from hammunition import acma
+from hammunition.attributed import CheckLine
 from hammunition.backends import Action
 from hammunition.backends.data import human_size
 from hammunition.backends.dem import (
@@ -73,6 +74,7 @@ from hammunition.plan import Blocker, InstallPlan, PlannedPackage
 from hammunition.rig import elide_serial
 from hammunition.state import RemovalPlan
 from hammunition.sudo_ticket import KEEPALIVE_INTERVAL, keepalive_wanted
+from hammunition.topo_plan import size_consent
 
 __all__ = [
     "PlanDocument",
@@ -373,6 +375,24 @@ class TileLine(Strict):
 
 
 @dataclass(frozen=True)
+class PublisherCheckLine(Strict):
+    """What the plan did about one installed data item's publisher (#197)."""
+
+    unit: str = described("the data unit the item belongs to")
+    item: str = described("the tile, sheet, book or map")
+    checked: bool = described(
+        "whether the plan asked the item's publisher; false for an item the log attributes "
+        "as installed less than seven days ago, and for one on disk the log does not attribute"
+    )
+    reason: str = described(
+        "why, in a sentence; a failed re-check says so and that the copy is kept"
+    )
+    attributed: str | None = described(
+        "the date of the attribution in the log (YYYY-MM-DD); null when the log has none"
+    )
+
+
+@dataclass(frozen=True)
 class GarminLine(Strict):
     """A region mkgmap builds a Garmin map from this run."""
 
@@ -426,6 +446,15 @@ class TopoSectionView(Strict):
     disk_total: int = described("bytes: the downloads plus the warped quads")
     disk_total_human: str = described("as the text prints it")
     estimate_note: str = described("how the estimate was measured")
+    selection: str = described(
+        "how the station's bound chose the sheets: a radius around the grid square (the "
+        "default), the --topo-regions, or every sheet (--topo-all); empty when not known"
+    )
+    size_consent: str | None = described(
+        "the one sentence the install asks a typed yes about, which --yes does not answer: "
+        "set when --topo-all is chosen or the download and warped copies exceed 10 GB; "
+        "null otherwise"
+    )
 
 
 @dataclass(frozen=True)
@@ -754,6 +783,10 @@ class InstallPlanView(Strict):
     region_notes: tuple[str, ...] = described(
         "notes from resolving the map regions; the text prints these as `note:` lines"
     )
+    publisher_checks: tuple[PublisherCheckLine, ...] = described(
+        "one line per data item already on disk: whether its publisher was asked at plan "
+        "time (#197); empty when the plan holds no data unit with installed items"
+    )
 
 
 @dataclass(frozen=True)
@@ -913,6 +946,8 @@ def _topo_section(topo: TopoDisclosure | None) -> TopoSectionView | None:
         disk_total=download + warped,
         disk_total_human=human_size(download + warped),
         estimate_note=TOPO_MEASURED,
+        selection=topo.selection,
+        size_consent=asked.sentence() if (asked := size_consent(topo)) else None,
     )
 
 
@@ -1190,6 +1225,7 @@ def build_install_view(
     suggestion_notes: Sequence[str] = (),
     maps: MapDisclosure | None = None,
     region_notes: Sequence[str] = (),
+    publisher_checks: Sequence[CheckLine] = (),
     terrain: TerrainDisclosure | None = None,
     sudo_keepalive: bool = True,
     mirror: str | None = None,
@@ -1352,6 +1388,16 @@ def build_install_view(
         commands=tuple(step_view(c, euid=euid) for c in commands),
         suggestion_notes=tuple(suggestion_notes),
         region_notes=tuple(region_notes),
+        publisher_checks=tuple(
+            PublisherCheckLine(
+                unit=c.unit,
+                item=c.item,
+                checked=c.checked,
+                reason=c.reason,
+                attributed=c.attributed,
+            )
+            for c in publisher_checks
+        ),
     )
 
 
@@ -1835,6 +1881,8 @@ def _render_fstopo(fstopo: FsTopoSectionView) -> list[str]:
 def _render_topo(topo: TopoSectionView) -> list[str]:
     """The US Topo block, after the terrain (D-068)."""
     lines = ["  US Topo, USGS 7.5-minute quads (D-068):"]
+    if topo.selection:
+        lines.append(f"    selection: {topo.selection}")
     if topo.regions:
         width = max(len(r.region) for r in topo.regions)
         for region in topo.regions:
@@ -1864,6 +1912,12 @@ def _render_topo(topo: TopoSectionView) -> list[str]:
             f"{topo.warp_estimate_human} ({WARP_FACTOR}x each download, {topo.estimate_note})"
         )
     lines.append(f"      about {topo.disk_total_human} of disk for US Topo ({topo.estimate_note})")
+    if topo.size_consent:
+        lines.append(f"    {topo.size_consent}")
+        lines.append("    The install asks you to type yes to that; --yes does not answer it.")
+        lines.append(
+            "    `hammunition station set --topo-radius-km N` or `--topo-regions` asks for fewer."
+        )
     return lines
 
 
