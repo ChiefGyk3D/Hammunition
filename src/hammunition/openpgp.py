@@ -146,6 +146,8 @@ def _fingerprint(body: bytes) -> str:
     version = body[0] if body else 0
     if version == 4:
         framed = b"\x99" + len(body).to_bytes(2, "big") + body
+        # Semgrep: the digest is the OpenPGP v4 fingerprint's own definition, not our choice.
+        # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
         return hashlib.sha1(framed).hexdigest().upper()  # the format's own digest
     if version == 6:
         framed = b"\x9b" + len(body).to_bytes(4, "big") + body

@@ -120,6 +120,8 @@ def _stage(staging: Path, wrapper: str, policy: str) -> str:
             os.mkdir(staging.name, 0o700, dir_fd=parent_fd)
     directory = os.open(staging, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
+        # Semgrep: a deliberate mode (0755/0644 on installed files and launchers, 0700 private); nothing group- or world-writable.
+        # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
         os.fchmod(directory, 0o700)
         for name, body in (("wrapper", wrapper), ("policy", policy)):
             descriptor = os.open(
