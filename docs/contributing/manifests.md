@@ -155,3 +155,9 @@ scripts/check_doc_links.py
 
 The catalog tests load every manifest and report **all** failures rather than
 the first (**D-016**), so one run tells you everything that is wrong.
+
+Add a changelog fragment, `changelog.d/<pr-or-branch>.added.md` for a new
+manifest, holding the entry as one bullet that names the PR and the decision
+it rests on (`changelog.d/README.md`). Never edit `CHANGELOG.md` in a pull
+request: every change that did conflicted with every other, and CI fails a
+pull request that changes `catalog/` without a fragment.

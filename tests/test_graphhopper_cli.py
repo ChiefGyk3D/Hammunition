@@ -90,6 +90,67 @@ def test_a_disk_short_of_the_graph_names_its_factor(
     assert "route graph at 3.7x" in err and "measured on one region" in err
 
 
+def test_the_comaps_disk_check_counts_the_graph_in_the_same_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from hammunition.backends.comaps_maps import maps_shortfall
+    from hammunition.backends.terrain import combined_shortfall
+    from hammunition.comaps import CdnProbe, load_pins
+    from hammunition.routing_plan import GraphRun
+
+    cli = _machine(monkeypatch, tmp_path)
+    catalog = Path(_catalog(tmp_path))
+    shutil.copy(REPO / "catalog" / "packages" / "comaps-maps.yaml", catalog / "packages")
+    shutil.copytree(REPO / "catalog" / "data", catalog / "data", dirs_exist_ok=True)
+    pins = load_pins(catalog)
+    monkeypatch.setattr(
+        CdnProbe,
+        "head",
+        lambda self, url: (200, pins.maps[url.rsplit("/", 1)[1].removesuffix(".mwm")].size),
+    )
+    monkeypatch.setattr(
+        GraphRun, "needs", lambda self, plan, *, prefix: {tmp_path / "graph-needs": 76}
+    )
+
+    graph_needs: dict[Path, int] = {}
+    combined = combined_shortfall
+
+    def allow_combined(maps: Any, terrain: Any, **kwargs: Any) -> str | None:
+        nonlocal graph_needs
+        graph_needs = kwargs["graph"]
+        return combined(maps, terrain, free_at=lambda _path: 10**18, **kwargs)
+
+    monkeypatch.setattr(cli, "combined_shortfall", allow_combined)
+    shortfall = maps_shortfall
+    expected: dict[str, int] = {}
+
+    def check_maps(needs: Any, beside: Any) -> str | None:
+        extras = beside or {}
+        graph = sum(graph_needs.values())
+        assert graph > 0
+        graph_amount_already_counted = sum(
+            min(extras.get(path, 0), amount) for path, amount in graph_needs.items()
+        )
+        free = sum(needs.values()) + sum(extras.values()) - graph_amount_already_counted
+        expected.update(free=free, graph=graph)
+        return shortfall(needs, beside, free_at=lambda _path: free, device_of=lambda _path: 1)
+
+    monkeypatch.setattr(cli, "maps_shortfall", check_maps)
+    argv = [
+        "--catalog",
+        str(catalog),
+        "install",
+        "--dry-run",
+        "graphhopper-graph",
+        "comaps-maps",
+    ]
+    assert cli.main(argv) == 2
+    err = capsys.readouterr().err
+    assert "not enough disk space for CoMaps' maps" in err
+    assert f"({expected['free'] + expected['graph']} bytes) is needed" in err
+    assert f"({expected['free']} bytes) is free" in err
+
+
 def test_the_disk_needs_count_the_graph_twice_and_the_merged_input() -> None:
     from hammunition.backends.graphhopper import GraphConverter
     from hammunition.backends.staging import Staging
