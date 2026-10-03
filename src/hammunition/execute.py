@@ -860,6 +860,8 @@ def _jsonable(value: object) -> object:
         return _jsonable(asdict(value))
     if isinstance(value, Mapping):
         return {str(key): _jsonable(item) for key, item in value.items()}
+    if isinstance(value, (set, frozenset)):
+        return [_jsonable(item) for item in sorted(value, key=repr)]
     if isinstance(value, (tuple, list)):
         return [_jsonable(item) for item in value]
     if isinstance(value, Path):
