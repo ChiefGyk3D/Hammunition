@@ -60,3 +60,17 @@ documentation:
     a POI file at about 0.21 times it, with about 15 times the download of
     scratch while the map builds, removed afterwards. `maps phone` copies the
     files once more into your home.
+  who_for: "A team lead who builds offline maps and points of interest once on the laptop and carries them to the team's phones."
+  hardware_assumed: "A phone that reads Mapsforge files (install the app while it still has internet). The laptop's hotspot, USB or KDE Connect carry the files."
+  footprint_short: "per region: the download plus about a fifth and three quarters of it, and about 15 times it as scratch while building"
+  excludes_short: "OsmAnd, Organic Maps, CoMaps and PocketMaps files, Transportr"
+  goals:
+    - "Carry offline maps on my team's phones"
+  first_ten_minutes:
+    - "Choose your regions: `hammunition station set --map-regions <region-path>`. Without them the map units are deferred."
+    - "Read the plan: `hammunition install phone-maps --dry-run`. Look at the scratch space a build needs, about 15 times the download."
+    - "Install: `hammunition install phone-maps`. A map took 3 minutes 38 seconds on a 22 MB region and hours on a large one."
+    - "Gather the files: `hammunition maps phone`, run as yourself. It makes one folder with a `SHA256SUMS` and prints the ways to carry it; it never runs them."
+    - "Install a Mapsforge-reading app on each phone while it still has internet, then copy the folder across and open the files from the app."
+    - "Compare checksums on the phone with the `SHA256SUMS` file so a corrupt copy cannot pass for a map."
+    - "Note: nothing here has been checked on a phone yet; the bench owes it."

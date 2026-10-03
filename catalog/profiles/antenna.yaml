@@ -64,3 +64,17 @@ documentation:
     degree square the regions touch (measured on one tile), and the regions'
     map extracts, which `dem-copernicus` brings with it. A US state is tens of
     squares.
+  who_for: "An operator who builds antennas and wants to model one before cutting wire, measure it afterwards, and predict its coverage."
+  hardware_assumed: "None to model. A NanoVNA or other analyser to measure; those need serial access (the `dialout` group)."
+  footprint_short: "about 150 MB, plus terrain when map regions are set"
+  excludes_short: "general propagation prediction, rotator control, LibreVNA-GUI"
+  goals:
+    - "Model an antenna or predict its coverage"
+  first_ten_minutes:
+    - "If you want coverage maps, choose your map regions first (`hammunition station set --map-regions <region>`, see [Offline navigation](../guides/offline-navigation.md) for the region paths); with none set, the terrain units are deferred by name and the modellers still install."
+    - "Read the plan: `hammunition install antenna --dry-run`. With regions set it lists elevation tiles and map extracts with their sizes; read those numbers before you agree."
+    - "Install: `hammunition install antenna`."
+    - "Point SPLAT! at its terrain once, as yourself and not with `sudo`: `hammunition maps splat`."
+    - "Open `xnec2c` and load one of its bundled example models to see a live radiation pattern before you try your own. NEC2 gives confident wrong answers when segment length or wire diameter breaks its rules."
+    - "If you have a NanoVNA, join `dialout` with `hammunition hardware apply`, log out and back in, then open `nanovna-saver`."
+    - "A coverage plot from your own grid centre is worked through in [Propagation and solar conditions](../guides/propagation.md)."

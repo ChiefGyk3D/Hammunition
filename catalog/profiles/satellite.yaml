@@ -44,3 +44,16 @@ documentation:
     Around 400 MB. SatDump and gr-satellites carry most of it; gr-satellites
     pulls the whole GNU Radio stack if it is not already present, which roughly
     doubles the figure on a fresh machine.
+  who_for: "An operator who wants to predict passes, follow them with Doppler correction, or decode a weather satellite."
+  hardware_assumed: "An SDR and an antenna for receiving, or a transceiver for working amateur satellites. Pass prediction needs no hardware."
+  footprint_short: "about 400 MB, double without GNU Radio"
+  excludes_short: "NOAA APT decoders (all satellites retired 2025-11-09), FoxTelem"
+  goals:
+    - "Track and hear satellites"
+  first_ten_minutes:
+    - "Set your grid square: `hammunition station set --callsign N0CALL --grid-square FN31pr`. The plan writes gpredict's ground-station file from it, and says so under *Configuration that will be written*."
+    - "Read the plan: `hammunition install satellite --dry-run`. If you have not named a radio, gpredict's rig file is listed under *Will NOT happen*; that is expected."
+    - "Install: `hammunition install satellite`."
+    - "Open gpredict and update the orbital elements (Edit, Update TLE, From network) before you trust a single prediction. Elements go stale in days."
+    - "Confirm your location in gpredict's preferences. Every pass time is relative to it."
+    - "Pick a bright pass and watch it in the polar view. [Satellites](../guides/satellite.md) covers Doppler through `rigctld`, weather pictures with SatDump and telemetry with gr-satellites."

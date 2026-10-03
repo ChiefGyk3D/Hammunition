@@ -5,6 +5,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Installing the engine
 
+This is the short form. [Installation](installation.md) is the full walkthrough
+from a fresh machine, with every step's output and the differences for each
+supported system.
+
 Hammunition is a Python engine plus a separate catalog of YAML manifests. The
 supported install today is a git clone: the engine runs from the checkout, and
 it finds the catalog by walking up from its own location, so nothing needs
@@ -158,5 +162,6 @@ default. Pass `--no-refresh` on a local mirror or a station with no uplink.
 
 ## Next
 
-[How much disk you need](disk-space.md) says what a profile or the whole
+[Installation](installation.md) continues from here: the health check, your
+callsign, reading a plan and the real install. [How much disk you need](disk-space.md) says what a profile or the whole
 catalog costs before you start. Back: [Getting started](index.md).
