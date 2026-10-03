@@ -25,6 +25,8 @@ here. Where a fix is distribution-specific it says so.
   the ticket expired during a long conversion; the engine now keeps it alive.
 - **[A source build fails to fetch — HTTP 404](install-failures.md#dead-url)** —
   a pinned upstream URL moved. Report it; run the URL sweep.
+- **[A git build stops in a text editor](install-failures.md#git-editor)** — your
+  own `tag.gpgsign` setting; fixed in the engine from v0.20.0.
 - **[apt refuses with "held broken packages" on Parrot](install-failures.md#parrot-backports)** —
   the backports-vs-base development-library skew. Install the -dev packages
   from backports.
