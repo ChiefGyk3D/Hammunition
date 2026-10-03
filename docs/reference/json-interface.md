@@ -60,6 +60,7 @@ their text follows.
 - `hammunition reference books`
 - `hammunition services`
 - `hammunition show PROFILE` (profile document); `hammunition show UNIT --json` (unit document)
+- `hammunition station set`
 - `hammunition station show`
 - `hammunition status`
 - `hammunition transactions`
@@ -89,6 +90,7 @@ their text follows.
 | `repeaters-removed` | [`RepeatersRemovedDocument`](#repeaters-removed) |
 | `services` | [`ServicesDocument`](#services) |
 | `station` | [`StationDocument`](#station) |
+| `station-set` | [`StationSetDocument`](#station-set) |
 | `status` | [`StatusDocument`](#status) |
 | `transactions` | [`TransactionsDocument`](#transactions) |
 | `unit` | [`UnitDocument`](#unit) |
@@ -5589,6 +5591,154 @@ and a grid square or a map region says where the station is.
     "topo_all"
   ],
   "title": "StationDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### station-set
+
+What station set saved, left as-is, or refused for a local front end.
+
+This contains station values and is for local programs, not for pasting
+into an issue, forum or chat.
+
+| field | type | meaning |
+|---|---|---|
+| `saved` | object | station keys written and their new values |
+| `unchanged` | object | given station keys already equal to their stored values |
+| `refused` | list of [`StationSetRefusal`](#stationsetrefusal) | given flags the CLI refused |
+| `file` | string | the station configuration file path |
+
+#### `StationSetRefusal`
+
+One station-set flag the CLI refused, including its original value.
+
+| field | type | meaning |
+|---|---|---|
+| `key` | string | the station setting named by the flag |
+| `value` | string or integer or boolean or null | the value given to the flag |
+| `reason` | string | the CLI's reason for refusing this flag |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "StationSetRefusal": {
+      "additionalProperties": false,
+      "description": "One station-set flag the CLI refused, including its original value.",
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "value",
+        "reason"
+      ],
+      "title": "StationSetRefusal",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "What station set saved, left as-is, or refused for a local front end.\n\nThis contains station values and is for local programs, not for pasting\ninto an issue, forum or chat.",
+  "properties": {
+    "saved": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Saved",
+      "type": "object"
+    },
+    "unchanged": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Unchanged",
+      "type": "object"
+    },
+    "refused": {
+      "items": {
+        "$ref": "#/$defs/StationSetRefusal"
+      },
+      "title": "Refused",
+      "type": "array"
+    },
+    "file": {
+      "title": "File",
+      "type": "string"
+    }
+  },
+  "required": [
+    "saved",
+    "unchanged",
+    "refused",
+    "file"
+  ],
+  "title": "StationSetDocument",
   "type": "object"
 }
 ```
