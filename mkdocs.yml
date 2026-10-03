@@ -276,5 +276,6 @@ nav:
       - Adding a manifest: contributing/manifests.md
       - Sending hardware identifiers: contributing/hardware.md
       - Testing in VMs: contributing/vm-testing.md
+      - Continuous integration: contributing/ci.md
       - Releasing: contributing/releasing.md
       - The docs sweep: contributing/docs-sweep.md
