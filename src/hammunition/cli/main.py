@@ -3601,7 +3601,13 @@ def cmd_install(args: argparse.Namespace) -> int:
         node_root=node_root(user or None),
         bin_dir=user_bin_dir(user or None),
     )
-    data = DataBackend(fetcher=source.fetcher, prefix=source.prefix, runner=runner)
+    data = DataBackend(
+        fetcher=source.fetcher,
+        prefix=source.prefix,
+        runner=runner,
+        build_root=builds,
+        owner=source.owner,
+    )
     map_units = [p for p in plan.packages if isinstance(p.block.install, RegionalDataInstall)]
     try:
         resolution = resolve_map_regions(
