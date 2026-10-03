@@ -71,6 +71,18 @@ def test_each_json_capable_section_names_its_document_kind() -> None:
         assert named, f"the {verb} section names no document kind"
 
 
+def test_show_unit_command_is_named_in_both_references() -> None:
+    json_reference = (REPO_ROOT / "docs" / "reference" / "json-interface.md").read_text()
+    commands = json_reference.split("## Commands", maxsplit=1)[1].split("## Kinds", maxsplit=1)[0]
+    assert "`hammunition show UNIT --json`" in commands
+
+    sections = _sections(CLI_DOC.read_text())
+    show = next(
+        body for heading, body in sections.items() if heading.startswith("`hammunition show")
+    )
+    assert "`hammunition show UNIT --json` prints a `unit` document" in " ".join(show.split())
+
+
 def test_the_privacy_rule_is_in_the_prose_docs() -> None:
     """`station` and `plan` carry values meant for a local program only."""
     sections = _sections(CLI_DOC.read_text())

@@ -1105,11 +1105,12 @@ A profile's documentation, its package list, and — for a gated profile — the
 full consent disclosure, printed without installing anything. This is how an
 operator reads a disclosure before deciding, rather than while being asked.
 
-With `--json`, prints a `profile` document
-([json-interface.md](json-interface.md)), the disclosure included. Under
-`--json` only, `show` also accepts a unit's name and prints a `unit`
-document carrying its manifest; the text `show` still describes profiles
-only.
+With `--json`, `hammunition show PROFILE` prints a `profile` document
+([json-interface.md](json-interface.md)), the disclosure included. A unit is
+also accepted: `hammunition show UNIT --json` prints a `unit` document carrying
+its manifest. Names are resolved against profiles first, then units, so a
+profile wins if the same name exists in both. The text form still describes
+profiles only.
 
 ### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--recheck] [--full] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
