@@ -12,7 +12,44 @@ from typing import ClassVar
 from hammunition.interface.envelope import Strict, described
 from hammunition.station import STATION_FIELDS, Station
 
-__all__ = ["StationDocument", "build_station", "render_station"]
+__all__ = [
+    "StationDocument",
+    "StationSetDocument",
+    "StationSetRefusal",
+    "build_station",
+    "render_station",
+    "render_station_set",
+]
+
+
+StationValue = str | int | bool | tuple[str, ...] | None
+
+
+@dataclass(frozen=True)
+class StationSetRefusal(Strict):
+    """One station-set flag the CLI refused, including its original value."""
+
+    key: str = described("the station setting named by the flag")
+    value: str | int | bool | None = described("the value given to the flag")
+    reason: str = described("the CLI's reason for refusing this flag")
+
+
+@dataclass(frozen=True)
+class StationSetDocument(Strict):
+    """What station set saved, left as-is, or refused for a local front end.
+
+    This contains station values and is for local programs, not for pasting
+    into an issue, forum or chat.
+    """
+
+    KIND: ClassVar[str] = "station-set"
+
+    saved: dict[str, StationValue] = described("station keys written and their new values")
+    unchanged: dict[str, StationValue] = described(
+        "given station keys already equal to their stored values"
+    )
+    refused: tuple[StationSetRefusal, ...] = described("given flags the CLI refused")
+    file: str = described("the station configuration file path")
 
 
 @dataclass(frozen=True)
@@ -155,4 +192,34 @@ def render_station(doc: StationDocument) -> list[str]:
     # it always has.
     if doc.reference_books:
         lines.append(f"  {'reference books':<14} {', '.join(doc.reference_books)}")
+    return lines
+
+
+def render_station_set(doc: StationSetDocument, station: Station, fields: list[str]) -> list[str]:
+    """The successful ``station set`` text, rendered from its document."""
+    lines = [f"Saved to {doc.file} (mode 0600)."]
+    for field in sorted(fields):
+        if field == "map_regions":
+            lines.append(f"  {field:<14} {len(station.map_regions)} set")
+        elif field == "map_freshness":
+            lines.append(f"  {field:<14} {station.freshness}")
+        elif field == "reference_books":
+            lines.append(f"  {field:<14} {', '.join(station.reference_books)}")
+        elif field == "mirror":
+            lines.append(f"  {field:<14} {station.mirror or '(cleared)'}")
+        elif field == "rig":
+            for rig_field in ("rig", "rig_device", "rig_baud", "rig_ptt_line", "rig_owner"):
+                value = getattr(station, rig_field)
+                if value is not None:
+                    lines.append(f"  {rig_field:<14} {value}")
+        elif field == "dem_source":
+            lines.append(f"  {field:<14} {station.elevation}")
+        elif field == "topo_radius_km":
+            lines.append(f"  {field:<14} {station.topo_radius} km")
+        elif field == "topo_regions":
+            lines.append(f"  {field:<14} {len(station.topo_regions)} set")
+        elif field == "topo_all":
+            lines.append(f"  {field:<14} {'yes' if station.topo_all else 'no'}")
+        else:
+            lines.append(f"  {field:<14} {station.get(field)}")
     return lines

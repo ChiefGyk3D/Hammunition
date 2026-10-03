@@ -1478,10 +1478,14 @@ the plan lists the unit that failed and the ones after it. A built unit is
 skipped (planned `already installed`) only when its declared binaries and tree
 marker are on disk and the recording is at the manifest's current pin; a
 missing file, or a moved pin, plans the build again. Units installed through
-apt are decided by apt as before. A unit the log does not show finishing is
-planned in full; map units that share a ledger (`osm-regions`, the converters,
-the terrain and topo units) are not recorded per unit and are planned as they
-were.
+apt are decided by apt as before. Regional, derived, DEM, topo and CoMaps units
+also resume when their completion fingerprint still matches the resolved
+inputs and selection, and their backend confirms the expected files and records
+are current. Changing a region, input digest or topo bound—or losing an output—
+plans that unit again. The fingerprint is opaque and does not store the station's
+raw region selection. Shared map-ledger checks are owned by the units they
+validate. On a successful run, completion records are written only after
+`verify_effects`; a failed check does not claim completion.
 
 ### `hammunition uninstall NAME... [--dry-run] [--yes] [-v|--verbose] [--user NAME]`
 
@@ -2155,7 +2159,7 @@ JSON. `--last N` limits the rows to the newest N while keeping them in
 chronological order. `--json` prints the `transactions` document
 ([json-interface.md](json-interface.md)).
 
-### `hammunition station show` / `hammunition station set`
+### `hammunition station show`
 
 The values only you can supply — callsign, grid square, packet node alias,
 the regions to carry offline maps for, the LAN mirror to take their data
@@ -2222,7 +2226,16 @@ callsign, grid square, node alias, and every map region by name, because a
 local front end needs them to fill in a form. It is for local programs, not
 for pasting into an issue, a forum or a chat: a callsign resolves to a name
 and a licence address, and a grid square or a region says where the station
-is. `station set` has no JSON form.
+is.
+
+### `hammunition station set`
+
+`station set --json` prints a `station-set` document
+([json-interface.md](json-interface.md)) with the values saved,
+the given values left unchanged, and one refusal for each rejected flag. Its
+exit code is `2` if any flag was refused; when that happens, none of the
+requested values are saved. It carries station values too, so it is for local
+programs, not for pasting into an issue, a forum or a chat.
 
 ## Launchers and menu entries
 
