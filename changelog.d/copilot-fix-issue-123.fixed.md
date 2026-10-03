@@ -1,0 +1,1 @@
+- **Issue #123:** allow four-character callsign suffixes so the documented placeholder passes station validation; add a regression test.
