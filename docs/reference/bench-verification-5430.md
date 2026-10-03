@@ -326,6 +326,38 @@ sizes, digests, positions and coordinates are not recorded here.
 The ten-region install (a Great Lakes cluster plus two eastern states) was
 started with the keep-alive line above; its result is a later session.
 
+## Session 13, 2026-10-02 to 2026-10-03: tray 0.5.0's helper, `services`, the tether at login, GPS from a cold boot
+
+The first run on the field laptop of the helper that moved to
+`hammunition-tray` (D-056, amended 2026-10-02), of `hammunition services`, of
+the run logs (D-077) and of the GPS tether across a login. **Engine:** `main`
+at `c609b46`, after v0.19.0. **OS:** Parrot Security 7.4 "echo", KDE Plasma.
+No station value, region name, sheet name or position is recorded here;
+where a value would go the page says so. The root commands were the
+operator's own; nothing here was run with `sudo` by an agent.
+
+| Step | Result |
+|---|---|
+| `hammunition doctor`, before the root lane | 18 ok, 2 to look at, 0 blocking. The two were the D-058 GPS-time grants and the #177 resume step, both of which `hardware apply` installs. |
+| `hammunition services`, before the helper | Refused as designed: "the installed helper has no `services` verb (it predates contract 1)". The helper then installed was the engine's own copy. |
+| `install station --dry-run` | 6.8 s; 13 packages; only `hammunition-tray` to fetch and install (v0.5.0, the archive pinned by sha256). 44 commands, including the applet's files under `/usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices` and the helper code under `/usr/local/lib/hammunition-devctl` with the wrapper's interpreter baked in. `rig-service` was deferred (no rig set) and `hammunition-tray-qt` was deferred (no Xfce or LXQt session). The old `hammunition-tray` 0.1.0 package record owned no files, so nothing was refused. |
+| The operator's root lane | `sudo apt-get remove -y hammunition-tray`, then `install station`, `install gps-tether`, `hardware apply`, `systemctl --user start hammunition-gps-tether`, `hammunition services`, `hammunition doctor`. The run logs show the two installs at 23:11:08 and 23:12:56 and the third at 23:13:27, all ok, and `hardware apply` at 23:13:53, ok. |
+| What it left | `/usr/local/libexec/hammunition-devctl --version` answers `hammunition-devctl contract 1`. The applet directory is present. `/etc/hammunition/devctl-devices.yaml` (1992 B), `devctl-services.yaml` (659 B) and `time.yaml` exist, mode 0644; `~/.config/hammunition/devctl-services.yaml` is 0600. The tether is enabled and active, listening on 127.0.0.1:10110 and :10111. |
+| `hammunition services` | Lists gpsd (active, enabled, with `gpsd.socket`), time (`ntpsec.service`, active, enabled), gps-resume (inactive, enabled) and gps-tether (a user service, active, enabled). |
+| `hammunition doctor`, after | 20 ok, 0 to look at, 0 blocking. |
+| The helper's read-only views | `state` lists four devices (the Bluetooth controller, the camera, the GPS receiver and the WWAN modem), all awake. It prints `note: device 'dell-dw5930e' has no usable usb_ids; dropped` on stderr, so stdout stays clean JSON, which the tray reads. `radio state`: WWAN present and on through `nmcli` (the `cdc-wdm0` device), Wi-Fi present and on through `nmcli`, Bluetooth present and on through `bluetoothctl`. `services state`: linger on, `ours=false`. |
+| GPS time (D-058) | `hammunition time`: mode `auto`, receiver awake, and the clock follows the network (offset +1.4 ms) **because the receiver had no fix at that moment**. `ntpq -pn` lists the GPS source (`SHM(0)`, refid `.GPS.`) as configured, reach 0, beside the pool peers. The gpsd drop-in `/etc/systemd/system/gpsd.service.d/hammunition-gps.conf` is present. Cosmetic finding: its header names the `chrony` unit (D-072) although this machine runs ntpsec. The resume unit is enabled on the suspend, hibernate, hybrid-sleep and suspend-then-hibernate targets. |
+| Run-log privacy check | The station file's 22 values were parsed (never printed) and searched for, case-insensitively, across all five run logs (165 KB in all): 0 hits. |
+| `install navigation --dry-run`, `HAMMUNITION_PROGRESS=1` | 9 m 49 s. The progress lines read "checking 10 map regions against Geofabrik", "checking 32 CoMaps maps against the CoMaps CDN" and "checking 7284 US Topo sheets against the USGS bucket". Nothing was deferred. The plan is 29,774 lines and 29,387 commands. US Topo is 7,284 sheets, about 55.38 GB to download and about 110.76 GB on disk (issue #232 filed); the other navigation units come to about 3 GB. Earlier the same day, before #199 and #204, the same dry run printed nothing for 25 minutes (#197) and once refused on transient 502, 503 and timeout answers from Geofabrik and S3 (#200). Both are fixed and merged. |
+| A subset dry run | `brouter`, `brouter-mapcreator-profiles`, `brouter-segments`, `comaps`, `comaps-maps`, `country-boundaries`, `osm-pmtiles` and `vector-map-kit`: 7.5 s. CoMaps maps in four groups of 0.62, 0.69, 0.97 and 0.57 GB; the tiles about 2.14 GB with 7.00 GB of scratch. Handed to the operator; **not yet run**. |
+| After a reboot, 2026-10-03 | The tether was enabled and active at login on both ports; `services` unchanged. GPS fix mode 3 with 6 satellites used, from a cold boot. The morning's post-suspend silence (#177's second symptom) did not recur after a reboot, which says nothing about a suspend and resume. The applet 0.5.0 is present. The Plasma journal has two "ScrollBar: Binding loop detected for property visible" lines from Plasma's own `ScrollView` component (the panel has been a `ScrollView` since 0.5.0) and one from KDE's desktop containment, and no QML error from the applet. The DW5930e rule `81-dw5930e-no-runtime-pm.rules` persisted across the reboot. |
+
+Not measured, and owed: the Controls panel seen on screen; a park and a wake,
+and a radio toggle, from the panel; QMapShack connecting to 10110; a suspend
+and resume cycle with the resume step in place; GPS time taking over once the
+receiver has a fix (reach above 0); the subset install; the US Topo install;
+Firefox and CoMaps reading a position from the tether.
+
 ## Not yet run (this rung's remaining ladder)
 
 In order, and every one needs the operator at the keyboard for `sudo`:

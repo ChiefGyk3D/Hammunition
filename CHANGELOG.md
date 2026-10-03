@@ -11,6 +11,13 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Docs: bench session 13 on the field laptop** (**D-056**, **D-058**,
+  **D-077**). Records the tray 0.5.0 helper installed and answering contract 1,
+  `services` and `doctor` after it, the tether enabled at login, a 3D fix from
+  a cold boot, the whole-`navigation` dry run (9 m 49 s, nothing deferred), and
+  what is still owed. The tray, GPS-time and navigation guides' "measured" lines
+  move only where this session measured them.
+
 - **Fix: the weekly ref check reported three correct pins as missing; changed
   pins are now verified per pull request** (**D-024**, **D-031**; affects the
   report on v0.19.0, not its installs). `check_pin_reviews.py --verify-refs`
