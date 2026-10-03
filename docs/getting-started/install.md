@@ -156,6 +156,16 @@ Stale package lists are the commonest way a correct plan fails — apt asks
 the mirror for a file the pool has replaced — so the refresh is on by
 default. Pass `--no-refresh` on a local mirror or a station with no uplink.
 
+## If a run stops partway
+
+A failure stops the run at the first step that fails, and the units that had
+already finished stay finished. Fix the cause and run the same command again:
+the plan lists the unit that failed and those after it, and a build that was
+done and is still on disk at its pin is shown as `already installed` instead of
+being fetched and built a second time. `hammunition status` names what
+finished before the run stopped. A file that has since gone missing is rebuilt,
+because the plan checks the disk before it believes the log.
+
 ## Next
 
 [How much disk you need](disk-space.md) says what a profile or the whole
