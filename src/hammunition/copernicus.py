@@ -355,6 +355,7 @@ class CachingTileProbe:
         self.cache_path = cache_dir / "tile-heads.json"
         self.now = now
         self._lock = threading.Lock()
+        self._local = threading.local()
         self._entries = self._read()
         self._dirty = False
         if self._trim():
@@ -365,8 +366,10 @@ class CachingTileProbe:
         with self._lock:
             cached = self._entries.get(url)
             if cached is not None and current - cached[3] < HEAD_CACHE_TTL:
+                self._local.hits = self.thread_hits() + 1
                 return cached[0], cached[1], cached[2]
 
+        self._local.misses = self.thread_misses() + 1
         result = self.inner.head(url)
         if result[0] == 200:
             with self._lock:
@@ -374,6 +377,14 @@ class CachingTileProbe:
                 self._trim()
                 self._dirty = True
         return result
+
+    def thread_hits(self) -> int:
+        """Answers this thread has been served from the cache."""
+        return int(getattr(self._local, "hits", 0))
+
+    def thread_misses(self) -> int:
+        """Answers this thread has had to ask the publisher for."""
+        return int(getattr(self._local, "misses", 0))
 
     def flush(self) -> None:
         """Atomically write updates once a batch of checks has completed."""

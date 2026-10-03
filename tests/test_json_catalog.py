@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import importlib
+from pathlib import Path
 
 import pytest
 
@@ -31,6 +32,14 @@ RUNS = {
     "show-gated": ["show", "fixture-gated"],
     "show-station": ["show", "fixture-station"],
 }
+
+
+@pytest.fixture(autouse=True)
+def _empty_state(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """`list` reads the transaction log now: the goldens are for an empty one."""
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    monkeypatch.delenv("SUDO_USER", raising=False)
+    monkeypatch.setenv("USER", "root")
 
 
 def _run(

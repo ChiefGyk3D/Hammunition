@@ -19,7 +19,7 @@ OpenStreetMap already has nearly every trail's line, but not always the name on 
 
 ## Before it will work
 
-Map regions set in station config; the sheets follow them. With none set this unit is deferred by name. Only regions in the United States and its territories have sheets; a region elsewhere gets none, and the plan says so without failing.
+Map regions set in station config, and a grid square: the sheets are those of your regions within a radius of the grid square's centre, 100 km unless `station set --topo-radius-km N` says otherwise (0 selects none). `--topo-regions a,b` narrows to some of your regions, taken whole unless a radius is also set; `--topo-all` takes every sheet of every region, and the install then prints the count and size and asks you to type `yes`, which `--yes` does not answer; so does any selection over 10 GB. With no regions set this unit is deferred by name; with no grid square (and neither `--topo-all` nor `--topo-regions`) it is deferred by name too and what is installed is kept. Only regions in the United States and its territories have sheets; a region elsewhere gets none, and the plan says so without failing.
 
 ## How it installs
 
@@ -27,7 +27,7 @@ Map regions set in station config; the sheets follow them. With none set this un
 
 ## Known problems
 
-A sheet is 2 to 20 MB, about 8 MB typically. Measured on 2026-09-29 from the index: Delaware's 38 sheets are about 220 MB, Vermont's 194 about 1.6 GB, Virginia's 729 about 6 GB; a region's outline also touches sheets across its borders. The plan prints the count and size per region before anything downloads. Each sheet is checked against the MD5 in the publisher's object metadata (its S3 ETag, carried in the index and asked for again before the download), which catches a damaged download, not a deliberately altered one; the plan says "MD5 from the publisher's object metadata; not pinned by Hammunition" for every sheet. For 817 quads (2026-09-29) the newest edition is published as a PDF only, and the index carries the newest GeoTIFF edition instead. The first install of a region asks Geofabrik for its outline to choose its sheets and remembers the answer; until then, every plan, a dry run included, asks again. Sheet names are places, so they are shown in the plan only.
+Narrowing the bound removes the installed sheets that fall outside it on the next install, and the plan says how many; `--topo-all` keeps them. A sheet is 2 to 20 MB, about 8 MB typically. Measured on 2026-09-29 from the index: Delaware's 38 sheets are about 220 MB, Vermont's 194 about 1.6 GB, Virginia's 729 about 6 GB; a region's outline also touches sheets across its borders. The plan prints the count and size per region before anything downloads. Each sheet is checked against the MD5 in the publisher's object metadata (its S3 ETag, carried in the index and asked for again before the download), which catches a damaged download, not a deliberately altered one; the plan says "MD5 from the publisher's object metadata; not pinned by Hammunition" for every sheet. For 817 quads (2026-09-29) the newest edition is published as a PDF only, and the index carries the newest GeoTIFF edition instead. The first install of a region asks Geofabrik for its outline to choose its sheets and remembers the answer; until then, every plan, a dry run included, asks again. Sheet names are places, so they are shown in the plan only.
 
 ## Keeping it current
 

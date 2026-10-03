@@ -1,4 +1,1 @@
-- **A publisher outage at plan time retries, then defers by name instead of
-- **Terrain tile HEAD answers are cached for six hours** (#214, **D-061**). A repeated install plan reuses successful publisher answers; failed and non-200 checks are asked again.
-- **The engine's own GPS tether copy retired; the ACMA Bunker ruling recorded**
-- **HydraSDR RFOne and RigExpert Fobos SDR: host software and device entries,
+- **Terrain tile HEAD answers are cached for six hours** (#214, **D-061**). A repeated install plan reuses successful publisher answers; failed and non-200 checks are asked again. The cache sits below #261's attribution rule and #260's bound: only a candidate they select is probed, and a cached answer counts as a check in `publisher_checks` (its reason says it came from the cache).

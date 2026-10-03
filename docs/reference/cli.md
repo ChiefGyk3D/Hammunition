@@ -549,8 +549,12 @@ closes the connection; and once when no position with a fix has arrived in
 
 It runs in the foreground until Ctrl-C (exit 0), closing every client and
 the gpsd connection; nothing is installed as a service, and nothing is
-executed. It refuses root, exit 1. A refused option is exit 1 with nothing
-opened. A port already in use is a named error, exit 1. There is no
+executed. The engine refuses root, and a tether that is not installed,
+before running anything: exit 1. After that the installed tether takes over
+(`exec`) and its own exit codes pass through unchanged, hammunition-gps-tether
+0.1.1's, not the engine's (the engine's 2 and 3 mean other things elsewhere):
+a refused option or a port already in use is a named error, exit 3, with
+nothing opened; a crash is 1; its own usage error is 2. There is no
 `--json` form, because it is a server, not a document (D-059): `--json`
 with any options gives the same one error document. The setups these
 options are for (a gpsd on a Pi or a phone, a Bluetooth or serial
@@ -758,6 +762,13 @@ ukrepeater.net states no licence; the list is carried under **D-033**,
 fetched on your request, never redistributed, and the sha256 of what
 arrived is printed and recorded. Anything but the ETCC's CSV is refused,
 exit 1, and nothing is written. No `--json` form.
+
+`fetch-etcc`, `fetch-brandmeister` and `fetch-hearham` each take `--no-mirror`.
+Without it, when the station names a LAN mirror, each asks
+`<mirror>/repeater-snapshots/<name>` first (`etcc.csv`, `brandmeister.json`,
+`hearham.json`) and the publisher on any failure there, including bytes that
+are not that list; the layer is unverified either way and says where it was
+read from (**D-078**).
 
 ### `hammunition maps repeaters fetch-brandmeister`
 
@@ -1081,6 +1092,16 @@ With `--json`, prints a `catalog` document
 ([json-interface.md](json-interface.md)): every profile and package it
 lists, with each package's method on this machine.
 
+Each profile also carries its install state on this machine (console spec
+E1): `members` (the units it names), `installed` (how many of those the
+transaction log records as installed, the reading `status` reports as
+`completed`; 0 when the log is absent) and `installed_size_bytes` (dpkg's
+`Installed-Size`, converted from KiB, summed over the installed members whose
+method here is apt, from one `dpkg-query` call; `null` when dpkg is absent or
+no installed member is apt). Source, git, binary and data members contribute
+nothing to that size in this release, so it is a floor. The text table shows
+the same as `installed N of M` and a human size.
+
 ### `hammunition show PROFILE`
 
 A profile's documentation, its package list, and — for a gated profile — the
@@ -1093,7 +1114,7 @@ With `--json`, prints a `profile` document
 document carrying its manifest; the text `show` still describes profiles
 only.
 
-### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--full] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
+### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--recheck] [--full] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
 **A re-run rebuilds nothing it has already built** (**D-051**): a source, git
 or prebuilt-archive unit whose binaries are on the machine *and* whose build
@@ -1110,6 +1131,7 @@ Names may be packages or profiles, mixed freely.
 | `--yes` | Skip the confirmation. **Does not satisfy a consent gate** (D-021). Also suppresses the station prompt |
 | `--no-refresh` | Skip the `apt-get update` that otherwise opens every transaction with apt work (**D-044**). For a local mirror, or a station with no uplink. `--refresh` is the default and still parses |
 | `--no-sudo-keepalive` | Do not hold sudo's ticket for the run (**D-062**). By default a run as a user that mixes root steps with steps that are not asks the password once, by `sudo -v`, before the first step, and keeps the ticket valid with `sudo -n -v` every 4 minutes until the run ends. With this flag each root step asks for itself, and one that follows a long step may prompt again. `--sudo-keepalive` is the default and still parses |
+| `--recheck` | Ask every data item's publisher at plan time, including installed items the transaction log attributes. Without it those are trusted for 7 days (`attributed.RECHECK_AFTER_DAYS`): the plan prints `N installed data item(s) were not re-checked against their publishers` with the oldest attribution date, `--json` carries a `publisher_checks` line per item with `checked: false` and the reason, and an item attributed 7 or more days ago, or whose file is not the one the log recorded, is asked again. A re-check that fails is a `note:`, never a refusal; the real run verifies everything it fetches either way (**D-049**, #197) |
 | `--no-mirror` | Ignore the LAN mirror set in station config for this run (**D-070**): every data download comes from its publisher. With no mirror set it changes nothing |
 | `--full` | Print every step of the plan expanded. Without it, a run of steps that repeat one template for many items (a US Topo sheet, a terrain tile, a Kiwix book) is printed as the template with `<placeholders>`, the first item written out in full, every item's own values on a line, and the totals; `--dry-run --full` prints the plan exactly as it was before grouping (**D-016**, amended 2026-10-02). `--json` always carries every step, with or without it |
 | `--user NAME` | Who to add to groups. Defaults to `$SUDO_USER`, then `$USER` |
@@ -2092,6 +2114,10 @@ hammunition station show
 | `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile, a CoMaps map, a reference book) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
 | `--clear-mirror` | Remove the saved mirror |
 | `--dem-source SOURCE` | `copernicus` (the default when unset) or `3dep`: the elevation QMapShack's hillshade, slope and contours are drawn from (**D-068**, amended 2026-10-01). `3dep` makes `dem-3dep` fetch USGS 3DEP 1/3-arc-second bare-earth tiles for the US regions, about ten times Copernicus's size, and `dem-qmapshack` redraw from them; Copernicus stays installed for BRouter and for regions outside the US. Setting it back to `copernicus` removes the 3DEP tiles and redraws from Copernicus on the next install. `station show` prints it |
+| `--topo-radius-km N` | How far from your grid square's centre US Topo sheets, FSTopo sheets and 3DEP tiles are selected (**D-068**, amended 2026-10-02, issue #232): 100 when unset, `0` for none, at most 20000. The grid square's centre is derived, never stored. Copernicus terrain is not bounded. `station show` prints it |
+| `--topo-regions R[,R…]` | Narrow the topographic selection to these map regions, which must be a subset of `--map-regions` (refused otherwise, naming them). With no `--topo-radius-km` they are taken whole; with one, the circle is cut to them. `station show` prints a count, never the names |
+| `--clear-topo-regions` | Remove `--topo-regions`. Narrowing `--map-regions` alone drops any `--topo-regions` entry no longer among them, and says so |
+| `--topo-all`, `--no-topo-all` | Select every sheet of every region, as before the bound. The install then prints the count, download and disk in one sentence and asks you to type `yes`, which `--yes` does not answer; so does any selection over 10 GB (set `HAMMUNITION_ACCEPT_TOPO_SIZE` to the sheet count to affirm it in a script). Exit 3 when it is not given |
 | `--rig DEVICE\|hamlib:MODEL` | The station's radio (**D-073**): a catalog device id (`yaesu-ft-991a`), or `hamlib:<model>` for one with no manifest. Checked against the catalog and this machine's `rigctl -l` when you set it |
 | `--rig-device PATH` | The serial port the rig (or its interface) is reached on; an absolute `/dev/` path, a `/dev/serial/by-id/` one for stability. Refused if it carries `..`, whitespace or a shell character |
 | `--rig-baud RATE` | The CAT serial speed. For a catalogued CAT rig it must be inside the backend's range (named on refusal); mandatory for `hamlib:<model>`; refused for a PTT-only rig |
@@ -2301,6 +2327,7 @@ capability matrix that reports coverage the engine does not have is the shim
 | A profile every member of which this target cannot install | the profile by name, with each member's reason — installing nothing and reporting success is not an outcome (**D-039**) |
 | No apt package lists at all, and `--no-refresh` | that this is a stale-lists problem, and that dropping `--no-refresh` lets this run fix it. Without the flag, the run's own `apt-get update` comes first and the plan says instead that the candidate check cannot be done before it |
 | A group membership with no identifiable operator | that `--user` is needed |
+| A unit whose `requires_java` is above the Java this machine has, or no `java` at all | the unit, the measured `java -version` line (or that none was found on PATH or at `/usr/lib/jvm/default-java/bin/java`), the floor, and the archive's `openjdk-N-jre-headless` that would meet it where the plan's apt sweep knows one; nothing is fetched (**D-037**, amended 2026-10-02). A *profile* member is deferred instead, the D-039 shape, and `--json` carries it in `deferrals` as for any other deferral. A concrete `openjdk-N-jre*` in the unit's `depends` that meets the floor is not a deferral and is noted in the plan; no Java at all with only `default-jre-headless` in `depends` is disclosed as *check `java -version` afterwards* and the unit plans |
 | A unit whose `requires_kernel` names a subsystem the running kernel's module tree lacks | the unit, the kernel release and the merge that removed the subsystem, with the remedies that exist: a distribution kernel that still carries it, or the userspace path (Direwolf's KISS/AGW ports serve pat, LinBPQ, YAAC and Xastir without kernel AX.25). Never an offer to build the module — no distribution packages one, and Hammunition builds no kernel modules (**D-041**). A *profile* member is deferred instead, the D-039 shape. No module tree for the running kernel at all — a container — is disclosed as *cannot be checked* and the unit plans |
 | A unit whose `desktops` names none of the desktops this machine's session files offer | the unit, the desktops it is for and the ones the machine has (`(it has no session files)` on a server or container, and `(its session files name none the catalog knows: …)` on a machine whose only desktop the catalog does not name), and the remedy: the unit its manifest names in `desktop_alternative` when that one serves a desktop the machine has, otherwise installing a session for the unit's desktop first. A *profile* member is deferred instead, the D-039 shape (**D-060**) |
 
