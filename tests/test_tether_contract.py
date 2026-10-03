@@ -8,7 +8,7 @@ read as text, never imported, from a checkout beside this one or from the
 installed tree. Where neither is present the test skips and says why on a
 developer machine, and fails in CI (``HAMMUNITION_REQUIRE_TETHER=1``,
 ``HAMMUNITION_CI=1`` or ``GITHUB_ACTIONS=true``), where a skip is the drift
-check silently not running (issue #215). The workflow's ``tests`` job checks the
+check silently not running (issue #215). The workflow's ``ci`` job (``scripts/ci-test.sh``) checks the
 tether out at the tag the catalog pins.
 """
 
@@ -50,7 +50,9 @@ def _package() -> Path:
     looked = ", ".join(str(r / PACKAGE / "tether.py") for r in CANDIDATES)
     message = f"hammunition-gps-tether source not found; looked for {looked}"
     if _required():
-        pytest.fail(message + " (CI must check it out: see the tests job in ci.yml)")
+        pytest.fail(
+            message + " (CI must check it out: see scripts/ci-test.sh, run by the ci job in ci.yml)"
+        )
     pytest.skip(message)
 
 
@@ -144,29 +146,36 @@ def _manifest_tag() -> str:
     return str(found[0])
 
 
+CI_SCRIPT = REPO / "scripts" / "ci-test.sh"
+
+
 def _workflow_tag_command() -> str:
-    text = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    match = re.search(r"id: tether_tag\n\s+run: \|\n(.*?)\n\s+- ", text, re.S)
-    assert match, "ci.yml has no `tether_tag` step reading the pin from the manifest"
-    return match.group(1)
+    """The script's tag extraction, so the test runs what CI runs."""
+    text = CI_SCRIPT.read_text(encoding="utf-8")
+    match = re.search(r"^tag=\$\((.*?)\)\n", text, re.S | re.M)
+    assert match, "scripts/ci-test.sh does not read the tether tag from the manifest"
+    return "tag=$(" + match.group(1) + ')\necho "tag=$tag"'
 
 
 def test_ci_reads_the_tether_tag_from_the_manifest() -> None:
-    """The workflow holds no tag of its own, so a re-pin cannot leave CI behind."""
-    text = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    assert "repository: ChiefGyk3D/hammunition-gps-tether" in text
-    assert "ref: ${{ steps.tether_tag.outputs.tag }}" in text
-    assert "HAMMUNITION_REQUIRE_TETHER" in text
-    assert not re.search(r"ref:\s*v[0-9]", text), "a hard-coded tether tag in ci.yml"
+    """Neither the workflow nor its script holds a tag, so a re-pin cannot leave CI behind."""
+    workflow = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "test-command: bash scripts/ci-test.sh" in workflow
+    text = CI_SCRIPT.read_text(encoding="utf-8")
+    assert "ChiefGyk3D/hammunition-gps-tether" in text
+    assert "HAMMUNITION_REQUIRE_TETHER=1" in text
+    assert '--branch "$tag"' in text
+    assert not re.search(r"--branch\s+v?[0-9]", text), "a hard-coded tether tag in ci-test.sh"
+    assert not re.search(r"ref:\s*v[0-9]", workflow), "a hard-coded tether tag in ci.yml"
     command = _workflow_tag_command()
     assert "catalog/packages/gps-tether.yaml" in command
-    # Run the step's own extraction, so the grep and the manifest agree.
+    # Run the script's own extraction, so the grep and the manifest agree.
     out = subprocess.run(
         ["bash", "-c", command],
         cwd=REPO,
         capture_output=True,
         text=True,
         check=True,
-        env={"PATH": os.environ["PATH"], "GITHUB_OUTPUT": "/dev/stdout"},
+        env={"PATH": os.environ["PATH"]},
     ).stdout
     assert f"tag={_manifest_tag()}" in out

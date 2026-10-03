@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# gitleaks, CodeQL (Python and the workflows themselves), OpenSSF Scorecard,
+# pip-audit against the dev requirements and dependency review. The jobs live
+# in ChiefGyk3D/git-your-ship-together.
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/security.yml@8d6d940f143b97b6d521f5dfe38b11573a916ef4 # v1.7.1
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: write
+      id-token: write
+    with:
+      codeql-queries: security-extended,security-and-quality
+      scorecard: true
+      # The engine has no requirements file; pyproject.toml's dev extras are
+      # the set it is built and tested with. They are resolved in a scratch
+      # venv and frozen, so pip-audit judges those pins and not the runner's
+      # own pip or its own dependencies.
+      pip-audit-requirements: ""
+      audit-install-command: |
+        python -m venv "$RUNNER_TEMP/audit-env"
+        "$RUNNER_TEMP/audit-env/bin/pip" install -e ".[dev]"
+        "$RUNNER_TEMP/audit-env/bin/pip" freeze --exclude-editable > "$RUNNER_TEMP/audit-requirements.txt"
+        pip install pip-audit==2.10.1
+      audit-command: pip-audit --requirement "$RUNNER_TEMP/audit-requirements.txt" --strict
+      egress-policy: block
+      # No Doppler: gitleaks needs no licence for a personal account and Snyk
+      # is off, so nothing here reads a secret (the Bunker learned this the
+      # hard way: the OIDC fetch failed the job before gitleaks started).

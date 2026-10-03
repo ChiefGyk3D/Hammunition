@@ -280,6 +280,8 @@ def stage(step: GpsResume, staging_dir: Path) -> None:
         return
     if not step.script_current:
         (staging_dir / _STAGED_SCRIPT).write_text(script_content())
+        # Semgrep: a deliberate mode (0755/0644 on installed files and launchers, 0700 private); nothing group- or world-writable.
+        # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
         os.chmod(staging_dir / _STAGED_SCRIPT, 0o755)
     if not step.unit_current:
         (staging_dir / _STAGED_UNIT).write_text(unit_content())
