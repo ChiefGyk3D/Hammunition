@@ -530,3 +530,12 @@ def test_fetch_hearham_follows_a_redirect_only_to_https(
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_a_hearham_body_that_is_not_its_list_names_the_url(
+    station: Station, hearham: type[_Handler], capsys: pytest.CaptureFixture[str]
+) -> None:
+    hearham.body = b"[1, 2]"
+    code = cli.main(["maps", "repeaters", "fetch-hearham"])
+    err = capsys.readouterr().err
+    assert code == cli.EXIT_FAILED and "127.0.0.1" in err

@@ -546,8 +546,12 @@ closes the connection; and once when no position with a fix has arrived in
 
 It runs in the foreground until Ctrl-C (exit 0), closing every client and
 the gpsd connection; nothing is installed as a service, and nothing is
-executed. It refuses root, exit 1. A refused option is exit 1 with nothing
-opened. A port already in use is a named error, exit 1. There is no
+executed. The engine refuses root, and a tether that is not installed,
+before running anything: exit 1. After that the installed tether takes over
+(`exec`) and its own exit codes pass through unchanged, hammunition-gps-tether
+0.1.1's, not the engine's (the engine's 2 and 3 mean other things elsewhere):
+a refused option or a port already in use is a named error, exit 3, with
+nothing opened; a crash is 1; its own usage error is 2. There is no
 `--json` form, because it is a server, not a document (D-059): `--json`
 with any options gives the same one error document. The setups these
 options are for (a gpsd on a Pi or a phone, a Bluetooth or serial
@@ -755,6 +759,13 @@ ukrepeater.net states no licence; the list is carried under **D-033**,
 fetched on your request, never redistributed, and the sha256 of what
 arrived is printed and recorded. Anything but the ETCC's CSV is refused,
 exit 1, and nothing is written. No `--json` form.
+
+`fetch-etcc`, `fetch-brandmeister` and `fetch-hearham` each take `--no-mirror`.
+Without it, when the station names a LAN mirror, each asks
+`<mirror>/repeater-snapshots/<name>` first (`etcc.csv`, `brandmeister.json`,
+`hearham.json`) and the publisher on any failure there, including bytes that
+are not that list; the layer is unverified either way and says where it was
+read from (**D-078**).
 
 ### `hammunition maps repeaters fetch-brandmeister`
 
@@ -2090,6 +2101,10 @@ hammunition station show
 | `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile, a CoMaps map, a reference book) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
 | `--clear-mirror` | Remove the saved mirror |
 | `--dem-source SOURCE` | `copernicus` (the default when unset) or `3dep`: the elevation QMapShack's hillshade, slope and contours are drawn from (**D-068**, amended 2026-10-01). `3dep` makes `dem-3dep` fetch USGS 3DEP 1/3-arc-second bare-earth tiles for the US regions, about ten times Copernicus's size, and `dem-qmapshack` redraw from them; Copernicus stays installed for BRouter and for regions outside the US. Setting it back to `copernicus` removes the 3DEP tiles and redraws from Copernicus on the next install. `station show` prints it |
+| `--topo-radius-km N` | How far from your grid square's centre US Topo sheets, FSTopo sheets and 3DEP tiles are selected (**D-068**, amended 2026-10-02, issue #232): 100 when unset, `0` for none, at most 20000. The grid square's centre is derived, never stored. Copernicus terrain is not bounded. `station show` prints it |
+| `--topo-regions R[,R…]` | Narrow the topographic selection to these map regions, which must be a subset of `--map-regions` (refused otherwise, naming them). With no `--topo-radius-km` they are taken whole; with one, the circle is cut to them. `station show` prints a count, never the names |
+| `--clear-topo-regions` | Remove `--topo-regions`. Narrowing `--map-regions` alone drops any `--topo-regions` entry no longer among them, and says so |
+| `--topo-all`, `--no-topo-all` | Select every sheet of every region, as before the bound. The install then prints the count, download and disk in one sentence and asks you to type `yes`, which `--yes` does not answer; so does any selection over 10 GB (set `HAMMUNITION_ACCEPT_TOPO_SIZE` to the sheet count to affirm it in a script). Exit 3 when it is not given |
 | `--rig DEVICE\|hamlib:MODEL` | The station's radio (**D-073**): a catalog device id (`yaesu-ft-991a`), or `hamlib:<model>` for one with no manifest. Checked against the catalog and this machine's `rigctl -l` when you set it |
 | `--rig-device PATH` | The serial port the rig (or its interface) is reached on; an absolute `/dev/` path, a `/dev/serial/by-id/` one for stability. Refused if it carries `..`, whitespace or a shell character |
 | `--rig-baud RATE` | The CAT serial speed. For a catalogued CAT rig it must be inside the backend's range (named on refusal); mandatory for `hamlib:<model>`; refused for a PTT-only rig |

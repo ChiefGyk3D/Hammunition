@@ -7839,6 +7839,94 @@ and `scripts/gen_3dep_tiles.py`, checked weekly;
 
 ---
 
+### D-068 amendment (2026-10-02): the selection is bounded, and a large one is asked about
+
+**Measured (bench session 13, issue #232).** `hammunition install
+navigation --dry-run` on three whole-state regions planned 7,284 US Topo
+sheets, about 55 GB to download and 111 GB of disk with the warped copies,
+out of 29,387 commands, and took 9 m 49 s, nearly all of it the 7,284
+publisher checks. The profile cannot be installed without them, because
+`install` has no exclude. "The station's US regions" read as every sheet of
+every region was a defect.
+
+**Ruling (maintainer, 2026-10-02):** "radius default, topo-all, and a
+topo-regions, and can call it out specifically with a disclaimer they
+consent to about the size during install; the installer should be easy to
+walk through." Option 3 of the issue.
+
+**Decision.**
+
+- **Three station values**, none a template variable: `topo_radius_km`
+  (100 when unset, `0` for none, 20000 at most), `topo_regions` (a subset of
+  `map_regions`, refused otherwise, naming them) and `topo_all` (boolean).
+  `station set --topo-radius-km N`, `--topo-regions a,b`, `--topo-all` /
+  `--no-topo-all`; `station show` and the station document carry them
+  (`--topo-regions` as a count in the text, as the map regions are).
+- **The selection rule** (`hammunition.topo_bound`, pure). In order:
+  `topo_all` selects every sheet of every region as before; else
+  `topo_regions` with no radius set takes those regions whole; else a radius
+  of 0 selects none; else the sheets whose box comes within N km (haversine,
+  to the nearest point of the box) of the centre of the station's grid square
+  (`hammunition.maidenhead.centre`), of the station's regions, cut to
+  `topo_regions` when they are set. The index holds only US sheets, so
+  non-US regions select none, as before.
+- **It applies to** US Topo (`usgs-ustopo`), FSTopo (`usfs-fstopo`) and 3DEP
+  (`dem-3dep`, only when chosen). **Not** to Copernicus terrain: it is a
+  tenth of the size and BRouter needs every region whole.
+- **No grid square** (and neither `topo_all` nor `topo_regions`): the unit
+  is deferred by name (**D-035**), nothing invented, with the fix stated
+  (`station set --grid-square`, `--topo-regions`, `--topo-all`), and what is
+  installed is kept: the plan resolves from the regions' records, offline,
+  and removes nothing.
+- **Records are per bound.** A region's record (`<slug>.quads`, `.tiles`)
+  gains a `# bound:` line (a digest of the circle, never the position; absent
+  for a whole region, so every earlier record reads as one). A record is
+  reused only under the bound it was made under: a radius's record is never
+  read as the whole region by `--topo-all`. Offline, a whole-region record
+  narrows to a bound with no outline.
+- **Narrowing removes.** A selection smaller than the last install removes
+  the installed sheets outside it, as any region no longer wanted always
+  did; the plan's first note says how many ("N installed sheets lie outside
+  it and are removed by this install; `--topo-all` keeps them"), so it is
+  never silent (**D-022**).
+- **The size consent.** When the US Topo selection is `--topo-all`, or the
+  download plus the warped copies exceeds **10 GB** (decimal; the sheets a
+  run downloads, the warp at the measured 1.0x), and there is something to
+  download, the plan's US Topo block prints one sentence ("This installs
+  7,284 US Topo sheets: about 55.4 GB to download and about 110.8 GB of disk
+  once the warped copies QMapShack reads are added.") and the install asks a
+  typed `yes` to that sentence, after the plan and before the ordinary
+  confirmation. It has **D-021**'s shape and is not a risk gate: `--yes` is
+  never read, no terminal is a refusal (exit 3), and the scripted answer is
+  `HAMMUNITION_ACCEPT_TOPO_SIZE` set to the number of sheets shown (as
+  **D-040**'s names the fingerprint), so a selection that grew stops the
+  script. The answer is logged as `consent_affirmed` with the sentence and
+  its digest. Under 10 GB the ordinary confirmation covers it.
+- **The walk-through.** Before the plan, one `note:` line says what was
+  chosen and how to change it: "US Topo: using a 100 km radius around your
+  grid square (N sheets, about X GB); `hammunition station set
+  --topo-radius-km`, `--topo-regions` or `--topo-all` change this". The
+  plan's grouped rendering (**D-016**, #229) is unchanged; the issue's
+  per-group cap is not taken, because a bounded default makes the lists a few
+  hundred lines.
+
+**Measured (2026-10-02).** On a synthetic index of 576 sheets around a
+placeholder square, 100 km selects 253 and `--topo-all` 576. On the
+maintainer's own regions, from the carried index and Geofabrik's outlines:
+248 sheets, 1.74 GB to download, about 3.5 GB of disk at the default; 7,284
+sheets, 55.4 GB and 110.8 GB with `--topo-all`. The default is under 10 GB
+and asks nothing extra. **Not measured:** QMapShack drawing either, and the
+antimeridian (an index row never wraps it, so the Aleutians east of 180 are
+not reached from the west). Tests: `tests/test_topo_bound.py`,
+`tests/test_topo_bound_cli.py`.
+
+**Limits, stated.** The size consent and the "installed sheets lie outside
+it" note read the US Topo selection only; FSTopo (by name, unverified) and
+3DEP follow the bound but are not separately asked about, and their removals
+are in the plan's steps, not in that note. `--clear-topo-regions` removes
+`topo_regions`, and narrowing `--map-regions` drops a `topo_regions` entry
+that is gone, with a note, so a station is never stranded invalid.
+
 ## D-069 — CoMaps is carried as a pinned source build over CoMaps' own maps for the station's regions, checked by CoMaps' own index; its missing position is written down, not faked
 
 **Date:** 2026-09-30. **Status:** proposed (design approved by the
@@ -8896,10 +8984,14 @@ The first plain service is the `gps-tether` unit: `hammunition-gps-tether`
 pinned by sha256 and unpacked with `install_tree` beside skid-finder's, run in
 place by the unit with `/usr/bin/env PYTHONPATH=… /usr/bin/python3 -P -m
 hammunition_gps_tether` on 127.0.0.1:10110 and :10111 (D-071 note). Pin: tag
-`v0.1.0`, commit `58d4bb7eab9fbf5c8b6e8ccce2b0f3178b17d44e`, tarball sha256
-`a707794b330b2127d458ff0741f3a9a506689b4e60b25de3926a4c7e9f76b90a` (fetched
-three times, identical). The project publishes no wheel or release file for
-v0.1.0, which is why the pin is the tag's own tarball; a wheel would be the
+`v0.1.1`, commit `d68bc888d1a44ecce74604d6299f991a72a7ae54`, tarball sha256
+`8d2c78b760a622bf682ecd3616af5b807e6653fd1bb05fd6fa28a5761ef456f6` (fetched
+twice, identical). **Amended 2026-10-02 (v0.1.1, the maintainer's ruling):** the
+tether exits 3 on a refusal (a taken port or socket, root, an unusable option),
+1 on an uncaught crash and 2 on a usage error, and the unit carries
+`RestartPreventExitStatus=3`, so a refusal is not retried and a crash is; v0.1.0
+exited 1 for both and the unit stopped retrying both. The project publishes no
+wheel or release file for v0.1.1, which is why the pin is the tag's own tarball; a wheel would be the
 better artifact. A venv requirement carrying the all-zero digest
 (`UNPINNED_SHA256`), the convention for an unfinished pin, is refused by name at
 plan time (a binary artifact is not: fixtures across the suite use zeros for a
@@ -9240,6 +9332,29 @@ never opens `client.csv`. An operator who does not want it on their NAS sets
 Bunker's `hold_unverified = false` (a switch being added to Bunker now).
 The "owed to the bench" question above is closed by this ruling; the
 install-through-the-engine and drawing checks are still owed.
+
+### Amendment, 2026-10-03 — Canada measured and not carried; the on-request lists a Bunker may hold (maintainer's rulings)
+
+**Canada.** Measured, and not carried, for the same reason each time:
+- **TAFL** (ISED's Technical and Administrative Frequency Lists) is the one
+  Canadian bulk file with positions, under the Open Government Licence -
+  Canada. It has **no amateur rows**, and every row it does have carries a
+  licensee's name and address; it is also monthly and unversioned. Not carried.
+- **ISED's amateur call-sign file** is names and addresses only: no repeater,
+  no frequency, no position. Not carried.
+- **No open bulk Canadian repeater source exists.** The routes are the
+  operator's own RepeaterBook export (`maps repeaters import`) and hearham
+  (`fetch-hearham`); the guide says so in one sentence.
+
+**Snapshots on a Bunker (D-078).** The open question in "Left to the
+maintainer" above, whether a Bunker may hold the unverified on-request lists
+(hearham, the ETCC, Brandmeister), is ruled: it may, under Bunker's
+`hold_unverified`, the same switch as the ACMA zip. `hammunition artifacts
+--json` lists them as unit `repeater-snapshots`, check `unverified-fetch`, and
+`fetch-etcc`, `fetch-brandmeister` and `fetch-hearham` read
+`<mirror>/repeater-snapshots/<name>` first. The writing-to-the-councils item
+in the same section is also closed: no licence letters are sent on the
+project's behalf (D-078).
 
 **Consequences.** `src/hammunition/acma.py`; `RegisterInstall` in
 `src/hammunition/manifest/schema.py`; `Fetcher.fetch_checked`;
@@ -9798,3 +9913,62 @@ active); `TransactionLog.rotate`, `.archives` and the locked append in
 `docs/reference/run-logs.md`. Tests: `tests/test_runlog.py`,
 `tests/test_transaction_log_rotation.py`; `tests/conftest.py` sends every
 test's run logs to a temporary directory.
+
+
+## D-078 — Questionable or personal data is the operator's own to bring: their export or their own key; the project never hosts it; an operator's Bunker may hold it for their LAN, and the on-request repeater lists are mirrorable as `unverified-fetch`
+
+**Date:** 2026-10-03. **Status:** accepted (the maintainer's rulings of
+2026-10-03, recorded and implemented on branch `repeater-rulings`; the
+implementation is proposed until merged). **Depends on:** D-033 (an
+unlicensed source judged on what we do with it), D-064 and D-074 (the
+repeater layers), D-070 (the mirror and `artifacts`), D-021 (disclose, never
+adjudicate).
+
+**Principle.** For data whose terms are questionable or personal, the operator
+brings their own export or their own API key. The project never hosts or
+redistributes such files: not in the repository, not in a release, not on a
+server of its own. An operator's own Bunker may hold them for their LAN, under
+Bunker's `hold_unverified` switch. **No licence letters are sent to data owners
+on the project's behalf**: the councils', the RSGB's and Brandmeister's explicit
+licences, left to the maintainer in D-074, are not asked for, and the layers
+stay what they are, carried under D-033 and marked unverified. Instances: the
+ACMA register's `client.csv` (D-074, the ruling of 2026-10-02: a Bunker may hold
+the zip, the engine never opens that file) and these rulings of 2026-10-03.
+
+**Ruling B: the on-request lists are listable.** `hammunition artifacts --json`
+lists the three on-request repeater lists (`etcc.csv`, `brandmeister.json`,
+`hearham.json`) under the unit `repeater-snapshots` (not a catalog unit: nothing
+is installed from it; it is listed by default and when named with `--units`),
+check `unverified-fetch` in the contract: `digest` null, `url` the publisher's,
+`size` from one `HEAD` (null when the server answers with an error or states no
+length, deferred when it does not answer at all). The default listing therefore
+sends three `HEAD`s, to ukrepeater.net, Brandmeister and hearham, as the ACMA
+probe sends one, `licence` the project's position text, never a licence. The
+check is size and date only; nothing a mirror serves under that name can be
+verified, and everything read from one is marked unverified, as when read from
+the publisher.
+
+`fetch-etcc`, `fetch-brandmeister` and `fetch-hearham` read the station's mirror
+first, at `<mirror>/repeater-snapshots/<name>` (D-070's shape), and the
+publisher on any failure there: unreachable, an error status, too large, or
+bytes that do not parse as that list. `--no-mirror` skips it. The layer's
+licence line says the snapshot came from the mirror and that its own date is
+unknown; the layer is dated the day it was read. `import` takes the operator's
+own files and fetches nothing, so it has no mirror to read.
+
+**Ruling C** is the 2026-10-03 amendment to D-074: Canada measured, not carried.
+
+**Rejected.** A snapshot hosted by the project. Writing to data owners (above).
+A digest for a snapshot: the lists change under their URLs, and a digest the
+Bunker took would be pinned to nobody's publication.
+
+**Not measured.** A real Bunker holding a snapshot and the engine reading it
+over the LAN; the tests use loopback servers.
+
+**Consequences.** `snapshots()`, `read_snapshot()` and `SnapshotHead` in
+`src/hammunition/repeater_sources.py`; `list_artifacts(snapshot_probe=...)` in
+`src/hammunition/artifacts.py`; `unverified-fetch` in `CHECKS`
+(`src/hammunition/interface/artifacts.py`); `--no-mirror` on the three fetch
+commands in `src/hammunition/cli/main.py`; `docs/guides/lan-mirror.md`,
+`docs/guides/offline-navigation.md`, `docs/reference/json-interface.md`.
+Tests: `tests/test_artifacts.py`, `tests/test_repeater_sources_cli.py`.

@@ -117,10 +117,10 @@ One remote artifact, or one the selection cannot list and why.
 | `unit` | string | the catalog unit (`osm-regions`, `dem-copernicus`, `country-files`, `kiwix-library`) |
 | `name` | string or null | the artifact's stable name within the unit: a region path, a tile name, a data file's name, a Kiwix book id as the pin file names it. A LAN mirror serves it at `<mirror>/<unit>/<name>`. Null only for a deferred entry that covers the whole unit |
 | `url` | string or null | the publisher URL the engine itself fetches; null when deferred |
-| `check` | string or null | how the download is verified: `sha256` (pinned by Hammunition), `md5-publisher` (Geofabrik's published MD5), `etag-md5` (the Copernicus object's ETag), `sha1-publisher` (the SHA-1 and size in CoMaps' own map index at the pinned commit, carried in the catalog), `sha256-publisher` (no unit uses it today) or `unverified-zip` (the ACMA register: no digest exists, so the zip's own CRC-32s and the tables its reader needs are checked; D-074, amended 2026-10-01); null when deferred |
-| `digest` | string or null | the expected digest, in hex, of the kind `check` names: the pin, or the publisher's checksum as the engine read it while resolving; null when deferred and for `unverified-zip`, which has none |
+| `check` | string or null | how the download is verified: `sha256` (pinned by Hammunition), `md5-publisher` (Geofabrik's published MD5), `etag-md5` (the Copernicus object's ETag), `sha1-publisher` (the SHA-1 and size in CoMaps' own map index at the pinned commit, carried in the catalog), `sha256-publisher` (no unit uses it today) or `unverified-zip` (the ACMA register: no digest exists, so the zip's own CRC-32s and the tables its reader needs are checked; D-074, amended 2026-10-01) or `unverified-fetch` (an on-request repeater list of unit `repeater-snapshots`: no digest, no licence stated by its publisher, only size and date can be checked; D-078); null when deferred |
+| `digest` | string or null | the expected digest, in hex, of the kind `check` names: the pin, or the publisher's checksum as the engine read it while resolving; null when deferred and for `unverified-zip` and `unverified-fetch`, which have none |
 | `checksum_url` | string or null | where a publisher checksum is read: the `.md5` beside a Geofabrik file, or the tile URL whose `HEAD` carries the ETag; null for a pinned sha256 and when deferred |
-| `size` | integer or null | bytes, known before the fetch (for `unverified-zip`, the publisher's `HEAD` today: the file changes daily); null when deferred |
+| `size` | integer or null | bytes, known before the fetch (for `unverified-zip` and `unverified-fetch`, the publisher's `HEAD` today: the file changes; null for `unverified-fetch` when the server states no length); null when deferred |
 | `licence` | string | the licence line the plan prints for the unit, or for a Kiwix book that book's own |
 | `deferred` | string or null | null, or why this artifact cannot be listed for this selection |
 
@@ -2004,6 +2004,8 @@ USGS US Topo sheets and QMapShack's mosaic of them (D-068). Local only.
 | `disk_total` | integer | bytes: the downloads plus the warped quads |
 | `disk_total_human` | string | as the text prints it |
 | `estimate_note` | string | how the estimate was measured |
+| `selection` | string | how the station's bound chose the sheets: a radius around the grid square (the default), the --topo-regions, or every sheet (--topo-all); empty when not known |
+| `size_consent` | string or null | the one sentence the install asks a typed yes about, which --yes does not answer: set when --topo-all is chosen or the download and warped copies exceed 10 GB; null otherwise |
 
 #### `TopoRegionLine`
 
@@ -4135,6 +4137,21 @@ A unit and files.
         "estimate_note": {
           "title": "Estimate Note",
           "type": "string"
+        },
+        "selection": {
+          "title": "Selection",
+          "type": "string"
+        },
+        "size_consent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Size Consent"
         }
       },
       "required": [
@@ -4151,7 +4168,9 @@ A unit and files.
         "warp_estimate_human",
         "disk_total",
         "disk_total_human",
-        "estimate_note"
+        "estimate_note",
+        "selection",
+        "size_consent"
       ],
       "title": "TopoSectionView",
       "type": "object"
@@ -5272,6 +5291,9 @@ and a grid square or a map region says where the station is.
 | `rig_ptt_line` | string or null | for a PTT-only rig: rts, dtr or vox; null for a CAT rig or when not set |
 | `rig_owner` | string or null | who holds the port: rigctld (the default when unset) or flrig; null when not set |
 | `dem_source` | string | where QMapShack's elevation is drawn from: `copernicus` (the default, also when unset) or `3dep`, USGS bare earth (D-068, amended 2026-10-01) |
+| `topo_radius_km` | integer | how far from the grid square's centre US Topo sheets, FSTopo sheets and 3DEP tiles are selected, in km: 100 when unset, 0 for none (D-068, amended 2026-10-02) |
+| `topo_regions` | list of string | the map regions the topographic selection is narrowed to, a subset of map_regions; empty when it is not narrowed |
+| `topo_all` | boolean | whether every sheet of every region is selected, as before the bound; false when unset |
 
 <details><summary>JSON Schema</summary>
 
@@ -5415,6 +5437,21 @@ and a grid square or a map region says where the station is.
     "dem_source": {
       "title": "Dem Source",
       "type": "string"
+    },
+    "topo_radius_km": {
+      "title": "Topo Radius Km",
+      "type": "integer"
+    },
+    "topo_regions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Topo Regions",
+      "type": "array"
+    },
+    "topo_all": {
+      "title": "Topo All",
+      "type": "boolean"
     }
   },
   "required": [
@@ -5432,7 +5469,10 @@ and a grid square or a map region says where the station is.
     "rig_baud",
     "rig_ptt_line",
     "rig_owner",
-    "dem_source"
+    "dem_source",
+    "topo_radius_km",
+    "topo_regions",
+    "topo_all"
   ],
   "title": "StationDocument",
   "type": "object"

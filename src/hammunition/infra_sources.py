@@ -494,8 +494,9 @@ def read_wri(path: Path, boxes: Sequence[Box]) -> SourceRead:
 
 FCC_LICENCE = "FCC Antenna Structure Registration, US Government work, public domain"
 #: ``RA.dat``'s fields, 0-based, measured on the 2026-09-27 file. Only these
-#: are read; the signature (17-22) and street address (23) never are.
-_RA_REG, _RA_USI, _RA_STATUS, _RA_BUILT, _RA_GONE = 3, 4, 8, 12, 13
+#: are read; field 12 (construction date), the signature (17-22), and street
+#: address (23) never are.
+_RA_REG, _RA_USI, _RA_STATUS, _RA_GONE = 3, 4, 8, 13
 _RA_CITY, _RA_STATE = 24, 25
 _RA_AGL, _RA_AMSL, _RA_TYPE = 30, 31, 32
 _ASR_STATUS = {"C": "constructed", "G": "granted"}

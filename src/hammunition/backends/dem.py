@@ -33,6 +33,7 @@ from ..copernicus import CopernicusError, TileFile
 from ..fetch import Fetcher, MirrorPath, fetch_disclosure, record_fetch
 from ..geofabrik import RegionFile
 from ..manifest.schema import DemTilesInstall, PackageManifest, RemoteArtifact
+from ..topo_bound import bound_line, split_bound
 from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
 from .fstopo import FsTopoDisclosure
@@ -65,6 +66,9 @@ class RegionTiles:
     slug: str
     tiles: tuple[str, ...]
     unpublished: int
+    bound: str = "all"
+    """What the selection was made under (:attr:`TopoBound.token`); only 3DEP's
+    is ever bounded (issue #232), Copernicus's is always ``all``."""
 
     @property
     def no_terrain(self) -> bool:
@@ -98,7 +102,11 @@ def _valid_name(name: str) -> bool:
 
 
 def render_record(entry: RegionTiles) -> str:
-    return f"{_UNPUBLISHED}{entry.unpublished}\n" + "".join(f"{name}\n" for name in entry.tiles)
+    return (
+        f"{_UNPUBLISHED}{entry.unpublished}\n"
+        + bound_line(entry.bound)
+        + "".join(f"{name}\n" for name in entry.tiles)
+    )
 
 
 def read_record(path: Path, region: str, slug: str) -> RegionTiles | None:
@@ -114,17 +122,18 @@ def read_record(path: Path, region: str, slug: str) -> RegionTiles | None:
     except OSError:
         return None
     header: int | None = None
+    bound, _ = split_bound(text.splitlines())
     for line in text.splitlines():
         for prefix in (_UNPUBLISHED, _LEGACY):
             if line.startswith(prefix) and line[len(prefix) :].isdigit():
                 header = int(line[len(prefix) :])
     names = [s for s in (line.strip() for line in text.splitlines()) if s and not s.startswith("#")]
     if not names:
-        return None if header is None else RegionTiles(region, slug, (), header)
+        return None if header is None else RegionTiles(region, slug, (), header, bound)
     unpublished = header or 0
     if not all(_valid_name(name) for name in names):
         return None
-    return RegionTiles(region, slug, tuple(sorted(set(names))), unpublished)
+    return RegionTiles(region, slug, tuple(sorted(set(names))), unpublished, bound)
 
 
 @dataclass(frozen=True)
