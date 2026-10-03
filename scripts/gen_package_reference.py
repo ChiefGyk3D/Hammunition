@@ -232,6 +232,12 @@ def page(m: PackageManifest) -> str:
             + " — checked against the running kernel at plan time; "
             "see [kernel-ax25](../reference/kernel-ax25.md)"
         )
+    if m.requires_java:
+        out.append(
+            f"- **Needs Java:** {m.requires_java} or newer — read with `java -version` at plan "
+            "time (a metapackage's version does not say which Java it brings); deferred from "
+            "a profile on a machine below it, refused by name, nothing fetched to meet it"
+        )
     if m.desktops is not None:
         line = (
             f"- **Desktops:** {describe_set(frozenset(m.desktops))} only — read from the "

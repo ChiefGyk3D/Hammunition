@@ -2,13 +2,76 @@
 
 > Pick your RF arsenal.
 
-Hammunition turns an existing Debian-family install into an amateur radio, SDR,
-and RF experimentation workstation. Primary target: **Parrot OS**. Also
-targeting Debian, Ubuntu, Kali, Linux Mint and Raspberry Pi OS.
+Hammunition turns an existing Debian-family install into an amateur radio,
+SDR and RF experimentation workstation. It adds software to the system you
+already run, using your distribution's own packages wherever they exist, and
+prints every change before it makes it. It is not a distribution, and it does
+not replace AHRL or 73Linux; [Credit](#credit) says what each gave it.
+
+**Who it is for.** A licensed ham, an SDR hobbyist or an RF-security
+researcher with moderate Linux experience, who wants one machine to do
+FT8, packet, SDR listening, offline maps and wireless auditing without
+assembling each piece by hand. The standard the docs are held to: from a
+fresh install to a working digital-modes station without asking anyone a
+question or reading a forum thread.
+
+**Supported targets.** Parrot OS first (the field laptop runs Parrot
+Security 7.4), then Debian 13, Ubuntu 24.04 and 26.04, Kali and Linux Mint
+22.3, each tested in a container, plus a Debian 13 arm64 target for Raspberry
+Pi OS. Pop!_OS 24.04 passed the VM campaign but is not declared yet. Parrot with KDE Plasma comes first for the desktop tray;
+[what works on which desktop](docs/desktops.md) says the rest.
+
+## How much disk you need
+
+| Tier | For | Free space on top of your OS |
+|---|---|---|
+| Minimum | One or two software profiles, such as `station` and `digital-modes` | about 5 GB, suggested SSD 128 GB |
+| Recommended | The whole catalog and a few map regions | about 55 GB, suggested SSD 256 GB |
+| Large | Official topo sheets, full Wikipedia, many regions | about 220 to 300 GB, suggested SSD 512 GB or more |
+
+The 55 GB is measured on the field laptop; the large tier leans on figures
+the maintainer quoted, and each is marked in
+[How much disk you need](docs/getting-started/disk-space.md), which lists
+every figure with its source and what is unmeasured. The plan prints the size
+of every data download before it asks you to agree.
+
+## Quick start
+
+```sh
+git clone https://github.com/ChiefGyk3D/Hammunition.git
+cd Hammunition
+./bootstrap.sh                                  # engine, PATH link, then `hammunition doctor`
+hammunition install station --dry-run           # read the whole plan; nothing changes
+hammunition station set --callsign N0CALL --grid-square FN31pr   # your own values
+hammunition install station                     # then do it
+hammunition install digital-modes --dry-run     # next: a mode profile, planned first
+```
+
+Use your own callsign and grid square; `N0CALL` and `FN31pr` are
+placeholders. If the shell answers `command not found`, log out and back in
+or run `.venv/bin/hammunition` by its full path;
+[installing the engine](docs/getting-started/install.md) covers each case.
+Every command and flag is in [the CLI reference](docs/reference/cli.md).
+
+## Where to go next
+
+- **New here:** [Getting started](docs/getting-started/index.md), in order:
+  install, disk, first profile, first contact.
+- **I want to operate:** [the guides](docs/guides/index.md), one task each,
+  from FT8 to offline maps.
+- **I have a radio or an SDR:** [the hardware pages](docs/hardware/index.md).
+- **Something broke:** [troubleshooting](docs/troubleshooting/index.md), by symptom.
+- **I want the facts behind a claim:** [the reference](docs/reference/cli.md)
+  and [the decision record](docs/DECISIONS.md).
+
+The whole manual is at <https://chiefgyk3d.github.io/Hammunition/>. The
+projects this stands on are credited in full [below](#credit): Andy's Ham
+Radio Linux, 73Linux, Skywave Linux, DragonOS, EmComm Tools OS Community and
+the Debian Hamradio Blend.
 
 ---
 
-## Beta, v0.19.0 — feature-complete for 1.0; what remains is verification on the bench
+## Where things stand: beta, v0.19.0 — feature-complete for 1.0; what remains is verification on the bench
 
 **Status: beta, v0.19.0 — every 1.0 stage is in the catalog; the 0.1 that is missing is measured, not written.** The core cycle —
 resolve, disclose, install, configure, verify, remove — runs end to end and is
@@ -16,9 +79,10 @@ resolve, disclose, install, configure, verify, remove — runs end to end and is
 Pop!_OS 24.04**, with **zero hard install failures across the whole catalog on
 all six** ([M5 parity verified](docs/reference/m5-parity-verified.md); the
 Pop run is [its own page](docs/reference/vm-campaign-pop.md), because Pop is
-not a declared target yet). Seven backends are
+not a declared target yet). Eight backends are
 written (apt, source, git, binary, venv — including a venv+payload hybrid —
-node, and third-party apt repositories against a pinned key), and
+node, third-party apt repositories against a pinned key, and the `data`
+method for offline maps and books), and
 `uninstall` reverses every one of them, not just apt. `./bootstrap.sh`
 installs the engine in one command and links `hammunition` onto your PATH;
 `hammunition doctor` reports what is ready;
@@ -342,6 +406,8 @@ guides (rig control, audio, the clock, FT8, Winlink, APRS, SDR, satellites),
 every profile, package and device, and [every project we
 install](docs/projects.md), linked to its home. It is built from `docs/` by
 `mkdocs build --strict` and published from `main` (**D-065**).
+
+The [GitHub wiki](https://github.com/ChiefGyk3D/Hammunition/wiki) is a mirror of the same pages, generated from `docs/` on every push to `main`; edit `docs/`, never the wiki.
 
 The decision record and the policies below were written before the code
 they describe, deliberately; the reference pages are generated from the
