@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 from hammunition.manifest.load import load_catalog, load_profiles
+from hammunition.manifest.schema import ProfileManifest
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -25,12 +26,12 @@ REQUIRED_LISTS = ("goals", "first_ten_minutes")
 
 
 @pytest.fixture(scope="module")
-def profiles() -> dict:
+def profiles() -> dict[str, ProfileManifest]:
     catalog = load_catalog(ROOT / "catalog" / "packages")
     return load_profiles(ROOT / "catalog" / "profiles", catalog)
 
 
-def test_every_profile_has_the_newcomer_fields(profiles: dict) -> None:
+def test_every_profile_has_the_newcomer_fields(profiles: dict[str, ProfileManifest]) -> None:
     missing: list[str] = []
     for name, profile in sorted(profiles.items()):
         doc = profile.documentation
@@ -46,7 +47,7 @@ def test_every_profile_has_the_newcomer_fields(profiles: dict) -> None:
     )
 
 
-def test_first_ten_minutes_steps_are_real_steps(profiles: dict) -> None:
+def test_first_ten_minutes_steps_are_real_steps(profiles: dict[str, ProfileManifest]) -> None:
     for name, profile in sorted(profiles.items()):
         steps = profile.documentation.first_ten_minutes
         assert len(steps) >= 4, (

@@ -182,8 +182,10 @@ hammunition 0.19.0
 
 The version number moves with each release; yours will be newer.
 
-**If the shell says `hammunition: command not found`,** run the checkout's own
-copy by its full path until you have logged out and back in:
+### If the shell says `hammunition: command not found`
+
+Run the checkout's own copy by its full path until you have logged out and back
+in:
 
 ```sh
 ~/Hammunition/.venv/bin/hammunition doctor
@@ -195,7 +197,9 @@ need it. If you do type `sudo hammunition`, sudo replaces your PATH with its own
 `secure_path`, which does not include `~/.local/bin`, so you get `command not
 found` even though the command works without `sudo`.
 
-**The manual route**, if you would rather not run a script:
+### The manual route
+
+If you would rather not run a script:
 
 ```sh
 git clone https://github.com/ChiefGyk3D/Hammunition.git
