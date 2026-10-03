@@ -204,6 +204,7 @@ def test_a_deb_goes_through_apt_and_not_dpkg(tmp_path: Path) -> None:
     backend._install_deb("prebuilt", fetched)
     argv = runner.commands[-1].argv
     assert argv[0] == "apt-get" and "install" in argv
+    assert argv[1:3] == ("-o", "Acquire::Retries=3")
     assert "dpkg" not in argv[0]
     assert str(fetched["path"]) in argv
 
@@ -237,6 +238,8 @@ def test_a_deb_is_simulated_with_the_apt_step_after_its_fetch_and_before_apt_ins
     deb = str(backend.fetcher.path_for(block.install.artifact))
     assert simulate.argv == (
         "apt-get",
+        "-o",
+        "Acquire::Retries=3",
         "install",
         "--simulate",
         "--yes",
