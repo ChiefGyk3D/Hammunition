@@ -7,7 +7,8 @@
       "name": "catalog",
       "status": "fail",
       "detail": "the catalog could not be found or loaded",
-      "fix": "pass --catalog"
+      "fix": "pass --catalog",
+      "fix_argv": null
     }
   ],
   "fails": 1,

@@ -1752,9 +1752,12 @@ from the checkout, and the one to paste when asking for help.
 
 With `--json`, prints a `doctor` document
 ([json-interface.md](json-interface.md)): each check's name, severity,
-detail and fix, and the counts. The exit code is the text run's. It keeps
-the count-only rule the text follows: no callsign, grid square or region
-name.
+detail, prose fix and, when that fix is one command, its `fix_argv` argument
+list; advice that is not a command has `fix_argv: null`. `doctor` never runs a
+fix. A local front end may offer a command to the operator, but must show it
+and wait for explicit confirmation before running it. The text output shows a
+single-command fix in a code span. The exit code is the text run's. It keeps
+the count-only rule the text follows: no callsign, grid square or region name.
 
 ### `hammunition hardware list`
 

@@ -37,7 +37,8 @@
     "not_installed": 0,
     "unknown": 1,
     "on_install": 0,
-    "manual": 0
+    "manual": 0,
+    "retired": 0
   },
   "lists_note": "last refreshed 2026-09-28 08:00 EDT (`sudo apt-get update` refreshes them; this report does not)",
   "upgrade_command": "sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --only-upgrade --no-remove -- fixture-apt",

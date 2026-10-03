@@ -772,6 +772,7 @@ One thing looked at, its verdict, and how to fix it.
 | `status` | string | `ok`, `info`, `warn` (limits what installs) or `fail` (blocking) |
 | `detail` | string | what was found |
 | `fix` | string or null | the one command or step that fixes it |
+| `fix_argv` | list[str] or null | argv for a single command fix; null when the fix is advice rather than a command |
 
 <details><summary>JSON Schema</summary>
 
@@ -804,13 +805,28 @@ One thing looked at, its verdict, and how to fix it.
             }
           ],
           "title": "Fix"
+        },
+        "fix_argv": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Fix Argv"
         }
       },
       "required": [
         "name",
         "status",
         "detail",
-        "fix"
+        "fix",
+        "fix_argv"
       ],
       "title": "CheckView",
       "type": "object"
@@ -6128,7 +6144,7 @@ One unit: installed versus the catalog.
 | field | type | meaning |
 |---|---|---|
 | `unit` | string | the catalog unit |
-| `state` | string | `up to date`, `candidate differs`, `behind the pin`, `not installed`, `unknown`, `re-checked on install` or `manual` |
+| `state` | string | `up to date`, `candidate differs`, `behind the pin`, `not installed`, `unknown`, `re-checked on install`, `manual` or `retired` |
 | `detail` | string | what was compared, as the text prints it |
 | `strategy` | string | the manifest's update strategy |
 | `upgradable` | list of string | apt packages whose candidate differs |
@@ -6146,6 +6162,7 @@ How many rows are in each state.
 | `unknown` | integer | nothing on disk can be checked |
 | `on_install` | integer | resolved again on every install |
 | `manual` | integer | re-pinned by hand |
+| `retired` | integer | catalog units retained as retired |
 
 #### `UpstreamRowView`
 
@@ -6251,6 +6268,10 @@ The catalog's pin against what upstream publishes (`--upstream` only).
         "manual": {
           "title": "Manual",
           "type": "integer"
+        },
+        "retired": {
+          "title": "Retired",
+          "type": "integer"
         }
       },
       "required": [
@@ -6260,7 +6281,8 @@ The catalog's pin against what upstream publishes (`--upstream` only).
         "not_installed",
         "unknown",
         "on_install",
-        "manual"
+        "manual",
+        "retired"
       ],
       "title": "UpdateCounts",
       "type": "object"
