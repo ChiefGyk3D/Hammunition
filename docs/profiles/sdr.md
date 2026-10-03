@@ -6,6 +6,21 @@
 
 **Stage:** 1.0
 
+## Who it is for
+
+Anyone with, or about to buy, a software-defined radio: a twenty-pound RTL-SDR dongle, an Airspy, a HackRF or a transceiver such as an ANAN. It is the receiver and driver layer the listening, satellite and security profiles stand on.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | 1.0 |
+| Units | 16 |
+| Disk | about 1.5 GB, most of it GNU Radio |
+| Hardware | An SDR and an antenna. Without one the programs install and open but have nothing to tune; the SoapySDR remote client can reach a radio on another machine. |
+| Consent | none |
+| Install | `hammunition install sdr` |
+
 ## What it installs
 
 Three general-purpose receivers with waterfalls, GNU Radio and the block that lets a flow graph talk to almost any radio, fosphor's GPU-drawn spectrum and waterfall blocks for it, the SoapySDR tools and the RTL-SDR driver stack, the client and server halves of network SDR sharing, an offline signal visualiser, an RDS decoder, two transceiver applications for hardware that transmits -- Quisk, and piHPSDR for OpenHPSDR radios such as the ANAN and the Hermes Lite 2 -- and a complete GPS receiver in software.
@@ -26,7 +41,48 @@ Everything here works with one cheap dongle, and the driver layer is what makes 
 **Eleven of the twelve per-device SoapySDR modules.** Airspy, bladeRF, LimeSDR, MiriSDR, PlutoSDR, Red Pitaya, RFSpace, USRP, OsmoSDR, audio and the FUNcube all have manifests and none is installed here, because a one-dongle user needs one module and installing twelve to be safe is exactly what D-020 exists to avoid. Install the one matching your hardware by name. **The HydraSDR RFOne and the RigExpert Fobos SDR** (`hydrasdr-host` and `soapysdr-module-hydrasdr`; `libfobos`, `libfobos-sdr-agile` and `soapysdr-module-fobos`) are the same case and a heavier one: on most targets they are source builds, so installing them for hardware you do not own would compile five projects for nothing. `soapysdr-module-rtlsdr` is the exception on frequency grounds rather than principle: an RTL-SDR is what most people have.
 Also excludes transmit-capable research and interception tooling, which is `rf-security` and the consent-gated `rf-research`. The two transceiver programs here, `quisk` and `pihpsdr`, transmit the way a station transceiver does: when you key them, on the frequency shown, and a licence and the band plan apply. Installing them transmits nothing; the profile also excludes the DAB transmit chain, which emits into a broadcast band; and the aeronautical and utility decoders, which are `listening`.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show sdr
+hammunition install sdr --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install sdr
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 **A dongle that works under `sudo` and not otherwise is a permissions problem.** Device access needs a udev rule and usually the `plugdev` group; the hardware catalog carries the rules and `hammunition hardware apply` writes them and adds you to the groups (log out and back in afterward). `SoapySDRUtil --find` is the first command to run when a radio is invisible — it separates a USB or permissions problem from a missing module from an application bug.
 **Determine your dongle's frequency error once** and keep the PPM correction; several decoders fail to lock rather than reporting an error when it is wrong. `soapyremote-server` has no authentication at all — anyone who can reach the port can use your radio and hear what it hears — so it belongs on a trusted network or behind a tunnel, deliberately. Quisk is configured in Python rather than through a dialog; the shipped examples are the starting point and this is the step that stops people. fosphor's blocks need an OpenCL driver for the graphics hardware, which nothing here installs; `clinfo` shows whether one is present, and the `gr-fosphor` package page says what the archives offer.
+
+## Your first ten minutes
+
+1. Read the plan: `hammunition install sdr --dry-run`. GNU Radio is the large part.
+2. Install: `hammunition install sdr`.
+3. Apply the udev rules so your dongle opens without root: `hammunition hardware apply --dry-run`, then `hammunition hardware apply`, then **log out and back in**.
+4. Plug the dongle in and run `rtl_test` for an RTL-SDR or `SoapySDRUtil --find` for anything else. Seeing the device here separates a USB or permissions problem from a missing module from a program bug.
+5. If your radio is not an RTL-SDR, install its one SoapySDR module by name, for example `hammunition install soapysdr-module-airspy`; `hammunition list packages` shows the names.
+6. Open `gqrx`, tune broadcast FM and listen. [SDR first steps](../guides/sdr.md) takes you from there to aircraft, 433 MHz sensors and ships.
+7. Work out your dongle's frequency error once and keep the PPM correction; several decoders fail to lock rather than reporting it.
+
+## Take it off again
+
+```sh
+hammunition uninstall sdr --dry-run
+hammunition uninstall sdr
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

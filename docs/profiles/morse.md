@@ -6,6 +6,21 @@
 
 **Stage:** 1.0
 
+## Who it is for
+
+Someone learning Morse, practising speed, or studying for a licence exam. Nothing in it needs a radio.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | 1.0 |
+| Units | 17 |
+| Disk | under 100 MB |
+| Hardware | None for learning, which generates its own audio. Sending on the air needs a keying interface (a serial control line or a Winkeyer) and, for `cwdaemon`, membership of the group that owns it. |
+| Consent | none |
+| Install | `hammunition install morse` |
+
 ## What it installs
 
 Five ways to learn — Koch method training, high-speed callsign drilling, the three unixcw front ends, the long-lived Unix `morse` sounder that drills you on random groups, and a converter that turns any text you were going to read into Morse audio at a speed you choose. Two decoders, one live from a receiver and one offline from a recording. Two ways to send: a daemon that keys a transmitter for a logging program, and a control panel for a Winkeyer. A beacon monitor. And practice tests for the US and Canadian licence exams.
@@ -24,6 +39,46 @@ Morse is a skill before it is a mode, and everything here is either practice, se
 
 fldigi, which decodes CW among twenty other modes and belongs in `digital-modes`. Contest loggers, which key CW through `cwdaemon` and live in `logging`. `morse-runner`, the CW contest simulator, is carried and installs by name (`hammunition install morse-runner`) rather than with this profile: it is a source build whose Free Pascal and Lazarus build dependencies came to 1.8 GB on a bare Debian 13 image, against a profile that is otherwise under 100 MB, and it is not offered on Kali. Nothing here needs a radio: every trainer generates its own audio, which is the point.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show morse
+hammunition install morse --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install morse
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 **`cwdaemon` needs a keying interface and a group you are not in.** Serial keying needs `dialout`, parallel needs `lp`, and this profile adds neither because which one depends on hardware the catalog cannot see. USB-to-serial adapters vary widely in how fast they toggle a control line, and a slow one keys cleanly at 15 wpm and falls apart at 30 — that is the adapter, not the software. `flwkey` needs a Winkeyer on `dialout` too. **Check the exam question pools against the current ones** before trusting a score: the pools are revised on a rolling cycle and a packaged version can be asking questions that are no longer on the exam.
+
+## Your first ten minutes
+
+1. Read the plan: `hammunition install morse --dry-run`. `morse-classic` installs without recommends on purpose, and the plan says why, so a PipeWire desktop keeps its audio routing.
+2. Install: `hammunition install morse`. `cwwav`, `flwkey` and `ibp` build from source; the rest are apt.
+3. Start with a trainer: run `qrq` for high-speed callsign drilling or `aldo`, which teaches by four methods including Koch. Both make their own audio.
+4. Hear it on the speakers before you key anything: `xcwcp` is a GUI that sends and receives practice text through your sound card.
+5. To study for the exam, run `hamexam` (US) or `canadian-ham-exam`. Check the question pool's year against the current pool before trusting a score.
+6. If you will key a transmitter later, read the `dialout` note under manual setup, then run `hammunition hardware apply` and log out and back in.
+
+## Take it off again
+
+```sh
+hammunition uninstall morse --dry-run
+hammunition uninstall morse
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

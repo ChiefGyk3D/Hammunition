@@ -70,3 +70,16 @@ documentation:
   disk_footprint_hint: >-
     Under 100 MB. Everything here is small; the largest single item is the
     wxWidgets front end for ebook2cw.
+  who_for: "Someone learning Morse, practising speed, or studying for a licence exam. Nothing in it needs a radio."
+  hardware_assumed: "None for learning, which generates its own audio. Sending on the air needs a keying interface (a serial control line or a Winkeyer) and, for `cwdaemon`, membership of the group that owns it."
+  footprint_short: "under 100 MB"
+  excludes_short: "fldigi's CW decoder, contest loggers, morse-runner (installs by name)"
+  goals:
+    - "Learn or practise Morse code, or study for the licence exam"
+  first_ten_minutes:
+    - "Read the plan: `hammunition install morse --dry-run`. `morse-classic` installs without recommends on purpose, and the plan says why, so a PipeWire desktop keeps its audio routing."
+    - "Install: `hammunition install morse`. `cwwav`, `flwkey` and `ibp` build from source; the rest are apt."
+    - "Start with a trainer: run `qrq` for high-speed callsign drilling or `aldo`, which teaches by four methods including Koch. Both make their own audio."
+    - "Hear it on the speakers before you key anything: `xcwcp` is a GUI that sends and receives practice text through your sound card."
+    - "To study for the exam, run `hamexam` (US) or `canadian-ham-exam`. Check the question pool's year against the current pool before trusting a score."
+    - "If you will key a transmitter later, read the `dialout` note under manual setup, then run `hammunition hardware apply` and log out and back in."

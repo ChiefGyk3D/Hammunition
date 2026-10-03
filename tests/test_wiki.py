@@ -87,7 +87,12 @@ def test_home_has_the_banner_and_the_sidebar_exists(files: dict[str, str]) -> No
     sidebar = files["_Sidebar.md"]
     assert "(Getting-Started-Install)" in sidebar
     assert "(Software-by-activity)" in sidebar
-    assert sidebar.index("(Getting-Started)") < sidebar.index("(Guides)")
+    # A newcomer is led to Installation, Profiles, Guides, Troubleshooting, in that order.
+    order = [
+        sidebar.index(f"({name})")
+        for name in ("Getting-Started-Installation", "Profiles", "Guides", "Troubleshooting")
+    ]
+    assert order == sorted(order)
     assert "abc1234" in files["_Footer.md"]
 
 
