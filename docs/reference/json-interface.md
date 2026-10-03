@@ -772,6 +772,7 @@ One thing looked at, its verdict, and how to fix it.
 | `status` | string | `ok`, `info`, `warn` (limits what installs) or `fail` (blocking) |
 | `detail` | string | what was found |
 | `fix` | string or null | the one command or step that fixes it |
+| `fix_argv` | list[str] or null | argv for a single command fix; null when the fix is advice rather than a command |
 
 <details><summary>JSON Schema</summary>
 
@@ -804,13 +805,28 @@ One thing looked at, its verdict, and how to fix it.
             }
           ],
           "title": "Fix"
+        },
+        "fix_argv": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Fix Argv"
         }
       },
       "required": [
         "name",
         "status",
         "detail",
-        "fix"
+        "fix",
+        "fix_argv"
       ],
       "title": "CheckView",
       "type": "object"
@@ -1739,6 +1755,7 @@ operator; for local programs, not for pasting.
 | `action` | string | `install` or `uninstall` |
 | `requested` | list of string | the names given on the command line |
 | `outcome` | string | `planned`, or `refused` with the blockers |
+| `step_count` | integer | the number of steps in this transaction; zero when refused |
 | `target` | [`TargetView`](#targetview) | the system planned against |
 | `blockers` | list of [`BlockerLine`](#blockerline) | empty unless refused |
 | `install` | [`InstallPlanView`](#installplanview) or null | the install plan; null for an uninstall or a refusal |
@@ -2227,6 +2244,8 @@ One step, exactly as the real run performs it.
 | `action` | string or null | the in-process step's kind (`fetch`, `extract`, ...); null for a command |
 | `requires_root` | boolean | whether it runs as root |
 | `sources` | list of string | for a data download (a `data` artifact, a map region, a terrain tile), the URLs it is fetched from in the order tried: the LAN mirror, then the publisher (D-070); the publisher alone with no mirror; empty for any other step |
+| `index` | integer | this step's 1-based position in execution order |
+| `long_running` | boolean | true when the backend knows the step can take several minutes (a submodule fetch, a compile, a venv install, a node build); the text prints one fixed note under it and claims no duration (#270) |
 
 #### `PublisherCheckLine`
 
@@ -3716,6 +3735,15 @@ A unit and files.
           },
           "title": "Sources",
           "type": "array"
+        },
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "long_running": {
+          "default": false,
+          "title": "Long Running",
+          "type": "boolean"
         }
       },
       "required": [
@@ -3724,7 +3752,8 @@ A unit and files.
         "argv",
         "action",
         "requires_root",
-        "sources"
+        "sources",
+        "index"
       ],
       "title": "StepView",
       "type": "object"
@@ -4315,6 +4344,10 @@ A unit and files.
       "title": "Outcome",
       "type": "string"
     },
+    "step_count": {
+      "title": "Step Count",
+      "type": "integer"
+    },
     "target": {
       "$ref": "#/$defs/TargetView"
     },
@@ -4350,6 +4383,7 @@ A unit and files.
     "action",
     "requested",
     "outcome",
+    "step_count",
     "target",
     "blockers",
     "install",
@@ -5579,6 +5613,7 @@ machine. A unit the catalog no longer carries has null method and pin.
 | `name` | string | the catalog unit |
 | `last_named` | string or null | when the latest install or uninstall naming it began |
 | `last_outcome` | string | an install's `completed`, `failed` or `interrupted`; an uninstall's `removed`, `removal failed` or `removal interrupted` |
+| `completed_in_failed_run` | string or null | when the install that completed this unit began, if that install then failed or was killed after the unit's last step (`unit_end`); null otherwise |
 | `catalog_version` | string or null | the manifest's version today |
 | `method` | string or null | the install method that resolves on this target |
 | `pin` | string or null | the catalog's pin for a built unit; null for apt |
@@ -5771,6 +5806,17 @@ machine. A unit the catalog no longer carries has null method and pin.
           "title": "Last Outcome",
           "type": "string"
         },
+        "completed_in_failed_run": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Completed In Failed Run"
+        },
         "catalog_version": {
           "anyOf": [
             {
@@ -5809,6 +5855,7 @@ machine. A unit the catalog no longer carries has null method and pin.
         "name",
         "last_named",
         "last_outcome",
+        "completed_in_failed_run",
         "catalog_version",
         "method",
         "pin"
@@ -6115,7 +6162,7 @@ One unit: installed versus the catalog.
 | field | type | meaning |
 |---|---|---|
 | `unit` | string | the catalog unit |
-| `state` | string | `up to date`, `candidate differs`, `behind the pin`, `not installed`, `unknown`, `re-checked on install` or `manual` |
+| `state` | string | `up to date`, `candidate differs`, `behind the pin`, `not installed`, `unknown`, `re-checked on install`, `manual` or `retired` |
 | `detail` | string | what was compared, as the text prints it |
 | `strategy` | string | the manifest's update strategy |
 | `upgradable` | list of string | apt packages whose candidate differs |
@@ -6133,6 +6180,7 @@ How many rows are in each state.
 | `unknown` | integer | nothing on disk can be checked |
 | `on_install` | integer | resolved again on every install |
 | `manual` | integer | re-pinned by hand |
+| `retired` | integer | catalog units retained as retired |
 
 #### `UpstreamRowView`
 
@@ -6238,6 +6286,10 @@ The catalog's pin against what upstream publishes (`--upstream` only).
         "manual": {
           "title": "Manual",
           "type": "integer"
+        },
+        "retired": {
+          "title": "Retired",
+          "type": "integer"
         }
       },
       "required": [
@@ -6247,7 +6299,8 @@ The catalog's pin against what upstream publishes (`--upstream` only).
         "not_installed",
         "unknown",
         "on_install",
-        "manual"
+        "manual",
+        "retired"
       ],
       "title": "UpdateCounts",
       "type": "object"

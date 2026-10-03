@@ -22,6 +22,7 @@ from threading import Thread
 
 import pytest
 
+from hammunition.listening import LOOPBACK, listening_addresses
 from hammunition.map_page import (
     CREDIT,
     KIT_UNIT,
@@ -195,25 +196,9 @@ def test_localhost_is_as_good_as_127_0_0_1(served: int) -> None:
     assert status == 200
 
 
-def _listening_addresses(port: int) -> set[str]:
-    """Local addresses of sockets listening on *port*, from /proc/net/tcp."""
-    from pathlib import Path
-
-    found: set[str] = set()
-    for table in ("/proc/net/tcp", "/proc/net/tcp6"):
-        path = Path(table)
-        if not path.exists():
-            continue
-        for line in path.read_text().splitlines()[1:]:
-            fields = line.split()
-            address, port_hex = fields[1].rsplit(":", 1)
-            if int(port_hex, 16) == port and fields[3] == "0A":  # TCP_LISTEN
-                found.add(address)
-    return found
-
-
 def test_the_server_is_bound_to_loopback(served: int) -> None:
-    assert _listening_addresses(served) == {"0100007F"}
+    addresses = listening_addresses(served)
+    assert addresses and addresses <= LOOPBACK
 
 
 # -- the page ------------------------------------------------------------------------------

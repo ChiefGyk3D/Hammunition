@@ -6,6 +6,21 @@
 
 **Stage:** post-1.0
 
+## Who it is for
+
+Someone studying RFID and NFC cards: how 13.56 MHz and 125 kHz credentials work, what a reader reports, and how weak schemes fail.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | post-1.0 |
+| Units | 6 |
+| Disk | under 50 MB from apt; the Proxmark3 build is larger |
+| Hardware | A card reader (a PN53x NFC reader, a PC/SC reader or a Proxmark3) and cards you own or are authorised to test. |
+| Consent | none |
+| Install | `hammunition install rfid` |
+
 ## What it installs
 
 Tools for two different card worlds. Five packages cover 13.56 MHz over libnfc and PC/SC -- reader diagnostics, MIFARE Classic key recovery, and DESFire management -- and one, the Proxmark3 client, covers both 13.56 MHz and the 125 kHz low-frequency cards nothing else here reaches.
@@ -24,6 +39,46 @@ They are the same domain at two frequencies and two price points. The libnfc sid
 
 Anything that is not card-range. Long-range RFID, UHF and the 900 MHz inventory-tag world are a different domain again and are not here. Nothing aimed at cloning credentials for use rather than for study, and no pre-loaded key dictionaries -- the tools take those as input if you supply them. Also excluded is the vendor tooling for proprietary readers, which is neither free software nor packaged anywhere.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show rfid
+hammunition install rfid --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install rfid
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 Membership of `dialout` and `plugdev` for the Proxmark3, from the hardware catalog. Serial PN53x readers need an entry in /etc/nfc/libnfc.conf; USB ones usually do not. The one that catches everyone: pcscd and libnfc compete for the same reader, whichever claims it first wins, and the other reports no device at all -- stop pcscd if libnfc tools suddenly stop seeing your hardware.
+
+## Your first ten minutes
+
+1. Read the plan: `hammunition install rfid --dry-run`. The Proxmark3 client builds from source on most targets and pulls an ARM cross-compiler for the firmware images it ships.
+2. Install: `hammunition install rfid`.
+3. Apply device rules: `hammunition hardware apply`, then log out and back in, so `dialout` and `plugdev` reach your session.
+4. Plug a reader in and check it is seen: `nfc-list` for a libnfc reader, or `pcsc_scan` for a PC/SC one.
+5. If one tool stops seeing the reader, stop `pcscd`; libnfc and pcscd compete for the same device and whichever claims it first wins.
+6. Test only cards you own or have written permission to test.
+
+## Take it off again
+
+```sh
+hammunition uninstall rfid --dry-run
+hammunition uninstall rfid
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

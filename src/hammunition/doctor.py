@@ -46,7 +46,11 @@ ROUTINO_TRANSLATIONS = "/usr/share/routino/translations.xml"
 # What scripts/path-link.sh links to: a link ending here is ours (D-059).
 ENGINE_LINK_SUFFIX = "/.venv/bin/hammunition"
 
+# Executables used as the first argv element of doctor command fixes.
+FIX_PROGRAMS = frozenset({"hammunition", "journalctl", "ln", "sudo", "systemctl"})
+
 __all__ = [
+    "FIX_PROGRAMS",
     "Check",
     "RigStatus",
     "Status",
@@ -67,6 +71,7 @@ class Check:
     status: Status
     detail: str
     fix: str | None = None
+    fix_argv: list[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -161,12 +166,17 @@ def rig_checks(status: RigStatus | None) -> list[Check]:
                 "warn",
                 "hammunition-rigctld is not installed",
                 "hammunition install rig-service",
+                ["hammunition", "install", "rig-service"],
             )
         )
     elif state == "disabled":
         checks.append(
             Check(
-                "rig", "warn", "hammunition-rigctld is disabled", "hammunition install rig-service"
+                "rig",
+                "warn",
+                "hammunition-rigctld is disabled",
+                "hammunition install rig-service",
+                ["hammunition", "install", "rig-service"],
             )
         )
     elif state == "failed":
@@ -176,6 +186,7 @@ def rig_checks(status: RigStatus | None) -> list[Check]:
                 "warn",
                 "hammunition-rigctld failed",
                 "journalctl --user -u hammunition-rigctld -n 20",
+                ["journalctl", "--user", "-u", "hammunition-rigctld", "-n", "20"],
             )
         )
     elif state == "active":
@@ -190,6 +201,7 @@ def rig_checks(status: RigStatus | None) -> list[Check]:
                 f"the loopback filter (hammunition-rig-proxy) is {status.proxy_state}; "
                 f"without it a web page can reach rigctld",
                 "hammunition install rig-service",
+                ["hammunition", "install", "rig-service"],
             )
         )
     if status.args_match is False:
@@ -199,6 +211,7 @@ def rig_checks(status: RigStatus | None) -> list[Check]:
                 "warn",
                 "the running rigctld's arguments do not match the station",
                 "reinstall rig-service: hammunition install rig-service",
+                ["hammunition", "install", "rig-service"],
             )
         )
     if status.answering is True:
@@ -210,6 +223,7 @@ def rig_checks(status: RigStatus | None) -> list[Check]:
                 "warn",
                 "rigctld is active but did not answer \\dump_state on 127.0.0.1:4532",
                 "journalctl --user -u hammunition-rigctld -n 20",
+                ["journalctl", "--user", "-u", "hammunition-rigctld", "-n", "20"],
             )
         )
     if status.loopback_only is False:
@@ -219,6 +233,7 @@ def rig_checks(status: RigStatus | None) -> list[Check]:
                 "fail",
                 "port 4532 is bound beyond loopback — the transmitter is reachable off-machine",
                 "reinstall rig-service: hammunition install rig-service",
+                ["hammunition", "install", "rig-service"],
             )
         )
     if status.device_present is False:
@@ -314,6 +329,7 @@ def run_checks(
                 "warn",
                 "python3 -m venv is missing — venv and hybrid installs will fail",
                 "sudo apt install python3-venv",
+                ["sudo", "apt", "install", "python3-venv"],
             )
         )
 
@@ -377,6 +393,7 @@ def run_checks(
                 "warn",
                 f"`hammunition` on PATH runs {engine_on_path}, not this checkout's {engine_expected}",
                 f"ln -sfn {shlex.quote(engine_expected)} {shlex.quote(engine_found)}",
+                ["ln", "-sfn", engine_expected, engine_found],
             )
         )
     else:
@@ -403,6 +420,7 @@ def run_checks(
                 "warn",
                 "no C compiler found — the ~57 source-built units cannot build",
                 "sudo apt install build-essential (the engine also pulls per-build deps at plan time)",
+                ["sudo", "apt", "install", "build-essential"],
             )
         )
 
@@ -415,6 +433,7 @@ def run_checks(
                 "warn",
                 "git is missing — git-source units cannot be fetched",
                 "sudo apt install git (the planner also injects it as a build dep)",
+                ["sudo", "apt", "install", "git"],
             )
         )
 
@@ -442,6 +461,7 @@ def run_checks(
                 "warn",
                 f"not in: {', '.join(missing_groups)} — devices needing them will be permission-denied",
                 "hammunition hardware apply (then log out and back in)",
+                ["hammunition", "hardware", "apply"],
             )
         )
 
@@ -454,6 +474,7 @@ def run_checks(
                 "info",
                 "udev rules not yet applied (fine until you connect a supported device)",
                 "hammunition hardware apply",
+                ["hammunition", "hardware", "apply"],
             )
         )
 
@@ -526,6 +547,7 @@ def run_checks(
                 f"QMapShack is installed and {ROUTINO_TRANSLATIONS} is missing; QMapShack "
                 f"stops at startup until it is back",
                 "sudo apt-get install --reinstall routino-common",
+                ["sudo", "apt-get", "install", "--reinstall", "routino-common"],
             )
         )
 
@@ -602,6 +624,7 @@ def run_checks(
                 "info",
                 f"{count} run log(s), {size / 1024 / 1024:.1f} MB; the newest ({newest}) {result}",
                 "hammunition logs --last prints it" if count else None,
+                ["hammunition", "logs", "--last"] if count else None,
             )
         )
 
@@ -625,7 +648,15 @@ def _geoclue_checks(g: GeoClueState) -> list[Check]:
         )
     elif not (g.dropin_ours and g.tmpfiles_ours):
         missing = geoclue.TMPFILES if g.dropin_ours else geoclue.DROPIN
-        checks.append(Check("geoclue", "warn", f"half set up: {missing} is missing", apply))
+        checks.append(
+            Check(
+                "geoclue",
+                "warn",
+                f"half set up: {missing} is missing",
+                apply,
+                ["hammunition", "hardware", "apply"],
+            )
+        )
     elif g.directory != "current":
         what = "is missing" if g.directory == "absent" else f"is wrong: {g.directory}"
         checks.append(
@@ -634,6 +665,7 @@ def _geoclue_checks(g: GeoClueState) -> list[Check]:
                 "warn",
                 f"{geoclue.SOCKET_DIR} {what}, so the tether cannot give GeoClue its socket",
                 f"sudo systemd-tmpfiles --create {geoclue.TMPFILES}",
+                ["sudo", "systemd-tmpfiles", "--create", str(geoclue.TMPFILES)],
             )
         )
     else:
@@ -683,6 +715,7 @@ def _gps_resume_check(state: ResumeStatus) -> Check:
         "warn",
         f"{detail}: after a suspend gpsd can keep a receiver that has gone quiet (issue #177)",
         "hammunition hardware apply",
+        ["hammunition", "hardware", "apply"],
     )
 
 
@@ -725,6 +758,7 @@ def _time_checks(t: TimeState) -> list[Check]:
                 "warn",
                 "ntpd cannot read gpsd's time: its grants or gpsd's -n drop-in are not installed",
                 "hammunition hardware apply",
+                ["hammunition", "hardware", "apply"],
             )
         )
     if t.dhcp_config:
@@ -748,6 +782,7 @@ def _time_checks(t: TimeState) -> list[Check]:
                 "warn",
                 "could not ask ntpd what the clock follows",
                 "systemctl status ntpsec",
+                ["systemctl", "status", "ntpsec"],
             )
         )
     elif t.mode == "gps-only" and t.gps == "parked":

@@ -101,7 +101,7 @@ from hammunition.consent import (
     resolve_repo_consent,
     resolve_topo_size_consent,
 )
-from hammunition.copernicus import CopernicusError, S3Probe
+from hammunition.copernicus import CachingTileProbe, CopernicusError, S3Probe
 from hammunition.country_boundaries import BoundarySource, CountryBoundaryError, boundary_source
 from hammunition.desktop import current_desktop, scan_sessions
 from hammunition.devctl_helper import plan_helper
@@ -110,6 +110,7 @@ from hammunition.doctor import RigStatus
 from hammunition.execute import (
     ExecutionReport,
     Step,
+    StepOwners,
     already_built,
     artifact_removal_steps,
     build_dir,
@@ -151,6 +152,7 @@ from hammunition.kiwix import (
     load_pin_file,
     resolve_books,
 )
+from hammunition.listening import bound_to_loopback_only
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
@@ -163,6 +165,7 @@ from hammunition.manifest.schema import (
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
+    Status,
     TopoQuadsInstall,
 )
 from hammunition.paths import (
@@ -175,7 +178,7 @@ from hammunition.paths import (
 )
 from hammunition.phone_plan import build_phone_run
 from hammunition.plan import NO_MAP_REGIONS, Blocker, Deferral, InstallPlan, PlanError, resolve
-from hammunition.progress import Progress
+from hammunition.progress import LiveStatus, Progress, activate_live, current_live
 from hammunition.repeater_sources import SnapshotHead
 from hammunition.retry import (
     POLICY,
@@ -902,6 +905,26 @@ def cmd_update(args: argparse.Namespace) -> int:
             return EXIT_OK
         print(f"Comparing the {len(names)} unit(s) the transaction log has ever named here.")
 
+    retired: dict[str, PackageManifest] = {}
+    update_profiles = dict(profiles)
+    for name in names:
+        manifest = packages.get(name)
+        if name not in profiles and manifest is not None and manifest.status is Status.retired:
+            retired.setdefault(name, manifest)
+        profile = profiles.get(name)
+        if profile is None:
+            continue
+        active_members: list[str] = []
+        for member in profile.packages:
+            member_manifest = packages.get(member)
+            if member_manifest is not None and member_manifest.status is Status.retired:
+                retired.setdefault(member, member_manifest)
+            else:
+                active_members.append(member)
+        if len(active_members) != len(profile.packages):
+            update_profiles[name] = profile.model_copy(update={"packages": active_members})
+    update_names = [name for name in names if name not in retired]
+
     try:
         station = load_station(owner=user)
     except StationError:
@@ -909,9 +932,9 @@ def cmd_update(args: argparse.Namespace) -> int:
     repos = AptRepoBackend(owner=user or None)
     try:
         plan = resolve(
-            names,
+            update_names,
             catalog=packages,
-            profiles=profiles,
+            profiles=update_profiles,
             target=target,
             apt=apt,
             user=user,
@@ -1040,6 +1063,7 @@ def cmd_update(args: argparse.Namespace) -> int:
         quads=installed_quad_counts(plan, source.prefix, catalog_root),
         books=books_by_unit,
         mwm=mwm_by_unit,
+        retired=tuple(retired.values()),
     )
     lists_note = _apt_lists_note(apt)
     upstream = (
@@ -3600,7 +3624,13 @@ def cmd_install(args: argparse.Namespace) -> int:
         node_root=node_root(user or None),
         bin_dir=user_bin_dir(user or None),
     )
-    data = DataBackend(fetcher=source.fetcher, prefix=source.prefix, runner=runner)
+    data = DataBackend(
+        fetcher=source.fetcher,
+        prefix=source.prefix,
+        runner=runner,
+        build_root=builds,
+        owner=source.owner,
+    )
     map_units = [p for p in plan.packages if isinstance(p.block.install, RegionalDataInstall)]
     try:
         resolution = resolve_map_regions(
@@ -3634,6 +3664,8 @@ def cmd_install(args: argparse.Namespace) -> int:
     # whatever it fetches either way.
     checks = PublisherChecks.from_log(read_log, recheck=args.recheck)
     POLICY.reset()
+    terrain_tile_probe = CachingTileProbe(RetryingProbe(S3Probe()), source.fetcher.cache_dir)
+    usgs_tile_probe = CachingTileProbe(RetryingProbe(ustopo_probe()), source.fetcher.cache_dir)
     try:
         dem_resolution = resolve_station_terrain(
             plan,
@@ -3641,7 +3673,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             catalog_root,
             prefix=source.prefix,
             region_probe=outlines,
-            tile_probe=RetryingProbe(S3Probe()),
+            tile_probe=terrain_tile_probe,
             outages=outages,
             checks=checks,
         )
@@ -3650,6 +3682,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("terrain", str(exc))
         return EXIT_UNPLANNABLE
+    finally:
+        terrain_tile_probe.flush()
     # Issue #232: the sheets and tiles are bounded by the station (a radius
     # around its grid square by default). The circle needs the grid square;
     # without one the unit defers by name and what is installed is kept (D-035).
@@ -3677,7 +3711,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             catalog_root,
             prefix=source.prefix,
             region_probe=outlines,
-            quad_probe=RetryingProbe(ustopo_probe()),
+            quad_probe=usgs_tile_probe,
             outages=outages,
             checks=checks,
             bound=topo_bound,
@@ -3687,6 +3721,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("US Topo", str(exc))
         return EXIT_UNPLANNABLE
+    finally:
+        usgs_tile_probe.flush()
     # D-068, amended 2026-10-01: USGS 3DEP when the station chose it (the same
     # bucket as US Topo, so the same probe), and the Forest Service's FSTopo
     # sheets, each located through the raster gateway's one redirect.
@@ -3698,7 +3734,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             prefix=source.prefix,
             source=station.elevation,
             region_probe=outlines,
-            tile_probe=RetryingProbe(ustopo_probe()),
+            tile_probe=usgs_tile_probe,
             outages=outages,
             checks=checks,
             bound=topo_bound,
@@ -3708,6 +3744,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("3DEP", str(exc))
         return EXIT_UNPLANNABLE
+    finally:
+        usgs_tile_probe.flush()
     try:
         fstopo_resolution, fstopo_notes = resolve_station_fstopo(
             plan,
@@ -4028,11 +4066,13 @@ def cmd_install(args: argparse.Namespace) -> int:
     built = already_built(
         plan, log=read_log, prefix=source.prefix, source=source, git=git, binary=binary
     )
+    step_owners = StepOwners()
     commands = commands_for(
         plan,
         apt,
         refresh=args.refresh,
         skip_builds=built,
+        owners=step_owners,
         source=source,
         git=git,
         binary=binary,
@@ -4126,6 +4166,7 @@ def cmd_install(args: argparse.Namespace) -> int:
                 action="install",
                 requested=tuple(args.names),
                 outcome="planned",
+                step_count=len(view.commands),
                 target=target_view(target),
                 blockers=(),
                 install=view,
@@ -4239,23 +4280,26 @@ def cmd_install(args: argparse.Namespace) -> int:
     # exit code of 0 from apt-get or gpasswd is not evidence the package landed
     # or the membership took, and transaction_end is the record uninstall will
     # trust.
-    report = run_with_sudo_ticket(
-        commands,
-        euid=euid,
-        keepalive=args.sudo_keepalive,
-        log=log,
-        run=lambda: execute(
+    live = LiveStatus(verbose=args.verbose)
+    with activate_live(live):
+        report = run_with_sudo_ticket(
             commands,
-            runner,
-            log=log,
-            plan=plan,
-            echo=print,
             euid=euid,
-            prober=apt,
-            prefix=source.prefix,
-            launcher_bin=user_bin_dir(user or None),
-        ),
-    )
+            keepalive=args.sudo_keepalive,
+            log=log,
+            run=lambda: execute(
+                commands,
+                runner,
+                log=log,
+                plan=plan,
+                echo=live.print,
+                euid=euid,
+                prober=apt,
+                prefix=source.prefix,
+                launcher_bin=user_bin_dir(user or None),
+                owners=step_owners,
+            ),
+        )
     if log.ownership_error:
         # Not fatal — the commands ran — but not silent either. A log the
         # operator cannot append to fails on their next run instead of this one.
@@ -4336,7 +4380,14 @@ def run_with_sudo_ticket(
         return run()
 
     def warn(message: str) -> None:
-        print(f"\nwarning: {message}", file=sys.stderr)
+        # The status line's writer owns the terminal while a step runs, so a
+        # keepalive failure cannot land in the middle of it (#270).
+        live = current_live()
+        text = f"\nwarning: {message}"
+        if live is not None:
+            live.print(text, err=True)
+        else:
+            print(text, file=sys.stderr)
 
     ticket = make_keepalive() if make_keepalive is not None else SudoKeepalive(warn=warn)
     print("\nsudo: asking once, before the first step (D-062).")
@@ -4507,6 +4558,7 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
                     action="uninstall",
                     requested=tuple(args.names),
                     outcome="refused",
+                    step_count=0,
                     target=target_view(target),
                     blockers=(BlockerLine(subject="uninstall", reason=str(exc), remedy=None),),
                     install=None,
@@ -4576,6 +4628,7 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
                 action="uninstall",
                 requested=tuple(args.names),
                 outcome="planned",
+                step_count=len(view.commands),
                 target=target_view(target),
                 blockers=(),
                 install=None,
@@ -4598,9 +4651,18 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
             return EXIT_OK
 
     print("\nRunning:")
-    report = run_removal(
-        commands, runner, log=log, plan=plan, target=target, echo=print, euid=euid, prober=apt
-    )
+    live = LiveStatus(verbose=args.verbose)
+    with activate_live(live):
+        report = run_removal(
+            commands,
+            runner,
+            log=log,
+            plan=plan,
+            target=target,
+            echo=live.print,
+            euid=euid,
+            prober=apt,
+        )
     if log.ownership_error:
         print(f"\nWarning: {log.ownership_error}", file=sys.stderr)
     if report.ok and not report.verified and report.verification is not None:
@@ -6351,29 +6413,7 @@ def _port_loopback_only(port: int) -> bool | None:
 
     None when the files cannot be read. A listener (state 0A) on any other
     local address is a transmitter reachable off-machine (D-073 §11)."""
-    hexport = f"{port:04X}"
-    try:
-        rows = []
-        for name in ("/proc/net/tcp", "/proc/net/tcp6"):
-            p = Path(name)
-            if p.exists():
-                rows.extend(p.read_text().splitlines()[1:])
-    except OSError:
-        return None
-    loopback = {
-        "0100007F",  # 127.0.0.1, little-endian hex
-        "00000000000000000000000001000000",  # ::1
-        "0000000000000000FFFF00000100007F",  # ::ffff:127.0.0.1
-    }
-    for row in rows:
-        fields = row.split()
-        if len(fields) < 4 or fields[3] != "0A":  # 0A = LISTEN
-            continue
-        local = fields[1]
-        addr, _, lport = local.partition(":")
-        if lport.upper() == hexport and addr.upper() not in loopback:
-            return False
-    return True
+    return bound_to_loopback_only(port)
 
 
 def _rigctld_args_match(station: Station) -> bool | None:
@@ -7199,6 +7239,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_install.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help=(
+            "stream every line each command prints as it arrives, instead of the one "
+            "in-place status line shown for a command that runs longer than two seconds "
+            "on a terminal; the run log is the same either way"
+        ),
+    )
+    p_install.add_argument(
         "--full",
         action="store_true",
         help=(
@@ -7248,6 +7298,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="resolve the removal and print exactly what would run, then stop",
     )
     p_uninstall.add_argument("--yes", action="store_true", help="skip the confirmation")
+    p_uninstall.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="stream every line each command prints as it arrives (see `install --verbose`)",
+    )
     p_uninstall.add_argument(
         "--user",
         default=None,

@@ -10,6 +10,9 @@ bundle, not two dozen packages by hand. Profiles are flat tags — they overlap
 (gpsd is in both `station` and `navigation`) but never nest, so you compose
 them freely.
 
+This page is the short route. [Installation](installation.md) is the full
+walkthrough, with the output of every command and how to read a plan.
+
 Every command here runs the engine as `hammunition`, which `./bootstrap.sh`
 put on your PATH. If the shell says `command not found`, run the checkout's
 `.venv/bin/hammunition` by its full path instead;

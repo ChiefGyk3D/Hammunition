@@ -209,6 +209,7 @@ def resolve_topo(
         path=lambda quad: installed / f"{quad.name}{TIF}",
         check=lambda quad: check_quad(quad, quad_probe),
         label="installed US Topo sheets against the USGS bucket",
+        probe=quad_probe,
     )
     outcomes = run_checks(
         todo,

@@ -160,6 +160,7 @@ def resolve_terrain(
         path=lambda tile: installed / f"{tile}{TIF}",
         check=check,
         label="installed terrain tiles against the Copernicus DEM bucket",
+        probe=tile_probe,
     )
 
     fetch: list[TileFile] = []
@@ -266,6 +267,7 @@ def resolve_bare_earth(
         path=lambda tile: installed / f"{tile}{TIF}",
         check=check,
         label="installed 3DEP terrain tiles against the USGS bucket",
+        probe=tile_probe,
     )
 
     outcomes = run_checks(todo, check, label="3DEP terrain tiles against the USGS bucket")
