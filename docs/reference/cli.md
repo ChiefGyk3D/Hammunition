@@ -546,9 +546,12 @@ closes the connection; and once when no position with a fix has arrived in
 
 It runs in the foreground until Ctrl-C (exit 0), closing every client and
 the gpsd connection; nothing is installed as a service, and nothing is
-executed. It refuses root, exit 1. A refused option is exit 3 with nothing
-opened (the installed tether's own code, since hammunition-gps-tether 0.1.1;
-a usage error is argparse's 2). A port already in use is a named error, exit 3. There is no
+executed. The engine refuses root, and a tether that is not installed,
+before running anything: exit 1. After that the installed tether takes over
+(`exec`) and its own exit codes pass through unchanged, hammunition-gps-tether
+0.1.1's, not the engine's (the engine's 2 and 3 mean other things elsewhere):
+a refused option or a port already in use is a named error, exit 3, with
+nothing opened; a crash is 1; its own usage error is 2. There is no
 `--json` form, because it is a server, not a document (D-059): `--json`
 with any options gives the same one error document. The setups these
 options are for (a gpsd on a Pi or a phone, a Bluetooth or serial
