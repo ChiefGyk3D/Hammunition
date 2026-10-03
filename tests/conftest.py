@@ -36,6 +36,10 @@ the suite at a password prompt, and in CI it would quietly test nothing.
 
 from __future__ import annotations
 
+import contextlib
+import hashlib
+import os
+import pwd
 import shutil
 import socket
 import tarfile
@@ -50,6 +54,109 @@ import hammunition.sudo_ticket as sudo_ticket
 from hammunition import runlog
 from hammunition.backends.base import Command, CommandResult, SubprocessRunner
 from hammunition.paths import artifact_cache_dir
+
+# What the operator's real files are, captured before anything is changed.
+# The guard test (tests/test_isolation.py) reads these; nothing else may.
+_REAL_HOME_ENV = os.environ.get("HOME")
+REAL_LOGIN: str = (
+    os.environ.get("SUDO_USER") or os.environ.get("USER") or os.environ.get("LOGNAME") or "root"
+)
+
+
+def _real_homes() -> tuple[Path, ...]:
+    homes = [_REAL_HOME_ENV, pwd.getpwuid(os.getuid()).pw_dir, pwd.getpwuid(os.geteuid()).pw_dir]
+    with contextlib.suppress(KeyError):
+        homes.append(pwd.getpwnam(REAL_LOGIN).pw_dir)
+    return tuple(dict.fromkeys(Path(h) for h in homes if h and h != "/"))
+
+
+REAL_HOMES: tuple[Path, ...] = _real_homes()
+_REAL_STATION = REAL_HOMES[0] / ".config" / "hammunition" / "station.yml" if REAL_HOMES else None
+_ISOLATED_ROOT: Path | None = None
+
+
+def session_root() -> Path:
+    """The directory every default path of this run lives under."""
+    assert _ISOLATED_ROOT is not None, "the isolation fixture has not run"
+    return _ISOLATED_ROOT
+
+
+def _station_fingerprint() -> tuple[int, str] | None:
+    path = _REAL_STATION
+    if path is None or not path.is_file():
+        return None
+    return path.stat().st_mtime_ns, hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+class _NoRealAccounts:
+    """Stands in for ``pwd`` inside ``hammunition.paths``: an account whose
+    home is a real one does not exist, so an owner under euid 0 falls back to
+    the (isolated) environment. Tests that fake ``pwd.getpwnam`` still work:
+    the lookup goes through the module attribute at call time."""
+
+    @staticmethod
+    def getpwnam(name: str) -> pwd.struct_passwd:
+        entry = pwd.getpwnam(name)
+        if Path(entry.pw_dir) in REAL_HOMES:
+            raise KeyError(name)
+        return entry
+
+    @staticmethod
+    def getpwall() -> list[pwd.struct_passwd]:
+        return [e for e in pwd.getpwall() if Path(e.pw_dir) not in REAL_HOMES]
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(pwd, name)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _isolated_operator_environment(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Iterator[None]:
+    """No test can read or write the operator's files (2026-10-03, twice).
+
+    Points HOME and every XDG base at one temporary root, removes the
+    variables owner detection reads, and blinds ``paths`` to the passwd
+    database, so even euid 0 (``unshare -r``) with ``owner`` set cannot
+    resolve a real home. At the end, fails the run if the real station file
+    changed.
+    """
+    global _ISOLATED_ROOT
+    import hammunition.paths as hpaths
+
+    root = tmp_path_factory.mktemp("operator-isolation")
+    _ISOLATED_ROOT = root
+    saved = dict(os.environ)
+    before = _station_fingerprint()
+    env = {
+        "HOME": root / "home",
+        "XDG_CONFIG_HOME": root / "config",
+        "XDG_STATE_HOME": root / "state",
+        "XDG_CACHE_HOME": root / "cache",
+        "XDG_DATA_HOME": root / "data",
+        "XDG_RUNTIME_DIR": root / "runtime",
+    }
+    for key, value in env.items():
+        value.mkdir(parents=True, exist_ok=True)
+        os.environ[key] = str(value)
+    for key in ("USER", "SUDO_USER", "LOGNAME"):
+        os.environ.pop(key, None)
+    real_pwd = hpaths.pwd
+    hpaths.pwd = _NoRealAccounts()  # type: ignore[assignment]
+    try:
+        yield
+    finally:
+        hpaths.pwd = real_pwd
+        os.environ.clear()
+        os.environ.update(saved)
+    after = _station_fingerprint()
+    if before != after:
+        pytest.fail(
+            f"the test run changed the operator's real station file {_REAL_STATION}; "
+            "a test is reaching outside its isolated HOME",
+            pytrace=False,
+        )
+
 
 _real_connect = socket.socket.connect
 _real_connect_ex = socket.socket.connect_ex
