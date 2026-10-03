@@ -151,6 +151,7 @@ from hammunition.kiwix import (
     load_pin_file,
     resolve_books,
 )
+from hammunition.listening import bound_to_loopback_only
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
@@ -6351,29 +6352,7 @@ def _port_loopback_only(port: int) -> bool | None:
 
     None when the files cannot be read. A listener (state 0A) on any other
     local address is a transmitter reachable off-machine (D-073 §11)."""
-    hexport = f"{port:04X}"
-    try:
-        rows = []
-        for name in ("/proc/net/tcp", "/proc/net/tcp6"):
-            p = Path(name)
-            if p.exists():
-                rows.extend(p.read_text().splitlines()[1:])
-    except OSError:
-        return None
-    loopback = {
-        "0100007F",  # 127.0.0.1, little-endian hex
-        "00000000000000000000000001000000",  # ::1
-        "0000000000000000FFFF00000100007F",  # ::ffff:127.0.0.1
-    }
-    for row in rows:
-        fields = row.split()
-        if len(fields) < 4 or fields[3] != "0A":  # 0A = LISTEN
-            continue
-        local = fields[1]
-        addr, _, lport = local.partition(":")
-        if lport.upper() == hexport and addr.upper() not in loopback:
-            return False
-    return True
+    return bound_to_loopback_only(port)
 
 
 def _rigctld_args_match(station: Station) -> bool | None:
