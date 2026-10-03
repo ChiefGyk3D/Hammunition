@@ -6517,6 +6517,7 @@ def test_every_registered_screen_resolves_and_builds(name: str) -> None:
     screen = build_registry()[name](FakeContext())
     assert screen.name == name
 
+```
 - [ ] **Step 2: Run them; confirm they fail**
 
 Run: `cd /home/chiefgyk3d/src/hammunition-console && python3 -m pytest tests/test_help.py tests/test_man_and_registry.py -v`
