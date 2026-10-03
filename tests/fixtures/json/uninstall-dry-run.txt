@@ -18,9 +18,9 @@ Already absent:
 Not reversed, by design: dependencies apt pulled in (run `sudo apt autoremove` to clear orphans), group memberships, and any config files written — all recorded in the transaction log (D-004). File capabilities set by Hammunition are cleared before their binaries are removed.
 
 Commands (2):
-  # Remove 1 package(s) with apt
+  # 1: Remove 1 package(s) with apt
   $ sudo env DEBIAN_FRONTEND=noninteractive apt-get remove --yes -- fixture-apt
-  # Remove fixture-source's installed binary (log)
+  # 2: Remove fixture-source's installed binary (log)
   $ rm -f -- /usr/local/bin/fixture-source
 
 Dry run: nothing above was executed.

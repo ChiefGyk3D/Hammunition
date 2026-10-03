@@ -56,3 +56,16 @@ documentation:
     Under 50 MB from apt. The Proxmark3 source build is larger and pulls an ARM
     cross-compiler, because the client ships the firmware images it flashes; on
     Kali it is a package like any other.
+  who_for: "Someone studying RFID and NFC cards: how 13.56 MHz and 125 kHz credentials work, what a reader reports, and how weak schemes fail."
+  hardware_assumed: "A card reader (a PN53x NFC reader, a PC/SC reader or a Proxmark3) and cards you own or are authorised to test."
+  footprint_short: "under 50 MB from apt; the Proxmark3 build is larger"
+  excludes_short: "UHF and long-range RFID, credential cloning for use, key dictionaries"
+  goals:
+    - "Study RFID and NFC cards"
+  first_ten_minutes:
+    - "Read the plan: `hammunition install rfid --dry-run`. The Proxmark3 client builds from source on most targets and pulls an ARM cross-compiler for the firmware images it ships."
+    - "Install: `hammunition install rfid`."
+    - "Apply device rules: `hammunition hardware apply`, then log out and back in, so `dialout` and `plugdev` reach your session."
+    - "Plug a reader in and check it is seen: `nfc-list` for a libnfc reader, or `pcsc_scan` for a PC/SC one."
+    - "If one tool stops seeing the reader, stop `pcscd`; libnfc and pcscd compete for the same device and whichever claims it first wins."
+    - "Test only cards you own or have written permission to test."

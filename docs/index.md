@@ -17,7 +17,25 @@ digital-modes station **without asking anyone a question or reading a forum
 thread**. A step that needs knowledge these pages do not give is a bug in
 them, and worth [an issue](https://github.com/ChiefGyk3D/Hammunition/issues).
 
+## Start here, in this order
+
+New to Hammunition? Read these four, in order. Each is written so you can
+finish it without asking anyone a question.
+
+1. **[Installation](getting-started/installation.md).** A numbered walkthrough
+   from a fresh machine: the engine, the health check, your callsign and grid,
+   the dry run and how to read it, the real install, and how to undo it. Every
+   command is written out with the output it prints.
+2. **[Profiles](profiles/index.md).** All nineteen bundles of software, what
+   each installs and leaves out, and a "which profile do I want" table by goal.
+3. **[Guides](guides/index.md).** One task each, start to finish: rig control,
+   radio audio, FT8, Winlink, APRS, SDR, satellites, offline maps.
+4. **[Troubleshooting](troubleshooting/index.md).** By symptom, when something
+   does not do what a page said it would.
+
 ## Five minutes to a plan
+
+The short form of step 1, for someone who has done this before:
 
 ```sh
 git clone https://github.com/ChiefGyk3D/Hammunition.git
@@ -28,7 +46,7 @@ hammunition install station --dry-run
 
 The last line changes nothing. It prints every package, every file and
 every system change the install *would* make. Read it, then run it again
-without `--dry-run`. [Getting started](getting-started/index.md) walks the
+without `--dry-run`. [Installation](getting-started/installation.md) walks the
 whole path, and [How much disk you need](getting-started/disk-space.md) says
 what to have free first: about 5 GB for one or two profiles, about 55 GB for
 the whole catalog.
@@ -92,16 +110,18 @@ reference](packages/index.md) says where to get real help with it.
 
 ## Where things are
 
-- **[Getting started](getting-started/index.md)** — install the engine, size
-  your disk, the first profile, the first decode.
-- **[Guides](guides/index.md)** — one task each, start to finish.
+- **[Installation](getting-started/installation.md)** — the whole path from a
+  fresh machine, with every command and what it prints.
 - **[Profiles](profiles/index.md)** — the bundles, what each installs and
-  what it leaves for you to set up.
+  what it leaves for you to set up, and which one you want.
+- **[Guides](guides/index.md)** — one task each, start to finish.
+- **[Troubleshooting](troubleshooting/index.md)** — by symptom.
+- **[Getting started](getting-started/index.md)** — the short pages: size
+  your disk, the first profile, the first decode.
 - **[Packages](packages/index.md)** — every program, what it does, what it
   needs, its known problems.
 - **[Hardware](hardware/index.md)** — radios, SDRs, GPS and the rest: what
   Linux needs to talk to each.
-- **[Troubleshooting](troubleshooting/index.md)** — by symptom.
 - **[What works on which desktop](desktops.md)** — the tray and the menus on
   Plasma, Xfce, LXQt, GNOME and the rest.
 - **[Reference](reference/cli.md)** — the command line and the measurements

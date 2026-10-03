@@ -6,6 +6,21 @@
 
 **Stage:** 1.0
 
+## Who it is for
+
+An operator who wants Winlink email by radio, APRS, packet BBS or node work, or EMCOMM readiness without the internet.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | 1.0 |
+| Units | 24 |
+| Disk | about 500 MB, plus 220 MB for FreeDATA's venv |
+| Hardware | A VHF or HF transceiver with an audio path to the computer for the soundcard TNC route, or a hardware TNC. APRS-IS and Pat's telnet mode work with no radio, which is the right way to test first. |
+| Consent | none |
+| Install | `hammunition install packet` |
+
 ## What it installs
 
 Two soundcard TNCs — one headless and one with a scope — three packet terminals (one of them, Paracon, speaking AGWPE to Direwolf and needing no kernel stack at all), a node front end, a BBS and Winlink gateway, the Winlink client, three HF data modems, the full-featured APRS client, a digipeater and an internet gateway, mail tools, AMPRnet routing, a GRIB weather viewer, and, where the running kernel still carries it, the kernel AX.25 stack's configuration and user tools.
@@ -29,12 +44,53 @@ Most of the 73Linux delta lands in this profile whole, and AHRL has none of it �
 
 Pi-APRS, which is the last of D-008's eight packet-core units without a manifest. **QtTermTCP and QtSoundModem are now IN**, and not through the binary backend: 73Linux fetches unversioned prebuilt executables from a directory called `Beta`, and upstream tags source on GitHub, so both are ordinary pinned qmake builds. Neither is packaged on any of our six targets, which was measured. VARA and its messaging client are post-1.0 — closed software needing a configured Wine prefix — and optional since Mercury joined (Q-022 #6): Pat reaches a Mercury station through the same `varahf` transport, and what VARA still adds is gateways that run only VARA. `fbb`, the classic packet BBS, is in Ubuntu and Mint and not in Debian, Kali or Parrot, so including it would half-install the profile on the primary target; its client-side tools are here and the BBS you forward with will be somebody else's.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show packet
+hammunition install packet --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install packet
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 **This profile installs a working packet stack that does nothing until you write your callsign into two files, and that is the largest manual step in this catalog.** `/etc/ax25/axports` needs a port line naming your callsign, the device and the speed; `direwolf.conf` needs your callsign, the audio device and the PTT method. Neither is generated yet — station-local configuration is the open design question, and `linbpq` is the one manifest that already templates it. The shipped direwolf example is heavily commented and is the right starting point. Pat is configured with `pat configure`, which writes your Winlink credentials. **Pat's own web interface is the menu** — `pat http` serves it at `localhost:8080` for composing, reading and posting Winlink mail. 73Linux wraps Pat in its PATMENU3 script; that wrapper is licence-blocked and unneeded here, because the web UI it fronts ships with Pat itself. **ardopcf's web interface is the ARDOP GUI** — start the modem with `-G 8514` and open `localhost:8514` for its spectrum, waterfall, levels and drive-level slider. 73Linux installs John Wiseman's separate ARDOPGUI binary for this; it is superseded here because the modem ships the interface itself. It listens on every interface, as the modem's host port does.
 **The HF modems take their callsign from somewhere different each.** ardopcf and Mercury are told it by Pat when it connects, so they need no file. FreeDATA keeps its own, in its browser settings page, and its first start copies upstream's example station AA1AAA into `~/.config/FreeDATA/config.ini`: change it before transmitting. Each modem is started by hand with its sound device and keying method; the packet-and-Winlink guide has the commands.
 **Serial and audio access need the `dialout` group**, and a session already open does not gain it. **Transmit audio level** decides whether anyone decodes you; direwolf reports its own receive levels and that is where to start. Running a digipeater or an igate puts traffic on a shared network under your callsign — the example configurations are deliberately not digipeaters, and turning that on is a decision about a resource other people depend on.
 
+## Your first ten minutes
+
+1. Set your callsign first: `hammunition station set --callsign N0CALL --grid-square FN31pr`. A packet node transmits, and its identity is yours, so the engine will not invent one.
+2. Read the plan: `hammunition install packet --dry-run`. The profile offers a mail client only if none of thunderbird, claws-mail, evolution, geary, mutt, neomutt or kmail is found; `--yes` skips the question.
+3. Install: `hammunition install packet`. LinBPQ, ardopcf and Mercury build from pinned upstream tags, so it is not quick.
+4. Check what the kernel offers: the kernel AX.25 stack is not in every kernel any more (Linux 7.1 removed it). The userspace route (Direwolf with Pat, YAAC or Xastir over KISS or AGW) needs none of it. [The kernel AX.25 page](../reference/kernel-ax25.md) says what was measured.
+5. Write your callsign into `direwolf.conf`, starting from the commented example the package ships, and choose the audio device and PTT method. [Packet and Winlink](../guides/packet-winlink.md) walks it line by line.
+6. Run `pat configure` to store your Winlink account, then `pat http` and open `http://localhost:8080`. Send a message over the internet first to prove the account before you involve a radio.
+7. For APRS, start with [the APRS guide](../guides/aprs.md): receive only, then APRS-IS, then beaconing, which is a decision about the air you share.
+
 ## Optional: mail-client (recommended: `thunderbird`)
 
 Winlink messages fetched by PAT land in a local mailbox, and a mail client is how a human reads and writes them. If you already have one, it is respected and nothing is installed. The engine detects an existing one (`thunderbird`, `claws-mail`, `evolution`, `geary`, `mutt`, `neomutt`, `kmail`) and respects it; only when none is found does an interactive install offer: [`thunderbird`](../packages/thunderbird.md), [`claws-mail`](../packages/claws-mail.md), [`evolution`](../packages/evolution.md), [`geary`](../packages/geary.md). Never installed silently; `--yes` skips with a note.
+
+## Take it off again
+
+```sh
+hammunition uninstall packet --dry-run
+hammunition uninstall packet
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

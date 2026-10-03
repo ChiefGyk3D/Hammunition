@@ -106,11 +106,15 @@ def served(tmp_path: Path) -> Iterator[tuple[str, dict[str, tuple[str, int]]]]:
 
 
 def _backend(tmp_path: Path) -> DataBackend:
-    return DataBackend(fetcher=Fetcher(tmp_path / "cache"), prefix=tmp_path / "prefix")
+    return DataBackend(
+        fetcher=Fetcher(tmp_path / "cache"),
+        prefix=tmp_path / "prefix",
+        build_root=tmp_path / "builds",
+    )
 
 
 def _actions(steps: list[Any]) -> list[Action]:
-    """Every step a data block yields is an in-process Action; say so once."""
+    """Every step a data *file* block yields is an in-process Action; say so once."""
     actions = [step for step in steps if isinstance(step, Action)]
     assert len(actions) == len(steps), "the data backend never yields a Command"
     return actions
@@ -215,20 +219,117 @@ def test_a_cache_file_swapped_for_a_symlink_after_the_fetch_is_refused(
     assert not dest.exists()
 
 
+def _perform_all(steps: list[Any]) -> None:
+    """Run a plan as the executor does: Actions in process, Commands through the runner."""
+    from hammunition.backends import Command, SubprocessRunner
+
+    runner = SubprocessRunner()
+    for step in steps:
+        if isinstance(step, Command):
+            result = runner.run(step)
+            assert result.ok, result.stderr
+        else:
+            step.perform()
+
+
+def _tarball_manifest(
+    base: str, facts: dict[str, tuple[str, int]], **extra: Any
+) -> PackageManifest:
+    sha, size = facts["bigcty.zip"]
+    return _manifest(
+        [{"url": f"{base}/bigcty.zip", "sha256": sha, "size": size, "format": "zip", **extra}]
+    )
+
+
 def test_an_archive_is_extracted_into_the_data_directory(
     served: tuple[str, dict[str, tuple[str, int]]], tmp_path: Path
 ) -> None:
     base, facts = served
-    sha, size = facts["bigcty.zip"]
-    m = _manifest([{"url": f"{base}/bigcty.zip", "sha256": sha, "size": size, "format": "zip"}])
+    m = _tarball_manifest(base, facts)
     backend = _backend(tmp_path)
-    steps = _actions(backend.steps(m, m.install[0].install))  # type: ignore[arg-type]
-    _run(steps)
+    steps = backend.steps(m, m.install[0].install)  # type: ignore[arg-type]
+    _perform_all(steps)
     data_dir = tmp_path / "prefix" / "share" / "hammunition" / "data" / "country-files"
-    assert steps[1].detail == str(data_dir)
+    staging = [s for s in steps if isinstance(s, Action) and s.kind == "install-data"]
+    assert staging[0].detail == str(data_dir)
     assert (data_dir / "cty.dat").read_bytes() == CTY
     assert (data_dir / "copyright.txt").exists()
     assert oct((data_dir / "cty.dat").stat().st_mode & 0o777) == "0o644"
+    assert oct(data_dir.stat().st_mode & 0o777) == "0o755"
+    # The staged copy is scratch and is gone.
+    assert not any((tmp_path / "builds").glob("country-files-data-*"))
+
+
+def test_a_user_prefix_runs_the_tree_steps_unprivileged_and_says_so(
+    served: tuple[str, dict[str, tuple[str, int]]], tmp_path: Path
+) -> None:
+    from hammunition.backends import Command
+
+    base, facts = served
+    m = _tarball_manifest(base, facts)
+    steps = _backend(tmp_path).steps(m, m.install[0].install)  # type: ignore[arg-type]
+    commands = [s for s in steps if isinstance(s, Command)]
+    assert [c.argv[0] for c in commands] == ["rm", "install", "cp", "rm"]
+    assert not any(c.requires_root for c in commands)
+    assert not any(c.argv[0] == "chown" for c in commands)
+    assert any("no root needed" in c.description for c in commands)
+
+
+def test_a_root_owned_prefix_installs_through_privileged_steps_only(
+    served: tuple[str, dict[str, tuple[str, int]]],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Issue #271: the process never writes under the prefix itself."""
+    from hammunition.backends import Command, RecordingRunner
+
+    monkeypatch.setattr("hammunition.backends.data.needs_root_for", lambda prefix: True)
+    base, facts = served
+    m = _tarball_manifest(base, facts, into="tilemaker")
+    prefix = tmp_path / "prefix"
+    backend = DataBackend(
+        fetcher=Fetcher(tmp_path / "cache"),
+        prefix=prefix,
+        build_root=tmp_path / "builds",
+        owner="op",
+    )
+    steps = backend.steps(m, m.install[0].install)  # type: ignore[arg-type]
+    unit = prefix / "share" / "hammunition" / "data" / "country-files"
+    dest = unit / "tilemaker"
+    commands = [s for s in steps if isinstance(s, Command)]
+    assert [c.argv[:3] for c in commands[:2]] == [
+        ("rm", "-rf", "--"),
+        ("install", "-d", str(unit)),
+    ]
+    assert commands[2].argv[:3] == ("cp", "-aT", "--no-preserve=ownership")
+    assert commands[2].argv[-1] == str(dest)
+    assert commands[3].argv == ("chown", "-R", "-h", "--", "op:", str(dest))
+    assert commands[4].argv[:3] == ("rm", "-rf", "--")  # the staged copy, as the operator
+    assert [c.requires_root for c in commands] == [True, True, True, True, False]
+    # Execute the Actions in order; the commands go to a runner that writes nothing.
+    runner = RecordingRunner()
+    for step in steps:
+        if isinstance(step, Action):
+            step.perform()
+        else:
+            runner.run(step)
+    assert not prefix.exists(), "the backend process wrote under a root-owned prefix"
+    assert len(runner.commands) == 5
+
+
+def test_a_second_run_replaces_the_tree(
+    served: tuple[str, dict[str, tuple[str, int]]], tmp_path: Path
+) -> None:
+    base, facts = served
+    m = _tarball_manifest(base, facts, into="kit")
+    backend = _backend(tmp_path)
+    steps = backend.steps(m, m.install[0].install)  # type: ignore[arg-type]
+    _perform_all(steps)
+    kit = tmp_path / "prefix" / "share" / "hammunition" / "data" / "country-files" / "kit"
+    (kit / "stale.txt").write_text("left over")
+    _perform_all(backend.steps(m, m.install[0].install))  # type: ignore[arg-type]
+    assert (kit / "cty.dat").read_bytes() == CTY
+    assert not (kit / "stale.txt").exists()
 
 
 def test_a_wrong_declared_size_refuses_after_the_digest_matched(

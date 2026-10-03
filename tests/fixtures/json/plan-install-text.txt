@@ -99,7 +99,7 @@ Records:
   the log and any directories created for it are given to 'op' (chown), since root is writing into their home
 
 Commands (2):
-  # Install the apt packages
+  # 1: Install the apt packages
   $ sudo apt-get install --yes -- fixture-apt
-  # Fetch and verify the fixture-source tarball
+  # 2: Fetch and verify the fixture-source tarball
   $ [fetch] https://example.invalid/fixture-source-2.1.tar.gz

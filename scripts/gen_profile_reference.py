@@ -33,7 +33,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from hammunition.manifest.load import load_catalog, load_profiles  # noqa: E402
-from hammunition.manifest.schema import ProfileManifest  # noqa: E402
+from hammunition.manifest.schema import PackageManifest, ProfileManifest  # noqa: E402
 
 CATALOG = REPO_ROOT / "catalog" / "packages"
 PROFILES = REPO_ROOT / "catalog" / "profiles"
@@ -46,16 +46,54 @@ def _pkg_link(name: str, known: set[str]) -> str:
     return f"[`{name}`](../packages/{name}.md)" if name in known else f"`{name}`"
 
 
-def page(profile: ProfileManifest, known: set[str]) -> str:
+def _repo_members(profile: ProfileManifest, catalog: dict[str, PackageManifest]) -> list[str]:
+    """Members that carry a third-party apt repository (D-040), by name."""
+    return [p for p in profile.packages if p in catalog and catalog[p].apt_repos]
+
+
+def _consent_cell(profile: ProfileManifest, catalog: dict[str, PackageManifest]) -> str:
+    parts = []
+    if profile.consent:
+        parts.append(f"profile gate, `{profile.consent.env_var}`")
+    repos = _repo_members(profile, catalog)
+    if repos:
+        parts.append(
+            "a typed key fingerprint per repository, only where the target's archive lacks the unit: "
+            + ", ".join(f"`{r}`" for r in repos)
+        )
+    return "; ".join(parts) if parts else "none"
+
+
+def page(profile: ProfileManifest, known: set[str], catalog: dict[str, PackageManifest]) -> str:
     doc = profile.documentation
+    name = profile.name
     lines = [
         HEADER,
         "",
-        f"# Profile: {profile.name}",
+        f"# Profile: {name}",
         "",
         f"> {profile.summary}",
         "",
         f"**Stage:** {profile.stage}" + ("  ·  **consent-gated**" if profile.consent else ""),
+        "",
+    ]
+    if doc.who_for:
+        lines += ["## Who it is for", "", doc.who_for, ""]
+    lines += [
+        "## At a glance",
+        "",
+        "| | |",
+        "|---|---|",
+        f"| Stage | {profile.stage} |",
+        f"| Units | {len(profile.packages)} |",
+    ]
+    if doc.footprint_short:
+        lines.append(f"| Disk | {doc.footprint_short} |")
+    if doc.hardware_assumed:
+        lines.append(f"| Hardware | {doc.hardware_assumed} |")
+    lines += [
+        f"| Consent | {_consent_cell(profile, catalog)} |",
+        f"| Install | `hammunition install {name}` |",
         "",
         "## What it installs",
         "",
@@ -77,11 +115,51 @@ def page(profile: ProfileManifest, known: set[str]) -> str:
         "",
         doc.deliberately_excludes,
         "",
+        "## Install it",
+        "",
+        "Read the plan first. It changes nothing and prints every package, build,",
+        "file and system change, and every consent gate you will meet:",
+        "",
+        "```sh",
+        f"hammunition show {name}",
+        f"hammunition install {name} --dry-run",
+        "```",
+        "",
+        "Then do it. The engine asks for your `sudo` password once, near the start,",
+        "and shows the same plan again before it asks you to confirm:",
+        "",
+        "```sh",
+        f"hammunition install {name}",
+        "```",
+        "",
+        "A member your machine cannot take is deferred by name and the rest installs",
+        "(D-039); the plan lists each under *Will NOT happen*, with the reason and",
+        "the command that fixes it. [Installation](../getting-started/installation.md)",
+        "explains how to read every part of the plan.",
+        "",
+    ]
+    repos = _repo_members(profile, catalog)
+    if repos:
+        lines += [
+            "**Third-party apt repositories.** "
+            + ", ".join(f"`{r}`" for r in repos)
+            + " can need a publisher's apt repository on a target whose own archive "
+            "lacks the package (D-040). The plan then prints the repository, the two "
+            "files it would write and the key's fingerprint, and asks you to type "
+            "that fingerprint into `HAMMUNITION_ACCEPT_APT_REPO_<NAME>`. `--yes` and "
+            "a value of `1` are refused.",
+            "",
+        ]
+    lines += [
         "## What you configure by hand afterward",
         "",
         doc.manual_configuration,
         "",
     ]
+    if doc.first_ten_minutes:
+        lines += ["## Your first ten minutes", ""]
+        lines += [f"{i}. {step}" for i, step in enumerate(doc.first_ten_minutes, 1)]
+        lines.append("")
     if profile.consent:
         gate = profile.consent
         lines += [
@@ -110,29 +188,106 @@ def page(profile: ProfileManifest, known: set[str]) -> str:
             f"installed silently; `--yes` skips with a note.",
             "",
         ]
+    lines += [
+        "## Take it off again",
+        "",
+        "```sh",
+        f"hammunition uninstall {name} --dry-run",
+        f"hammunition uninstall {name}",
+        "```",
+        "",
+        "This removes what Hammunition itself installed and nothing else. It does "
+        "not remove dependencies apt pulled in, group memberships or configuration "
+        "files it wrote; the plan says so and the transaction log records them "
+        "(D-004).",
+        "",
+    ]
     return "\n".join(lines)
 
 
-def index(profiles: dict[str, ProfileManifest]) -> str:
+def _goal_rows(profiles: dict[str, ProfileManifest]) -> list[tuple[str, list[str]]]:
+    goals: dict[str, list[str]] = {}
+    for name in sorted(profiles, key=lambda n: (n != "station", n)):
+        for goal in profiles[name].documentation.goals:
+            goals.setdefault(goal, []).append(name)
+    return sorted(goals.items(), key=lambda kv: kv[0].lower())
+
+
+def index(profiles: dict[str, ProfileManifest], catalog: dict[str, PackageManifest]) -> str:
+    one = [n for n in sorted(profiles) if profiles[n].stage == "1.0"]
+    post = [n for n in sorted(profiles) if profiles[n].stage != "1.0"]
     lines = [
         HEADER,
         "",
         "# Profiles",
         "",
-        "Named bundles of software that belong together. Flat tags with overlap, "
-        "never nested (D-003) — compose them freely. Each page is generated from "
-        "the profile's manifest.",
+        "A profile is a named bundle of software that belongs together. Profiles",
+        "are flat tags with overlap, never nested (D-003): `gpsd` is in both",
+        "`station` and `navigation`, and you compose them freely. There are "
+        f"{len(profiles)} of them, {len(one)} in the 1.0 set and {len(post)} that "
+        "came after it. Every page below is generated from the profile's manifest, "
+        "so it cannot drift from what the engine does.",
         "",
-        "| Profile | Stage | Packages | Summary |",
-        "|---|---|---:|---|",
+        "## How to use this page",
+        "",
+        "1. Find your goal in [Which profile do I want](#which-profile-do-i-want).",
+        "2. Open that profile's page and read what it installs, what it leaves "
+        "out and what you configure by hand.",
+        "3. Run `hammunition install <profile> --dry-run`, read the plan, then "
+        "run it again without `--dry-run`. [Installation](../getting-started/installation.md) "
+        "walks the whole path.",
+        "",
+        "**Install `station` first** on any machine you will operate from. Every "
+        "other profile assumes rig control, a correct clock and a position source "
+        "are there. Then add the mode profile you want.",
+        "",
+        "## All profiles",
+        "",
+        "Units is the number of catalog entries the profile names. A target that "
+        "lacks one defers it by name and installs the rest. Footprint figures say "
+        "where they were measured on each profile's own page.",
+        "",
+        "| Profile | What it is for | Stage | Units | Disk | Assumes | Consent gates | Leaves out |",
+        "|---|---|---|---:|---|---|---|---|",
     ]
-    for name in sorted(profiles):
+    for name in one + post:
         p = profiles[name]
-        gated = " 🔒" if p.consent else ""
+        d = p.documentation
+        hw = (d.hardware_assumed or "").split(". ")[0].rstrip(".")
         lines.append(
-            f"| [{name}]({name}.md){gated} | {p.stage} | {len(p.packages)} | {p.summary} |"
+            f"| [`{name}`]({name}.md) | {p.summary} | {p.stage} | {len(p.packages)} | "
+            f"{d.footprint_short or ''} | {hw} | {_consent_cell(p, catalog)} | "
+            f"{d.excludes_short or ''} |"
         )
-    lines += ["", "🔒 = consent-gated (D-021).", ""]
+    lines += [
+        "",
+        "## Which profile do I want",
+        "",
+        "Find what you want to do. The profiles are listed in the order to install "
+        "them, `station` first where it applies.",
+        "",
+        "| I want to | Install |",
+        "|---|---|",
+    ]
+    for goal, names in _goal_rows(profiles):
+        lines.append(f"| {goal} | {', '.join(f'[`{n}`]({n}.md)' for n in names)} |")
+    lines += [
+        "",
+        "## What to read next",
+        "",
+        "- [Installation](../getting-started/installation.md): the whole path from a "
+        "fresh machine, with every command and what it prints.",
+        "- [The guides](../guides/index.md): one task each, from rig control to a "
+        "first FT8 contact to offline maps.",
+        "- [Troubleshooting](../troubleshooting/index.md): by symptom.",
+        "- [The package reference](../packages/index.md): every program, what it does "
+        "and where to get help with it.",
+        "",
+        "`hammunition list profiles` prints the same list on your own machine, with "
+        "how many of each you have installed, and `hammunition show <profile>` prints "
+        "a profile's documentation.",
+        "",
+    ]
     return "\n".join(lines)
 
 
@@ -140,8 +295,8 @@ def render() -> dict[str, str]:
     catalog = load_catalog(CATALOG)
     profiles = load_profiles(PROFILES, catalog)
     known = set(catalog)
-    files = {f"{name}.md": page(p, known) for name, p in profiles.items()}
-    files["index.md"] = index(profiles)
+    files = {f"{name}.md": page(p, known, catalog) for name, p in profiles.items()}
+    files["index.md"] = index(profiles, catalog)
     return files
 
 

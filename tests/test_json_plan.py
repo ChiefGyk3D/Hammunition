@@ -428,6 +428,7 @@ def test_the_plan_document_never_carries_a_rendered_config_file() -> None:
         action="install",
         requested=("fixture-station",),
         outcome="planned",
+        step_count=len(commands),
         target=target_view(plan.target),
         blockers=(),
         install=build_install_view(plan, commands, euid=1000),
@@ -467,7 +468,7 @@ def test_the_navit_config_step_reads_the_same_in_the_text_and_the_json(tmp_path:
     view = build_install_view(plan, steps, euid=1000)
     assert view.commands[-1].description == config_step.description
     text = "\n".join(render_plan_view(view, target=target_view(plan.target)))
-    assert f"  # {config_step.description}" in text
+    assert f"  # {view.commands[-1].index}: {config_step.description}" in text
 
 
 # The Packages list and the Map regions section must agree (bench,
@@ -554,6 +555,7 @@ def test_the_json_package_state_agrees_with_the_map_section() -> None:
         action="install",
         requested=("navigation",),
         outcome="planned",
+        step_count=0,
         target=target_view(plan.target),
         blockers=(),
         install=build_install_view(plan, [], euid=1000, maps=maps),

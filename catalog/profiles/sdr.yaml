@@ -96,3 +96,19 @@ documentation:
     GTK 3 development dependencies came to about 1.0 GB on a bare debian:13
     image. Its first start
     spends minutes to an hour computing FFTW wisdom; see its package page.
+  who_for: "Anyone with, or about to buy, a software-defined radio: a twenty-pound RTL-SDR dongle, an Airspy, a HackRF or a transceiver such as an ANAN. It is the receiver and driver layer the listening, satellite and security profiles stand on."
+  hardware_assumed: "An SDR and an antenna. Without one the programs install and open but have nothing to tune; the SoapySDR remote client can reach a radio on another machine."
+  footprint_short: "about 1.5 GB, most of it GNU Radio"
+  excludes_short: "eleven of twelve per-device SoapySDR modules (install yours by name)"
+  goals:
+    - "Listen with a cheap SDR dongle"
+    - "Decode aircraft, ships, DAB or other signals with an SDR"
+    - "Build my own signal-processing flow graphs (GNU Radio)"
+  first_ten_minutes:
+    - "Read the plan: `hammunition install sdr --dry-run`. GNU Radio is the large part."
+    - "Install: `hammunition install sdr`."
+    - "Apply the udev rules so your dongle opens without root: `hammunition hardware apply --dry-run`, then `hammunition hardware apply`, then **log out and back in**."
+    - "Plug the dongle in and run `rtl_test` for an RTL-SDR or `SoapySDRUtil --find` for anything else. Seeing the device here separates a USB or permissions problem from a missing module from a program bug."
+    - "If your radio is not an RTL-SDR, install its one SoapySDR module by name, for example `hammunition install soapysdr-module-airspy`; `hammunition list packages` shows the names."
+    - "Open `gqrx`, tune broadcast FM and listen. [SDR first steps](../guides/sdr.md) takes you from there to aircraft, 433 MHz sensors and ships."
+    - "Work out your dongle's frequency error once and keep the PPM correction; several decoders fail to lock rather than reporting it."

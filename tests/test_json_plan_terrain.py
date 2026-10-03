@@ -144,6 +144,7 @@ def test_the_json_carries_every_value_the_terrain_text_shows() -> None:
         action="install",
         requested=("navigation",),
         outcome="planned",
+        step_count=len(view.commands),
         target=target_view(plan.target),
         blockers=(),
         install=view,

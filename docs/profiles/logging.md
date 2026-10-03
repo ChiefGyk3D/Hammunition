@@ -6,6 +6,21 @@
 
 **Stage:** 1.0
 
+## Who it is for
+
+An operator who wants a station log, contest logging or award tracking, and wants to choose the logger that fits how they operate.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | 1.0 |
+| Units | 11 |
+| Disk | about 700 MB; QLog is a long source build |
+| Hardware | None. Loggers can follow a radio's frequency and mode through rig control but work without one. |
+| Consent | none |
+| Install | `hammunition install logging` |
+
 ## What it installs
 
 Five general-purpose logs with different centres of gravity, two contest loggers — one for HF in a terminal, one for VHF and above with distance scoring — TQSL for signing uploads to Logbook of the World, the W1HKJ suite's log server and net-control roster, and a Python library for callsign and locator work.
@@ -24,6 +39,47 @@ Most operators want one logger, not five. They are grouped rather than chosen fo
 
 `not1mm`, which is in the Debian Hamradio Blend's logging task and is not in Debian: only Kali packages it among our six targets. Including it would make this profile half-install everywhere else. `kel-agent` is also held back — it bridges browser-based logging to the radio by running a local WebSocket server that any web page you visit can attempt to reach, and that is an opt-in decision rather than something to install as part of a bundle.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show logging
+hammunition install logging --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install logging
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 **Your callsign, grid square and station location go into each logger separately** — there is no shared station configuration yet, which is the open design question this catalog is waiting on. Every award computation depends on getting the location right. **Request a LoTW callsign certificate early**: it requires proof of licence and takes days rather than minutes, and TQSL is useless without it. Back that certificate up — it is a private key in your home directory and losing it means starting over. CQRLOG needs MariaDB running, which apt installs because this engine does not suppress Recommends; with them suppressed it starts and then fails to reach a database, which reads as a configuration problem rather than a missing package.
+
+## Your first ten minutes
+
+1. Request your Logbook of the World certificate now if you do not have one. It needs proof of licence and takes days, and TQSL is useless without it.
+2. Read the plan: `hammunition install logging --dry-run`. QLog compiles from source with about twenty Qt 6 development packages; expect that step to dominate.
+3. Install: `hammunition install logging`.
+4. Pick one logger to start. QLog is the recommended default; CQRLOG gives the most correct award tracking and needs MariaDB running; xlog starts in under a second.
+5. Enter your callsign, grid square and station location in that logger. There is no shared station setting yet, so this is per program; award computations depend on the location being right.
+6. Back up your LoTW certificate (a private key in your home directory) before you do anything else with it.
+7. If you operate with a radio, point the logger at the shared rig service (`127.0.0.1:4532`, *Hamlib NET rigctl*) so frequency and mode fill themselves in. [Rig control (CAT)](../guides/rig-control.md) has the table.
+
+## Take it off again
+
+```sh
+hammunition uninstall logging --dry-run
+hammunition uninstall logging
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).
