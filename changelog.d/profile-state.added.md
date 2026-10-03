@@ -1,1 +1,0 @@
-- `list --json` profile entries gain `members`, `installed` and `installed_size_bytes` (apt members only, from one `dpkg-query` call), and the text table shows `installed N of M` with a size: engine prerequisite E1 of the hammunition-console design spec (branch console-spec).

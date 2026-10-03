@@ -1,4 +1,0 @@
-- **A publisher outage at plan time retries, then defers by name instead of
-- **SPLAT Signal-Server links are repaired without rebuilding terrain when only a link is missing or wrong.**
-- **The engine's own GPS tether copy retired; the ACMA Bunker ruling recorded**
-- **HydraSDR RFOne and RigExpert Fobos SDR: host software and device entries,
