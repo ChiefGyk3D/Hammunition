@@ -34,7 +34,7 @@ from functools import partial
 from pathlib import Path
 from typing import Protocol
 
-from hammunition import devctl_services
+from hammunition import devctl_services, runlog
 from hammunition.backends import (
     Action,
     AptBackend,
@@ -60,6 +60,7 @@ from hammunition.backends.source import tree_destination
 from hammunition.backends.topo import TopoQuadsBackend
 from hammunition.devctl_helper import HELPER_PATH, under_prefix
 from hammunition.distro import Target
+from hammunition.interface.plan_group import LONG_STEP_NOTE
 from hammunition.launchers import launcher_steps
 from hammunition.manifest.schema import (
     AptInstall,
@@ -97,6 +98,7 @@ __all__ = [
     "StepOwners",
     "Verification",
     "commands_for",
+    "completion_on_disk",
     "completion_states",
     "execute",
     "run_removal",
@@ -735,13 +737,25 @@ def build_effects_present(planned: PlannedPackage, *, prefix: Path) -> bool | No
 
 @dataclass
 class StepOwners:
-    """Which catalog units each planned step belongs to."""
+    """Which catalog units each planned step belongs to (#272).
+
+    :func:`commands_for` fills it while it orders the steps; :func:`execute`
+    reads it to write a ``unit_end`` when a unit's last step has finished. Keyed
+    by the step object's identity: steps are frozen values that compare equal
+    when they say the same thing, and two units' steps can.
+    """
 
     owned: dict[int, list[str]] = field(default_factory=dict)
     pins: dict[str, str] = field(default_factory=dict)
+    """A built unit's build directory; its name encodes the pin (D-051)."""
     versions: dict[str, str] = field(default_factory=dict)
+    """The manifest's version the unit was planned at."""
     states: dict[str, str] = field(default_factory=dict)
+    """Opaque state for regional and derived data units."""
     excluded: set[str] = field(default_factory=set)
+    """Units that never get a ``unit_end``: their completion rests on a step
+    that is not theirs alone (a map ledger that fails the run by name, a user
+    service), so the record would say more than the run knows."""
 
     def own(self, step: Step, unit: str) -> None:
         units = self.owned.setdefault(id(step), [])
@@ -780,7 +794,10 @@ def already_built(
       pin, so a moved ref or a re-pinned digest is a different path --
       followed in the same transaction by a verified ``transaction_end``
       that confirmed one of this unit's checks. A transaction that failed
-      after the build steps (paracon, 2026-09-12) attributes nothing.
+      after the build steps (paracon, 2026-09-12) attributes nothing --
+      unless the unit has its own ``unit_end`` at this pin (#272), written
+      when its last step finished, which a later failure elsewhere does not
+      take back; an ``uninstall`` naming the unit afterwards does.
 
     apt has its own answer and a .deb has #67's; venv and node units keep
     their cheap idempotency (``pip`` over a satisfied venv verifies and
@@ -804,6 +821,9 @@ def already_built(
     for entry in log.read():
         event = entry.get("event")
         if event == "unit_end":
+            # #272: the unit's last step finished, inside a transaction that
+            # may have failed afterwards in another unit. Believed only at
+            # exactly this pin; the caller's effect check has already run.
             unit = str(entry.get("unit", ""))
             if (
                 entry.get("ok") is True and unit in wanted and entry.get("pin") == wanted[unit]
@@ -844,6 +864,7 @@ def _note_unit(
     binary: BinaryBackend | None,
     states: Mapping[str, str],
 ) -> None:
+    """Record what a ``unit_end`` for *planned* will say, or that it gets none."""
     track.versions[planned.name] = planned.manifest.version
     src = build_dir(planned, source=source, git=git, binary=binary)
     if src is not None:
@@ -905,11 +926,13 @@ def completion_states(
             terrain_inputs: dict[str, object] = {}
             if dem is not None:
                 for name in block.inputs():
-                    source = packages.get(name)
-                    if source is None or not isinstance(source.block.install, DemTilesInstall):
+                    source_package = packages.get(name)
+                    if source_package is None or not isinstance(
+                        source_package.block.install, DemTilesInstall
+                    ):
                         continue
                     dem_backend: DemTilesBackend | None = dem
-                    if source.block.install.provider != dem.provider:
+                    if source_package.block.install.provider != dem.provider:
                         dem_backend = dem.bare_earth
                     if dem_backend is not None:
                         terrain_inputs[name] = dem_backend.resolution
@@ -1031,13 +1054,19 @@ def completion_on_disk(
             )
         elif isinstance(block, TopoQuadsInstall):
             topo_backend = topo
-            fstopo = block.provider == "usfs-fstopo"
-            fs_backend = topo_backend.fstopo if topo_backend is not None and fstopo else None
+            fs_backend = (
+                topo_backend.fstopo
+                if topo_backend is not None and block.provider == "usfs-fstopo"
+                else None
+            )
             if topo_backend is None:
                 current[planned.name] = False
                 continue
+            if block.provider == "usfs-fstopo" and fs_backend is None:
+                current[planned.name] = False
+                continue
             resolution = (
-                fs_backend.resolution if fs_backend is not None else (topo_backend.resolution)
+                fs_backend.resolution if fs_backend is not None else topo_backend.resolution
             )
             if resolution is None or resolution.fetch or resolution.deferred:
                 current[planned.name] = False
@@ -1112,6 +1141,9 @@ def commands_for(
     ``source`` and ``git`` are required if the plan holds a build of that kind,
     and an absence is an error rather than a silent skip — a plan that quietly dropped the one
     step that installs the software would report success having done nothing.
+
+    ``owners``, when given, is filled with which unit each step belongs to, so
+    :func:`execute` can record a unit's completion when its last step ends (#272).
     """
     track = owners if owners is not None else StepOwners()
     states = completion_states(plan, regions=regions, derived=derived, dem=dem, topo=topo, mwm=mwm)
@@ -1384,10 +1416,6 @@ def commands_for(
             recommends=False,
         )
     )
-    apt_units = [p.name for p in plan.packages if isinstance(p.block.install, AptInstall)]
-    for step in commands[apt_phase_start:]:
-        for name in apt_units:
-            track.own(step, name)
 
     if plan.reconfigure_after and plan.apt_packages_all:
         # After the whole apt transaction is settled, so a postinst action that
@@ -1395,17 +1423,21 @@ def commands_for(
         # libcap2-bin) re-runs with everything present. Non-interactive: the
         # answer is already in the debconf DB from the preseed above.
         for pkg in plan.reconfigure_after:
-            reconfigured = Command(
-                argv=("dpkg-reconfigure", pkg),
-                description=f"Re-run {pkg}'s configuration now the whole transaction is present",
-                requires_root=True,
-                env={"DEBIAN_FRONTEND": "noninteractive"},
+            commands.append(
+                Command(
+                    argv=("dpkg-reconfigure", pkg),
+                    description=f"Re-run {pkg}'s configuration now the whole transaction is present",
+                    requires_root=True,
+                    env={"DEBIAN_FRONTEND": "noninteractive"},
+                )
             )
-            for planned in plan.packages:
-                method = planned.block.install
-                if isinstance(method, AptInstall) and pkg in method.packages:
-                    track.own(reconfigured, planned.name)
-            commands.append(reconfigured)
+
+    # Every unit installed by apt owns the whole apt phase: it is done when
+    # the last apt command has exited 0 (#272).
+    apt_units = [p.name for p in plan.packages if isinstance(p.block.install, AptInstall)]
+    for step in commands[apt_phase_start:]:
+        for name in apt_units:
+            track.own(step, name)
 
     commands.extend(builds)
 
@@ -1871,11 +1903,15 @@ def execute(
     declared binary must be found under and whose ``share/hammunition`` every
     installed tree's marker must be found under -- and the launcher half needs
     ``launcher_bin``, the per-user directory the wrappers were written to.
+
+    ``owners`` (from :func:`commands_for`) says which unit each step belongs
+    to. A failed transaction flushes units that finished before the failing
+    step; a successful transaction records them only after effect verification.
     """
     write = echo if echo is not None else (lambda _line: None)
     shown_as = os.geteuid() if euid is None else euid
-    run_started = datetime.now(UTC).isoformat()
 
+    run_started = datetime.now(UTC).isoformat()
     log.append(
         {
             "event": "transaction_begin",
@@ -1893,13 +1929,14 @@ def execute(
 
     last_step: dict[str, int] = {}
     if owners is not None:
-        for index, step in enumerate(commands):
+        for index, step in enumerate(commands, 1):
             for unit in owners.units_of(step):
                 if unit not in owners.excluded:
                     last_step[unit] = index
     finished_at: dict[int, list[str]] = {}
     for unit, index in last_step.items():
         finished_at.setdefault(index, []).append(unit)
+
     finished: set[str] = set()
 
     def record_finished() -> None:
@@ -1923,8 +1960,14 @@ def execute(
         finished.clear()
 
     completed: list[Step] = []
-    for command in commands:
+    count = len(commands)
+    for index, command in enumerate(commands, 1):
+        if (active_run := runlog.current()) is not None:
+            active_run.step_start(index, count, command.description)
+        write(f"  step {index}/{count}: {command.description}")
         write(f"  $ {command.display(euid=shown_as)}")
+        if isinstance(command, Command) and command.long_running:
+            write(f"    {LONG_STEP_NOTE}")
 
         if isinstance(command, Action):
             # An in-process step: same logging shape, same failure contract. It
@@ -1972,7 +2015,7 @@ def execute(
             if outcome:
                 write(f"    {outcome}")
             completed.append(command)
-            finished.update(finished_at.get(len(completed) - 1, ()))
+            finished.update(finished_at.get(index, ()))
             continue
 
         log.append(
@@ -2029,7 +2072,7 @@ def execute(
             )
             return ExecutionReport(completed=tuple(completed), failed=command, stderr=result.stderr)
         completed.append(command)
-        finished.update(finished_at.get(len(completed) - 1, ()))
+        finished.update(finished_at.get(index, ()))
 
     # Every command exited 0. D-031: that is not yet evidence the machine
     # changed. Re-read the effects from the same sources resolution used, and
@@ -2214,8 +2257,14 @@ def run_removal(
 
     completed: list[Step] = []
     declined: set[str] = set()
-    for command in commands:
+    count = len(commands)
+    for index, command in enumerate(commands, 1):
+        if (active_run := runlog.current()) is not None:
+            active_run.step_start(index, count, command.description)
+        write(f"  step {index}/{count}: {command.description}")
         write(f"  $ {command.display(euid=shown_as)}")
+        if isinstance(command, Command) and command.long_running:
+            write(f"    {LONG_STEP_NOTE}")
 
         if isinstance(command, Action):
             # Marker-verified unlinks and venv removals run in-process, with

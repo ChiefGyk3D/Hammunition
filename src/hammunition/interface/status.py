@@ -79,7 +79,8 @@ class RecordedUnit(Strict):
         "`removed`, `removal failed` or `removal interrupted`"
     )
     completed_in_failed_run: str | None = described(
-        "when a unit completed before its install failed or was interrupted; null otherwise"
+        "when the install that completed this unit began, if that install then failed or was "
+        "killed after the unit's last step (`unit_end`); null otherwise"
     )
     catalog_version: str | None = described("the manifest's version today")
     method: str | None = described("the install method that resolves on this target")
@@ -175,9 +176,14 @@ def _last_outcomes(entries: Sequence[Mapping[str, Any]]) -> dict[str, tuple[str 
 def _scan(
     entries: Sequence[Mapping[str, Any]],
 ) -> tuple[dict[str, tuple[str | None, str]], set[str]]:
-    """Each unit's latest outcome and which ones completed inside a failed run."""
+    """Each unit the log names, with when it was last named and how that ended.
+
+    A ``unit_end`` (#272) inside an install that then failed or was killed
+    makes that unit ``completed``: its last step finished. The units the run
+    did not finish keep the run's own outcome.
+    """
     last: dict[str, tuple[str | None, str]] = {}
-    completed_in_failed_run: set[str] = set()
+    via_unit_end: set[str] = set()
     finished: set[str] = set()
     # The open transaction: its start, the units it names, and the outcome
     # each ending gives them. An uninstall is the latest word on a unit until
@@ -186,14 +192,13 @@ def _scan(
 
     def close(event: str) -> None:
         if current is not None:
-            install = current[2] is _OUTCOMES["transaction_begin"]
             for name in current[1]:
-                done = install and name in finished
+                done = name in finished and current[2] is _OUTCOMES["transaction_begin"]
                 last[name] = (current[0], "completed" if done else current[2][event])
                 if done and event != "transaction_end":
-                    completed_in_failed_run.add(name)
+                    via_unit_end.add(name)
                 else:
-                    completed_in_failed_run.discard(name)
+                    via_unit_end.discard(name)
 
     for entry in entries:
         event = entry.get("event")
@@ -207,19 +212,13 @@ def _scan(
             )
             for name in current[1]:
                 last[name] = (current[0], current[2][""])
-        elif (
-            event == "unit_end"
-            and current is not None
-            and entry.get("ok") is True
-            and str(entry.get("unit", "")) in current[1]
-        ):
+        elif event == "unit_end" and current is not None and entry.get("ok") is True:
             finished.add(str(entry.get("unit", "")))
         elif current is not None and event in current[2]:
             close(str(event))
             current = None
-            finished = set()
     close("")
-    return last, completed_in_failed_run
+    return last, via_unit_end
 
 
 def installed_units(entries: Sequence[Mapping[str, Any]]) -> frozenset[str]:
@@ -237,7 +236,7 @@ def _recorded(
     entries: Sequence[Mapping[str, Any]], packages: Mapping[str, PackageManifest], target: Target
 ) -> tuple[RecordedUnit, ...]:
     units: list[RecordedUnit] = []
-    last, completed_in_failed_run = _scan(entries)
+    last, via_unit_end = _scan(entries)
     for name, (when, outcome) in last.items():
         manifest = packages.get(name)
         block = manifest.resolve(target.distro, target.version, target.arch) if manifest else None
@@ -251,7 +250,7 @@ def _recorded(
                 name=name,
                 last_named=when,
                 last_outcome=outcome,
-                completed_in_failed_run=when if name in completed_in_failed_run else None,
+                completed_in_failed_run=when if name in via_unit_end else None,
                 catalog_version=manifest.version if manifest else None,
                 method=block.install.method if block else None,
                 pin=pin,
@@ -328,12 +327,13 @@ def render_status(doc: StatusDocument) -> list[str]:
             f"still running); {intended} package(s) were intended"
         )
     lines += [f"    {name}" for name in latest.intended]
-    finished = [
-        unit.name for unit in doc.recorded_units if unit.completed_in_failed_run == latest.when
-    ]
-    if finished:
-        lines.append(f"  finished before it stopped, so a rerun verifies them ({len(finished)}):")
-        lines += [f"    {name}" for name in finished]
+    kept = [u.name for u in doc.recorded_units if u.completed_in_failed_run == latest.when]
+    if kept:
+        lines.append(
+            f"  finished before it stopped, so a rerun skips them once their files are "
+            f"verified ({len(kept)}):"
+        )
+        lines += [f"    {name}" for name in kept]
     if latest.deferred:
         lines.append(f"  deferred in that transaction, by design ({len(latest.deferred)}):")
         lines += [f"    {d.subject}: {d.what} -- {d.why}" for d in latest.deferred]

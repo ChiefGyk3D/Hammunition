@@ -6,6 +6,21 @@
 
 **Stage:** 1.0
 
+## Who it is for
+
+A researcher or hobbyist who audits their own wireless networks, inspects protocols, and identifies what is on the air, using tools that capture and analyse but do not transmit attacks.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | 1.0 |
+| Units | 13 |
+| Disk | about 300 MB, mostly Wireshark |
+| Hardware | A monitor-mode Wi-Fi adapter, an Ubertooth or Bluetooth adapter, or an SDR, depending on what you capture. None are needed to install. |
+| Consent | a typed key fingerprint per repository, only where the target's archive lacks the unit: `kismet` |
+| Install | `hammunition install rf-security` |
+
 ## What it installs
 
 Tools for looking at radio and network traffic you are entitled to look at: a protocol analyser, Wi-Fi and Bluetooth capture tooling, a wireless device detector and logger (Kismet) that puts Wi-Fi, Bluetooth and sniffer dongles in one view, an offline signal visualiser, a decoder for the unlicensed ISM bands, and an offline signal-identification reference (Artemis) for naming what the visualiser shows.
@@ -24,6 +39,48 @@ All of it is receive-and-analyse, and none of it is specific to protected commun
 
 Anything that transmits, and anything aimed at cellular. `esptool` is the edge case D-026 was written for and is included: it writes bytes to a serial port, and the firmware people write with it comes from upstream and runs on the device rather than on the host. Gating a flasher would gate the serial console next, and then `lsusb`. What is held back for `rf-research` (consent-gated) is transmit-capable and cellular tooling — not the flasher, the console, or `lsusb`. Kismet is included, ungated for the same reason Wireshark and aircrack-ng are: it captures and logs what it hears, and gates attach to profiles whose capability is the hazard (D-021), not to a sniffer. It had been held back until the third-party repository path existed; D-040 built that on 2026-09-03 and Kismet joined on 2026-09-30. The CatSniffer V3's Kismet capture helpers are in no Kismet release yet, so that board is not a Kismet source here.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show rf-security
+hammunition install rf-security --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install rf-security
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
+**Third-party apt repositories.** `kismet` can need a publisher's apt repository on a target whose own archive lacks the package (D-040). The plan then prints the repository, the two files it would write and the key's fingerprint, and asks you to type that fingerprint into `HAMMUNITION_ACCEPT_APT_REPO_<NAME>`. `--yes` and a value of `1` are refused.
+
 ## What you configure by hand afterward
 
 Wireshark asks at install time whether non-root users may capture; that choice adds users to the `wireshark` group and is recorded as a system modification. Monitor-mode capture needs a supported adapter. Ubertooth needs its udev rules and group membership from the hardware catalog. Kismet adds you to the `kismet` group (log out and back in), serves its interface at http://localhost:2501 -- on every network interface unless you set `httpd_bind_address=127.0.0.1` in /etc/kismet/kismet_site.conf -- and asks the first browser to connect to set its login. On Kali and Parrot its package also enables a root `kismet.service` at boot; `sudo systemctl disable --now kismet.service` if you only want it on demand. See docs/rf-security/kismet.md.
+
+## Your first ten minutes
+
+1. Read [the RF security section](../rf-security/index.md) for the legal and ethical framing before you capture anything. Only capture what you are entitled to capture.
+2. Read the plan: `hammunition install rf-security --dry-run`. On Debian 13, Ubuntu 24.04 and Linux Mint, Kismet comes from the Kismet project's own repository and the plan shows the key fingerprint you must type to allow it.
+3. Install: `hammunition install rf-security`. Wireshark asks whether non-root users may capture; that choice adds a group and is recorded.
+4. Apply device rules with `hammunition hardware apply` and **log out and back in** so the `wireshark`, `kismet` and device groups reach your session.
+5. Decide what Kismet's web interface listens on. By default it is `http://localhost:2501` on every interface; set `httpd_bind_address=127.0.0.1` in `/etc/kismet/kismet_site.conf` to keep it local, and on Kali and Parrot disable its boot-time root service if you only want it on demand.
+6. Start with something passive: a Wireshark capture on your own interface, or `rtl_433` decoding the sensors on your own street. [Kismet](../rf-security/kismet.md) has the rest.
+
+## Take it off again
+
+```sh
+hammunition uninstall rf-security --dry-run
+hammunition uninstall rf-security
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

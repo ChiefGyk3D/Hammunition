@@ -25,7 +25,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from hammunition.backends import Action, BackendError, DataBackend
+from hammunition.backends import Action, BackendError, Command, DataBackend, SubprocessRunner
 from hammunition.backends.source import extract
 from hammunition.fetch import Fetcher
 from hammunition.manifest.schema import DataInstall, PackageManifest
@@ -222,10 +222,19 @@ def test_each_archive_lands_in_its_own_directory_and_files_beside_them(tmp_path:
     )
     block = m.install[0].install
     assert isinstance(block, DataInstall)
-    backend = DataBackend(fetcher=Fetcher(tmp_path / "cache", transport=T()), prefix=tmp_path / "p")
-    steps = [s for s in backend.steps(m, block) if isinstance(s, Action)]
-    for step in steps:
-        step.perform()
+    backend = DataBackend(
+        fetcher=Fetcher(tmp_path / "cache", transport=T()),
+        prefix=tmp_path / "p",
+        build_root=tmp_path / "builds",
+    )
+    everything = backend.steps(m, block)
+    runner = SubprocessRunner()
+    for step in everything:
+        if isinstance(step, Command):
+            assert runner.run(step).ok
+        else:
+            step.perform()
+    steps = [s for s in everything if isinstance(s, Action)]
     data = tmp_path / "p" / "share" / "hammunition" / "data" / "vector-map-kit"
     assert (data / "tilemaker" / "resources" / "process-openmaptiles.lua").is_file()
     assert not (data / "tilemaker" / "src").exists()
@@ -235,3 +244,6 @@ def test_each_archive_lands_in_its_own_directory_and_files_beside_them(tmp_path:
     assert details == [str(data / "tilemaker"), str(data / "maplibre"), str(data / "s.png")]
     descriptions = " ".join(s.description for s in steps)
     assert "only the listed members" in descriptions
+    # The plan shows the tree install, not one opaque action (issue #271).
+    shown = [c.argv[0] for c in everything if isinstance(c, Command)]
+    assert shown == ["rm", "install", "cp", "rm"] * 2

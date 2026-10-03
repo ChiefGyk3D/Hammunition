@@ -763,6 +763,7 @@ def build_commands(
             Command(
                 argv=("cmake", "--build", str(layout.build), "--parallel", jobs_arg),
                 description=f"Compile {name} ({jobs} parallel {'job' if jobs == 1 else 'jobs'}; sized to CPUs and memory)",
+                long_running=True,
                 env=env,
             ),
             *(
@@ -804,6 +805,7 @@ def build_commands(
                 # and stops).
                 argv=("make", "-j", jobs_arg, *build_args),
                 description=f"Compile {name} ({jobs} parallel {'job' if jobs == 1 else 'jobs'}; sized to CPUs and memory)",
+                long_running=True,
                 env=env,
                 cwd=layout.src,
             ),
@@ -844,6 +846,7 @@ def build_commands(
                 # and stops).
                 argv=("make", "-j", jobs_arg, *build_args),
                 description=f"Compile {name} ({jobs} parallel {'job' if jobs == 1 else 'jobs'}; sized to CPUs and memory)",
+                long_running=True,
                 env=env,
                 cwd=layout.src,
             ),
@@ -866,6 +869,7 @@ def build_commands(
         Command(
             argv=("make", "-j", jobs_arg, *build_args),
             description=f"Compile {name} ({jobs} parallel {'job' if jobs == 1 else 'jobs'}; sized to CPUs and memory)",
+            long_running=True,
             env=env,
             cwd=layout.src,
         ),

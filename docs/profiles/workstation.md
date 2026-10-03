@@ -6,6 +6,21 @@
 
 **Stage:** post-1.0
 
+## Who it is for
+
+Anyone whose station machine is also the bench machine and wants the serial consoles, version control and enumeration tools every device problem starts with.
+
+## At a glance
+
+| | |
+|---|---|
+| Stage | post-1.0 |
+| Units | 7 |
+| Disk | about 200 MB |
+| Hardware | None. A serial adapter is what the consoles are for. |
+| Consent | none |
+| Install | `hammunition install workstation` |
+
 ## What it installs
 
 Version control, three serial consoles, a terminal multiplexer, and the two hardware enumeration tools every device problem starts with. Seven packages, all from the distribution's own archive on every supported target — nothing here adds a repository or asks for consent.
@@ -24,10 +39,50 @@ A person building a station is usually also building the machine it runs on, and
 
 Shells, prompts, dotfiles, window managers, fonts, colour schemes, and terminal emulators beyond what serial work needs. The rule is simple enough to apply without argument: if it is a matter of taste, it is not in scope. There are a thousand dotfile projects and this is not one of them; every hour spent choosing between tmux and zellij is an hour not spent on the source backend, which is what actually blocks 60% of the parity target. Also excluded, since 2026-09-03, is any editor: `codium` and `code` live in the opt-in `editors` profile because each needs its publisher's apt repository on most targets, and that gate should never stand between an operator and `lsusb`.
 
+## Install it
+
+Read the plan first. It changes nothing and prints every package, build,
+file and system change, and every consent gate you will meet:
+
+```sh
+hammunition show workstation
+hammunition install workstation --dry-run
+```
+
+Then do it. The engine asks for your `sudo` password once, near the start,
+and shows the same plan again before it asks you to confirm:
+
+```sh
+hammunition install workstation
+```
+
+A member your machine cannot take is deferred by name and the rest installs
+(D-039); the plan lists each under *Will NOT happen*, with the reason and
+the command that fixes it. [Installation](../getting-started/installation.md)
+explains how to read every part of the plan.
+
 ## What you configure by hand afterward
 
 Set `user.name` and `user.email` before your first commit or git refuses to make one. Serial work needs membership of the `dialout` group, which the hardware catalog requests but which does not apply to a session already open — log out and back in. Nothing here ships a tmux, screen or minicom configuration, deliberately: those are taste, and taste is excluded.
 
+## Your first ten minutes
+
+1. Read the plan: `hammunition install workstation --dry-run`. All seven packages are from your distribution's own archive; nothing adds a repository.
+2. Install: `hammunition install workstation`.
+3. Set your git identity: `git config --global user.name "Your Name"` and `git config --global user.email you@example.org`.
+4. Join the serial group: `hammunition hardware apply`, then log out and back in.
+5. List what is attached: `lsusb` for USB devices and `lspci` for PCI ones.
+6. Open a serial console: `tio /dev/serial/by-id/<your-adapter>`. `tio` remembers settings; `minicom` and `screen` are there if you prefer them.
+
 ## Optional: serial-terminal (recommended: `putty`)
 
 Rig debug ports, TNC configuration and GPS at raw baud all want a serial console. PuTTY is the familiar GUI one; picocom and tio are the terminal-native answers. If you already run one, it is respected. The engine detects an existing one (`putty`, `cutecom`, `picocom`, `tio`, `minicom`, `screen`, `moserial`) and respects it; only when none is found does an interactive install offer: [`putty`](../packages/putty.md), [`cutecom`](../packages/cutecom.md), [`picocom`](../packages/picocom.md), [`tio`](../packages/tio.md), [`minicom`](../packages/minicom.md). Never installed silently; `--yes` skips with a note.
+
+## Take it off again
+
+```sh
+hammunition uninstall workstation --dry-run
+hammunition uninstall workstation
+```
+
+This removes what Hammunition itself installed and nothing else. It does not remove dependencies apt pulled in, group memberships or configuration files it wrote; the plan says so and the transaction log records them (D-004).

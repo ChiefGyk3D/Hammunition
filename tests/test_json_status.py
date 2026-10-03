@@ -183,7 +183,10 @@ def test_completed_units_remain_visible_when_a_later_install_step_fails(
     validate(parse_one(out))
 
     _rc, text = _run(monkeypatch, tmp_path / "text", capsys, entries)
-    assert "finished before it stopped, so a rerun verifies them (1):" in text
+    assert (
+        "finished before it stopped, so a rerun skips them once their files are verified (1):"
+        in text
+    )
     assert "    fixture-apt" in text
 
 

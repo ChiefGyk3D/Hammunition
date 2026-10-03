@@ -5,6 +5,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Installing the engine
 
+This is the short form. [Installation](installation.md) is the full walkthrough
+from a fresh machine, with every step's output and the differences for each
+supported system.
+
 Hammunition is a Python engine plus a separate catalog of YAML manifests. The
 supported install today is a git clone: the engine runs from the checkout, and
 it finds the catalog by walking up from its own location, so nothing needs
@@ -156,7 +160,25 @@ Stale package lists are the commonest way a correct plan fails — apt asks
 the mirror for a file the pool has replaced — so the refresh is on by
 default. Pass `--no-refresh` on a local mirror or a station with no uplink.
 
+A command that runs for a while is not silent. On a terminal, one line under
+the step rewrites itself every second with the time so far and the last thing
+the command printed (`… 1m 42s  Receiving objects: 41%`), and a step known to
+be long says `this step can take several minutes` first. Add `-v` to see every
+line the command prints instead; piped or logged, the transcript stays plain.
+Every line is in the run log either way (`hammunition logs --last`).
+
+## If a run stops partway
+
+A failure stops the run at the first step that fails, and the units that had
+already finished stay finished. Fix the cause and run the same command again:
+the plan lists the unit that failed and those after it, and a build that was
+done and is still on disk at its pin is shown as `already installed` instead of
+being fetched and built a second time. `hammunition status` names what
+finished before the run stopped. A file that has since gone missing is rebuilt,
+because the plan checks the disk before it believes the log.
+
 ## Next
 
-[How much disk you need](disk-space.md) says what a profile or the whole
+[Installation](installation.md) continues from here: the health check, your
+callsign, reading a plan and the real install. [How much disk you need](disk-space.md) says what a profile or the whole
 catalog costs before you start. Back: [Getting started](index.md).
