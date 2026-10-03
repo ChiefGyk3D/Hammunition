@@ -5,14 +5,20 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
+from hammunition.backends.base import (
+    BackendError,
+    Command,
+    CommandRunner,
+    SubprocessRunner,
+)
 from hammunition.consent import render_disclosure
 from hammunition.distro import DetectionError, Target
 from hammunition.interface.envelope import Strict, TargetView, described, target_view
-from hammunition.manifest.schema import PackageManifest, ProfileManifest
+from hammunition.manifest.schema import AptInstall, PackageManifest, ProfileManifest
 
 __all__ = [
     "CatalogDocument",
@@ -22,6 +28,8 @@ __all__ = [
     "build_profile",
     "build_unit",
     "detect_target",
+    "human_size",
+    "installed_apt_bytes",
     "render_catalog",
     "render_profile",
 ]
@@ -56,6 +64,17 @@ class ProfileEntry(Strict):
     packages: tuple[str, ...] = described("its member units")
     consent_gated: bool = described("installing it presents a consent gate (D-021)")
     documentation: ProfileDocs = described("its documentation")
+    members: int = described("how many catalog units the profile names; no target filtering")
+    installed: int = described(
+        "how many of those the transaction log records as installed here (the same reading "
+        "`status` reports as `completed`); 0 when the log is absent"
+    )
+    installed_size_bytes: int | None = described(
+        "the sum of dpkg's `Installed-Size` (KiB, converted to bytes) over the installed members "
+        "whose install method on this target is apt; null when dpkg is unavailable or no "
+        "installed member is apt. Source, git, binary and data members contribute nothing in "
+        "this release, so the figure is a floor, not the profile's disk use"
+    )
 
 
 @dataclass(frozen=True)
@@ -152,12 +171,53 @@ def _resolves(manifest: PackageManifest, target: Target | None) -> str | None:
     return block.install.method if block else None
 
 
+def human_size(size: int) -> str:
+    """Bytes as the terminal shows them: `512 B`, `2.0 MiB`."""
+    value = float(size)
+    for unit in ("B", "KiB", "MiB", "GiB"):
+        if value < 1024 or unit == "GiB":
+            return f"{int(value)} B" if unit == "B" else f"{value:.1f} {unit}"
+        value /= 1024
+    raise AssertionError("unreachable")
+
+
+def installed_apt_bytes(names: Collection[str], runner: CommandRunner) -> int | None:
+    """Total `Installed-Size` of *names* in bytes, from one `dpkg-query` call.
+
+    dpkg reports KiB. None when dpkg cannot be run or exits non-zero with
+    nothing printed (a name dpkg does not know makes it exit 1 but still print
+    the others, which are summed).
+    """
+    sizes = _sizes(names, runner) if names else {}
+    return sum(v for v in sizes.values() if v is not None) if sizes else None
+
+
+def _apt_packages(manifest: PackageManifest, target: Target | None) -> tuple[str, ...]:
+    if target is None:
+        return ()
+    block = manifest.resolve(target.distro, target.version, target.arch)
+    if block is None or not isinstance(block.install, AptInstall):
+        return ()
+    return tuple(block.install.packages)
+
+
 def build_catalog(
     what: str,
     packages: Mapping[str, PackageManifest],
     profiles: Mapping[str, ProfileManifest],
     target: Target | None,
+    *,
+    installed: Collection[str] = (),
+    runner: CommandRunner | None = None,
 ) -> CatalogDocument:
+    here = frozenset(installed)
+    apt_of = {name: _apt_packages(packages[name], target) for name in here if name in packages}
+    wanted = {pkg for names in apt_of.values() for pkg in names}
+    sizes_wanted = what in {"profiles", "all"} and bool(wanted)
+    size_by_name: dict[str, int | None] = {}
+    if sizes_wanted:
+        # One call over every name at once; per-profile sums are made from it.
+        size_by_name = _sizes(wanted, runner or SubprocessRunner())
     return CatalogDocument(
         what=what,
         target=target_view(target) if target is not None else None,
@@ -169,6 +229,9 @@ def build_catalog(
                 packages=tuple(profiles[name].packages),
                 consent_gated=profiles[name].consent is not None,
                 documentation=_docs(profiles[name]),
+                members=len(profiles[name].packages),
+                installed=sum(1 for p in profiles[name].packages if p in here),
+                installed_size_bytes=_profile_size(profiles[name], apt_of, size_by_name),
             )
             for name in sorted(profiles)
         )
@@ -191,6 +254,34 @@ def build_catalog(
     )
 
 
+def _sizes(names: Collection[str], runner: CommandRunner) -> dict[str, int | None]:
+    """Per-name bytes, one dpkg-query call; names dpkg did not report are absent."""
+    command = Command(
+        argv=("dpkg-query", "-W", "-f=${Package}\t${Installed-Size}\n", *sorted(names)),
+        description="Read the installed size of the apt packages a profile's units installed",
+    )
+    try:
+        result = runner.run(command)
+    except (BackendError, OSError):
+        return {}
+    out: dict[str, int | None] = {}
+    for line in result.stdout.splitlines():
+        pkg, _tab, size = line.partition("\t")
+        if size.strip().isdigit():
+            out[pkg.strip()] = int(size) * 1024
+    return out
+
+
+def _profile_size(
+    profile: ProfileManifest,
+    apt_of: Mapping[str, tuple[str, ...]],
+    size_by_name: Mapping[str, int | None],
+) -> int | None:
+    names = {pkg for unit in profile.packages for pkg in apt_of.get(unit, ())}
+    found = [size_by_name[n] for n in sorted(names) if size_by_name.get(n) is not None]
+    return sum(s for s in found if s is not None) if found else None
+
+
 def render_catalog(doc: CatalogDocument) -> list[str]:
     """``list`` as the terminal shows it."""
     lines: list[str] = []
@@ -198,8 +289,14 @@ def render_catalog(doc: CatalogDocument) -> list[str]:
         lines.append(f"Profiles ({len(doc.profiles)}):")
         for profile in doc.profiles:
             gate = "  [consent gate]" if profile.consent_gated else ""
+            size = (
+                f"  {human_size(profile.installed_size_bytes)}"
+                if profile.installed_size_bytes is not None
+                else ""
+            )
             lines.append(
-                f"  {profile.name:<16} {profile.stage:<9} {len(profile.packages):>3} pkg{gate}"
+                f"  {profile.name:<16} {profile.stage:<9} {profile.members:>3} pkg"
+                f"  installed {profile.installed} of {profile.members}{size}{gate}"
             )
             lines.append(f"      {profile.summary}")
         lines.append("")

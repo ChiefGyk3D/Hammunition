@@ -12,4 +12,7 @@ Station configuration: <config>/hammunition/station.yml
   map freshness  yearly
   mirror         (not set)
   dem_source     copernicus
+  topo radius    100 km (the default)
+  topo regions   (not set)
+  topo all       no
   reference books ham.stackexchange.com_en_all

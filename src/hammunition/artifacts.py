@@ -23,6 +23,7 @@ Pure apart from the injected probes.
 
 from __future__ import annotations
 
+import http.client
 from collections.abc import Mapping, Sequence
 from datetime import date
 from pathlib import Path
@@ -56,10 +57,11 @@ from .manifest.schema import (
     RegionalDataInstall,
     RegisterInstall,
 )
+from .repeater_sources import SNAPSHOT_CHECK, SNAPSHOT_UNIT, snapshots
 from .terrain_plan import PINS as TILE_PINS
 from .terrain_plan import TILE_LIST
 
-__all__ = ["SelectionError", "fetching_units", "list_artifacts", "select_units"]
+__all__ = ["SelectionError", "SnapshotProbe", "fetching_units", "list_artifacts", "select_units"]
 
 FETCHING = (
     DataInstall,
@@ -97,6 +99,13 @@ class RegisterProbe(Protocol):
     def size(self, url: str) -> int: ...
 
 
+class SnapshotProbe(Protocol):
+    """The size a publisher's ``HEAD`` reports for an on-request list, or
+    ``None`` when it states none (:class:`SnapshotHead`)."""
+
+    def size(self, url: str) -> int | None: ...
+
+
 class SelectionError(Exception):
     """The selection names something that cannot be listed."""
 
@@ -114,12 +123,14 @@ def fetching_units(catalog: Mapping[str, PackageManifest]) -> tuple[str, ...]:
 def select_units(
     catalog: Mapping[str, PackageManifest], requested: Sequence[str]
 ) -> tuple[str, ...]:
-    """*requested* in order, once each, or every fetching unit when empty.
-    A name not in the catalog, or naming a unit that fetches no data, is
-    refused by name: the operator typed it (D-039)."""
+    """*requested* in order, once each, or every fetching unit when empty,
+    then ``repeater-snapshots`` (D-078: not a catalog unit, the three
+    on-request repeater lists a Bunker may hold). A name not in the catalog,
+    or naming a unit that fetches no data, is refused by name: the operator
+    typed it (D-039)."""
     if not requested:
-        return fetching_units(catalog)
-    unknown = [n for n in requested if n not in catalog]
+        return (*fetching_units(catalog), SNAPSHOT_UNIT)
+    unknown = [n for n in requested if n not in catalog and n != SNAPSHOT_UNIT]
     idle = [n for n in requested if n in catalog and not _blocks(catalog[n])]
     problems = []
     if unknown:
@@ -243,6 +254,46 @@ def _register(unit: str, block: RegisterInstall, probe: RegisterProbe | None) ->
         licence=licence,
         deferred=None,
     )
+
+
+def _snapshots(probe: SnapshotProbe | None) -> list[ArtifactEntry]:
+    """The on-request repeater lists (D-064, D-074; listed by D-078): each the
+    publisher's URL, no digest (none is published and the list changes under
+    the URL), the size from one ``HEAD`` when the server states it, and the
+    licence position. A Bunker with ``hold_unverified`` keeps one for its LAN
+    and the ``fetch-*`` command reads it first at ``repeater-snapshots/<name>``.
+    The check is size and date only."""
+    out: list[ArtifactEntry] = []
+    for snap in snapshots():
+        size: int | None = None
+        if probe is None:
+            out.append(
+                _deferred(SNAPSHOT_UNIT, snap.name, snap.position, "the size was not asked for")
+            )
+            continue
+        try:
+            size = probe.size(snap.url)
+        except (OSError, ValueError, http.client.HTTPException) as exc:
+            out.append(
+                _deferred(
+                    SNAPSHOT_UNIT, snap.name, snap.position, f"its size could not be read: {exc}"
+                )
+            )
+            continue
+        out.append(
+            ArtifactEntry(
+                unit=SNAPSHOT_UNIT,
+                name=snap.name,
+                url=snap.url,
+                check=SNAPSHOT_CHECK,
+                digest=None,
+                checksum_url=None,
+                size=size,
+                licence=snap.position,
+                deferred=None,
+            )
+        )
+    return out
 
 
 def _tiles(
@@ -375,11 +426,15 @@ def list_artifacts(
     region_probe: Probe,
     tile_probe: TileProbe,
     register_probe: RegisterProbe | None = None,
+    snapshot_probe: SnapshotProbe | None = None,
 ) -> tuple[ArtifactEntry, ...]:
     """Every artifact of *units* for *regions* at *freshness* and the
     reference *books*, in unit order."""
     out: list[ArtifactEntry] = []
     for unit in units:
+        if unit == SNAPSHOT_UNIT:
+            out.extend(_snapshots(snapshot_probe))
+            continue
         blocks = _blocks(catalog[unit])
         data = [b for b in blocks if isinstance(b, DataInstall)]
         if data:
