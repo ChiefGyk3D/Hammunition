@@ -449,6 +449,9 @@ One profile in the catalog.
 | `packages` | list of string | its member units |
 | `consent_gated` | boolean | installing it presents a consent gate (D-021) |
 | `documentation` | [`ProfileDocs`](#profiledocs) | its documentation |
+| `members` | integer | how many catalog units the profile names; no target filtering |
+| `installed` | integer | how many of those the transaction log records as installed here (the same reading `status` reports as `completed`); 0 when the log is absent |
+| `installed_size_bytes` | integer or null | the sum of dpkg's `Installed-Size` (KiB, converted to bytes) over the installed members whose install method on this target is apt; null when dpkg is unavailable or no installed member is apt. Source, git, binary and data members contribute nothing in this release, so the figure is a floor, not the profile's disk use |
 
 #### `ProfileDocs`
 
@@ -610,6 +613,25 @@ One unit in the catalog.
         },
         "documentation": {
           "$ref": "#/$defs/ProfileDocs"
+        },
+        "members": {
+          "title": "Members",
+          "type": "integer"
+        },
+        "installed": {
+          "title": "Installed",
+          "type": "integer"
+        },
+        "installed_size_bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Installed Size Bytes"
         }
       },
       "required": [
@@ -618,7 +640,10 @@ One unit in the catalog.
         "stage",
         "packages",
         "consent_gated",
-        "documentation"
+        "documentation",
+        "members",
+        "installed",
+        "installed_size_bytes"
       ],
       "title": "ProfileEntry",
       "type": "object"

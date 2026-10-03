@@ -1089,6 +1089,16 @@ With `--json`, prints a `catalog` document
 ([json-interface.md](json-interface.md)): every profile and package it
 lists, with each package's method on this machine.
 
+Each profile also carries its install state on this machine (console spec
+E1): `members` (the units it names), `installed` (how many of those the
+transaction log records as installed, the reading `status` reports as
+`completed`; 0 when the log is absent) and `installed_size_bytes` (dpkg's
+`Installed-Size`, converted from KiB, summed over the installed members whose
+method here is apt, from one `dpkg-query` call; `null` when dpkg is absent or
+no installed member is apt). Source, git, binary and data members contribute
+nothing to that size in this release, so it is a floor. The text table shows
+the same as `installed N of M` and a human size.
+
 ### `hammunition show PROFILE`
 
 A profile's documentation, its package list, and — for a gated profile — the
