@@ -906,8 +906,8 @@ def test_each_set_is_simulated_the_way_it_will_be_installed(tmp_path: Path) -> N
     assert plan.apt_to_install == ("example",)
     assert plan.apt_to_install_no_recommends == ("morse",)
     assert _simulates(apt) == [
-        "apt-get install --simulate --yes -- example",
-        "apt-get install --simulate --yes --no-install-recommends -- morse",
+        "apt-get -o Acquire::Retries=3 install --simulate --yes -- example",
+        "apt-get -o Acquire::Retries=3 install --simulate --yes --no-install-recommends -- morse",
     ]
 
 
@@ -918,10 +918,33 @@ def test_the_two_sets_become_two_apt_commands_in_order(tmp_path: Path) -> None:
     apt = _apt(tmp_path, {"example": None, "morse": None})
     plan = _resolve(tmp_path, ["example", "morse-classic"], apt=apt, catalog=_mixed_catalog())
     steps = commands_for(plan, apt=apt, refresh=False)
-    installs = [s for s in steps if isinstance(s, Command) and s.argv[:2] == ("apt-get", "install")]
+    installs = [
+        s
+        for s in steps
+        if isinstance(s, Command) and s.argv[0] == "apt-get" and "install" in s.argv
+    ]
     assert [s.argv for s in installs] == [
-        ("apt-get", "install", "--yes", "--no-remove", "--", "example"),
-        ("apt-get", "install", "--yes", "--no-remove", "--no-install-recommends", "--", "morse"),
+        (
+            "apt-get",
+            "-o",
+            "Acquire::Retries=3",
+            "install",
+            "--yes",
+            "--no-remove",
+            "--",
+            "example",
+        ),
+        (
+            "apt-get",
+            "-o",
+            "Acquire::Retries=3",
+            "install",
+            "--yes",
+            "--no-remove",
+            "--no-install-recommends",
+            "--",
+            "morse",
+        ),
     ]
 
 
@@ -934,7 +957,8 @@ def test_a_removal_in_the_opted_out_simulate_still_refuses(tmp_path: Path) -> No
     apt = _apt(tmp_path, {"morse": None})
     apt.runner = RecordingRunner(
         {
-            "apt-get install --simulate --yes --no-install-recommends -- morse": CommandResult(
+            "apt-get -o Acquire::Retries=3 install --simulate --yes "
+            "--no-install-recommends -- morse": CommandResult(
                 argv=(),
                 returncode=0,
                 stdout="Remv pipewire-alsa [1.4.9-1~bpo13+2]\nInst morse (2.6-2 x:parrot [amd64])\n",

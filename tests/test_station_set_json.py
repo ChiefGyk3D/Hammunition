@@ -44,10 +44,13 @@ def test_station_set_json_reports_saved_and_unchanged_values(
     assert load_station(path=path).dem_source == "3dep"
 
 
-def test_station_set_json_reports_each_refusal_and_saves_valid_flags(
+def test_station_set_json_reports_refusals_without_saving_any_values(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     path = _set_env(monkeypatch, tmp_path)
+    assert cli.main(["station", "set", "--dem-source", "3dep"]) == 0
+    capsys.readouterr()
+    before = path.read_bytes()
 
     result = cli.main(
         [
@@ -66,7 +69,7 @@ def test_station_set_json_reports_each_refusal_and_saves_valid_flags(
     doc: dict[str, Any] = parse_one(capsys.readouterr().out)
     validate(doc)
     assert doc["kind"] == "station-set"
-    assert doc["saved"] == {"map_freshness": "monthly"}
+    assert doc["saved"] == {}
     assert doc["unchanged"] == {}
     assert [refusal["key"] for refusal in doc["refused"]] == [
         "map_regions",
@@ -77,10 +80,12 @@ def test_station_set_json_reports_each_refusal_and_saves_valid_flags(
     assert doc["refused"][1]["value"] == "unknown-book-id"
     assert "not in the catalog's book list" in doc["refused"][1]["reason"]
     assert doc["file"] == str(path)
-    assert load_station(path=path).freshness == "monthly"
+    assert path.read_bytes() == before
+    assert load_station(path=path).dem_source == "3dep"
+    assert load_station(path=path).freshness != "monthly"
 
 
-def test_station_set_json_keeps_a_good_rig_flag_when_another_rig_flag_is_refused(
+def test_station_set_json_does_not_save_a_good_rig_flag_when_another_is_refused(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     path = _set_env(monkeypatch, tmp_path)
@@ -102,12 +107,11 @@ def test_station_set_json_keeps_a_good_rig_flag_when_another_rig_flag_is_refused
     doc = parse_one(capsys.readouterr().out)
     validate(doc)
     assert doc["kind"] == "station-set"
-    assert doc["saved"]["map_freshness"] == "latest"
-    assert doc["saved"]["rig"] == "yaesu-ft-991a"
+    assert doc["saved"] == {}
     assert doc["refused"][0]["key"] == "rig_device"
     assert doc["refused"][0]["value"] == "relative-path"
     assert "absolute /dev/ path" in doc["refused"][0]["reason"]
-    assert load_station(path=path).rig == "yaesu-ft-991a"
+    assert not path.exists()
 
 
 def test_station_set_text_success_is_unchanged(

@@ -1105,11 +1105,12 @@ A profile's documentation, its package list, and — for a gated profile — the
 full consent disclosure, printed without installing anything. This is how an
 operator reads a disclosure before deciding, rather than while being asked.
 
-With `--json`, prints a `profile` document
-([json-interface.md](json-interface.md)), the disclosure included. Under
-`--json` only, `show` also accepts a unit's name and prints a `unit`
-document carrying its manifest; the text `show` still describes profiles
-only.
+With `--json`, `hammunition show PROFILE` prints a `profile` document
+([json-interface.md](json-interface.md)), the disclosure included. A unit is
+also accepted: `hammunition show UNIT --json` prints a `unit` document carrying
+its manifest. Names are resolved against profiles first, then units, so a
+profile wins if the same name exists in both. The text form still describes
+profiles only.
 
 ### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--recheck] [--full] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
@@ -2086,6 +2087,18 @@ write its last line). Reads only. `--last` prints the newest in full;
 and `--last` exits `1`. The files, their format and their rotation are
 `docs/reference/run-logs.md`.
 
+### `hammunition transactions [--last N] [--json]`
+
+The transaction history, oldest first across every rotated archive and the live
+file (**D-077**). Each row gives the begin and end times, command, units,
+deferred names, result (`ok`, `failed`, `aborted` or `in-progress`) and the
+associated run-log path when one was recorded. A missing end is `in-progress`
+only while its run log is still held open; otherwise it is `aborted`. Older
+transactions without a recorded run-log path show `—` in text and `null` in
+JSON. `--last N` limits the rows to the newest N while keeping them in
+chronological order. `--json` prints the `transactions` document
+([json-interface.md](json-interface.md)).
+
 ### `hammunition station show`
 
 The values only you can supply — callsign, grid square, packet node alias,
@@ -2160,8 +2173,9 @@ is.
 `station set --json` prints a `station-set` document
 ([json-interface.md](json-interface.md)) with the values saved,
 the given values left unchanged, and one refusal for each rejected flag. Its
-exit code is `2` if any flag was refused. It carries station values too, so it
-is for local programs, not for pasting into an issue, a forum or a chat.
+exit code is `2` if any flag was refused; when that happens, none of the
+requested values are saved. It carries station values too, so it is for local
+programs, not for pasting into an issue, a forum or a chat.
 
 ## Launchers and menu entries
 

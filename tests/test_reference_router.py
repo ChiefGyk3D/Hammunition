@@ -16,6 +16,7 @@ import http.server
 import json
 import os
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -133,17 +134,20 @@ def test_a_request_graphhopper_should_not_see_is_refused_here(
 
 
 def test_a_graphhopper_not_listening_yet_is_a_503_that_says_so(tmp_path: Path) -> None:
-    server, served = _serve(tmp_path, _router(tmp_path, gh.free_port()))
-    try:
-        status, body = _get(served, GOOD)
-    finally:
-        server.shutdown()
-        server.server_close()
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as not_listening:
+        not_listening.bind(("127.0.0.1", 0))
+        port = int(not_listening.getsockname()[1])
+        server, served = _serve(tmp_path, _router(tmp_path, port))
+        try:
+            status, body = _get(served, GOOD)
+        finally:
+            server.shutdown()
+            server.server_close()
     assert status == 503 and "starting" in body["message"]
 
 
 def test_a_graphhopper_that_exited_is_a_503_naming_the_exit_and_the_log(tmp_path: Path) -> None:
-    router = _router(tmp_path, gh.free_port())
+    router = _router(tmp_path, 1)
     router.exited = 1
     server, served = _serve(tmp_path, router)
     try:
@@ -200,7 +204,7 @@ def _run(
     ticks = {"n": 0}
     spec = gh.RouterSpec(
         argv=["java", "-jar", JAR, "server", "config.yml"],
-        port=gh.free_port(),
+        port=1,
         profiles=gh.PROFILES,
         log=tmp_path / "graphhopper.log",
         config=tmp_path / "config.yml",

@@ -18,9 +18,9 @@ Records:
 
 Commands (2):
   # Refresh apt package lists
-  $ sudo env DEBIAN_FRONTEND=noninteractive apt-get update
+  $ sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 update
   # Install 1 package(s) with apt
-  $ sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-remove -- fixture-gps
+  $ sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 install --yes --no-remove -- fixture-gps
 
 Afterwards: the Hammunition menu is re-applied for this user (per-user files, unprivileged, D-050).
 
