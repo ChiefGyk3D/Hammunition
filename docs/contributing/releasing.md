@@ -335,3 +335,16 @@ its pull request first, so the release is cut from documentation that agrees
 with itself, with the code and with `docs/DECISIONS.md`. The first one (after v0.19.0)
 found contradictions and gaps that no single branch's review could have seen.
 >>>>>>> origin/main
+
+## What the tag publishes
+
+Pushing the tag runs `.github/workflows/release.yml`, a caller of GYST's
+`artifact-release`. It builds the documentation site with the same
+`mkdocs build --strict` the tests run, packs it as
+`hammunition-docs-<version>.tar.gz` beside a `git archive` of the tree,
+refuses a tag whose number disagrees with `pyproject.toml`, takes the release
+notes from that version's section of `CHANGELOG.md`, and attaches the files,
+`SHA256SUMS`, cosign signatures and SLSA provenance to the GitHub release. A
+pull request runs the same build and verification and publishes nothing. The
+site tarball's digest is what the `hammunition-docs` unit pins, so an operator
+can keep these pages on a machine with no network.
