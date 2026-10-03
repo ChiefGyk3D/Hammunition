@@ -178,6 +178,8 @@ def write_wrapper(path: Path, *, tree: Path, entry: str, env: dict[str, str], na
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body)
+    # Semgrep: a deliberate mode (0755/0644 on installed files and launchers, 0700 private); nothing group- or world-writable.
+    # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
     os.chmod(path, 0o755)
     return f"wrote {path} -> node {entry} in {tree}, bound to 127.0.0.1"
 

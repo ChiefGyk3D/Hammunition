@@ -378,6 +378,11 @@ head.
   This repository's pins were resolved the same way (e5c8260): `checkout`,
   `setup-python` sit on their current majors as of
   2026-09-05, and the check is worth re-running whenever a workflow is touched.
+- **CI calls the maintainer's reusable workflows wherever one fits.**
+  github.com/ChiefGyk3D/git-your-ship-together (python-ci, bash-ci, security,
+  artifact-release ...), pinned by commit with the `# vX.Y.Z` comment, gate named
+  `CI green`; only repo-specific jobs stay local. A hand-written generic leg
+  (lint, types, a plain test matrix) is a defect. See `docs/contributing/ci.md`.
 
 ## Conventions
 

@@ -1,0 +1,12 @@
+# Keeps the pinned action SHAs, GYST's included, moving; each bump is read,
+# not just merged.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # A release that turns out to be malicious is usually pulled within days;
+    # waiting a week before proposing it costs nothing.
+    cooldown:
+      default-days: 7
