@@ -87,8 +87,11 @@ def _parrot_apt(
     apt = _apt(tmp_path, {"curl-unit": None, "libcurl4-openssl-dev": None, **(also_known or {})})
     packages = "curl-unit libcurl4-openssl-dev"
     responses = {
-        f"apt-get install --simulate --yes -- {packages}": _failed(PARROT_REFUSAL),
-        f"apt-get install --simulate --yes --target-release parrot-backports -- {packages}": (
+        f"apt-get -o Acquire::Retries=3 install --simulate --yes -- {packages}": _failed(
+            PARROT_REFUSAL
+        ),
+        f"apt-get -o Acquire::Retries=3 install --simulate --yes "
+        f"--target-release parrot-backports -- {packages}": (
             _ok(PARROT_BACKPORTS_SIMULATION) if retry_succeeds else _failed(PARROT_REFUSAL)
         ),
         "apt-cache policy": _ok(PARROT_POLICY_ALL),
@@ -155,11 +158,17 @@ def test_the_apt_step_then_carries_the_target_release(tmp_path: Path) -> None:
     apt = _parrot_apt(tmp_path)
     plan = _resolve_curl_unit(tmp_path, apt)
     steps = commands_for(plan, apt=apt, refresh=False)
-    installs = [s for s in steps if isinstance(s, Command) and s.argv[:2] == ("apt-get", "install")]
+    installs = [
+        s
+        for s in steps
+        if isinstance(s, Command) and s.argv[0] == "apt-get" and "install" in s.argv
+    ]
     assert len(installs) == 1
     argv = installs[0].argv
     assert argv[: argv.index("--")] == (
         "apt-get",
+        "-o",
+        "Acquire::Retries=3",
         "install",
         "--yes",
         "--no-remove",
@@ -250,7 +259,7 @@ def test_the_install_failure_says_stale_lists_installed_nothing_and_names_the_fi
     from hammunition.cli.main import stale_lists_diagnosis
 
     install = Command(
-        argv=("apt-get", "install", "--yes", "--", "libglib2.0-dev"),
+        argv=("apt-get", "-o", "Acquire::Retries=3", "install", "--yes", "--", "libglib2.0-dev"),
         description="",
         requires_root=True,
     )
@@ -306,12 +315,16 @@ def test_a_measured_release_is_carried_by_both_apt_sets(tmp_path: Path) -> None:
     assert plan.apt_release == "parrot-backports"
     argvs = _argvs(apt)
     assert (
-        "apt-get install --simulate --yes --no-install-recommends "
+        "apt-get -o Acquire::Retries=3 install --simulate --yes --no-install-recommends "
         "--target-release parrot-backports -- morse"
     ) in argvs
 
     steps = commands_for(plan, apt=apt, refresh=False)
-    installs = [s for s in steps if isinstance(s, Command) and s.argv[:2] == ("apt-get", "install")]
+    installs = [
+        s
+        for s in steps
+        if isinstance(s, Command) and s.argv[0] == "apt-get" and "install" in s.argv
+    ]
     assert len(installs) == 2
     for command in installs:
         assert "--target-release" in command.argv
