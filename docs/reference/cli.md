@@ -1438,6 +1438,23 @@ in your home and the station's map regions, so the document is for a local
 program, not for pasting into an issue. It never carries a rendered
 configuration file, so the callsign in one is not in it.
 
+### Resuming a failed install
+
+A unit whose last step finished is recorded as `unit_end` in the transaction
+log, so a later failure does not forget completed work. Run the same install
+request again after fixing the failure. A build resumes only when its recorded
+pin is still current and its declared outputs are on disk. Regional, derived,
+DEM, topo and CoMaps units resume only when their opaque state fingerprint
+matches the resolved inputs and selection **and** their backend confirms the
+outputs still exist at the expected snapshot, size, pin and region bound. Changing
+a region selection or input digest replans the derived work; a missing output
+does too. The fingerprint does not store the station's raw region selection.
+
+On a successful run, completion records are written after the post-run
+`verify_effects` check; an unverified run does not claim its units completed.
+Units completed before a later step fails remain recorded in that failed run.
+See [transaction-log.md](transaction-log.md) for the event format.
+
 ### `hammunition uninstall NAME... [--dry-run] [--yes] [--user NAME]`
 
 Removes what Hammunition itself installed, and only that (**D-004**). Names

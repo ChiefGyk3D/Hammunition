@@ -19,14 +19,16 @@ from __future__ import annotations
 
 import contextlib
 import grp
+import hashlib
+import json
 import os
 import pwd
 import re
 import shutil
 import stat
 import tempfile
-from collections.abc import Callable, Iterable, Sequence
-from dataclasses import dataclass, field, replace
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import asdict, dataclass, field, is_dataclass, replace
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
@@ -92,8 +94,10 @@ __all__ = [
     "ExecutionReport",
     "PackageProber",
     "Step",
+    "StepOwners",
     "Verification",
     "commands_for",
+    "completion_states",
     "execute",
     "run_removal",
     "user_groups",
@@ -736,6 +740,7 @@ class StepOwners:
     owned: dict[int, list[str]] = field(default_factory=dict)
     pins: dict[str, str] = field(default_factory=dict)
     versions: dict[str, str] = field(default_factory=dict)
+    states: dict[str, str] = field(default_factory=dict)
     excluded: set[str] = field(default_factory=set)
 
     def own(self, step: Step, unit: str) -> None:
@@ -759,6 +764,8 @@ def already_built(
     source: SourceBackend | None = None,
     git: GitBackend | None = None,
     binary: BinaryBackend | None = None,
+    states: Mapping[str, str] | None = None,
+    on_disk: Mapping[str, bool] | None = None,
 ) -> frozenset[str]:
     """Units whose build is already installed at the manifest's pin. D-051.
 
@@ -789,7 +796,8 @@ def already_built(
             continue
         if build_effects_present(planned, prefix=prefix):
             wanted[planned.name] = str(src)
-    if not wanted:
+    resumable = states or {}
+    if not wanted and not resumable:
         return frozenset()
     attributed: set[str] = set()
     pending: set[str] = set()
@@ -797,7 +805,14 @@ def already_built(
         event = entry.get("event")
         if event == "unit_end":
             unit = str(entry.get("unit", ""))
-            if entry.get("ok") is True and unit in wanted and entry.get("pin") == wanted[unit]:
+            if (
+                entry.get("ok") is True and unit in wanted and entry.get("pin") == wanted[unit]
+            ) or (
+                entry.get("ok") is True
+                and unit in resumable
+                and entry.get("state") == resumable[unit]
+                and (on_disk or {}).get(unit) is True
+            ):
                 attributed.add(unit)
         elif event == "uninstall_begin":
             attributed.difference_update(str(p) for p in entry.get("packages", ()))
@@ -827,11 +842,224 @@ def _note_unit(
     source: SourceBackend | None,
     git: GitBackend | None,
     binary: BinaryBackend | None,
+    states: Mapping[str, str],
 ) -> None:
     track.versions[planned.name] = planned.manifest.version
     src = build_dir(planned, source=source, git=git, binary=binary)
     if src is not None:
         track.pins[planned.name] = str(src)
+    if planned.name in states:
+        track.states[planned.name] = states[planned.name]
+
+
+def _jsonable(value: object) -> object:
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        return _jsonable(model_dump(mode="json"))
+    if is_dataclass(value) and not isinstance(value, type):
+        return _jsonable(asdict(value))
+    if isinstance(value, Mapping):
+        return {str(key): _jsonable(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, Path):
+        return value.as_posix()
+    enum_value = getattr(value, "value", None)
+    if enum_value is not None:
+        return _jsonable(enum_value)
+    return value
+
+
+def completion_states(
+    plan: InstallPlan,
+    *,
+    regions: RegionsBackend | None = None,
+    derived: DerivedBackend | None = None,
+    dem: DemTilesBackend | None = None,
+    topo: TopoQuadsBackend | None = None,
+    mwm: ComapsMapsBackend | None = None,
+) -> dict[str, str]:
+    """Opaque fingerprints for map units, covering their resolved inputs and selection."""
+    packages = {package.name: package for package in plan.packages}
+    states: dict[str, str] = {}
+    for planned in plan.packages:
+        block = planned.block.install
+        if isinstance(block, RegionalDataInstall):
+            context: dict[str, object] = {
+                "block": block.model_dump(mode="json"),
+                "regions": regions.files if regions is not None else (),
+            }
+        elif isinstance(block, DerivedDataInstall):
+            inputs = {
+                name: packages[name].block.install.model_dump(mode="json")
+                for name in block.inputs()
+                if name in packages
+            }
+            context = {
+                "block": block.model_dump(mode="json"),
+                "inputs": inputs,
+                "regions": derived.files if derived is not None else (),
+            }
+            terrain_inputs: dict[str, object] = {}
+            if dem is not None:
+                for name in block.inputs():
+                    source = packages.get(name)
+                    if source is None or not isinstance(source.block.install, DemTilesInstall):
+                        continue
+                    dem_backend: DemTilesBackend | None = dem
+                    if source.block.install.provider != dem.provider:
+                        dem_backend = dem.bare_earth
+                    if dem_backend is not None:
+                        terrain_inputs[name] = dem_backend.resolution
+            if terrain_inputs:
+                context["terrain"] = terrain_inputs
+            if topo is not None and (
+                block.fstopo is not None
+                or any(
+                    isinstance(packages[name].block.install, TopoQuadsInstall)
+                    for name in block.inputs()
+                    if name in packages
+                )
+            ):
+                context["topo"] = topo.resolution
+                if block.fstopo is not None and topo.fstopo is not None:
+                    context["fstopo"] = topo.fstopo.resolution
+        elif isinstance(block, DemTilesInstall):
+            install_dem_backend: DemTilesBackend | None = dem
+            if install_dem_backend is not None and block.provider != install_dem_backend.provider:
+                install_dem_backend = install_dem_backend.bare_earth
+            context = {
+                "block": block.model_dump(mode="json"),
+                "resolution": (
+                    install_dem_backend.resolution if install_dem_backend is not None else ()
+                ),
+            }
+        elif isinstance(block, TopoQuadsInstall):
+            topo_backend = topo
+            resolution: object = ()
+            if topo_backend is not None:
+                if block.provider == "usfs-fstopo" and topo_backend.fstopo is not None:
+                    resolution = topo_backend.fstopo.resolution
+                else:
+                    resolution = topo_backend.resolution
+            context = {"block": block.model_dump(mode="json"), "resolution": resolution}
+        elif isinstance(block, MwmRegionsInstall):
+            context = {
+                "block": block.model_dump(mode="json"),
+                "maps": mwm.files if mwm is not None else (),
+            }
+        else:
+            continue
+        encoded = json.dumps(_jsonable(context), sort_keys=True, separators=(",", ":")).encode()
+        states[planned.name] = hashlib.sha256(encoded).hexdigest()
+    return states
+
+
+def completion_on_disk(
+    plan: InstallPlan,
+    *,
+    regions: RegionsBackend | None = None,
+    derived: DerivedBackend | None = None,
+    dem: DemTilesBackend | None = None,
+    topo: TopoQuadsBackend | None = None,
+    mwm: ComapsMapsBackend | None = None,
+) -> dict[str, bool]:
+    """Whether each resolved map unit's backend confirms all expected outputs current."""
+    from hammunition.backends.dem import TIF as DATA_TIF
+    from hammunition.backends.dem import TILES as DEM_TILES
+    from hammunition.backends.dem import read_record as read_dem_record
+    from hammunition.backends.fstopo import read_record as read_fstopo_record
+    from hammunition.backends.topo import QUADS as TOPO_QUADS
+    from hammunition.backends.topo import TIF as TOPO_TIF
+    from hammunition.backends.topo import read_record as read_topo_record
+
+    current: dict[str, bool] = {}
+    for planned in plan.packages:
+        block = planned.block.install
+        if isinstance(block, RegionalDataInstall):
+            current[planned.name] = regions is not None and not regions.pending(planned.manifest)
+        elif isinstance(block, DerivedDataInstall):
+            backend = derived
+            if backend is None:
+                current[planned.name] = False
+                continue
+            if block.converter == "navit-maptool":
+                current[planned.name] = not backend.pending(planned.manifest)
+                continue
+            converter = backend.converters.get(block.converter)
+            pending = getattr(converter, "pending", None)
+            if not callable(pending):
+                current[planned.name] = False
+                continue
+            if block.converter in {
+                "routino-planetsplitter",
+                "brouter-mapcreator",
+                "mapsforge-map",
+                "mapsforge-poi",
+                "tilemaker-pmtiles",
+                "graphhopper-import",
+            }:
+                has_pending = bool(pending(planned.manifest, block))
+            else:
+                has_pending = bool(pending(planned.manifest))
+            converter_current = getattr(converter, "current", None)
+            current[planned.name] = (
+                not has_pending and converter_current(planned.manifest)
+                if callable(converter_current)
+                else not has_pending
+            )
+        elif isinstance(block, DemTilesInstall):
+            dem_backend = dem
+            if dem_backend is not None and block.provider != dem_backend.provider:
+                dem_backend = dem_backend.bare_earth
+            if (
+                dem_backend is None
+                or dem_backend.resolution.fetch
+                or dem_backend.resolution.deferred
+            ):
+                current[planned.name] = False
+                continue
+            out = dem_backend.data_dir(planned.manifest)
+            records_current = all(
+                read_dem_record(out / f"{entry.slug}{DEM_TILES}", entry.region, entry.slug) == entry
+                for entry in dem_backend.resolution.regions
+            )
+            current[planned.name] = records_current and all(
+                (out / f"{name}{DATA_TIF}").is_file() for name in dem_backend.resolution.tiles
+            )
+        elif isinstance(block, TopoQuadsInstall):
+            topo_backend = topo
+            fstopo = block.provider == "usfs-fstopo"
+            fs_backend = topo_backend.fstopo if topo_backend is not None and fstopo else None
+            if topo_backend is None:
+                current[planned.name] = False
+                continue
+            resolution = (
+                fs_backend.resolution if fs_backend is not None else (topo_backend.resolution)
+            )
+            if resolution is None or resolution.fetch or resolution.deferred:
+                current[planned.name] = False
+                continue
+            if fs_backend is not None:
+                out = fs_backend.data_dir(planned.manifest)
+                records_current = all(
+                    read_fstopo_record(out / f"{entry.slug}{TOPO_QUADS}", entry.region, entry.slug)
+                    == entry
+                    for entry in resolution.regions
+                )
+            else:
+                out = topo_backend.data_dir(planned.manifest)
+                records_current = all(
+                    read_topo_record(out / f"{entry.slug}{TOPO_QUADS}", entry.region, entry.slug)
+                    == entry
+                    for entry in resolution.regions
+                )
+            current[planned.name] = records_current and all(
+                (out / f"{quad.name}{TOPO_TIF}").is_file() for quad in resolution.wanted
+            )
+        elif isinstance(block, MwmRegionsInstall):
+            current[planned.name] = mwm is not None and not mwm.pending(planned.manifest)
+    return current
 
 
 def commands_for(
@@ -884,6 +1112,7 @@ def commands_for(
     step that installs the software would report success having done nothing.
     """
     track = owners if owners is not None else StepOwners()
+    states = completion_states(plan, regions=regions, derived=derived, dem=dem, topo=topo, mwm=mwm)
     # Each backend's steps in build order; the fetches are lifted out below.
     builds: list[Step] = []
     # A conversion reads data another unit installs in this same run, and
@@ -900,9 +1129,17 @@ def commands_for(
     for planned in plan.packages:
         block = planned.block.install
         marks.append((planned, len(builds), len(conversions)))
-        _note_unit(track, planned, source=source, git=git, binary=binary)
+        _note_unit(track, planned, source=source, git=git, binary=binary, states=states)
         if planned.name in skip_builds and isinstance(
-            block, SourceInstall | GitInstall | BinaryInstall
+            block,
+            SourceInstall
+            | GitInstall
+            | BinaryInstall
+            | RegionalDataInstall
+            | DerivedDataInstall
+            | DemTilesInstall
+            | TopoQuadsInstall
+            | MwmRegionsInstall,
         ):
             # Already built at this pin (D-051, already_built): no fetch, no
             # build, no install. Its launchers and config still run below.
@@ -1156,14 +1393,17 @@ def commands_for(
         # libcap2-bin) re-runs with everything present. Non-interactive: the
         # answer is already in the debconf DB from the preseed above.
         for pkg in plan.reconfigure_after:
-            commands.append(
-                Command(
-                    argv=("dpkg-reconfigure", pkg),
-                    description=f"Re-run {pkg}'s configuration now the whole transaction is present",
-                    requires_root=True,
-                    env={"DEBIAN_FRONTEND": "noninteractive"},
-                )
+            reconfigured = Command(
+                argv=("dpkg-reconfigure", pkg),
+                description=f"Re-run {pkg}'s configuration now the whole transaction is present",
+                requires_root=True,
+                env={"DEBIAN_FRONTEND": "noninteractive"},
             )
+            for planned in plan.packages:
+                method = planned.block.install
+                if isinstance(method, AptInstall) and pkg in method.packages:
+                    track.own(reconfigured, planned.name)
+            commands.append(reconfigured)
 
     commands.extend(builds)
 
@@ -1240,8 +1480,7 @@ def commands_for(
         member = Command(
             argv=("gpasswd", "--add", membership.user, membership.group),
             description=(
-                f"Add {membership.user} to the {membership.group!r} group "
-                f"for {membership.package}"
+                f"Add {membership.user} to the {membership.group!r} group for {membership.package}"
             ),
             requires_root=True,
         )
@@ -1676,6 +1915,8 @@ def execute(
             }
             if unit in owners.pins:
                 entry["pin"] = owners.pins[unit]
+            if unit in owners.states:
+                entry["state"] = owners.states[unit]
             log.append(entry)
         finished.clear()
 
@@ -1792,7 +2033,7 @@ def execute(
     # changed. Re-read the effects from the same sources resolution used, and
     # let the confirmed state -- not the exit code -- be what the log records.
     verification: Verification | None = None
-    if prober is not None or plan.group_memberships or prefix is not None:
+    if prober is not None or plan.group_memberships or prefix is not None or owners is not None:
         try:
             verification = verify_effects(
                 plan,

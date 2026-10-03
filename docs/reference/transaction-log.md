@@ -86,8 +86,39 @@ exit does.
 | `command_end` | After each command that ran | `argv`, `returncode`. |
 | `action_begin` | Before each in-process step | `kind` (`fetch`, `extract`, `config`, `requirements`, `wrapper`, `desktop-entry`, `patch`, `prepare`, `install-binary`, `verify-pin`, `remove-venv`, `remove-wrapper`, `remove-desktop-entry`), `detail`, `description`. |
 | `action_end` | After each in-process step | `kind`, `detail`, `outcome` — one line saying what actually happened. `detail` (added 2026-08-31) is what uninstall's file-attribution replay reads back for `install-binary`; older entries without it leave those installs unattributed, reported and left in place. A step's own facts follow, never over one of those keys: a data download (a `data` unit's file, a map region, a terrain tile) adds `source` (`cache`, `mirror` or `publisher`), `fetched_from` (the URL the bytes came from, absent for `cache`) and, when a LAN mirror was passed over for the publisher, `mirror_failure` saying why (**D-070**). |
+| `unit_end` | When a unit's last owned step exits 0, inside the transaction | `unit`, `ok` (`true`), `run` (the matching `transaction_begin.timestamp`), `catalog_version`, and an optional `pin` for a build or opaque `state` fingerprint for regional, derived, DEM, topo and CoMaps data. |
 | `transaction_failed` | Instead of the rest, on the first failure | the failing `argv`, its `returncode` (or `error` for a missing binary), and how many commands `completed` before it. For an in-process step, `kind` and `detail` in place of `argv`. |
 | `transaction_end` | Once, on the success path | `completed`, and the effect check below. |
+
+### `unit_end` — what a rerun may trust
+
+```json
+{
+  "event": "unit_end",
+  "version": 1,
+  "timestamp": "2026-10-03T12:31:00+00:00",
+  "unit": "osm-pmtiles",
+  "ok": true,
+  "run": "2026-10-03T12:00:00+00:00",
+  "catalog_version": "1.0",
+  "state": "…sha256…"
+}
+```
+
+This records the unit's own completion, not the transaction's outcome. A later
+`transaction_failed` does not take it back. A successful transaction writes
+these records after `verify_effects` and only when that check is not false; a
+run whose final effect check fails does not claim its units completed.
+
+Build units carry their current build-directory `pin` and are trusted only when
+the declared outputs remain on disk. Map and terrain units carry an opaque
+SHA-256 `state` fingerprint of their resolved input pins/digests and selection.
+The raw station region selection is not copied into this field. A rerun trusts
+the record only when that fingerprint still matches and the unit's own backend
+confirms its outputs: regional snapshots and sizes, derived outputs over the
+same inputs and regions, or DEM/topo records under the same bound. A missing or
+stale output, changed input digest, region selection or bound replans the unit.
+An uninstall naming the unit voids its earlier completion.
 
 ### `transaction_end` — version 2, the effect check (D-031)
 
