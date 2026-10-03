@@ -70,6 +70,8 @@ def write_wrapper(path: Path, target: Path) -> str:
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f'#!/bin/sh\nexec "{target}" "$@"\n')
+    # Semgrep: a deliberate mode (0755/0644 on installed files and launchers, 0700 private); nothing group- or world-writable.
+    # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
     os.chmod(path, 0o755)
     return f"wrote {path} -> {target}"
 

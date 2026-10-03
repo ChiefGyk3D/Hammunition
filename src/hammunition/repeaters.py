@@ -1095,6 +1095,8 @@ def _own_dir(where: Path) -> None:
     # directory it just created look like someone else's (CI runs as root).
     if info.st_uid != os.getuid():
         raise OSError(f"{where} is not yours; left as it is")
+    # Semgrep: a deliberate mode (0755/0644 on installed files and launchers, 0700 private); nothing group- or world-writable.
+    # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
     os.chmod(where, 0o700)
 
 
