@@ -40,10 +40,10 @@ unstable. That strengthens rather than weakens the `readsb` recommendation, sinc
 2024, the AHRL install needs a second tarball purely to patch a runtime error,
 and its launcher starts a decoder and `killall -9`s it on exit.
 
-**Flagged cost:** `tar1090`, the modern web UI, is **not packaged**. A complete
-ADS-B story needs a binary or source backend for it, so the *web* half of this
-recommendation is post-1.0 unless the backend lands earlier. The decoder half is
-apt-only and available today.
+**Flagged cost:** `tar1090`, the modern web UI, is **not packaged**. It is
+carried since 2026-10-02 as a pinned data unit that `hammunition reference
+serve` serves on 127.0.0.1 (D-071), which needed no new backend. The decoder
+half is apt-only.
 
 ---
 

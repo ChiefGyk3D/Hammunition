@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 A profile is a named bundle of software that belongs together. Install the
 bundle, not two dozen packages by hand. Profiles are flat tags — they overlap
-(fldigi is in both `digital-modes` and `nbems`) but never nest, so you compose
+(gpsd is in both `station` and `navigation`) but never nest, so you compose
 them freely.
 
 Every command here runs the engine as `hammunition`, which `./bootstrap.sh`
@@ -26,9 +26,12 @@ hammunition install station             # then do it
 ```
 
 It installs hamlib (the library every rig-control program speaks through),
-flrig, CHIRP for programming handhelds, the gpsd stack for a GPS receiver, a
-couple of clocks, and the project's own dashboard and tray switch.
-`hammunition show station` lists every member and why it is there.
+flrig, `rig-service` (one shared `rigctld` for your radio, once you have said
+which radio it is, below), CHIRP for programming handhelds, the gpsd stack for
+a GPS receiver, a couple of clocks, the project's own dashboard, and the tray
+switches for your desktop. `hammunition show station` lists every member and
+why it is there. A member your machine cannot take (the Plasma applet on an
+Xfce desktop, say) is deferred by name and the rest installs.
 
 ## Tell the engine who you are
 
@@ -44,7 +47,34 @@ Use your own callsign and grid; `N0TST` and `FN31pr` are placeholders.
 Saved to `~/.config/hammunition/station.yml`, mode 0600. An interactive install
 that needs a value you have not set will offer to prompt for it; a value left
 blank simply defers the one file that needed it and installs everything else
-(a nineteen-package profile does not refuse because one file wants a callsign).
+(a profile does not refuse because one file wants a callsign).
+
+## Tell it which radio you have
+
+If you control a radio from the computer (CAT), say which one once, and the
+`rig-service` that came with `station` runs one shared `rigctld` for every
+program. `rig-service` waits for this, so until you do it is reported as
+deferred, and that is not a failure:
+
+```sh
+hammunition station set --rig yaesu-ft-991a --rig-device /dev/serial/by-id/usb-... --rig-baud 38400
+hammunition install rig-service
+```
+
+[Rig control](../guides/rig-control.md) finds the port, the model number and
+the baud rate, and covers a radio with no CAT and the flrig route.
+
+## Then the hardware step
+
+```sh
+hammunition hardware apply --dry-run
+hammunition hardware apply
+```
+
+This writes the udev rules for the devices the catalog knows, adds you to the
+groups they need (log out and back in afterward), and writes the lists the
+tray switches read ([the tray's Controls
+panel](../guides/tray-controls.md)). It prints every file first.
 
 ## Then a mode profile
 

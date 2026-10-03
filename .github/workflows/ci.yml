@@ -72,6 +72,18 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
+      # A change to src/, catalog/ or docs/guides/ carries a changelog.d/
+      # fragment (D-031's neighbour: the test, not a script, holds the rule).
+      # Here, with the history, an unfetched base fails instead of skipping.
+      - name: A fragment for a change that needs one
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          pip install pytest
+          git fetch --no-tags origin "$BASE:refs/remotes/origin/$BASE"
+          # --noconftest: the check is stdlib-only; conftest imports the engine.
+          HAMMUNITION_REQUIRE_PR_RANGE=1 python -m pytest tests/test_changelog.py -q \
+            -p no:cacheprovider --noconftest
       - name: Every commit in the pull request
         run: |
           set -euo pipefail
@@ -196,6 +208,42 @@ jobs:
       # names the offending rule and line, which a pytest assertion cannot.
       - run: python scripts/audit_gitignore.py
       - run: pytest tests/test_repo_hygiene.py tests/test_gitignore_audit.py
+
+  # -------------------------------------------------------------------------
+  # A pin a pull request changes is checked in that pull request.  D-024.
+  #
+  # The weekly job below still checks all of them, but a wrong or unfetchable
+  # ref merged on a Wednesday is an install that fails for every user until the
+  # next Monday (librevna, nrsc5 and pihpsdr, 2026-10-02, were reported by the
+  # weekly job after v0.19.0 shipped). Only the manifests the diff touched are
+  # fetched, so this costs seconds and needs the network for this job alone.
+  # -------------------------------------------------------------------------
+  changed-pins:
+    name: changed git pins resolve upstream
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - name: Verify the git refs of changed manifests
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # Added, modified or renamed manifests only; a deleted one has
+          # nothing left to resolve.
+          mapfile -t changed < <(git diff --name-only --diff-filter=AMR "$BASE...$HEAD" -- 'catalog/packages/*.yaml')
+          if [ "${#changed[@]}" -eq 0 ]; then
+            echo "no package manifest changed"
+          else
+            python scripts/check_pin_reviews.py --verify-refs --only "${changed[@]}"
+          fi
 
   # -------------------------------------------------------------------------
   # Commit pins go stale on a calendar, not on a commit.  D-024.

@@ -10,16 +10,17 @@ afterwards, and how to reverse it.
 
 **What follows is a mix of two kinds of claim, and they are kept visibly
 apart.** What the engine writes to sysfs, and reads back to confirm, is
-measured — it is exercised by this branch's own test suite on every run.
-What a device is expected to *look like* to the rest of the system while
-parked — `lsusb`, `dmesg`, gpsd's own hot-unplug handling — is not: **no
-park or wake has been run against real hardware yet**, on the field laptop
-or anywhere else. `docs/reference/bench-verification-5430.md` gets a line
-only once that has actually happened; until then, treat every claim below
-about consumer-visible behaviour as an expectation from reading the kernel's
-own sysfs documentation, not a measurement, the same way
-`catalog/hardware/classes/gps-receiver.yaml`'s `power_control.note` already
-hedges it for the one device that carries this block today.
+measured — it is exercised by the test suite on every run. **One device has
+also been run on hardware**: the field laptop's USB GPS receiver was parked
+and woken from the tray on 2026-09-27 (bench session 10 in
+`docs/reference/bench-verification-5430.md`), and what that run saw is stated
+below as measured. Nothing else has: **no modem, Bluetooth controller or
+camera has been parked, no park has been run from the CLI or a menu entry on
+hardware, and no reboot or replug with a device kept off has been run.** For
+every claim below about a device other than that GPS receiver, and for the
+claims the run did not cover, treat it as an expectation from reading the
+kernel's own sysfs documentation, not a measurement, the same way each
+class's `power_control.note` hedges it.
 
 ## What parking is, and what it is not
 
@@ -34,13 +35,14 @@ the interfaces, `state` could never report a device as parked and `wake`
 would have nothing to write to — parking a device does not remove it from
 the bus, it deauthorizes it on the bus.
 
-What a parked device is expected to look like elsewhere is not measured:
-`dmesg` logging a disconnect, `lsusb` no longer listing it, a serial
-consumer like `cgps` losing its port. Every interface really is gone, so
-that is the expected shape, but it has not been checked against a real
-device here. Waking writes `1` back to `authorized`; the kernel
-re-enumerates the device as if it had just been plugged in — expected to
-produce a fresh `dmesg` attach and `lsusb` entry, again unmeasured.
+What a parked device looks like elsewhere, measured on the GPS receiver
+(session 10): **`lsusb` still lists it** — deauthorising drops its
+interfaces, not its USB entry — while gpsd's `gpsdctl@ttyACM0` removed it
+from the running gpsd within a second and `/dev/ttyACM0` was gone. Waking
+writes `1` back to `authorized`; the kernel logged `authorized to connect`
+and re-created `ttyACM0` and `/dev/gps0` within a second, and gpsd took the
+receiver back with no action from the operator. How a modem, a Bluetooth
+controller or a camera looks while parked is not measured.
 `power/control` is left alone on wake, deliberately — restoring it to `on`
 would undo a runtime power-management setting a udev rule or the operator
 already owns.
@@ -123,7 +125,7 @@ interfaces and the port may suspend, and the supply is not cut. For the
 radios there is a lighter switch that detaches nothing and needs no root in the
 active session: `nmcli radio wwan off` and `bluetoothctl power off`, which
 the helper's planned `radio off wwan` and `radio off bluetooth` verbs and the
-tray's Radios toggles are to wrap (not yet released). A camera has no such switch, and a park of it is
+tray's Radios toggles wrap (hammunition-tray 0.5.0; exercised against fakes only, never against a real NetworkManager or BlueZ). A camera has no such switch, and a park of it is
 the kernel's view and not a hardware privacy guarantee.
 
 The `gps-receiver` `power_control.note` is the model for how an unmeasured
@@ -388,7 +390,7 @@ foreign line to a file of its own and try again.
 
 The helper's code is leaving this engine for
 [`hammunition-tray`](https://github.com/ChiefGyk3D/hammunition-tray), which
-owns everything device-shaped. Two things follow, both already in this
+owns everything device-shaped. Three things follow, all already in this
 engine:
 
 - **Two more root files.** The helper no longer imports the engine's catalog:
@@ -445,11 +447,11 @@ engine:
   the action is actually registered (an `apply` that was never run, or one
   whose policy file failed verification, leaves this command reporting
   nothing for that action id).
-- **`lsusb`** — expected, not yet confirmed here, to no longer list a parked
-  device (every interface really is dropped) and to list a woken one again
-  under a fresh enumeration. Useful as a second, independent view once it
-  has been checked against `authorized` at least once; not a substitute for
-  reading `authorized` directly, which is the file the engine itself trusts.
+- **`lsusb`** — a parked device is **still listed** (measured on the GPS
+  receiver, bench session 10: deauthorising drops its interfaces, not its USB
+  entry), so `lsusb` cannot tell you whether something is parked. Read
+  `authorized` for that, the file the engine itself trusts; the missing
+  `/dev/ttyACM0` or `/dev/gps0` is the visible sign for a serial device.
 
 ## How to reverse it
 
@@ -590,16 +592,22 @@ automatically, and the manual steps above are what recovers it. Until the
 bench steps are run this is the design the measurement points to, not a
 measured recovery.
 
-## The tray applet
+## The tray applet and its Controls panel
 
-A Plasma system-tray toggle that parks and wakes a device with one click lives
-in a separate repository, [`hammunition-tray`](https://github.com/ChiefGyk3D/hammunition-tray)
-— not in this one. It is a client of the engine exactly as the CLI and the
-generated menu entries are: it calls the same `pkexec
-/usr/local/libexec/hammunition-devctl park|wake|state` that `hardware apply`
-installs, through the same one polkit action, and needs nothing of its own
-installed as root. See its own README for setup; a non-Hammunition user who
-only wants the tray switch can be pointed straight at it.
+A Plasma system-tray applet, and for Xfce, LXQt, LXDE, MATE and Cinnamon a Qt
+tray icon, live in a separate repository,
+[`hammunition-tray`](https://github.com/ChiefGyk3D/hammunition-tray), not in
+this one. Each is a client of the engine exactly as the CLI and the generated
+menu entries are: it calls the same `pkexec
+/usr/local/libexec/hammunition-devctl park|wake|state` through the same one
+polkit action. Since its 0.5.0 it also has a **Controls panel** with three
+groups: the devices on this page, the services the helper controls, and the
+machine's radios. The `hammunition-tray` and `hammunition-tray-qt` units
+install the applet or tray and the helper together. How to use the panel, and
+which switch asks for a password, is
+[the tray's Controls panel](../guides/tray-controls.md); the same switches as
+commands are `hammunition hardware park` and `wake` here and
+`hammunition services` in the [command reference](../reference/cli.md).
 
 ## Troubleshooting
 

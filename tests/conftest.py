@@ -47,6 +47,7 @@ from typing import Any
 import pytest
 
 import hammunition.sudo_ticket as sudo_ticket
+from hammunition import runlog
 from hammunition.backends.base import Command, CommandResult, SubprocessRunner
 from hammunition.paths import artifact_cache_dir
 
@@ -54,6 +55,7 @@ _real_connect = socket.socket.connect
 _real_connect_ex = socket.socket.connect_ex
 _real_run = SubprocessRunner.run
 _real_sudo_run = sudo_ticket._run
+_real_logs_dir = runlog.logs_dir
 
 MACHINE_QUERIES = frozenset(
     {
@@ -436,6 +438,25 @@ def _no_host_dpkg_for_the_helper(monkeypatch: pytest.MonkeyPatch) -> None:
     from hammunition.hardware import polkit
 
     monkeypatch.setattr(polkit, "writable_including_symlink_target", lambda *a, **k: None)
+
+
+@pytest.fixture(autouse=True)
+def _run_logs_in_tmp(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> Path:
+    """Every command that leaves a run log (D-077) writes it under a temporary
+    directory, never the real ~/.local/state/hammunition/logs of the machine
+    running the suite. Tests of the directory's own resolution use
+    `real_logs_dir`."""
+    root = tmp_path_factory.mktemp("run-logs")
+    monkeypatch.setattr(runlog, "logs_dir", lambda owner=None: root)
+    return root
+
+
+@pytest.fixture
+def real_logs_dir(monkeypatch: pytest.MonkeyPatch) -> Any:
+    """The genuine :func:`hammunition.runlog.logs_dir`, un-patched."""
+    return _real_logs_dir
 
 
 @pytest.fixture(autouse=True)

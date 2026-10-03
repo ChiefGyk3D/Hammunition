@@ -40,6 +40,12 @@ SPDX-FileCopyrightText = "Copyright (C) 2026 Renegade Penguin LLC"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
 [[annotations]]
+path = "changelog.d/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright (C) 2026 Renegade Penguin LLC"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
 path = ["README.md", "CLAUDE.md", "Makefile", "pyproject.toml", ".gitignore"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright (C) 2026 Renegade Penguin LLC"
