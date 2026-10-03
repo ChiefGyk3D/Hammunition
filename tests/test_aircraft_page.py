@@ -420,7 +420,7 @@ def test_nothing_aircraft_is_served_when_the_unit_is_not_installed(tmp_path: Pat
 
 
 def test_the_server_is_still_bound_to_loopback(served: tuple[int, AircraftShelf]) -> None:
-    from test_map_serve import listening_addresses
+    from hammunition.listening import listening_addresses
 
     assert listening_addresses(served[0]) == {"0100007F"}
 
