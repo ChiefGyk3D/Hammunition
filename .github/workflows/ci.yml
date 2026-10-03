@@ -115,7 +115,27 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: pip install -e ".[dev]"
+      # The tether contract test reads hammunition-gps-tether's source and
+      # skipped without it, so the drift check never ran (#215). The tag is
+      # read from the manifest, never written here: a re-pin moves CI too.
+      - name: Read the tether tag the catalog pins
+        id: tether_tag
+        run: |
+          tag=$(grep -oP 'hammunition-gps-tether/archive/refs/tags/\Kv[0-9][^/ ]*?(?=\.tar\.gz)' catalog/packages/gps-tether.yaml | head -n 1)
+          test -n "$tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          repository: ChiefGyk3D/hammunition-gps-tether
+          ref: ${{ steps.tether_tag.outputs.tag }}
+          path: gps-tether-src
+          persist-credentials: false
+      # actions/checkout cannot write outside the workspace; the test looks
+      # beside it.
+      - run: mv gps-tether-src ../hammunition-gps-tether
       - run: pytest
+        env:
+          HAMMUNITION_REQUIRE_TETHER: "1"
 
   # -------------------------------------------------------------------------
   # One container per target distro. Capability-matrix claims must be backed
