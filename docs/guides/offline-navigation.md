@@ -2545,10 +2545,10 @@ laptop and been recorded in `docs/reference/bench-verification-5430.md`:
   (2026-09-28: `index-v1-nogeom.json`, 555 regions parsed by `region_ids`).
   `UrllibProbe.head` — the reachability check a fetch, and now a plan-time
   region check, both depend on — was exercised live by the whole-profile dry
-  run of bench session 13 (2026-10-02): ten regions against Geofabrik, 32
-  CoMaps maps and 7,284 US Topo sheets against their servers, nothing
-  deferred, 9 m 49 s. That is a plan, not an install: no fetch of a region
-  has been measured through it.
+  run of bench session 13 (2026-10-02): the plan-time checks of the station's
+  regions, the CoMaps maps and the US Topo sheets against their servers all
+  ran, and nothing was deferred. That is a plan, not an install: no fetch of a
+  region has been measured through it.
 
 For the QMapShack units (**D-061**), the converters and their sizes were
 measured on one region on the development host. None of the following has
