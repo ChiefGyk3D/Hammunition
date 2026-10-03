@@ -251,12 +251,18 @@ class DataBackend:
         if artifact.into is not None:
             # The unit's own directory, which a first archive with `into` makes.
             dest.parent.mkdir(parents=True, exist_ok=True)
+            # Semgrep: a deliberate mode (0755/0644 on installed files and launchers, 0700 private); nothing group- or world-writable.
+            # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
             os.chmod(dest.parent, 0o755)
         outcome = extract(path, dest, members=artifact.members)
         installed = sorted(p for p in dest.rglob("*") if p.is_file())
         for p in installed:
             os.chmod(p, 0o644)
         for d in (p for p in dest.rglob("*") if p.is_dir()):
+            # Semgrep: a deliberate mode (0755/0644 on installed files and launchers, 0700 private); nothing group- or world-writable.
+            # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
             os.chmod(d, 0o755)
+        # Semgrep: a deliberate mode (0755/0644 on installed files and launchers, 0700 private); nothing group- or world-writable.
+        # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
         os.chmod(dest, 0o755)
         return f"{outcome}; {len(installed)} file(s) under {dest}"
