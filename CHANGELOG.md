@@ -353,6 +353,16 @@ Nothing yet.
   Completion records on successful runs follow effect verification.
 - CI calls ChiefGyk3D/git-your-ship-together v1.7.1 for ruff, `mypy --strict`, the pytest matrix (3.11 to 3.14) and workflow lint (`ci / CI green`), adds a `security.yml` caller (CodeQL, gitleaks, Scorecard, pip-audit) and a Dependabot entry for the pins; `pages.yml` and `wiki.yml` become callers of its `docs-pages.yml` and `wiki-publish.yml`; the per-distribution containers, commit claims, pin and citation checks, link check and repo hygiene stay local; the tether checkout moves into `scripts/ci-test.sh`; required checks are listed in `docs/contributing/ci.md`.
 - A release workflow: a `v*` tag builds the documentation site and a source archive through GYST's `artifact-release`, checks the tag against `pyproject.toml`, takes the notes from that version's changelog section, signs and publishes them; the site tarball is what the coming `hammunition-docs` offline unit pins.
+- **The failed apt-fetch regression test reads the transaction log from the engine's resolved state path** (#268). It pins the run to root so `XDG_STATE_HOME` is honored under `unshare -r`.
+- Correct the station-settings guide with a generated, drift-checked table of every manifest's configuration files, station values and per-file deferrals; distinguish chrony's fixed drop-ins from ntpsec's helper-managed files (#277, D-035, D-058, D-072).
+- Add typed consent for planned file-capability grants, with exact-value scripted affirmation and uninstall reversal for #96; declining keeps LinBPQ unprivileged and installs the rest.
+- Isolate the real-catalog `list` test from the caller's transaction log and assert the empty-state path does not run `dpkg-query` (fixes #265).
+- **Mesh and Reticulum inventory** (documentation only, Track C, issue #105).
+  `docs/reference/mesh-inventory.md` measures the Reticulum, Meshtastic and MeshCore
+  tools on 2026-10-03: versions, licences (the non-OSI Reticulum License, Sideband
+  and LXST under Creative Commons non-commercial terms), hash-pinned closures
+  (`docs/reference/mesh-venv-closures.txt`), venv sizes, arm64 wheel gaps, archive
+  presence per target, and the `meshtasticd` repository keys for D-040.
 
 ## v0.19.0 — 2026-10-02 — the rig as station data, repeater sources, infrastructure layers, GraphHopper, terrain for coverage plots, the tether as its own project, device and service control for the tray
 
