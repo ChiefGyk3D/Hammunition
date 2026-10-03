@@ -1478,10 +1478,14 @@ the plan lists the unit that failed and the ones after it. A built unit is
 skipped (planned `already installed`) only when its declared binaries and tree
 marker are on disk and the recording is at the manifest's current pin; a
 missing file, or a moved pin, plans the build again. Units installed through
-apt are decided by apt as before. A unit the log does not show finishing is
-planned in full; map units that share a ledger (`osm-regions`, the converters,
-the terrain and topo units) are not recorded per unit and are planned as they
-were.
+apt are decided by apt as before. Regional, derived, DEM, topo and CoMaps units
+also resume when their completion fingerprint still matches the resolved
+inputs and selection, and their backend confirms the expected files and records
+are current. Changing a region, input digest or topo bound—or losing an output—
+plans that unit again. The fingerprint is opaque and does not store the station's
+raw region selection. Shared map-ledger checks are owned by the units they
+validate. On a successful run, completion records are written only after
+`verify_effects`; a failed check does not claim completion.
 
 ### `hammunition uninstall NAME... [--dry-run] [--yes] [-v|--verbose] [--user NAME]`
 

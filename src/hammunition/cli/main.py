@@ -117,6 +117,8 @@ from hammunition.execute import (
     build_dir,
     build_effects_present,
     commands_for,
+    completion_on_disk,
+    completion_states,
     execute,
     run_removal,
     user_groups,
@@ -4225,10 +4227,32 @@ def cmd_install(args: argparse.Namespace) -> int:
             print("\nNothing was changed.", file=sys.stderr)
             refused("disk space", short)
             return EXIT_UNPLANNABLE
-    # D-051: a build present on disk that the log attributes to this engine
-    # at the manifest's pin is already installed; its build steps are skipped.
+    # D-051 and #279: builds and resolved data whose last run completed and
+    # whose current inputs and outputs still match need no fetch or conversion.
+    resume_states = completion_states(
+        plan,
+        regions=regions,
+        derived=derived,
+        dem=terrain.dem,
+        topo=terrain.topo,
+        mwm=mwm,
+    )
     built = already_built(
-        plan, log=read_log, prefix=source.prefix, source=source, git=git, binary=binary
+        plan,
+        log=read_log,
+        prefix=source.prefix,
+        source=source,
+        git=git,
+        binary=binary,
+        states=resume_states,
+        on_disk=completion_on_disk(
+            plan,
+            regions=regions,
+            derived=derived,
+            dem=terrain.dem,
+            topo=terrain.topo,
+            mwm=mwm,
+        ),
     )
     step_owners = StepOwners()
     commands = commands_for(
