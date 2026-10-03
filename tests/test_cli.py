@@ -927,10 +927,12 @@ def test_a_failed_apt_fetch_advises_retry_without_changing_failure_log(
     runner = FetchFailureRunner()
     monkeypatch.setattr(cli, "SubprocessRunner", lambda: runner)
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    monkeypatch.delenv("SUDO_USER", raising=False)
+    monkeypatch.setenv("USER", "root")
 
     rc = main(["--catalog", str(CATALOG), "install", "--yes", "--no-refresh", "git"])
     err = capsys.readouterr().err
-    log = TransactionLog(tmp_path / "state" / "hammunition" / "transactions.jsonl")
+    log = TransactionLog(log_path())
 
     assert rc == EXIT_FAILED
     assert "-o Acquire::Retries=3" in err
