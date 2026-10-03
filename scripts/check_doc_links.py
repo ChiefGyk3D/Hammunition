@@ -82,6 +82,11 @@ def is_system_path(target: str) -> bool:
 # which is the same bug the `.gitignore` had. A test asserts they are scanned.
 SKIP_ROOTS = {"reference", "vendor"}
 SKIP_ANYWHERE = {".git", "node_modules", ".venv", "__pycache__"}
+# Design specs and implementation plans under docs/superpowers/ describe files
+# that live in another repository (the console, the tray) or that do not exist
+# until the plan is executed. Their markdown links are still checked; only the
+# backticked repo-path check is skipped for them, and only for them.
+PATH_CHECK_EXEMPT = ("docs/superpowers/",)
 
 # Paths named in prose that are deliberately not repo files.
 #
@@ -159,6 +164,13 @@ def _git_ignored(paths: list[Path]) -> set[Path]:
     return {Path(p) for p in result.stdout.split("\0") if p}
 
 
+def path_check_exempt(rel: Path) -> bool:
+    """True for a doc whose backticked paths name files in another repository
+    or files a plan has not yet produced (``docs/superpowers/``); its markdown
+    links are still checked."""
+    return rel.as_posix().startswith(PATH_CHECK_EXEMPT)
+
+
 def check() -> int:
     broken: list[str] = []
     checked = 0
@@ -177,6 +189,8 @@ def check() -> int:
             if not (md.parent / path).resolve().exists():
                 broken.append(f"{rel}: [link] {target}")
 
+        if path_check_exempt(rel):
+            continue
         for target in BACKTICK_PATH.findall(text):
             if target in ALLOW_MISSING or Path(target).name in ALLOW_MISSING:
                 continue

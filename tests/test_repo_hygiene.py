@@ -497,3 +497,23 @@ def test_link_checker_distinguishes_machine_paths_from_repo_paths(
     checker = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(checker)
     assert checker.is_system_path(path) is is_system
+
+
+def test_only_superpowers_records_skip_the_backticked_path_check() -> None:
+    """A plan under docs/superpowers/ names files in the console repository
+    and files it has not written yet; every other doc's backticked paths are
+    checked (the checker would otherwise have passed the whole site on a
+    broken reference once, which is the bug it exists to catch)."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "check_doc_links", Path(__file__).resolve().parents[1] / "scripts" / "check_doc_links.py"
+    )
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod.path_check_exempt(Path("docs/superpowers/plans/2026-10-03-x.md"))
+    assert mod.path_check_exempt(Path("docs/superpowers/specs/2026-10-03-x-design.md"))
+    assert not mod.path_check_exempt(Path("docs/guides/offline-navigation.md"))
+    assert not mod.path_check_exempt(Path("docs/superpowers.md"))
+    assert not mod.path_check_exempt(Path("README.md"))

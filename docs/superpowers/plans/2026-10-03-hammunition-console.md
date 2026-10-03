@@ -3308,7 +3308,8 @@ class Shell:
             for screen in self.stack:
                 screen.on_hide()
             self.stack.clear()
-        screen = self.registry[name](self, **kwargs)
+        screen_class = self.registry[name]
+        screen = screen_class(self, **kwargs)
         if name in SCREENS:
             self.config.last_screen = name
             self.save_config()
