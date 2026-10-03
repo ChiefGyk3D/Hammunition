@@ -58,12 +58,14 @@
     "commands": [
       {
         "description": "Refresh apt package lists",
-        "display": "sudo env DEBIAN_FRONTEND=noninteractive apt-get update",
+        "display": "sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 update",
         "argv": [
           "sudo",
           "env",
           "DEBIAN_FRONTEND=noninteractive",
           "apt-get",
+          "-o",
+          "Acquire::Retries=3",
           "update"
         ],
         "action": null,
@@ -73,12 +75,14 @@
       },
       {
         "description": "Install 1 package(s) with apt",
-        "display": "sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-remove -- fixture-apt",
+        "display": "sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 install --yes --no-remove -- fixture-apt",
         "argv": [
           "sudo",
           "env",
           "DEBIAN_FRONTEND=noninteractive",
           "apt-get",
+          "-o",
+          "Acquire::Retries=3",
           "install",
           "--yes",
           "--no-remove",

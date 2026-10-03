@@ -197,6 +197,8 @@ def test_installation_is_one_transaction_deduplicated_and_ordered() -> None:
     assert len(commands) == 1
     assert commands[0].argv == (
         "apt-get",
+        "-o",
+        "Acquire::Retries=3",
         "install",
         "--yes",
         "--no-remove",
@@ -204,6 +206,11 @@ def test_installation_is_one_transaction_deduplicated_and_ordered() -> None:
         "rtl-sdr",
         "tcpdump",
     )
+
+
+def test_refresh_command_retries_archive_fetches() -> None:
+    command = AptBackend(RecordingRunner()).refresh_command()
+    assert command.argv == ("apt-get", "-o", "Acquire::Retries=3", "update")
 
 
 def test_installing_nothing_produces_no_command() -> None:
@@ -232,6 +239,8 @@ def test_a_unit_may_opt_out_of_recommends_for_its_own_command() -> None:
     (command,) = AptBackend(RecordingRunner()).install_commands(["morse"], recommends=False)
     assert command.argv == (
         "apt-get",
+        "-o",
+        "Acquire::Retries=3",
         "install",
         "--yes",
         "--no-remove",
@@ -250,6 +259,8 @@ def test_the_opted_out_simulate_asks_the_question_the_install_will_ask() -> None
     )
     assert command.argv == (
         "apt-get",
+        "-o",
+        "Acquire::Retries=3",
         "install",
         "--simulate",
         "--yes",

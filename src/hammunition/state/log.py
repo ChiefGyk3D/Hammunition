@@ -86,11 +86,18 @@ class TransactionLog:
     def append(self, entry: Mapping[str, Any]) -> None:
         if "event" not in entry:
             raise ValueError("transaction log entries must carry an 'event' key")
-        self._reject_secrets(entry)
+        record = dict(entry)
+        if record["event"] in ("transaction_begin", "uninstall_begin") and "run_log" not in record:
+            from hammunition import runlog
+
+            current_run = runlog.current()
+            if current_run is not None:
+                record["run_log"] = str(current_run.path)
+        self._reject_secrets(record)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        line = json.dumps(entry, sort_keys=False, default=str)
-        with self._locked(exclusive=entry["event"] == "transaction_begin"):
-            if entry["event"] == "transaction_begin":
+        line = json.dumps(record, sort_keys=False, default=str)
+        with self._locked(exclusive=record["event"] == "transaction_begin"):
+            if record["event"] == "transaction_begin":
                 # Best effort: a full disk or a stale file must not stop the
                 # transaction from recording that it began.
                 with contextlib.suppress(OSError):

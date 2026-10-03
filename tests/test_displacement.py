@@ -377,7 +377,16 @@ def test_simulate_carries_what_apt_would_remove() -> None:
     from hammunition.backends import AptBackend, CommandResult
     from hammunition.backends.base import RecordingRunner
 
-    argv = ("apt-get", "install", "--simulate", "--yes", "--", "wsjtx-improved")
+    argv = (
+        "apt-get",
+        "-o",
+        "Acquire::Retries=3",
+        "install",
+        "--simulate",
+        "--yes",
+        "--",
+        "wsjtx-improved",
+    )
     runner = RecordingRunner(
         {shlex.join(argv): CommandResult(argv=argv, returncode=0, stdout=KALI_REMV, stderr="")}
     )
