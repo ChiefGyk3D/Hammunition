@@ -169,7 +169,13 @@ def check_range(root: Path, base_ref: str) -> str | None:
         ).stdout
         return out.split()
 
-    return pr_problem(diff(), diff("--diff-filter=A"), diff("--diff-filter=D"))
+    try:
+        return pr_problem(diff(), diff("--diff-filter=A"), diff("--diff-filter=D"))
+    except FileNotFoundError as err:
+        raise FragmentError("git is not installed; check-pr needs it to read the range") from err
+    except subprocess.CalledProcessError as err:
+        detail = (err.stderr or "").strip()
+        raise FragmentError(f"git could not diff {base_ref}...HEAD: {detail}") from err
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -188,7 +194,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "check-pr":
-        problem = check_range(args.root, args.base)
+        try:
+            problem = check_range(args.root, args.base)
+        except FragmentError as err:
+            print(f"changelog: {err}", file=sys.stderr)
+            return 2
         if problem:
             print(f"changelog: {problem}", file=sys.stderr)
             return 1

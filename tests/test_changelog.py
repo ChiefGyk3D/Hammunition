@@ -16,6 +16,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -245,6 +246,10 @@ def _pr_repo(tmp_path: Path, files: dict[str, str]) -> Path:
     return tmp_path
 
 
+needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
+
+
+@needs_git
 def test_check_range_goes_red_without_a_fragment_and_green_with_one(tmp_path: Path) -> None:
     (tmp_path / "a").mkdir()
     without = _pr_repo(tmp_path / "a", {"src/x.py": "1\n"})
@@ -258,6 +263,14 @@ def test_check_range_goes_red_without_a_fragment_and_green_with_one(tmp_path: Pa
     (tmp_path / "c").mkdir()
     docs_only = _pr_repo(tmp_path / "c", {"docs/DECISIONS.md": "d\n"})
     assert cl.check_range(docs_only, "main") is None
+
+
+def test_check_pr_without_git_says_so_instead_of_a_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("PATH", str(tmp_path))  # an empty place: no git
+    assert cl.main(["--root", str(tmp_path), "check-pr", "--base", "origin/main"]) == 2
+    assert "git" in capsys.readouterr().err
 
 
 def test_fragments_sort_by_kind_then_numerically_whatever_the_names(tmp_path: Path) -> None:
@@ -292,6 +305,7 @@ def test_a_heading_line_in_a_fragment_is_refused(tmp_path: Path) -> None:
     assert cl.main(["--root", str(root), "preview"]) != 0
 
 
+@needs_git
 def test_a_pull_request_that_changes_the_product_carries_a_fragment() -> None:
     base = os.environ.get("GITHUB_BASE_REF")
     required = bool(os.environ.get("HAMMUNITION_REQUIRE_PR_RANGE"))
