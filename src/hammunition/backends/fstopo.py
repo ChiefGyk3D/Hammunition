@@ -30,6 +30,7 @@ from pathlib import Path
 from ..fetch import Fetcher
 from ..fstopo import FsQuad, FsQuadFile, FstopoError, parse_row, render_row
 from ..manifest.schema import PackageManifest, RemoteArtifact, TopoQuadsInstall
+from ..topo_bound import bound_line, split_bound
 from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
 from .regions import MIB, data_root, prefix_writer, removal_steps
@@ -52,10 +53,16 @@ class RegionSheets:
     region: str
     slug: str
     quads: tuple[FsQuad, ...]
+    bound: str = "all"
+    """What the selection was made under (:attr:`TopoBound.token`)."""
 
 
 def render_record(entry: RegionSheets) -> str:
-    return f"{_HEADER}{len(entry.quads)}\n" + "".join(f"{render_row(q)}\n" for q in entry.quads)
+    return (
+        f"{_HEADER}{len(entry.quads)}\n"
+        + bound_line(entry.bound)
+        + "".join(f"{render_row(q)}\n" for q in entry.quads)
+    )
 
 
 def read_record(path: Path, region: str, slug: str) -> RegionSheets | None:
@@ -67,14 +74,15 @@ def read_record(path: Path, region: str, slug: str) -> RegionSheets | None:
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     if not lines or not lines[0].startswith(_HEADER):
         return None
-    count, rows = lines[0][len(_HEADER) :], lines[1:]
+    count = lines[0][len(_HEADER) :]
+    bound, rows = split_bound(lines[1:])
     if not count.isdigit() or int(count) != len(rows):
         return None
     try:
         quads = [parse_row(row, number) for number, row in enumerate(rows, 2)]
     except FstopoError:
         return None
-    return RegionSheets(region, slug, tuple(sorted(quads, key=lambda q: q.secoord)))
+    return RegionSheets(region, slug, tuple(sorted(quads, key=lambda q: q.secoord)), bound)
 
 
 @dataclass(frozen=True)
@@ -177,6 +185,7 @@ class FsTopoBackend:
                     detail=str(dest),
                     perform=partial(self._install, sheet, fetched, dest, writer),
                     requires_root=writer.privileged,
+                    facts={"size": str(sheet.size)},
                 )
             )
         for entry in self.resolution.regions:

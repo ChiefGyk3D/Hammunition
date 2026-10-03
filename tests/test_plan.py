@@ -100,6 +100,7 @@ def _resolve(tmp_path: Path, names: list[str], **kwargs: Any) -> Any:
         apt=kwargs.pop("apt", None) or _apt(tmp_path, known),
         user=kwargs.pop("user", "operator"),
         kernel=kwargs.pop("kernel", None),
+        java=kwargs.pop("java", None),
         desktops=kwargs.pop("desktops", None),
         log=kwargs.pop("log", None),
         station=kwargs.pop("station", None),

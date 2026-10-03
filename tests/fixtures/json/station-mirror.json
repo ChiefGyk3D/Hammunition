@@ -16,5 +16,8 @@
   "rig_baud": null,
   "rig_ptt_line": null,
   "rig_owner": null,
-  "dem_source": "copernicus"
+  "dem_source": "copernicus",
+  "topo_radius_km": 100,
+  "topo_regions": [],
+  "topo_all": false
 }

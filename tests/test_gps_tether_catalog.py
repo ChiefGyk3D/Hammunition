@@ -46,7 +46,7 @@ def test_it_is_the_tags_tarball_pinned_by_sha256_and_installed_as_a_tree() -> No
     assert block.format == "tarball" and block.install_tree
     assert block.tree_marker == "src/hammunition_gps_tether/__main__.py"
     assert block.artifact.url == (
-        "https://github.com/ChiefGyk3D/hammunition-gps-tether/archive/refs/tags/v0.1.0.tar.gz"
+        "https://github.com/ChiefGyk3D/hammunition-gps-tether/archive/refs/tags/v0.1.1.tar.gz"
     )
     assert re.fullmatch(r"[0-9a-f]{64}", block.artifact.sha256)
     assert not is_unpinned(), "the placeholder digest is still in the manifest"
@@ -54,8 +54,8 @@ def test_it_is_the_tags_tarball_pinned_by_sha256_and_installed_as_a_tree() -> No
 
 def test_the_unit_names_the_tag_it_pins() -> None:
     unit = _unit()
-    assert unit.version == "0.1.0"
-    assert "/v0.1.0.tar.gz" in _artifact().artifact.url
+    assert unit.version == "0.1.1"
+    assert "/v0.1.1.tar.gz" in _artifact().artifact.url
 
 
 def test_the_service_is_the_tethers_two_loopback_ports_with_no_device() -> None:
@@ -69,7 +69,7 @@ def test_the_service_is_the_tethers_two_loopback_ports_with_no_device() -> None:
         "-m",
         "hammunition_gps_tether",
     ]
-    assert svc.restart_prevent_exit_status == [1]  # the tether's refusals (a taken port)
+    assert svc.restart_prevent_exit_status == [3]  # the tether's refusals; a crash (1) is retried
     assert [(lst.address, lst.port) for lst in svc.listens] == [
         ("127.0.0.1", 10110),
         ("127.0.0.1", 10111),
@@ -89,7 +89,7 @@ def test_it_plans_a_user_unit_with_no_station_and_no_hardware_catalog() -> None:
         "ExecStart=/usr/bin/env PYTHONPATH=/usr/local/share/hammunition/gps-tether/src "
         "/usr/bin/python3 -P -m hammunition_gps_tether\n"
     ) in svc.unit_body
-    assert "RestartPreventExitStatus=1\n" in svc.unit_body
+    assert "RestartPreventExitStatus=3\n" in svc.unit_body
     assert "Restart=on-failure" in svc.unit_body and "RestartSec=5" in svc.unit_body
     assert "BindsTo" not in svc.unit_body
 
