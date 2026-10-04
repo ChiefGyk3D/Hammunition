@@ -41,6 +41,8 @@ jobs:
         pip install pip-audit==2.10.1
       audit-command: pip-audit --requirement "$RUNNER_TEMP/audit-requirements.txt" --strict
       egress-policy: block
-      # No Doppler: gitleaks needs no licence for a personal account and Snyk
-      # is off, so nothing here reads a secret (the Bunker learned this the
-      # hard way: the OIDC fetch failed the job before gitleaks started).
+      # Snyk reads SNYK_TOKEN from the Doppler config over OIDC (no stored secret).
+      snyk: true
+      doppler-project: ci
+      doppler-config: ci
+      doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}
