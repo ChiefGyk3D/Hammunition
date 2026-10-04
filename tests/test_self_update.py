@@ -103,6 +103,9 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Repo:
     # without one, so these tests skip there (the no-git refusal test above still runs).
     if shutil.which("git") is None:
         pytest.skip("git is not installed")
+    # The distro containers run the suite as root, and the verb refuses root before
+    # anything under test here runs; these tests are about the checkout, not the uid.
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
     for key, value in GIT_ENV.items():
         monkeypatch.setenv(key, value)
     monkeypatch.setenv("BOOTSTRAP_MARK", str(tmp_path / "bootstrap.ran"))
@@ -327,3 +330,12 @@ def test_doctor_is_quiet_when_they_agree_or_there_is_no_checkout() -> None:
     assert next(c for c in agree if c.name == "engine version").status == "ok"
     none = run_checks(**HEALTHY, engine_versions=(None, "0.20.0"))  # type: ignore[arg-type]
     assert not [c for c in none if c.name == "engine version"]
+
+
+def test_root_is_refused_before_anything_is_fetched(
+    repo: Repo, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    assert main(["self-update", "--yes"]) == EXIT_UNPLANNABLE
+    assert "never as root" in capsys.readouterr().err
+    assert bootstrap_runs(tmp_path) == 0
