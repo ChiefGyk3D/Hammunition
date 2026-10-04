@@ -223,7 +223,7 @@ def test_the_gpx_carries_the_layer_name_and_each_waypoint() -> None:
     assert root.findtext("g:metadata/g:desc", namespaces=ns) == "about"
     wpts = root.findall("g:wpt", ns)
     assert [w.findtext("g:name", namespaces=ns) for w in wpts] == [
-        "N0CALL 146.940 2m FM",
+        "N0CALL 146.940 2m -0.600 T100.0 FM",
         "N0TST 442.500 70cm",
     ]
     assert {w.findtext("g:sym", namespaces=ns) for w in wpts} == {"Tall Tower"}
@@ -337,6 +337,7 @@ def test_the_repeater_poi_is_the_generic_writer_given_repeater_points(tmp_path: 
             r.description(),
             "communication:amateur_radio:repeater=yes",
             r.modes or (repeaters.UNKNOWN_MODE,),
+            r.keying(),
         )
         for r in rows
     ]

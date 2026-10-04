@@ -484,18 +484,17 @@ class Repeater:
     def band(self) -> str:
         return band_of(self.output_hz)
 
+    def keying(self) -> str:
+        """``146.940 -0.600 T100.0 FM``: what an operator keys in."""
+        return keying_line(self.output_hz, self.offset_hz, self.tone, self.modes)
+
     def label_text(self) -> str:
-        """``N0CALL 146.940 2m FM DMR``: what the map draws beside the icon,
-        and the tokens a text search in QMapShack or Navit finds."""
+        """``N0CALL 146.940 2m -0.600 T100.0 FM``: all QMapShack draws beside a
+        POI is its name (``CPoiFilePOI::drawPoi``), so the name is the callsign,
+        the band token a text search finds, and the keying line (#324)."""
         if self.callsign and self.output_hz:
-            return " ".join(
-                (
-                    self.callsign,
-                    format_mhz(self.output_hz),
-                    self.band(),
-                    *self.modes,
-                )
-            )
+            line = self.keying().split(" ", 1)
+            return " ".join((self.callsign, line[0], self.band(), *line[1:]))
         return self.label or self.callsign
 
     def key(self) -> tuple[str, int, float, float]:
@@ -522,6 +521,35 @@ class Repeater:
         if self.also:
             parts.append("also listed by " + ", ".join(SOURCE_NAMES[s] for s in self.also))
         return "; ".join(parts)
+
+
+def tone_token(tone: str) -> str:
+    """A tone as a radio's menu says it: ``T100.0`` (CTCSS), ``D023`` (DCS),
+    ``CSQ`` for none. A source's decode half (``(decode 94.8)``) is dropped;
+    a spelling that is neither is returned as written, spaces folded."""
+    text = _clean(tone)
+    if not text:
+        return "CSQ"
+    dcs = re.fullmatch(r"(?:DCS\s*|D)?(\d{3})[NI]?", text, re.IGNORECASE)
+    if dcs:
+        return f"D{dcs.group(1)}"
+    ctcss = re.match(r"(?:(?:PL|TSQ|CTCSS|T)\s*)?(\d{2,3}(?:\.\d)?)(?!\d)", text, re.IGNORECASE)
+    if ctcss:
+        return f"T{ctcss.group(1)}"
+    return text
+
+
+def keying_line(output_hz: int, offset_hz: int | None, tone: str, modes: Sequence[str]) -> str:
+    """``146.940 -0.600 T100.0 FM``: output MHz, signed offset MHz, tone, modes.
+    With no offset and no tone known the line claims neither (a tone is
+    ``CSQ`` only where the source gave an offset and no tone)."""
+    parts = [format_mhz(output_hz)] if output_hz else []
+    if offset_hz is not None:
+        parts.append(f"{offset_hz / 1e6:+.3f}" if offset_hz else "0.000")
+    if offset_hz is not None or _clean(tone):
+        parts.append(tone_token(tone))
+    parts.extend(modes)
+    return " ".join(parts)
 
 
 def format_mhz(hz: int) -> str:
@@ -1075,6 +1103,7 @@ def gpx_text(layer: str, description: str, rows: Sequence[Repeater]) -> str:
             f'  <wpt lat="{row.lat:.5f}" lon="{row.lon:.5f}">'
             f"<name>{escape(row.label_text())}</name>"
             f"<desc>{escape(row.description())}</desc>"
+            f"<cmt>{escape(row.keying())}</cmt>"
             f"<src>{escape(SOURCE_NAMES[row.source])}</src>"
             f"<sym>{GPX_SYMBOL}</sym><type>repeater</type></wpt>"
         )
@@ -1176,7 +1205,8 @@ _POI_SCHEMA = (
 
 
 def _poi_value(text: str) -> str:
-    return " ".join(text.replace("\r", " ").split())
+    # QMapShack drops a poi_data line holding a second "=" (CPoiItemPOI)
+    return " ".join(text.replace("\r", " ").replace("=", ":").split())
 
 
 @dataclass(frozen=True)
@@ -1192,6 +1222,8 @@ class PoiPoint:
     description: str
     tag: str
     subcategories: tuple[str, ...] = ()
+    #: shown by QMapShack as its own ``keying: ...`` line when set (#324)
+    keying: str = ""
 
 
 def write_poi(
@@ -1216,6 +1248,7 @@ def write_poi(
             r.description(),
             "communication:amateur_radio:repeater=yes",
             r.modes or (UNKNOWN_MODE,),
+            r.keying(),
         )
         for r in rows
     ]
@@ -1302,6 +1335,7 @@ def write_poi_points(
                     (
                         f"name={_poi_value(point.name)}",
                         f"description={_poi_value(point.description)}",
+                        *((f"keying={_poi_value(point.keying)}",) if point.keying else ()),
                         point.tag,
                     )
                 )
