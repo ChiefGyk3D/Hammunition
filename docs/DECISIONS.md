@@ -10083,17 +10083,18 @@ as every plain service does, starts at the operator's next login (the guide
 prints `systemctl --user start hammunition-rnsd` for now). Its purpose is that
 the first Reticulum program to start owns the interfaces and the rest attach, so
 a service that is always first means NomadNet quitting does not take the
-network with it. **It is not a TCP port.** Measured 2026-10-03 (Parrot 7.4, rns
-1.5.6, `ss -xl`): `rnsd` binds the abstract Unix sockets `@rns/<instance>` and
+network with it. **It is not a TCP port.** Measured 2026-10-03 (Parrot 7.4, and again in a
+Debian 13 container, rns 1.5.6, `ss -xl` and `ss -ltn`): `rnsd` binds the abstract Unix sockets `@rns/<instance>` and
 `@rns/<instance>/rpc` and no TCP port; upstream's example configuration names
 37428 only for platforms without domain sockets. So the unit declares no
 `listens`: a declaration would print a loopback TCP listener the plan does not
 have. An abstract socket has no file permissions and is machine-wide, so it is
 not private to one account; the page and the guide say so, and which of an
-operator's interfaces another account could use through it was not measured. A
+operator's interfaces another account could use through it was not measured
+(a second account's `rnsd` did attach, in the container run). A
 second `rnsd` that finds the instance taken does not exit: it attaches, logs
 "connected to another shared local instance, this is probably NOT what you
-want!" and keeps running (measured), so there is no exit status to refuse a
+want!" and keeps running (measured, exit 124 under `timeout`), so there is no exit status to refuse a
 restart on and none is set.
 
 **The licence is stated on the plan line and not gated.** `rns` and `lxmf` are
@@ -10158,10 +10159,17 @@ starts a plain service at login, and changing that is its own decision. Sideband
 arm64 build from source) and Reticulum MeshChat (an AppImage) are their own
 decisions.
 
-**Not measured.** The socket-versus-port finding above is one machine's `ss -xl` and stays provisional until the plan's real-session measurement (its Task 11) repeats it. Any LoRa link: no RNode has been run, and the maintainer's
-LoRa boards were lost in a flood. A public hub (not run from CI by policy). The
-service under a real systemd user manager. What is measured and what is not is
-the last section of `docs/guides/mesh-and-reticulum.md`.
+**Measured in a Debian 13 container (2026-10-03).** The engine installed the
+three units unprivileged; the unit's `ExecStart` ran and `ss` showed the
+abstract sockets, no TCP listener, and UDP 29716 (multicast), 29717 and 42671
+(link-local); two containers on one bridge saw each other over the
+AutoInterface, answered `rnprobe`, exchanged an LXMF message and ran an `rnsh`
+command; uninstall left `~/.reticulum`, `~/.lxmd`, `~/.nomadnetwork` and
+`~/.rnsh`. **Not measured.** Any LoRa link: no RNode has been run, and the
+maintainer's LoRa boards were lost in a flood. A public hub (not run from CI by
+policy). The service under a real systemd user manager. NomadNet's text
+interface. What an attached client of another account can do. The last section
+of `docs/guides/mesh-and-reticulum.md` has the detail.
 
 **Consequences.** `catalog/packages/{rns,lxmf,nomadnet}.yaml`,
 `catalog/hardware/devices/rnode.yaml`, `catalog/profiles/mesh.yaml`;

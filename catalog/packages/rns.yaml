@@ -79,7 +79,7 @@ depends: [python3-venv]
 # ~/.reticulum/config is created by rnsd itself, under the operator's account.
 #
 # No `listens`: the shared instance is not a TCP port. Measured 2026-10-03
-# (Parrot 7.4, rns 1.5.6, `ss -xl`): rnsd binds the abstract Unix sockets
+# (Parrot 7.4 and again in a Debian 13 container, rns 1.5.6, `ss -xl`): rnsd binds the abstract Unix sockets
 # `@rns/<instance_name>` and `@rns/<instance_name>/rpc`, and no TCP port.
 # Upstream's example config names 37428 only for platforms without domain
 # sockets or `shared_instance_type = tcp`. A `listens:` entry would print a
@@ -150,16 +150,19 @@ documentation:
     AutoInterface: link-local IPv6 multicast on every interface, so two
     machines on one network find each other. Upstream's manual (1.5.5) says it
     uses UDP ports 29716 and 42671 and that a firewall may need to allow them;
-    the guide says what was measured. The file and the identity beside it are
+    in a Debian 13 container `rnsd` held UDP 29716 (on a multicast address),
+    29717 and 42671 (on the link-local address) and no TCP port (measured
+    2026-10-03). The file and the identity beside it are
     yours: Hammunition never edits them and `hammunition uninstall rns` leaves
     `~/.reticulum` in place.
 
     **The shared instance is a local socket, not a TCP port, and it is not
     private to your account.** On Linux it is the abstract Unix socket
     `@rns/default` (measured 2026-10-03), which has no file permissions, so
-    another account on the same machine can attach to it as a client. Which of
-    your interfaces that lets it use was not measured on a multi-user machine
-    for this unit; treat the machine as a single-operator one.
+    another account on the same machine can attach to it as a client: a second
+    account's `rnsd` did, with the same warning as below (measured 2026-10-03,
+    Debian 13 container). What an attached client can then send through your
+    interfaces was not measured; treat the machine as a single-operator one.
 
     **The service is enabled at install and starts at your next login**, as the
     engine's other user services do. To start it now: `systemctl --user start

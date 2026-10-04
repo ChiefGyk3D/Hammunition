@@ -132,3 +132,42 @@ def test_the_records_carry_the_decision_the_row_and_the_status_line() -> None:
     assert "## Reticulum, LXMF and NomadNet — the Reticulum License" in licences
     for unit in ("`rns` 1.5.6", "`lxmf` 1.2.0", "`nomadnet` 1.4.4"):
         assert unit in licences, unit
+
+
+def test_the_last_section_records_the_container_run_and_what_it_did_not_cover() -> None:
+    """Section 13 is the page's honesty: what the Debian 13 container run measured,
+    and what that run could not reach (a radio, an internet hub, a terminal)."""
+    raw = _text(GUIDE)
+    assert "TASK-11-REPLACE" not in raw
+    text = _flat(raw)
+    section = text[text.index("## 13. What is measured, and what is not") :]
+    for measured in (
+        "Debian 13 containers",
+        "Peers : 1 reachable",
+        "Probe responder at",
+        "Valid reply",
+        "was delivered and received",
+        "Initiator identified",
+        "Could not get RNS status",
+        "did not exist",
+        "29716",
+        "29717",
+        "42671",
+    ):
+        assert measured in section, measured
+    for not_measured in ("No LoRa link", "NomadNet's text interface", "Any internet link"):
+        assert not_measured in section, not_measured
+    assert "not yet" not in section  # the pre-container wording is gone
+
+
+def test_no_record_calls_the_socket_finding_provisional() -> None:
+    """The socket and port reading was repeated in a container; none of the places
+    that state it still hedges it, and each names the container."""
+    claude = _text(ROOT / "CLAUDE.md")
+    row = next(line for line in claude.splitlines() if line.startswith("| Reticulum |"))
+    assert "Debian 13 container" in row
+    assert "Debian 13 container" in _text(ROOT / "catalog" / "packages" / "rns.yaml")
+    decisions = _text(ROOT / "docs" / "DECISIONS.md")
+    d080 = decisions[decisions.index("## D-080 ") :]
+    assert "stays provisional" not in d080
+    assert "Debian 13 container" in d080

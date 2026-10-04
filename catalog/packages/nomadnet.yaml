@@ -104,9 +104,10 @@ documentation:
 
     **Run it in daemon mode (`nomadnet -d`) only on purpose:** it then serves
     your pages and accepts messages with nobody at the keyboard. About 27 MB in
-    its own venv. Only `nomadnet -d` against an interfaceless shared instance
-    was run on 2026-10-03 (it attached and kept running); the text interface
-    and a message between two machines were not measured.
+    its own venv. `nomadnet -d` attached to a shared instance and kept running
+    (2026-10-03), and an LXMF message between two Debian 13 containers was
+    delivered at the library level; NomadNet's text interface, and a message
+    through its own screen, were not measured.
   upstream_url: https://github.com/markqvist/NomadNet
   upstream_support: >-
     GitHub issues on markqvist/NomadNet.

@@ -365,9 +365,11 @@ configuration (`rnsd --exampleconfig`) documents an `instance_name` option under
    by default in current systems. `ip -6 addr show scope link` should list an
    `fe80::` address on the interface you are using.
 3. **A firewall?** Upstream says the interface uses UDP ports 29716 and 42671
-   and that a firewall may need to allow them (its manual for 1.5.5; not
-   measured here). The installed source also derives a unicast discovery port,
-   29717, as the discovery port plus one.
+   and that a firewall may need to allow them (its manual for 1.5.5). On a
+   running instance in a Debian 13 container `ss -lun` showed 29716 on a
+   multicast group address and 29717 (the unicast discovery port, the discovery
+   port plus one) and 42671 on the interface's link-local address (measured
+   2026-10-03).
 4. **A network that does not pass traffic between its devices.** Upstream names
    very cheap ISP-supplied routers, and an access point set to isolate its
    clients does the same; some phone hotspots are reported to. Move to a

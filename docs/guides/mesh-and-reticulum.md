@@ -175,6 +175,19 @@ You should see one block for the shared instance and one for each interface
 that is up. If it prints "Could not get RNS status" instead, see [`rnstatus`
 says "Could not get RNS status"](../troubleshooting/running.md#reticulum-no-instance).
 
+On a single machine it reads, in part (Debian 13 container, 2026-10-03):
+
+```
+ Shared Instance[rns/default]
+    Status    : Up
+    Serving   : 0 programs
+
+ AutoInterface[Default Interface]
+    Status    : Up
+    Mode      : Full
+    Peers     : 0 reachable
+```
+
 On first start `rnsd` writes `~/.reticulum/config` with its defaults, which turn
 on the **AutoInterface**: link-local IPv6 and UDP, with multicast to find
 peers, so two machines on one Wi-Fi network or one Ethernet segment see each
@@ -182,11 +195,9 @@ other with no routers, no DHCP and no configuration. The ports are UDP 29716
 (discovery) and 42671 (data), which upstream's manual names and the installed
 source's defaults confirm, and 29717, the unicast discovery port, which the
 source derives as the discovery port plus one; a firewall may need to allow
-them. <!-- TASK-11-REPLACE: port status as of Task 7. The ports are read from
-upstream's manual and the installed source, not yet observed on a socket;
-Task 11 rewrites this sentence to what its container run measured. --> Their
-status today: read from upstream and from the source, and measured in a
-container in a later step of this work if that step completes. The engine
+them. In a Debian 13 container (2026-10-03) `ss -lun` showed UDP 29716 on a
+multicast group address and UDP 29717 and 42671 on the interface's link-local
+address, and no TCP listener. The engine
 writes none of this file and never edits it: it is created by `rnsd`, under
 your account, and it is yours. `rnsd --exampleconfig` prints the whole
 annotated reference.
@@ -206,8 +217,8 @@ Three facts about the shared instance, each read from the installed program:
 
 **Two laptops.** Install the profile on both, start the service on both, join
 both to one network, and run `rnstatus` on either. The AutoInterface block
-shows its peers: upstream's manual shows `Peers : 1 reachable`. If it stays at
-none, see [Two laptops do not see each other](../troubleshooting/running.md#reticulum-autointerface):
+shows its peers: `Peers : 1 reachable` on each (two Debian 13 containers on one
+bridge network, 2026-10-03). If it stays at none, see [Two laptops do not see each other](../troubleshooting/running.md#reticulum-autointerface):
 a firewall, or a network that does not pass multicast between its devices
 (upstream names very cheap ISP-supplied routers as the usual cause). Sections 4
 and 8 then give you something to do with the link.
@@ -647,9 +658,9 @@ A unit you wrote yourself in section 9 stays too; disable it first.
 
 ## 13. What is measured, and what is not
 
-Measured on 2026-10-03 on a Parrot 7.4 machine, in a scratch virtualenv and with
-a Reticulum configuration that had no interfaces, so nothing reached a
-network:
+Measured on 2026-10-03, in two ways. First on a Parrot 7.4 machine, in a scratch
+virtualenv and with a Reticulum configuration that had no interfaces, so nothing
+reached a network:
 
 - **The pins install.** `rns` 1.5.6, `lxmf` 1.2.0 and `nomadnet` 1.4.4, each
   with its hash-pinned closure, installed with `pip install --require-hashes`
@@ -664,14 +675,60 @@ network:
   kept running; `rnstatus` against its own configuration said "Could not get
   RNS status".
 - **`lxmd` and `nomadnet --daemon`** both attached to that instance and kept
-  running (`rnstatus` then read `Serving : 2 programs`), and created `~/.lxmd`
-  and `~/.nomadnetwork` with the contents sections 4 and 9 name.
-- **`rnsh -p` and `rnsh -l -p`** printed an `Identity` line and, in listen
-  mode, a `Listening on` line, and created `~/.rnsh/identity`; no connection
-  was made.
+  running, and created `~/.lxmd` and `~/.nomadnetwork` with the contents
+  sections 4 and 9 name.
 - **The options this page quotes** are those of the installed programs'
   `--help`, and the interface stanzas are upstream's manual for 1.5.5, both
   read that day.
+
+Then in Debian 13 containers built from the repository's own target image
+(`containers/Dockerfile.target`) with rootless Podman, as an ordinary account,
+with `hammunition install rns lxmf nomadnet` through the engine, and `systemctl`
+replaced by a stub that records what it is asked, because a container has no
+systemd user manager. The single-container run used Podman's pass-through of the
+host's network, so its AutoInterface really did multicast there for about a
+minute; the two-container run used a private bridge:
+
+- **The engine.** The dry run printed the licence on each venv's line and the
+  *User services* block (`runs .../venvs/rns/bin/rnsd --service`, "is not started
+  now: it starts at your next login"). The install exited 0 with 32 commands
+  confirmed, unprivileged, and left seventeen wrappers (`lxmd`, `nomadnet`,
+  `nomadnet-terminal`, `rncp`, `rnid`, `rnodeconf`, `rnpath`, `rnprobe`,
+  `rnsd`, `rnsh`, `rnstatus`, `rnx` and the five `rns` 1.5.6 added, `rnir`,
+  `rnpkg`, `rngit`, `rngcs` and `git-remote-rns`), the three virtualenvs and
+  the unit file. The stub was asked to `daemon-reload`, `enable
+  hammunition-rnsd.service` and `try-restart` it, and `~/.reticulum` **did not
+  exist** after the install: the engine writes none.
+- **What the unit runs.** Started from the `ExecStart` line the engine wrote,
+  `rnsd` created `~/.reticulum` (`config`, `interfaces`, `logfile`, `storage`)
+  whose default configuration enables only the AutoInterface, and `rnstatus`
+  read `Shared Instance[rns/default]` and `AutoInterface[Default Interface]`.
+  `ss -xl` showed the abstract sockets `@rns/default` and `@rns/default/rpc`;
+  `ss -ltn` showed no TCP listener; `ss -lun` showed UDP 29716 on a multicast
+  group address and UDP 29717 and 42671 on the interface's link-local address.
+- **Another account.** A second account on the same machine ran `rnstatus`
+  against the first account's instance and got "Could not get RNS status"
+  (exit 2), and its own `rnsd --service` attached to the first account's
+  instance with the same warning in its log. What an attached client can then
+  send through your interfaces was not measured. A second `rnsd` of the same
+  account, with its own configuration directory, also attached and kept running
+  until killed (`exit=124` under `timeout`), so the unit sets no exit status to
+  refuse a restart on.
+- **Two machines.** Two containers on one bridge network, each running the
+  instance: `rnstatus` on both read `Peers : 1 reachable`. With
+  `enable_transport = yes` and `respond_to_probes = yes` on one, its log read
+  `Probe responder at <hash> active`, and `rnprobe rnstransport.probe
+  <hash>` from the other printed `Valid reply` with a round trip of 1.657 ms over
+  one hop. An LXMF message sent from one to the other, with a ten-line Python
+  script against the installed `lxmf`, was delivered and received. An `rnsh`
+  listener on one logged `Initiator identified` and `Remote ... executing:
+  ['echo', 'hello-from-a']` for the other's connection; the connecting
+  client's own screen was not observed (the harness has no terminal). `rnsh -p`
+  and `rnsh -l -p` printed an `Identity` line and a `Listening on` line.
+- **Uninstall.** `hammunition uninstall rns lxmf nomadnet` exited 0 with 28
+  commands, asked the stub to `disable --now hammunition-rnsd.service`, and
+  removed the unit file, the virtualenvs, the wrappers and the menu entry. It
+  left `~/.reticulum`, `~/.lxmd`, `~/.nomadnetwork` and `~/.rnsh` in place.
 
 Not measured, and this page says so where it matters:
 
@@ -679,19 +736,13 @@ Not measured, and this page says so where it matters:
   page. The maintainer's LoRa boards were lost in a flood; the `rnode` entry
   is recorded from upstream's board lists, as `meshtastic` was, and says
   `untested`.
-- **The AutoInterface between two machines**, `rnstatus` showing a peer, and
-  NomadNet, `rnsh` and `rncp` over it: not yet. <!-- TASK-11-REPLACE: the
-  next sentence is the port status as it stands at Task 7. -->
-  UDP ports 29716 and 42671 are quoted from upstream's manual, and 29717 (the
-  unicast discovery port) from the installed source, where it is the discovery
-  port plus one; none was read from a socket here.
-- **The text interface of NomadNet.** It was started in daemon mode only; what
-  it looks like and where its keys are is its own help's business.
+- **NomadNet's text interface**, and a message sent through NomadNet's own
+  screen rather than at the LXMF layer. It was started in daemon mode only;
+  what it looks like and where its keys are is its own help's business.
 - **Any internet link.** The TCP and Backbone examples are upstream's, and a
   connection to a public hub is not run from this project's CI by policy.
-- **Another account attaching to your shared instance.** It follows from an
-  abstract socket having no file permissions; it was not tried with a second
-  user.
+- **What another account could do through your instance**, beyond attaching to
+  it, and the `rncp` file transfer, which was not run.
 - **`rnodeconf`'s download.** Where it fetches firmware from and whether it
   verifies what it fetches.
 - **The service under a real systemd user manager**, `lxmd` as a service, and

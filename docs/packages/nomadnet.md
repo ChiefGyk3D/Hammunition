@@ -30,7 +30,7 @@ The `rns` unit's service running (`systemctl --user start hammunition-rnsd`, or 
 
 **The licence statements disagree.** The wheel's classifier says MIT and the licence text it ships, and the repository's LICENSE, is the GNU GPL v3; GitHub reports GPL-3.0. The shipped text governs here: this manifest says GPL-3.0-only (the maintainer's ruling, 2026-10-03).
 **It keeps your identity and messages in `~/.nomadnetwork`** (created on first run; measured 2026-10-03), which `hammunition uninstall nomadnet` leaves in place: the identity is yours, and so is every conversation in it. The configuration there is NomadNet's, not Reticulum's; Reticulum's is `~/.reticulum/config`.
-**Run it in daemon mode (`nomadnet -d`) only on purpose:** it then serves your pages and accepts messages with nobody at the keyboard. About 27 MB in its own venv. Only `nomadnet -d` against an interfaceless shared instance was run on 2026-10-03 (it attached and kept running); the text interface and a message between two machines were not measured.
+**Run it in daemon mode (`nomadnet -d`) only on purpose:** it then serves your pages and accepts messages with nobody at the keyboard. About 27 MB in its own venv. `nomadnet -d` attached to a shared instance and kept running (2026-10-03), and an LXMF message between two Debian 13 containers was delivered at the library level; NomadNet's text interface, and a message through its own screen, were not measured.
 
 ## Keeping it current
 
