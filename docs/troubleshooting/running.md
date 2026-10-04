@@ -261,15 +261,26 @@ hammunition hardware apply
 
 After each resume the step gives gpsd a fresh open of each `/dev/gpsN`
 (`gpsdctl remove` and `add`), restarts gpsd if gpsd then reports no device,
-and logs a line per action. It makes no check that data flows: a receiver
-gpsd still lists but that stays silent is left to the steps below. Read the
-last run with:
+and then watches gpsd for up to 20 s for a `SKY` or `TPV` report from the
+receiver. Satellites without a fix yet count as alive; silence is the fault.
+On silence it power-cycles the receiver once through its USB `authorized`
+switch (the one `park` and `wake` use), waits for it to come back, makes sure
+gpsd lists it, and watches again. The receiver starts cold after that, so a
+fix can take a minute or more. Read what it did with:
 
 ```
-journalctl -u hammunition-gps-resume -n 20
+sudo journalctl -b -u hammunition-gps-resume.service -u gpsd.service --since "-1h"
 ```
 
-(the system journal may need `sudo` or membership of `systemd-journal`).
+The lines you can see, in order: `data check: data from <tty> within N s` (all
+well, nothing more happens); `data check: <tty> silent after 20 s`, then
+`<tty>: silent; wrote 0 to .../authorized (USB power cycle, once)`, `wrote 1
+to`, `re-enumerated`, `gpsd lists <tty>` (or `gpsdctl add` when it did not),
+and `data check after the cycle: data from ...`. If that is silent too, the
+unit fails and the last line reads `recovery failed: park and wake the
+receiver ...`, which is the steps below. When the receiver's USB directory or
+its `authorized` file cannot be found, the line says `no USB power cycle
+possible` and gpsd is restarted instead.
 
 **If it is still dead,** recover by hand, from least to most invasive,
 stopping at the first that brings a fix back:
@@ -282,10 +293,9 @@ hammunition hardware wake gps-receiver
 ```
 
 `/dev/ttyACM0` is the field laptop's receiver: `readlink -f /dev/gps0`
-names yours. A 3D fix took 74 s from a wake on the bench. Park and wake is
-never done by the resume step, because it is the heaviest recovery and it
-is yours to choose, and the step restarts gpsd only when gpsd reports no
-device. Which of the steps a real suspend actually needs is not
+names yours. A 3D fix took 74 s from a wake on the bench. The resume step
+already tries one power cycle itself when the receiver stays silent; these
+steps are for when that failed or the step is not installed. Which of the steps a real suspend actually needs is not
 yet measured: the bench steps are on issue #177. The step's files and how
 to remove them are under [After suspend](../hardware/power-control.md#after-suspend).
 
