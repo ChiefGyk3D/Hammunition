@@ -63,6 +63,7 @@ from .repeaters import (
     HEARHAM,
     OPEN_REPEATER,
     OSM,
+    REPEATERBOOK_API,
     REPEATERBOOK_CSV,
     REPEATERBOOK_GPX,
     ParsedInput,
@@ -148,7 +149,8 @@ HOTSPOT_SIMPLEX = "transmit equals receive (a simplex hotspot), dropped as a per
 
 #: The all-sources file's order, best first (the spike's precedence): the
 #: operator's own export or list, the regulator (the ACMA), the coordinator
-#: (the ETCC), CC0 community data, hearham, Brandmeister, OpenStreetMap.
+#: (the ETCC), CC0 community data, hearham, Brandmeister, OpenStreetMap; the
+#: operator's own RepeaterBook API fetch (D-081) ranks after the regulator.
 #: The ACMA and the ETCC cover different countries, so their order decides
 #: nothing today; the regulator is put first by the spike's word.
 PRECEDENCE = (
@@ -156,6 +158,7 @@ PRECEDENCE = (
     REPEATERBOOK_CSV,
     HAND,
     ACMA,
+    REPEATERBOOK_API,
     ETCC,
     OPEN_REPEATER,
     HEARHAM,

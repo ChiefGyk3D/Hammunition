@@ -786,13 +786,42 @@ it the offset; the colour code and master are in the description.
 Brandmeister publishes no terms for this API; carried under **D-033**, the
 observed sha256 recorded. No `--json` form.
 
+### `hammunition maps repeaters fetch-repeaterbook --state NAME|CODE [--state …] [--country NAME]`
+
+Fetches repeaters from RepeaterBook's API with the operator's own token, through
+the `repeaterbook-client` unit (the unofficial `repeaterbook` 0.13.0 client,
+registered with RepeaterBook as "RepeaterBook Python Client", App #114), and
+writes the `repeaterbook` layer, named
+`Repeaters (RepeaterBook, personal use, YYYY-MM-DD, unverified)` (**D-081**).
+**Built against the documentation and the client's source; not yet run against
+the live API.**
+
+The unit must be installed (`hammunition install repeaterbook-client`); if it is
+not, exit 1 names it before anything else. The token is `REPEATERBOOK` (the client's
+own variable name) or, when the station names a Doppler project and config,
+Doppler (`resolve_secret`: [station-settings.md](../guides/station-settings.md#secrets-for-downloads));
+none is exit 1 with both ways named. It reaches only the runner subprocess's
+environment, never argv, a log or a document. The engine runs the unit's venv
+python on `src/hammunition/repeaterbook_runner.py`, which asks the client for the
+state and prints one JSON document; the client's User-Agent is left as RepeaterBook
+approved it. `--state` takes a US state name or two-letter code, repeatable (one
+run each, with a pause between), mapped to the FIPS `state_id`; `--country`
+defaults to `United States`; Canada and Mexico take `CA01`, `MX14` and the like.
+`exportROW.php` is not carried. A `401`, `403` or `429` is exit 1, never retried,
+nothing written; so is an answer whose rows lack `Callsign`, `Frequency`, `Lat`
+or `Long`. Rows off the air, with no usable position, callsign or frequency are
+skipped and counted. RepeaterBook's attribution and personal-use terms are printed
+first. A later state merges into the layer already there. The layer is **never
+mirrored and never listed by `artifacts`**: it is the operator's own, 0600, and may
+not be shared. No `--json` form, no `--no-mirror`.
+
 ### `hammunition maps repeaters remove [--layer ID]`
 
 Deletes every layer's files, the all-sources file, your Navit copy, and the
 directory when it is left empty; anything else you put there stays. It
 takes the directory out of QMapShack's `poiPaths` and changes nothing else
 in that file. With `--layer` (`export`, `acma`, `open-repeater`, `osm`,
-`etcc`, `brandmeister` or `aprs-heard`) it deletes that layer only, rebuilds the
+`etcc`, `brandmeister`, `repeaterbook` or `aprs-heard`) it deletes that layer only, rebuilds the
 all-sources file from what is left, and rewrites your Navit copy with the
 layers that remain. Nothing to remove is exit 0; a QMapShack settings file
 it cannot edit is exit 1, named.
@@ -2196,6 +2225,8 @@ hammunition station show
 | `--reference-books ID[,ID…]` | Kiwix books for `kiwix-library`, by id (`hammunition reference books` lists them). Replaces the whole list; an id the catalog's book list does not name is refused when you type it, and an empty list is refused (uninstall `kiwix-library` to remove the books) (**D-066**) |
 | `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile, a CoMaps map, a reference book) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
 | `--clear-mirror` | Remove the saved mirror |
+| `--doppler-project PROJECT`, `--doppler-config CONFIG` | Where a keyed download's key is read from when its environment variable is not set (**D-081**): the two names of a Doppler project and config, given together, never a token. Each is letters, digits, `.`, `_` or `-`, starting with a letter or digit. One without the other, or either with `--clear-doppler`, is refused (exit 2) |
+| `--clear-doppler` | Remove both Doppler names |
 | `--dem-source SOURCE` | `copernicus` (the default when unset) or `3dep`: the elevation QMapShack's hillshade, slope and contours are drawn from (**D-068**, amended 2026-10-01). `3dep` makes `dem-3dep` fetch USGS 3DEP 1/3-arc-second bare-earth tiles for the US regions, about ten times Copernicus's size, and `dem-qmapshack` redraw from them; Copernicus stays installed for BRouter and for regions outside the US. Setting it back to `copernicus` removes the 3DEP tiles and redraws from Copernicus on the next install. `station show` prints it |
 | `--topo-radius-km N` | How far from your grid square's centre US Topo sheets, FSTopo sheets and 3DEP tiles are selected (**D-068**, amended 2026-10-02, issue #232): 100 when unset, `0` for none, at most 20000. The grid square's centre is derived, never stored. Copernicus terrain is not bounded. `station show` prints it |
 | `--topo-regions R[,R…]` | Narrow the topographic selection to these map regions, which must be a subset of `--map-regions` (refused otherwise, naming them). With no `--topo-radius-km` they are taken whole; with one, the circle is cut to them. `station show` prints a count, never the names |

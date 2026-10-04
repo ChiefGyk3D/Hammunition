@@ -113,6 +113,13 @@ class StationDocument(Strict):
     topo_all: bool = described(
         "whether every sheet of every region is selected, as before the bound; false when unset"
     )
+    secrets_doppler_project: str | None = described(
+        "the Doppler project a keyed download's key is read from when its environment "
+        "variable is not set (D-081); a name, never a token; null when not set"
+    )
+    secrets_doppler_config: str | None = described(
+        "the Doppler config within that project (D-081); null when not set"
+    )
 
 
 def build_station(path: Path, station: Station) -> StationDocument:
@@ -135,6 +142,8 @@ def build_station(path: Path, station: Station) -> StationDocument:
         topo_radius_km=station.topo_radius,
         topo_regions=station.topo_regions,
         topo_all=bool(station.topo_all),
+        secrets_doppler_project=station.secrets_doppler_project,
+        secrets_doppler_config=station.secrets_doppler_config,
     )
 
 
@@ -157,6 +166,8 @@ def render_station(doc: StationDocument) -> list[str]:
         and doc.topo_radius_km == 100
         and not doc.topo_regions
         and not doc.topo_all
+        and doc.secrets_doppler_project is None
+        and doc.secrets_doppler_config is None
     ):
         return [
             *lines,
@@ -187,6 +198,10 @@ def render_station(doc: StationDocument) -> list[str]:
         f"  {'topo regions':<14} {f'{len(doc.topo_regions)} set' if doc.topo_regions else '(not set)'}"
     )
     lines.append(f"  {'topo all':<14} {'yes' if doc.topo_all else 'no'}")
+    if doc.secrets_doppler_project or doc.secrets_doppler_config:
+        lines.append(
+            f"  {'doppler':<14} {doc.secrets_doppler_project}/{doc.secrets_doppler_config}"
+        )
     # Which books somebody reads is not where they are: named, not counted
     # (D-066). Shown only when chosen, so a station without them reads as
     # it always has.
@@ -220,6 +235,8 @@ def render_station_set(doc: StationSetDocument, station: Station, fields: list[s
             lines.append(f"  {field:<14} {len(station.topo_regions)} set")
         elif field == "topo_all":
             lines.append(f"  {field:<14} {'yes' if station.topo_all else 'no'}")
+        elif field in ("secrets_doppler_project", "secrets_doppler_config"):
+            lines.append(f"  {field:<24} {getattr(station, field) or '(cleared)'}")
         else:
             lines.append(f"  {field:<14} {station.get(field)}")
     return lines

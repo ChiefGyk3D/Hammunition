@@ -5410,6 +5410,8 @@ and a grid square or a map region says where the station is.
 | `topo_radius_km` | integer | how far from the grid square's centre US Topo sheets, FSTopo sheets and 3DEP tiles are selected, in km: 100 when unset, 0 for none (D-068, amended 2026-10-02) |
 | `topo_regions` | list of string | the map regions the topographic selection is narrowed to, a subset of map_regions; empty when it is not narrowed |
 | `topo_all` | boolean | whether every sheet of every region is selected, as before the bound; false when unset |
+| `secrets_doppler_project` | string or null | the Doppler project a keyed download's key is read from when its environment variable is not set (D-081); a name, never a token; null when not set |
+| `secrets_doppler_config` | string or null | the Doppler config within that project (D-081); null when not set |
 
 <details><summary>JSON Schema</summary>
 
@@ -5568,6 +5570,28 @@ and a grid square or a map region says where the station is.
     "topo_all": {
       "title": "Topo All",
       "type": "boolean"
+    },
+    "secrets_doppler_project": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Secrets Doppler Project"
+    },
+    "secrets_doppler_config": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Secrets Doppler Config"
     }
   },
   "required": [
@@ -5588,7 +5612,9 @@ and a grid square or a map region says where the station is.
     "dem_source",
     "topo_radius_km",
     "topo_regions",
-    "topo_all"
+    "topo_all",
+    "secrets_doppler_project",
+    "secrets_doppler_config"
   ],
   "title": "StationDocument",
   "type": "object"

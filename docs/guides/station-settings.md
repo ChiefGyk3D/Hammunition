@@ -127,6 +127,32 @@ stores or writes any of these, and they never belong in a shared screenshot.
   safe and private.
 - **QRZ.com or HamQTH logins** for callsign lookups in the loggers.
 
+## Secrets for downloads
+
+A few downloads need a key that is yours: RepeaterBook's API today
+([offline-navigation](offline-navigation.md#repeaterbook-through-its-api-with-your-own-key)),
+and any keyed fetch added later. They all resolve the key the same way, through
+one helper, `resolve_secret(name)` in `src/hammunition/secrets.py` (**D-081**), in
+this order:
+
+1. **The environment variable**, when it is set and not empty:
+   `export REPEATERBOOK=...` lasts for one shell (each keyed download names its own
+   variable; RepeaterBook's is the client's, `REPEATERBOOK`).
+2. **Doppler**, when the station config carries both names:
+   `hammunition station set --doppler-project PROJECT --doppler-config CONFIG`
+   (`--clear-doppler` removes them). Hammunition then runs exactly
+   `doppler secrets get NAME --plain --project PROJECT --config CONFIG` and
+   takes its output. `doppler` must be on `PATH` and logged in; a failure is
+   reported with the first line of its error, never its output.
+3. **Otherwise** the download stops and says both ways.
+
+What is stored is the two *names*, in the station file, mode 0600. A token is
+never written to the repository, the station file, a command line or a log:
+the run log (**D-077**) redacts the resolved value wherever it appears and any
+`Authorization` or `X-RB-App-Token` header line, and `station show` prints
+the names, not a token. A new keyed download calls the helper rather than
+reading the environment itself, so this page stays true of all of them.
+
 ## The radio is a station value too
 
 Alongside the callsign, `station set` takes the radio on the station — which
