@@ -225,7 +225,7 @@ def watch(host: str, port: int, names: dict[int, set[str]], window: float) -> di
                         if device in known and index not in alive:
                             alive[index] = time.monotonic() - start
     except OSError:
-        pass
+        pass  # gpsd closed the watch or the socket failed: what was seen so far is the answer
     return alive
 
 
