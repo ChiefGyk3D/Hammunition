@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**325 programs and packages** from the catalog, laid out the way the
+**326 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -127,6 +127,7 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 | [osm-regions](packages/osm-regions.md) | OpenStreetMap region extracts from Geofabrik, the regions you choose, verified | [download.geofabrik.de](https://download.geofabrik.de/) |
 | [osm-routino](packages/osm-routino.md) | One Routino routing database over all your regions, for routes on foot | [routino.org](https://www.routino.org/) |
 | [qmapshack](packages/qmapshack.md) | Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot | [github.com/Maproom/qmapshack](https://github.com/Maproom/qmapshack) |
+| [repeaterbook-client](packages/repeaterbook-client.md) | The unofficial repeaterbook Python client, App | [github.com/MicaelJarniac/repeaterbook](https://github.com/MicaelJarniac/repeaterbook) |
 | [routino](packages/routino.md) | Offline routing over OpenStreetMap data, on foot, by bike or by car | [routino.org](https://www.routino.org/) |
 | [socat](packages/socat.md) *(retired)* | A relay between two data channels, sockets, files or programs | [dest-unreach.org/socat](http://www.dest-unreach.org/socat/) |
 | [usfs-fstopo](packages/usfs-fstopo.md) | Forest Service FSTopo 7.5-minute sheets for your US map regions, with trail numbers | [data.fs.usda.gov/geodata/rastergateway](https://data.fs.usda.gov/geodata/rastergateway/) |
