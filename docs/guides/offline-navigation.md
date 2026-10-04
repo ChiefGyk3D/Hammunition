@@ -1183,7 +1183,7 @@ a Bunker (not even on your LAN), writes its files readable only by you, and
 credits RepeaterBook with a link in the layer's GPX description and every
 waypoint, and in the POI collection's comment. Navit's textfile has no place
 for a title or a link, so that file is only named for RepeaterBook
-(`repeaters-repeaterbook.navit.txt`); the browser map draws no repeater layer.
+(`repeaters-repeaterbook-OH.navit.txt`, one per state); the browser map draws no repeater layer.
 The client caches API responses on disk; Hammunition points it at a private
 temporary directory with a zero cache age and deletes it when the fetch ends,
 so nothing of RepeaterBook's is left but the layer you asked for.
@@ -1218,6 +1218,7 @@ hammunition station set --doppler-project PROJECT --doppler-config CONFIG
 ```
 hammunition maps repeaters fetch-repeaterbook --state DE
 hammunition maps repeaters fetch-repeaterbook --state Vermont --state NH
+hammunition maps repeaters fetch-repeaterbook --state CA --county Alameda --county Marin
 ```
 
 `--state` takes a US state's name or two-letter code (more than once is
@@ -1231,10 +1232,49 @@ of ours (the limits are unpublished). A `401`, `403` or `429` stops the run
 at once, is never retried, and writes nothing. Rows off the air, without a
 position, without a callsign or without a frequency are skipped and counted.
 
-It writes the `repeaterbook` layer, *Repeaters (RepeaterBook, personal use,
-YYYY-MM-DD, unverified)*. A second state, in this run or a later one, merges
-into the same layer the way D-074's merge works (the newer *Last Update*
-wins). `remove --layer repeaterbook` deletes it.
+It writes **one layer per state**, `repeaterbook-OH` (`repeaterbook-CA01` for
+a Canadian `state_id`), each its own `repeaters-repeaterbook-OH.gpx`, `.poi`,
+`.navit.txt` and `.rows.json`, titled *Repeaters (RepeaterBook OH, personal
+use, YYYY-MM-DD, unverified)*. A second state is a second layer. Fetching a
+state again replaces that state's layer whole: the newer fetch is the truth,
+nothing is merged across runs. `maps repeaters list --layer repeaterbook-OH`
+narrows to one, and `remove --layer repeaterbook-OH` deletes one and leaves the
+others. The all-sources file still joins every layer.
+
+**Counties.** RepeaterBook answers at most about 3,500 rows at once. When a
+state's answer is that long the fetch says so and suggests
+`--state CA --county Alameda --county Marin`: the client's own county
+parameter, one request each (with the same pause), merged into that state's
+layer. `--county` goes with exactly one `--state`.
+
+**If you fetched before this change**, the old merged layer `repeaterbook`
+is still registered, and the fetch says so once. Fetch each state you want,
+then delete the old one:
+
+```
+hammunition maps repeaters fetch-repeaterbook --state XX --state YY
+hammunition maps repeaters remove --layer repeaterbook
+```
+
+**What this buys in QMapShack** (read from the 1.17.1 source, `V_1.17.1`;
+QMapShack was not run, and timing on screen is yours to measure). QMapShack's
+POI dock shows one tick box per `.poi` file in the directory, so each state is
+one. It does not read a file's whole `poi_data` table when it opens one:
+`CPoiFilePOI`'s constructor reads only the `bounds` row of the `metadata`
+table (`src/qmapshack/poi/CPoiFilePOI.cpp`, lines 35 to 71), the category tree
+is read from `poi_categories` (line 335), and `CPoiFilePOI::draw` walks the
+viewport in 0.1 degree cells for each ticked category and queries `poi_index`
+(an R-tree) for a cell it has not loaded yet (`loadPOIsFromFile`, line 414).
+So loading is lazy and bounded by the view, not by the file. What the split
+does buy: a ticked state whose bounds do not meet a cell is skipped at that
+cell before any query runs (the same function returns on the file's `bounds`
+test), so a state far from the view costs a bounds test per cell instead of a
+query; each file is smaller, with one category tree, not one merged tree of
+every state; and you can untick the states you are not working in. It does not
+make one very large state faster to draw: zoomed out over a big area the
+number of cells (and so of queries) per ticked category grows with the view,
+and cells already fetched stay cached for as long as the file is open (the source has no eviction). So tick the
+states you are near, and zoom in before ticking a big one.
 
 A live fetch of one state works (measured 2026-10-04, on the field laptop,
 with the operator's own token; the layer appeared in QMapShack). **Not
@@ -1395,8 +1435,8 @@ The first deletes every layer and the all-sources file and takes the
 directory out of QMapShack's settings; Navit goes back to the generated
 configuration at its next start. The second deletes one layer
 (`export`, `acma`, `open-repeater`, `osm`, `etcc`, `brandmeister`,
-`repeaterbook` or `aprs-heard`)
-and rebuilds the rest.
+`aprs-heard`, the earlier merged `repeaterbook`, or one state's
+`repeaterbook-OH`) and rebuilds the rest.
 
 ### For programs: `maps repeaters list --json`
 

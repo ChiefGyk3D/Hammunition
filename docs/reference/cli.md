@@ -786,13 +786,15 @@ it the offset; the colour code and master are in the description.
 Brandmeister publishes no terms for this API; carried under **D-033**, the
 observed sha256 recorded. No `--json` form.
 
-### `hammunition maps repeaters fetch-repeaterbook --state NAME|CODE [--state …] [--country NAME]`
+### `hammunition maps repeaters fetch-repeaterbook --state NAME|CODE [--state …] [--county NAME …] [--country NAME]`
 
 Fetches repeaters from RepeaterBook's API with the operator's own token, through
 the `repeaterbook-client` unit (the unofficial `repeaterbook` 0.13.0 client,
 registered with RepeaterBook as "RepeaterBook Python Client", App #114), and
-writes the `repeaterbook` layer, named
-`Repeaters (RepeaterBook, personal use, YYYY-MM-DD, unverified)` (**D-081**).
+writes one layer per state, `repeaterbook-<AREA>` (`repeaterbook-OH`; RepeaterBook's
+`state_id` outside the US, `repeaterbook-CA01`), each named
+`Repeaters (RepeaterBook OH, personal use, YYYY-MM-DD, unverified)` (**D-081**,
+**D-074** amended, #325), so QMapShack's POI dock has one tick box per state.
 **Built against the documentation and the client's source; not yet run against
 the live API.**
 
@@ -811,8 +813,12 @@ defaults to `United States`; Canada and Mexico take `CA01`, `MX14` and the like.
 nothing written; so is an answer whose rows lack `Callsign`, `Frequency`, `Lat`
 or `Long`. Rows off the air, with no usable position, callsign or frequency are
 skipped and counted. RepeaterBook's attribution and personal-use terms are printed
-first. A later state merges into the layer already there. The layer is **never
-mirrored and never listed by `artifacts`**: it is the operator's own, 0600, and may
+first. A re-fetch of a state replaces that state's layer whole. `--county NAME`
+(repeatable; exactly one `--state`) asks the client's own county parameter, one
+request per county, merged into that state's layer; an answer near the 3,500-row cut
+prints the advice to use it. An earlier merged `repeaterbook` layer is left alone and
+mentioned once (`remove --layer repeaterbook` deletes it). The layers are **never
+mirrored and never listed by `artifacts`**: they are the operator's own, 0600, and may
 not be shared. No `--json` form, no `--no-mirror`.
 
 ### `hammunition maps repeaters list [--layer ID]... [--near GRID|LAT,LON] [--within KM] [--band BAND]... [--mode MODE]... [--json]`
@@ -870,7 +876,8 @@ Deletes every layer's files, the all-sources file, your Navit copy, and the
 directory when it is left empty; anything else you put there stays. It
 takes the directory out of QMapShack's `poiPaths` and changes nothing else
 in that file. With `--layer` (`export`, `acma`, `open-repeater`, `osm`,
-`etcc`, `brandmeister`, `repeaterbook` or `aprs-heard`) it deletes that layer only, rebuilds the
+`etcc`, `brandmeister`, `aprs-heard`, `repeaterbook` (the earlier merged layer) or
+`repeaterbook-AREA` for one state, `repeaterbook-OH`) it deletes that layer only, rebuilds the
 all-sources file from what is left, and rewrites your Navit copy with the
 layers that remain. Nothing to remove is exit 0; a QMapShack settings file
 it cannot edit is exit 1, named.
