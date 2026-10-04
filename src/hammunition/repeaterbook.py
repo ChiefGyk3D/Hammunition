@@ -52,7 +52,7 @@ import os
 import re
 import subprocess
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -88,6 +88,7 @@ __all__ = [
     "maybe_cut_short",
     "parse_export",
     "provenance",
+    "resolve_area",
     "resolve_state",
     "run_runner",
     "terms",
@@ -186,8 +187,21 @@ def resolve_state(country: str, state: str) -> str:
     )
 
 
-def layer_name(day: date) -> str:
-    return f"Repeaters (RepeaterBook, personal use, {day.isoformat()}, unverified)"
+def layer_name(day: date, area: str) -> str:
+    """One area's layer: ``Repeaters (RepeaterBook OH, personal use, DATE, unverified)``."""
+    return f"Repeaters (RepeaterBook {area}, personal use, {day.isoformat()}, unverified)"
+
+
+def resolve_area(country: str, state: str) -> tuple[str, str]:
+    """``(state_id, area)`` for a state: the id the export takes and the
+    ``<AREA>`` of its layer (#325): the postal code for a US state, else the
+    ``state_id`` itself (``CA01``, ``07``)."""
+    state_id = resolve_state(country, state)
+    if _clean(country).lower() in ("united states", "usa", "us"):
+        for code, fips in _US.values():
+            if fips == state_id:
+                return state_id, code
+    return state_id, state_id
 
 
 def terms() -> str:
@@ -373,6 +387,7 @@ def run_runner(
     country: str,
     state_id: str,
     token: str,
+    county: str | None = None,
     *,
     runner: Path | None = None,
     run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
@@ -380,6 +395,8 @@ def run_runner(
     """One state through the client, in its own venv. The token is in the
     subprocess's environment only: never argv, never printed. Never retried."""
     argv = [str(python), "-I", str(runner or RUNNER), "--country", country, "--state-id", state_id]
+    if county:
+        argv += ["--county", county]
     env = {CLIENT_TOKEN_VARIABLE: token}
     for keep in ("PATH", "LANG", "LC_ALL", "TMPDIR", "SSL_CERT_FILE", "SSL_CERT_DIR"):
         if keep in os.environ:
@@ -415,7 +432,9 @@ def run_runner(
             else None,
         )
     raw = out.encode("utf-8")
-    where = f"{UNIT}: country={country} state_id={state_id}"
+    where = f"{UNIT}: country={country} state_id={state_id}" + (
+        f" county={county}" if county else ""
+    )
     parsed = parse_export(raw, where)
     return StateRead(
         parsed, hashlib.sha256(raw).hexdigest(), datetime.now(UTC).replace(microsecond=0), where
@@ -450,25 +469,3 @@ def explain(exc: RunnerError) -> str:
 
 def pause(seconds: float = INTERVAL_SECONDS, sleep: Callable[[float], None] = time.sleep) -> None:
     sleep(seconds)
-
-
-def merged_inputs(
-    fresh: Sequence[ParsedInput], existing: Sequence[Repeater], where: Path
-) -> list[ParsedInput]:
-    """The new rows first, then the layer already on disk as one more input,
-    so a second state joins the one layer (D-074's merge: the newer
-    ``Last Update`` wins, a tie keeps the first read, which is the new)."""
-    inputs = list(fresh)
-    if existing:
-        inputs.append(
-            ParsedInput(
-                path=where,
-                format=REPEATERBOOK_API,
-                read=len(existing),
-                rows=tuple(existing),
-                skipped=(),
-                sha256="",
-                mtime=0.0,
-            )
-        )
-    return inputs

@@ -1731,9 +1731,9 @@ def _repeater_files(directory: Path, index: int) -> list[Path]:
     """Every repeater layer's file *index* (1, the ``.poi``; 2, the Navit
     textfile) present in *directory*, in layer order: one layer per source
     since D-074."""
-    from hammunition.repeaters import LAYERS, layer_files
+    from hammunition.repeaters import known_layers, layer_files
 
-    paths = [directory / layer_files(i)[index] for i in LAYERS]
+    paths = [directory / layer_files(i)[index] for i in known_layers(directory)]
     return [p for p in paths if p.is_file()]
 
 
@@ -2712,9 +2712,10 @@ def cmd_maps_repeaters_fetch_repeaterbook(args: argparse.Namespace) -> int:
     token comes from ``REPEATERBOOK`` or Doppler through
     :func:`hammunition.secrets.resolve_secret` and reaches only that
     subprocess's environment: never argv, the station file, a log or a
-    document. One layer, ``repeaterbook``, unverified and personal use; a
-    second state merges into it; never mirrored, never listed by
-    ``artifacts``. Built against the documented format and the client's
+    document. One layer per state, ``repeaterbook-<AREA>`` (#325), unverified
+    and personal use; a re-fetch of a state replaces that state's layer whole,
+    and ``--county`` (one state) fetches per county into it; never mirrored,
+    never listed by ``artifacts``. Built against the documented format and the client's
     source, not yet run against the live API. No ``--json`` form."""
     from hammunition import repeaterbook as rb
     from hammunition import repeaters
@@ -2724,10 +2725,22 @@ def cmd_maps_repeaters_fetch_repeaterbook(args: argparse.Namespace) -> int:
     if _refuse_root("repeater overlays"):
         return EXIT_FAILED
     country = args.country
+    counties = list(dict.fromkeys(args.county or ()))
     try:
-        ids = list(dict.fromkeys(rb.resolve_state(country, s) for s in args.state))
-    except RepeaterInputError as exc:
+        areas = dict(
+            (area, state_id) for state_id, area in (rb.resolve_area(country, s) for s in args.state)
+        )
+        for area in areas:
+            repeaters.area_layer_id(area)
+    except (RepeaterInputError, ValueError) as exc:
         print(f"error: {exc}. Nothing was fetched.", file=sys.stderr)
+        return EXIT_FAILED
+    if counties and len(areas) != 1:
+        print(
+            "error: --county narrows one state: give exactly one --state with it. "
+            "Nothing was fetched.",
+            file=sys.stderr,
+        )
         return EXIT_FAILED
     python = rb.client_python(operator(args) or None)
     if not python.is_file():
@@ -2754,44 +2767,68 @@ def cmd_maps_repeaters_fetch_repeaterbook(args: argparse.Namespace) -> int:
         )
         return EXIT_FAILED
     print(rb.terms(), flush=True)
+    requests = len(areas) * max(1, len(counties))
     print(
-        f"This fetches {len(ids)} state(s) of {country} through the {rb.UNIT} unit's client, "
-        f"one request each, now and only now. Your token ({rb.TOKEN_ENV}) goes only into that "
-        f"process's environment and is written nowhere; the client's response cache is a "
-        f"private temporary directory removed afterwards; the layer is never mirrored.",
+        f"This fetches {len(areas)} state(s) of {country} through the {rb.UNIT} unit's client, "
+        f"{requests} request(s) in all, now and only now; each state is its own layer. Your "
+        f"token ({rb.TOKEN_ENV}) goes only into that process's environment and is written "
+        f"nowhere; the client's response cache is a private temporary directory removed "
+        f"afterwards; the layers are never mirrored.",
         flush=True,
     )
-    reads = []
-    for number, state_id in enumerate(ids):
-        if number:
-            rb.pause()
-        try:
-            reads.append(rb.run_runner(python, country, state_id, token))
-        except rb.RunnerError as exc:
-            print(f"error: {rb.explain(exc)}. Nothing was written.", file=sys.stderr)
-            return EXIT_FAILED
-        except (RepeaterFetchError, RepeaterInputError) as exc:
-            print(f"error: {exc}. Nothing was written.", file=sys.stderr)
-            return EXIT_FAILED
-    for read in reads:
-        if rb.maybe_cut_short(read):
-            print(
-                f"note: RepeaterBook returned {read.parsed.read} rows, near the most it sends "
-                f"in one answer; a state this size may have been cut short."
-            )
-    day = max(r.when for r in reads).date()
-    existing: tuple[repeaters.Repeater, ...] = ()
-    rows_path = overlay_dir() / repeaters.layer_files("repeaterbook")[3]
-    if rows_path.is_file():
-        try:
-            existing = repeaters.read_layer_rows(rows_path).rows
-        except ValueError as exc:
-            print(f"note: the earlier RepeaterBook layer is not merged ({exc}).")
-    licences = [rb.terms()]
-    for read in reads:
-        licences.append(rb.provenance(f"Fetched {read.when.isoformat()}", read.sha256))
-    parsed = rb.merged_inputs([r.parsed for r in reads], existing, rows_path)
-    return _write_repeater_layer(parsed, rb.layer_name(day), day, licences, args, "repeaterbook")
+    fetched: dict[str, list[rb.StateRead]] = {}
+    first = True
+    for area, state_id in areas.items():
+        for county in counties or [None]:
+            if not first:
+                rb.pause()
+            first = False
+            try:
+                fetched.setdefault(area, []).append(
+                    rb.run_runner(python, country, state_id, token, county)
+                )
+            except rb.RunnerError as exc:
+                print(f"error: {rb.explain(exc)}. Nothing was written.", file=sys.stderr)
+                return EXIT_FAILED
+            except (RepeaterFetchError, RepeaterInputError) as exc:
+                print(f"error: {exc}. Nothing was written.", file=sys.stderr)
+                return EXIT_FAILED
+    for area, reads in fetched.items():
+        for read in reads:
+            if rb.maybe_cut_short(read):
+                advice = (
+                    "narrow it further with --county"
+                    if counties
+                    else f"fetch it by county: --state {area} --county NAME (repeatable)"
+                )
+                print(
+                    f"note: RepeaterBook returned {read.parsed.read} rows for {area}, near the "
+                    f"most it sends in one answer; it may have been cut short. To get the "
+                    f"rest, {advice}."
+                )
+    directory = overlay_dir()
+    if "repeaterbook" in repeaters.present_layers(directory):
+        print(
+            "note: the earlier merged layer `repeaterbook` is still registered; "
+            "`hammunition maps repeaters remove --layer repeaterbook` once every state you "
+            "want is fetched by state."
+        )
+    code = EXIT_OK
+    for area, reads in fetched.items():
+        day = max(r.when for r in reads).date()
+        licences = [rb.terms()]
+        for read in reads:
+            licences.append(rb.provenance(f"Fetched {read.when.isoformat()}", read.sha256))
+        written = _write_repeater_layer(
+            [r.parsed for r in reads],
+            rb.layer_name(day, area),
+            day,
+            licences,
+            args,
+            repeaters.area_layer_id(area),
+        )
+        code = code if code != EXIT_OK else written
+    return code
 
 
 def cmd_maps_repeaters_fetch_hearham(args: argparse.Namespace) -> int:
@@ -2896,6 +2933,8 @@ def cmd_maps_repeaters_list(args: argparse.Namespace) -> int:
         band_of,
         bearing_deg,
         distance_km,
+        is_layer_id,
+        layer_area,
         layer_files,
         overlay_dir,
         parse_position,
@@ -2944,11 +2983,12 @@ def cmd_maps_repeaters_list(args: argparse.Namespace) -> int:
     asked: list[str] = list(args.layer or [])
     skipped: list[LayerSkipView] = []
     for layer_id in dict.fromkeys(asked):
-        if layer_id not in LAYERS:
+        if not is_layer_id(layer_id):
             skipped.append(
                 LayerSkipView(
                     layer=layer_id,
-                    reason=f"no repeater layer {layer_id!r}; the layers are {', '.join(LAYERS)}",
+                    reason=f"no repeater layer {layer_id!r}; the layers are {', '.join(LAYERS)} "
+                    f"and repeaterbook-<AREA>",
                 )
             )
         elif layer_id not in here:
@@ -2980,6 +3020,7 @@ def cmd_maps_repeaters_list(args: argparse.Namespace) -> int:
         views.append(
             LayerView(
                 id=layer_id,
+                area=layer_area(layer_id),
                 name=layer.name,
                 description=layer.description,
                 day=layer.day.isoformat(),
@@ -3053,6 +3094,22 @@ def cmd_maps_repeaters_list(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _repeater_layer_id(text: str) -> str:
+    """``--layer``'s value for ``remove``: a fixed id or ``repeaterbook-AREA``
+    (the area upper-cased), or an argparse error."""
+    from hammunition.repeaters import AREA_LAYER_PREFIX, LAYERS, is_layer_id
+
+    given = text
+    if text.lower().startswith(AREA_LAYER_PREFIX):
+        given = AREA_LAYER_PREFIX + text[len(AREA_LAYER_PREFIX) :].upper()
+    if not is_layer_id(given):
+        raise argparse.ArgumentTypeError(
+            f"{text!r} is not a repeater layer; the layers are {', '.join(LAYERS)} and "
+            f"repeaterbook-AREA (for example repeaterbook-OH)"
+        )
+    return given
+
+
 @envelope.json_capable()
 def cmd_maps_repeaters_remove(args: argparse.Namespace) -> int:
     """Delete repeater layers and unregister what is gone.  D-064, D-074.
@@ -3063,11 +3120,12 @@ def cmd_maps_repeaters_remove(args: argparse.Namespace) -> int:
     layers that remain. Idempotent: nothing to remove is exit 0. Anything
     else in the directory stays."""
     from hammunition.interface.repeaters import RepeatersRemovedDocument, render_removed
-    from hammunition.repeaters import LAYERS, overlay_dir, remove_layer
+    from hammunition.repeaters import known_layers, overlay_dir, remove_layer
 
     if _refuse_root("repeater overlays"):
         return EXIT_FAILED
     directory = overlay_dir()
+    every = known_layers(directory)
     try:
         removed = remove_layer(directory, args.layer)
     except OSError as exc:
@@ -3079,7 +3137,7 @@ def cmd_maps_repeaters_remove(args: argparse.Namespace) -> int:
     registered = _register_repeaters(directory)
     doc = RepeatersRemovedDocument(
         directory=str(directory),
-        layers=(args.layer,) if args.layer else tuple(LAYERS),
+        layers=(args.layer,) if args.layer else every,
         removed=tuple(str(p) for p in removed),
         unregistered=registered,
         all_sources=all_sources,
@@ -7773,6 +7831,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="a state name or two-letter code, e.g. Delaware or DE; repeat for more",
     )
     p_rep_rb.add_argument(
+        "--county",
+        action="append",
+        metavar="NAME",
+        help="narrow to one county of the one --state (RepeaterBook answers at most about "
+        "3,500 rows at once); repeatable, merged into that state's layer",
+    )
+    p_rep_rb.add_argument(
         "--country",
         default="United States",
         help="RepeaterBook's country name (default: United States)",
@@ -7783,18 +7848,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_rep_remove.add_argument(
         "--layer",
-        choices=(
-            "export",
-            "acma",
-            "open-repeater",
-            "osm",
-            "etcc",
-            "brandmeister",
-            "repeaterbook",
-            "aprs-heard",
-        ),
+        type=_repeater_layer_id,
         default=None,
-        help="remove only this layer (default: every layer and the all-sources file)",
+        metavar="ID",
+        help="remove only this layer: export, acma, open-repeater, osm, etcc, brandmeister, "
+        "repeaterbook (the earlier merged one), aprs-heard, or repeaterbook-AREA for one "
+        "state (repeaterbook-OH); default: every layer and the all-sources file",
     )
     p_rep_remove.set_defaults(func=cmd_maps_repeaters_remove)
     p_rep_list = rep_sub.add_parser(

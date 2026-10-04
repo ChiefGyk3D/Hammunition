@@ -54,6 +54,7 @@ from xml.sax.saxutils import escape
 __all__ = [
     "ACMA",
     "ALL_SOURCES",
+    "AREA_LAYER_PREFIX",
     "BANDS",
     "BRANDMEISTER",
     "DIGITAL_KEYS",
@@ -83,6 +84,7 @@ __all__ = [
     "RepeaterInputError",
     "Skip",
     "all_sources_name",
+    "area_layer_id",
     "band_of",
     "bearing_deg",
     "compass",
@@ -93,8 +95,12 @@ __all__ = [
     "gpx_text",
     "hearham_layer_name",
     "hearham_licence",
+    "is_layer_id",
+    "known_layers",
+    "layer_area",
     "layer_files",
     "layer_name",
+    "layer_stem",
     "licence_text",
     "merge",
     "navit_text",
@@ -168,16 +174,84 @@ SUFFIXES = (".gpx", ".poi", ".navit.txt", ".rows.json")
 ALL_SOURCES = "repeaters-all.gpx"
 
 
+#: One RepeaterBook layer per area (#325, epic #326): ``repeaterbook-OH``, or
+#: RepeaterBook's own ``state_id`` outside the US (``repeaterbook-CA01``). The
+#: id is upper case and one of two shapes, so a state's name cannot pass for a
+#: code: two letters with up to four digits (``OH``, ``CA01``), or digits alone
+#: (a numeric ``state_id``). It becomes part of a file name.
+AREA_LAYER_PREFIX = "repeaterbook-"
+_AREA = re.compile(r"[A-Z]{2}[0-9]{0,4}|[0-9]{2,6}")
+_AREA_STEM = "repeaters-repeaterbook-"
+
+
+def area_layer_id(area: str) -> str:
+    """The layer id for *area* (a US two-letter code, or a ``state_id``),
+    upper-cased, or ValueError naming what is wrong."""
+    code = area.strip().upper()
+    if not _AREA.fullmatch(code):
+        raise ValueError(
+            f"area {area!r} is not a US two-letter state code such as OH or a "
+            f"RepeaterBook state_id such as CA01 or 07"
+        )
+    return AREA_LAYER_PREFIX + code
+
+
+def layer_area(layer_id: str) -> str | None:
+    """The ``<AREA>`` of a per-area layer id, None for every other layer."""
+    if layer_id.startswith(AREA_LAYER_PREFIX):
+        code = layer_id[len(AREA_LAYER_PREFIX) :]
+        if _AREA.fullmatch(code):
+            return code
+    return None
+
+
+def is_layer_id(layer_id: str) -> bool:
+    """Whether *layer_id* is one of :data:`LAYERS` or a per-area id."""
+    return layer_id in LAYERS or layer_area(layer_id) is not None
+
+
+def layer_stem(layer_id: str) -> str:
+    """The file stem of *layer_id*, or ValueError."""
+    if layer_id in LAYERS:
+        return LAYERS[layer_id]
+    area = layer_area(layer_id)
+    if area is None:
+        raise ValueError(
+            f"no repeater layer {layer_id!r}; the layers are {', '.join(LAYERS)} and "
+            f"{AREA_LAYER_PREFIX}<AREA> (for example {AREA_LAYER_PREFIX}OH)"
+        )
+    return _AREA_STEM + area
+
+
 def layer_files(layer_id: str) -> tuple[str, str, str, str]:
     """The four file names of *layer_id*, in :data:`SUFFIXES` order."""
-    try:
-        stem = LAYERS[layer_id]
-    except KeyError:
-        raise ValueError(
-            f"no repeater layer {layer_id!r}; the layers are {', '.join(LAYERS)}"
-        ) from None
+    stem = layer_stem(layer_id)
     gpx, poi, navit, rows = (stem + suffix for suffix in SUFFIXES)
     return gpx, poi, navit, rows
+
+
+def _area_ids_on_disk(where: Path) -> tuple[str, ...]:
+    """Per-area layer ids with any file in *where*, sorted by area."""
+    found: set[str] = set()
+    try:
+        names = [p.name for p in where.iterdir()]
+    except OSError:
+        return ()
+    for name in names:
+        if not name.startswith(_AREA_STEM):
+            continue
+        for suffix in SUFFIXES:
+            if name.endswith(suffix):
+                code = name[len(_AREA_STEM) : -len(suffix)]
+                if _AREA.fullmatch(code):
+                    found.add(AREA_LAYER_PREFIX + code)
+    return tuple(sorted(found))
+
+
+def known_layers(where: Path) -> tuple[str, ...]:
+    """Every layer id that may have files in *where*: the fixed ones, then each
+    area with any file there."""
+    return (*LAYERS, *_area_ids_on_disk(where))
 
 
 #: The files D-064's layer is, in the order they are written and listed.
@@ -1469,8 +1543,9 @@ def write_layer(where: Path, layer: Layer, layer_id: str = "export") -> tuple[Pa
 
 
 def present_layers(where: Path) -> tuple[str, ...]:
-    """The layers whose GPX is in *where*, in :data:`LAYERS` order."""
-    return tuple(i for i in LAYERS if (where / layer_files(i)[0]).is_file())
+    """The layers whose GPX is in *where*: :data:`LAYERS` order, then the
+    per-area layers by area."""
+    return tuple(i for i in known_layers(where) if (where / layer_files(i)[0]).is_file())
 
 
 def remove_layer(where: Path, layer_id: str | None = None) -> tuple[Path, ...]:
@@ -1479,7 +1554,7 @@ def remove_layer(where: Path, layer_id: str | None = None) -> tuple[Path, ...]:
     each layer in :data:`SUFFIXES` order. Anything else in it stays."""
     if where.is_symlink():
         raise OSError(f"{where} is a symbolic link; left as it is")
-    ids = [layer_id] if layer_id is not None else list(LAYERS)
+    ids = [layer_id] if layer_id is not None else list(known_layers(where))
     names = [n for i in ids for n in layer_files(i)]
     if layer_id is None:
         names.append(ALL_SOURCES)

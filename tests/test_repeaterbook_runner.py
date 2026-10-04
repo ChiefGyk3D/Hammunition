@@ -66,6 +66,7 @@ FAKES = {
         "class ExportQuery:\n"
         "    countries: frozenset = frozenset()\n"
         "    state_ids: frozenset = frozenset()\n"
+        "    counties: frozenset = frozenset()\n"
     ),
     "repeaterbook/services.py": (
         "import json, os\n"
@@ -86,7 +87,8 @@ FAKES = {
         "            json.dump({'token': self.app_token, 'dir': str(self.working_dir),\n"
         "                       'age': self.max_cache_age.total_seconds(),\n"
         "                       'countries': sorted(c.name for c in self.query.countries),\n"
-        "                       'states': sorted(self.query.state_ids)}, f)\n"
+        "                       'states': sorted(self.query.state_ids),\n"
+        "                       'counties': sorted(self.query.counties)}, f)\n"
         "        if mode == 'rate':\n"
         "            raise ex.RepeaterBookRateLimitError('slow down', retry_after=12.5,\n"
         "                                                status_code=429, error_code='rate_limited')\n"
@@ -139,6 +141,22 @@ def test_the_runner_asks_for_one_state_and_merges_the_exports(
     assert seen["token"] == TOKEN and seen["age"] == 0.0
     assert seen["countries"] == ["United States"] and seen["states"] == ["10"]
     assert not Path(seen["dir"]).exists(), "the client's cache directory is removed"
+
+
+def test_a_county_narrows_the_query_through_the_clients_own_parameter(
+    fake_client: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(runner_module.TOKEN_VARIABLE, TOKEN)
+    assert (
+        runner_module.main(["--country", "United States", "--state-id", "10", "--county", "Kent"])
+        == 0
+    )
+    capsys.readouterr()
+    seen = json.loads(fake_client.read_text())
+    assert seen["states"] == ["10"] and seen["counties"] == ["Kent"]
+    runner_module.main(["--country", "United States", "--state-id", "10"])
+    capsys.readouterr()
+    assert json.loads(fake_client.read_text())["counties"] == []
 
 
 @pytest.mark.parametrize(

@@ -188,3 +188,94 @@ def test_removing_everything_takes_the_all_sources_file_too(tmp_path: Path) -> N
     repeaters.rebuild_all(where)
     removed = {p.name for p in repeaters.remove_layer(where)}
     assert repeaters.ALL_SOURCES in removed and not where.exists()
+
+
+# -- one RepeaterBook layer per area (#325) -----------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [("OH", "repeaterbook-OH"), ("oh", "repeaterbook-OH"), ("CA01", "repeaterbook-CA01")],
+)
+def test_an_area_becomes_a_validated_layer_id(given: str, expected: str) -> None:
+    assert repeaters.area_layer_id(given) == expected
+    assert repeaters.is_layer_id(expected)
+    assert repeaters.layer_area(expected) == given.upper()
+
+
+@pytest.mark.parametrize("bad", ["O", "Ohio", "OH-1", "", "O H", "TOOLONG1", "../x"])
+def test_a_bad_area_is_refused(bad: str) -> None:
+    with pytest.raises(ValueError, match="area"):
+        repeaters.area_layer_id(bad)
+
+
+def test_the_fixed_ids_and_the_pattern_are_layers_and_nothing_else_is() -> None:
+    for fixed in repeaters.LAYERS:
+        assert repeaters.is_layer_id(fixed) and repeaters.layer_area(fixed) is None
+    # lower case and malformed ids are not layers; the ids on disk are upper case
+    for bad in (
+        "repeaterbook-oh",
+        "repeaterbook-O",
+        "repeaterbook-OH-1",
+        "bunker",
+        "repeaterbook-",
+    ):
+        assert not repeaters.is_layer_id(bad)
+    assert repeaters.layer_files("repeaterbook-OH") == (
+        "repeaters-repeaterbook-OH.gpx",
+        "repeaters-repeaterbook-OH.poi",
+        "repeaters-repeaterbook-OH.navit.txt",
+        "repeaters-repeaterbook-OH.rows.json",
+    )
+    with pytest.raises(ValueError, match="no repeater layer"):
+        repeaters.layer_files("repeaterbook-oh")
+
+
+def _states(where: Path) -> None:
+    repeaters.write_layer(
+        where,
+        _layer("OH", date(2026, 9, 1), _row(repeaters.REPEATERBOOK_API, callsign="N0TST")),
+        "repeaterbook-OH",
+    )
+    repeaters.write_layer(
+        where,
+        _layer(
+            "PA",
+            date(2026, 9, 2),
+            _row(repeaters.REPEATERBOOK_API, callsign="N0PAA", lat=40.5, lon=-77.0),
+        ),
+        "repeaterbook-PA",
+    )
+
+
+def test_state_layers_are_found_beside_the_fixed_ones(tmp_path: Path) -> None:
+    where = tmp_path / "repeaters"
+    _states(where)
+    repeaters.write_layer(where, _layer("osm", date(2026, 9, 1), _row(repeaters.OSM)), "osm")
+    assert repeaters.present_layers(where) == ("osm", "repeaterbook-OH", "repeaterbook-PA")
+
+
+def test_remove_one_state_leaves_the_other_and_everything_takes_both(tmp_path: Path) -> None:
+    where = tmp_path / "repeaters"
+    _states(where)
+    removed = repeaters.remove_layer(where, "repeaterbook-OH")
+    assert [p.name for p in removed] == list(repeaters.layer_files("repeaterbook-OH"))
+    assert repeaters.present_layers(where) == ("repeaterbook-PA",)
+    _states(where)
+    repeaters.remove_layer(where)
+    assert not where.exists()
+
+
+def test_the_all_sources_file_joins_two_state_layers_and_an_open_layer(tmp_path: Path) -> None:
+    where = tmp_path / "repeaters"
+    _states(where)
+    repeaters.write_layer(
+        where,
+        _layer(
+            "OR", date(2026, 9, 3), _row(repeaters.OPEN_REPEATER, callsign="N0OPN", lat=41, lon=-80)
+        ),
+        "open-repeater",
+    )
+    result = repeaters.rebuild_all(where)
+    assert result.layers == ("open-repeater", "repeaterbook-OH", "repeaterbook-PA")
+    assert result.written == 3 and result.path is not None
