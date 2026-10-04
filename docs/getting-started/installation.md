@@ -843,8 +843,9 @@ prints the `hammunition install` command that rebuilds it. `--upstream` opts in
 to asking GitHub, git tags, PyPI or a version file whether the pin itself is
 current.
 
-To update the engine and catalog, `git pull` in the checkout and run
-`./bootstrap.sh` again. To upgrade apt packages, run your usual `sudo apt update
+To update the engine and catalog, run `hammunition self-update --dry-run` to
+see what would arrive, then `hammunition self-update`: it fast-forwards the
+checkout and re-runs `./bootstrap.sh` for you. To upgrade apt packages, run your usual `sudo apt update
 && sudo apt full-upgrade`.
 
 ## 14. Take it off again

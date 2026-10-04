@@ -40,7 +40,13 @@ _APT_RUN_PREFIX = ["sudo", "apt-get", "install", "--only-upgrade", "--no-remove"
 _APT_PACKAGE = re.compile(r"^[a-z0-9][a-z0-9+.:_-]*$")
 # The engine verbs the console runs in a pane; everything else is refused.
 WRITE_VERBS: frozenset[tuple[str, ...]] = frozenset(
-    {("install",), ("uninstall",), ("station", "set"), ("hardware", "apply")}
+    {
+        ("install",),
+        ("uninstall",),
+        ("station", "set"),
+        ("hardware", "apply"),
+        ("self-update",),
+    }
 )
 
 

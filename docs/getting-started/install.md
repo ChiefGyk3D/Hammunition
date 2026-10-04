@@ -25,7 +25,8 @@ cd Hammunition
 `bootstrap.sh` creates the virtualenv, installs the engine into it, installs
 `python3-venv` if a netinst left it out (the only thing it does as root, and it
 tells you first), and finishes by running `hammunition doctor` so you see
-exactly what is ready. It is idempotent — safe to re-run after a `git pull`.
+exactly what is ready. It is idempotent — safe to re-run after a `git pull`; to update later,
+`hammunition self-update` does the pull and the re-run for you.
 
 It also puts `hammunition` on your PATH: `~/.local/bin/hammunition` becomes a
 link to this checkout's `.venv/bin/hammunition`, so every command in these docs

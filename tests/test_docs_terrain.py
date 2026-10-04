@@ -142,6 +142,7 @@ def test_the_doctor_count_is_the_number_of_checks() -> None:
         21: "Twenty-one",
         22: "Twenty-two",
         23: "Twenty-three",
+        24: "Twenty-four",
     }
     assert f"{words[len(names)]} checks across four severities" in CLI.read_text()
 

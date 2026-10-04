@@ -60,6 +60,7 @@ their text follows.
 - `hammunition maps repeaters list`
 - `hammunition maps repeaters remove`
 - `hammunition reference books`
+- `hammunition self update` (with `--dry-run` only)
 - `hammunition services`
 - `hammunition show PROFILE` (profile document); `hammunition show UNIT --json` (unit document)
 - `hammunition station set`
@@ -92,6 +93,7 @@ their text follows.
 | `repeaters` | [`RepeatersDocument`](#repeaters) |
 | `repeaters-list` | [`RepeatersListDocument`](#repeaters-list) |
 | `repeaters-removed` | [`RepeatersRemovedDocument`](#repeaters-removed) |
+| `self-update` | [`SelfUpdateDocument`](#self-update) |
 | `services` | [`ServicesDocument`](#services) |
 | `station` | [`StationDocument`](#station) |
 | `station-set` | [`StationSetDocument`](#station-set) |
@@ -6073,6 +6075,138 @@ error: every list is then empty.
     "all_sources"
   ],
   "title": "RepeatersRemovedDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### self-update
+
+What `self-update --dry-run` would do to the engine's own checkout.
+
+| field | type | meaning |
+|---|---|---|
+| `checkout` | string | the git work tree the running engine was imported from |
+| `release` | boolean | whether `--release` chose the newest v* tag over origin/main |
+| `target` | string | the ref the checkout would fast-forward to |
+| `up_to_date` | boolean | the checkout already has the target; bootstrap still re-runs, which is what repairs a venv whose installed version lags |
+| `checkout_version` | string or null | the version `pyproject.toml` declares now |
+| `installed_version` | string or null | the version the venv's metadata reports now |
+| `arriving` | list of string | `git log --oneline HEAD..<target>`, newest first, after the fetch; empty when up to date |
+| `steps` | list of [`StepView`](#stepview) | the commands, in the order they run |
+| `dry_run` | boolean | always true: a real run is never driven through JSON |
+
+#### `StepView`
+
+One command the update would run.
+
+| field | type | meaning |
+|---|---|---|
+| `description` | string | what the step does, in words |
+| `argv` | list of string | the command, argv form |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "StepView": {
+      "additionalProperties": false,
+      "description": "One command the update would run.",
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "argv": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Argv",
+          "type": "array"
+        }
+      },
+      "required": [
+        "description",
+        "argv"
+      ],
+      "title": "StepView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "What `self-update --dry-run` would do to the engine's own checkout.",
+  "properties": {
+    "checkout": {
+      "title": "Checkout",
+      "type": "string"
+    },
+    "release": {
+      "title": "Release",
+      "type": "boolean"
+    },
+    "target": {
+      "title": "Target",
+      "type": "string"
+    },
+    "up_to_date": {
+      "title": "Up To Date",
+      "type": "boolean"
+    },
+    "checkout_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Checkout Version"
+    },
+    "installed_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Installed Version"
+    },
+    "arriving": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Arriving",
+      "type": "array"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/StepView"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "dry_run": {
+      "title": "Dry Run",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "checkout",
+    "release",
+    "target",
+    "up_to_date",
+    "checkout_version",
+    "installed_version",
+    "arriving",
+    "steps",
+    "dry_run"
+  ],
+  "title": "SelfUpdateDocument",
   "type": "object"
 }
 ```

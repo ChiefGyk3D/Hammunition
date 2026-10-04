@@ -1766,7 +1766,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Twenty-three checks across four severities:
+one command that fixes it. Twenty-four checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -1776,6 +1776,8 @@ one command that fixes it. Twenty-three checks across four severities:
 - **info** — a true fact that is not a problem (no ham hardware attached
   right now; udev rules not yet applied on a machine with no radios).
 - **ok** — checked and healthy.
+
+The **engine version** check (**#311**, shown when the engine runs from a checkout) compares the version `pyproject.toml` declares with the one the venv's metadata reports. An editable install keeps answering with the version it was installed at until `./bootstrap.sh` re-runs, so a release bump leaves it behind; the check warns and its fix, as argv, is `["hammunition", "self-update"]`.
 
 The **run logs** check (an *info*, shown once a run has left a log) says how
 many logs there are, their size, and how the newest ended; `hammunition logs
@@ -2271,6 +2273,41 @@ refused by name: update or install hammunition-tray. Not yet measured on the
 bench: the verbs against the tray's helper (hammunition-tray 0.5.0, released
 and installed by the tray units), which has been run against fakes only, never
 against a real `systemctl`.
+
+### `hammunition self-update [--dry-run] [--yes] [--release]`
+
+Updates the engine's own checkout (**#303**, **#311**): `git fetch origin`,
+`git merge --ff-only origin/main`, then `./bootstrap.sh`, each step printed
+before it runs. It finds the checkout from where the running package was
+imported, and only when that is a git work tree holding `bootstrap.sh`; a
+packaged install is told there is nothing to update. It runs as the account
+that owns the checkout, never as root, and never touches apt, installed units
+or the station. Its run is teed to a run log (**D-077**), and it prints the
+version before and after.
+
+`--dry-run` runs the fetch (it changes no file in the tree), then prints the
+three steps and `git log --oneline HEAD..origin/main`, the commits that would
+arrive, and stops. With no new commits it says so: bootstrap still runs on a
+real run, because re-running the editable install is exactly what repairs a venv
+whose installed version lags the tree. `--yes` answers the ordinary
+confirmation; this is not a consent gate. `--release` fast-forwards to the
+newest `v*` tag reachable from `origin/main` instead, from any branch. `--json`
+prints a `self-update` document with `--dry-run` only
+([json-interface.md](json-interface.md)).
+
+It refuses, with a sentence and exit `2`, and changes nothing: a tree with
+uncommitted changes, a detached HEAD or a branch other than `main` (unless
+`--release`), a history that is not a fast-forward (it never merges and never
+resets), a fetch that fails, and no reachable release tag under `--release`.
+Exit `3` is a declined confirmation; exit `1` is a step that failed or a venv
+whose installed version still differs from the tree after bootstrap.
+
+`hammunition --version` prints the checkout's `pyproject.toml` version when run
+from a checkout, and both when the venv lags it:
+`0.20.0 (checkout), 0.19.0 (installed); run `hammunition self-update``. Every
+`--json` document's `engine` field is the checkout's version by the same rule,
+and `doctor` carries an `engine version` check whose fix is
+`["hammunition", "self-update"]`. The console's Home offers it with `U`.
 
 ### `hammunition logs [--last] [--path] [--user NAME] [--json]`
 
