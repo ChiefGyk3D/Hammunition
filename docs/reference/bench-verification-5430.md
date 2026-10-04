@@ -358,11 +358,12 @@ and resume cycle with the resume step in place; GPS time taking over once the
 receiver has a fix (reach above 0); the subset install; the US Topo install;
 Firefox and CoMaps reading a position from the tether.
 
-## Session 14 (owed): the resume step across a real suspend, and the GPS takeover with the network off
+## Session 14 (partly run 2026-10-04): the resume step across a real suspend, and the GPS takeover with the network off
 
-**Not yet run.** This is the procedure, written before the run so the results
-are comparable; every result cell reads "not yet run" until the operator
-fills it. Issues #177 and #310. Two read-only commands do the looking:
+**Partly run.** The procedure was written before the run so the results are
+comparable; the operator ran Part A step 1 and Part B steps 1 and 4 on
+2026-10-04 and those cells carry the results. Every other cell reads "not yet
+run" until he fills it. Issues #177 and #310. Two read-only commands do the looking:
 `hammunition hardware gps-resume-report` and `hammunition time measure`. They
 write nothing, key nothing and change no power state. The root steps are the
 operator's own. No station value or position is recorded here.
@@ -373,7 +374,7 @@ re-applied first.
 
 | Step | Command | Result |
 |---|---|---|
-| 1. Before, read-only | `hammunition hardware gps-resume-report` | not yet run. Expected: the script and the tmpfiles line `differs` or `absent`, and a finding saying to re-run `hardware apply`. |
+| 1. Before, read-only | `hammunition hardware gps-resume-report` | **Run 2026-10-04.** Script `differs`, unit `current`, tmpfiles line `absent`, unit enabled for the four sleep targets; the unit had last run that afternoon (ExecMainExitTimestamp set, `Result success`, `ExecMainStatus 0`), so the old step does fire on resume. gpsd listed the receiver; `/dev/gps0 -> /dev/ttyACM0`, 1546:01a9 under the hub, `authorized=1`, **data within 1 s**. No log (expected: the old step keeps none). Finding as expected: re-run `hardware apply`. |
 | 2. Re-apply (root) | `hammunition hardware apply --dry-run`, read the three files in the plan, then `hammunition hardware apply` | not yet run |
 | 3. After apply | `hammunition hardware gps-resume-report` | not yet run. Expected: three files `current`, unit enabled, receiver listed and delivering data, "no log" (it has not run since boot). |
 | 4. Something watching | `cgps -s` in a terminal, or the tether running | not yet run |
@@ -392,10 +393,10 @@ and the seconds to a 3D fix.
 
 | Step | Command | Result |
 |---|---|---|
-| 1. Baseline, network on | `hammunition time measure --minutes 2` | not yet run. Expected: the GPS rejected, never selected, by design. |
+| 1. Baseline, network on | `hammunition time measure --minutes 2` | **Run 2026-10-04** (as `--minutes 10 --pps`, interrupted at 3 min, 7 samples). `SHM(0)` reach 377, offset **−27.3 to −23.2 ms**, never the system peer; a pool peer was selected with 9 of 13 network peers reaching. By design (D-058). The offset is the first measurement of the NMEA path's lag on this receiver: a `time1` fudge near +0.025 s would centre it, see issue #320. |
 | 2. Network off | `nmcli networking off` (unplug Ethernet if it does not take) | not yet run |
 | 3. The takeover | `hammunition time measure --minutes 10 --pps` | not yet run. Record: seconds into the run when the GPS became the system peer, or that it did not, and the offset range. |
-| 4. The PPS device | the same run's PPS section; if it says permission denied, `sudo ppstest /dev/pps0` for a minute by hand | not yet run. Record: whether `/dev/pps0` exists, what `/sys/class/pps` names it, and the pulses counted in 60 s. |
+| 4. The PPS device | the same run's PPS section; if it says permission denied, `sudo ppstest /dev/pps0` for a minute by hand | **Partly run 2026-10-04.** `/dev/pps0` exists and `/sys/class/pps` names it `acm0` on `/dev/ttyACM0` (the CDC-ACM line discipline, not a wired time-pulse pin). Pulses **not counted**: `ppstest` is not installed (`pps-tools`, issue #319). Owed: `sudo apt install pps-tools`, then the run. |
 | 5. Network back | `nmcli networking on` | not yet run |
 
 If the pulses are real, a follow-up adds a PPS refclock behind `hardware apply`
