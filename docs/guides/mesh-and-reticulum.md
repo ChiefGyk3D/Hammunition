@@ -713,7 +713,7 @@ minute; the two-container run used a private bridge:
 - **The engine.** The dry run printed the licence on each venv's line and the
   *User services* block (`runs .../venvs/rns/bin/rnsd --service`, "is not started
   now: it starts at your next login"). The install exited 0 with 32 commands
-  confirmed, unprivileged, and left seventeen wrappers (`lxmd`, `nomadnet`,
+  confirmed, unprivileged, and left seventeen wrappers (14 from `rns`, one each for `lxmd` and `nomadnet`, and the `nomadnet-terminal` launcher the `nomadnet` unit generates: `lxmd`, `nomadnet`,
   `nomadnet-terminal`, `rncp`, `rnid`, `rnodeconf`, `rnpath`, `rnprobe`,
   `rnsd`, `rnsh`, `rnstatus`, `rnx` and the five `rns` 1.5.6 added, `rnir`,
   `rnpkg`, `rngit`, `rngcs` and `git-remote-rns`), the three virtualenvs and
