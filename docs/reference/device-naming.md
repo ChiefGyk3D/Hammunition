@@ -2,7 +2,7 @@
 
 # Device naming: what `/dev/serial/by-id/` covers, and what it does not
 
-Generated 2026-10-02 from `catalog/hardware/`. 33 devices.
+Generated 2026-10-03 from `catalog/hardware/`. 34 devices.
 
 This project's stated highest-value hardware feature was persistent udev
 symlinks by serial. A Proxmark3 capture put that in doubt, because
@@ -17,11 +17,11 @@ device, and the third column is the one that changed the plan.
 
 | | Devices |
 |---|---|
-| Get a `/dev/serial/by-id/` path for every confirmed identifier | **8** |
+| Get a `/dev/serial/by-id/` path for every confirmed identifier | **9** |
 | Get one for some identifiers and not others | **3** |
 | Get none at all — nothing they present is a serial interface | **15** |
 | Not yet recorded either way | **7** |
-| **Where by-id is insufficient for at least one reason** | **29 of 33** |
+| **Where by-id is insufficient for at least one reason** | **29 of 34** |
 | Carry a udev symlink from this catalog | **7** |
 | …of which duplicate a path by-id would have given anyway | **0** |
 
@@ -76,6 +76,7 @@ and we should not be inventing work.
 | `plutosdr` | unknown | access, packages, documented gap | `unrecorded` |
 | `portapack-h4m` | unknown | access, packages, documented gap | `unrecorded` |
 | `proxmark3` | yes | access, firmware mode, documented gap | `no-unit-serial` |
+| `rnode` | yes | access, packages, firmware mode, documented gap | — |
 | `rtl-sdr` | no | access, packages | `no-serial-subsystem` |
 | `sdrplay-rsp` | no | access, packages, documented gap | `no-serial-subsystem` |
 | `sunplus-integrated-webcam-fhd` | no | — | `unrecorded` |
@@ -93,7 +94,7 @@ that drives them.
 
 | Class | by-id | Named by | Devices in it |
 |---|---|---|---|
-| `badgelife` | yes | nothing device-specific | 4 |
+| `badgelife` | yes | nothing device-specific | 5 |
 | `bluetooth-controller` | no | nothing device-specific | 1 |
 | `camera` | no | nothing device-specific | 1 |
 | `dmr-radio` | partly | nothing device-specific | 0 |

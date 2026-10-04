@@ -31,6 +31,7 @@ One page per catalogued device: what it is, how it identifies itself on USB, wha
 | [plutosdr](plutosdr.md) | untested | — | ADALM-Pluto — inexpensive full-duplex learning and development SDR |
 | [portapack-h4m](portapack-h4m.md) | planned | — | PortaPack H4M — add-on board giving a HackRF a screen, controls and standalone operation |
 | [proxmark3](proxmark3.md) | supported | ✅ | Proxmark3 v3 and v5 — RFID and NFC research tool (RDV4 not covered) |
+| [rnode](rnode.md) | untested | — | RNode, Reticulum's LoRa transceiver firmware, on the LilyGO, Heltec and RAK boards it supports |
 | [rtl-sdr](rtl-sdr.md) | supported | — | RTL2832U DVB-T dongle repurposed as a wideband receive-only SDR |
 | [sdrplay-rsp](sdrplay-rsp.md) | untested | — | SDRplay RSP series — receive-only SDR needing a closed-source vendor API |
 | [sunplus-integrated-webcam-fhd](sunplus-integrated-webcam-fhd.md) | untested | — | Sunplus Integrated_Webcam_FHD — the field laptop's built-in FHD webcam, a UVC camera on USB |

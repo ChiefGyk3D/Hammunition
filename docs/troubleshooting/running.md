@@ -309,3 +309,87 @@ mode 0600, and the newest 30 (200 MB at most) are kept. For a run under
 `sudo`, that is the invoking user's directory, not root's. The machine's
 record of what was done, which `uninstall` uses, is the separate
 `transactions.jsonl`. Details: [Run logs](../reference/run-logs.md).
+
+## <a name="reticulum-no-instance"></a>`rnstatus` says "Could not get RNS status"
+
+```
+Could not get RNS status
+```
+
+`rnstatus` found a Reticulum instance to attach to and could not read its
+status. The cause measured on 2026-10-03 is the one in the next entry: a
+second `rnsd` (or any program started with a different configuration
+directory) attached as a *client* to an instance whose RPC key it does not
+hold, so it can serve programs but cannot be asked how it is doing. Check which
+one owns the instance, and whether the one you meant to run is running at all:
+
+```
+systemctl --user status hammunition-rnsd
+tail -n 20 ~/.reticulum/logfile
+ss -xlp | grep rns
+```
+
+The last command lists the abstract sockets named `@rns/…` and the process
+holding each. If the service is simply not running yet (it starts at your next
+login after install), start it with `systemctl --user start hammunition-rnsd`.
+
+## <a name="reticulum-another-instance"></a>Another Reticulum program owns the shared instance
+
+`~/.reticulum/logfile` says:
+
+```
+Started rnsd version 1.5.6 connected to another shared local instance, this is probably NOT what you want!
+```
+
+A Reticulum instance was already running, so `hammunition-rnsd` did not fail
+and did not start a second set of interfaces: it attached to the first. The
+usual owners are Sideband, MeshChat or an `rnsd` you started by hand, and
+another account on the same machine counts: the shared instance is a Unix
+socket in the machine-wide abstract namespace (`@rns/default`), not a file in
+anybody's home. Nothing loops and nothing is broken, but the interfaces in your
+`~/.reticulum/config` are not the ones in use; the other instance's are.
+
+Stop one of the two. Or give one of them its own name: upstream's example
+configuration (`rnsd --exampleconfig`) documents an `instance_name` option under
+`[reticulum]` for running several different shared instances on one system
+(that route was not tried here). Restart the service afterwards:
+`systemctl --user restart hammunition-rnsd`.
+
+## <a name="reticulum-autointerface"></a>Two laptops running Reticulum do not see each other
+
+`rnstatus` on each shows the AutoInterface up and no peers. Go in this order:
+
+1. **Both services running, both on one network?** `systemctl --user status
+   hammunition-rnsd` on each, and the same Wi-Fi network or the same switch.
+2. **Link-local IPv6 enabled?** AutoInterface uses it to find peers and it is on
+   by default in current systems. `ip -6 addr show scope link` should list an
+   `fe80::` address on the interface you are using.
+3. **A firewall?** Upstream says the interface uses UDP ports 29716 and 42671
+   and that a firewall may need to allow them (its manual for 1.5.5). On a
+   running instance in a Debian 13 container `ss -lun` showed 29716 on a
+   multicast group address and 29717 (the unicast discovery port, the discovery
+   port plus one) and 42671 on the interface's link-local address (measured
+   2026-10-03).
+4. **A network that does not pass traffic between its devices.** Upstream names
+   very cheap ISP-supplied routers, and an access point set to isolate its
+   clients does the same; some phone hotspots are reported to. Move to a
+   switch or a cable between the two machines to rule it out.
+
+If one of them cannot be made to work, a TCP link between the two
+(`docs/guides/mesh-and-reticulum.md`, section 5) does not depend on multicast.
+
+## <a name="rnodeconf-port"></a>`rnodeconf` cannot open the RNode's port
+
+```
+Permission denied: '/dev/ttyACM0'
+```
+
+(or `/dev/ttyUSB0`, whichever the board appeared as: `ls /dev/serial/by-id/`).
+It is the same cause as any serial device: you are not in the `dialout` group
+yet, or you are but the session predates it. [Permission denied on a serial
+device](#dialout) has the fix: log out and back in. Two other things hold a
+port: a device you parked with `hammunition hardware park` (`hammunition
+hardware state` shows it, `hammunition hardware wake NAME` returns it), and
+another program that has the port open, ModemManager among them on some
+machines, as it does for other serial boards; [a CH340 serial
+device that vanishes](#brltty) is a different cause with a similar look.

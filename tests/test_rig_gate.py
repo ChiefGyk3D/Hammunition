@@ -15,6 +15,7 @@ an ephemeral loopback port, and ``t`` only *reads* PTT.
 
 from __future__ import annotations
 
+import contextlib
 import shutil
 import socket
 import subprocess
@@ -61,11 +62,9 @@ def _ptt(port: int) -> bytes:
     time.sleep(0.2)
     conn.settimeout(0.3)
     out = b""
-    try:
+    with contextlib.suppress(OSError):
         while chunk := conn.recv(4096):
             out += chunk
-    except OSError:
-        pass
     conn.close()
     return out
 

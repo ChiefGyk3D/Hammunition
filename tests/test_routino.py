@@ -234,7 +234,7 @@ def test_a_publish_failing_partway_leaves_the_previous_database_whole(
 def test_a_rename_failing_removes_the_database_rather_than_leave_it_mixed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import hammunition.backends.routino as routino
+    from hammunition.backends import routino
 
     install_fakes(monkeypatch, tmp_path / "bin", {"planetsplitter": PLANETSPLITTER})
     _install_region(tmp_path, OCEANIA)

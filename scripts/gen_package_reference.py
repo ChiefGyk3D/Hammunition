@@ -446,9 +446,9 @@ def index(catalog: dict[str, PackageManifest], vocabulary: dict[str, str]) -> st
         HEADER,
         "# Package reference\n",
         "Every piece of software in the catalog, one page each. Generated from "
-        "`catalog/packages/` by `scripts/gen_package_reference.py` — it cannot "
-        "drift from what the engine would actually install, because it is the "
-        "same data.\n",
+        + "`catalog/packages/` by `scripts/gen_package_reference.py` — it cannot "
+        + "drift from what the engine would actually install, because it is the "
+        + "same data.\n",
         f"**{len(catalog)} packages** across **{len(vocabulary)} categories**. "
         "Categories are flat tags (**D-003**): they overlap freely and never "
         "nest, so most packages appear under more than one.\n",

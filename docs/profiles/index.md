@@ -4,7 +4,7 @@
 
 A profile is a named bundle of software that belongs together. Profiles
 are flat tags with overlap, never nested (D-003): `gpsd` is in both
-`station` and `navigation`, and you compose them freely. There are 19 of them, 12 in the 1.0 set and 7 that came after it. Every page below is generated from the profile's manifest, so it cannot drift from what the engine does.
+`station` and `navigation`, and you compose them freely. There are 20 of them, 12 in the 1.0 set and 8 that came after it. Every page below is generated from the profile's manifest, so it cannot drift from what the engine does.
 
 ## How to use this page
 
@@ -33,6 +33,7 @@ Units is the number of catalog entries the profile names. A target that lacks on
 | [`sdr`](sdr.md) | Software-defined radio — receivers, GNU Radio, and the driver layer | 1.0 | 16 | about 1.5 GB, most of it GNU Radio | An SDR and an antenna | none | eleven of twelve per-device SoapySDR modules (install yours by name) |
 | [`station`](station.md) | The floor every station stands on — rig control, time, position | 1.0 | 14 | about 125 MB | None to install it | none | per-manufacturer radio tools, loggers, anything mode-specific |
 | [`editors`](editors.md) | VS Code and VSCodium, opt-in, each behind its publisher's apt repository | post-1.0 | 2 | about 400 MB per editor | None | a typed key fingerprint per repository, only where the target's archive lacks the unit: `codium`, `code` | every other editor, extensions and settings sync |
+| [`mesh`](mesh.md) | Off-grid mesh messaging: Reticulum with NomadNet and LXMF, and the Meshtastic clients | post-1.0 | 5 | about 70 MB of venvs, plus two apt packages | None for Reticulum on a local network | none | Sideband, MeshChat, meshtasticd, MeshCore, TAK, any Reticulum configuration |
 | [`navigation`](navigation.md) | Offline maps and turn-by-turn navigation from your own GPS, with no network | post-1.0 | 27 | per region: the download plus roughly 3 to 4 times it; Navit alone is small | A USB GPS receiver for position (the `station` profile carries gpsd) | none | phone maps, Kiwix, tile servers, raster tile stacks |
 | [`phone-maps`](phone-maps.md) | Offline maps and points of interest for the team's phones, built on the laptop | post-1.0 | 3 | per region: the download plus about a fifth and three quarters of it, and about 15 times it as scratch while building | A phone that reads Mapsforge files (install the app while it still has internet) | none | OsmAnd, Organic Maps, CoMaps and PocketMaps files, Transportr |
 | [`reference`](reference.md) | An offline library -- Wikipedia, WikiMed, ham Q&A, dictionaries and the ICS forms -- on one local page | post-1.0 | 6 | readers and dictionaries about 50 MB; each book from 27 MB up | None | none | wikiHow, ARRL material, Gutenberg in full, video ZIMs |
@@ -57,6 +58,7 @@ Find what you want to do. The profiles are listed in the order to install them, 
 | Listen with a cheap SDR dongle | [`listening`](listening.md), [`sdr`](sdr.md) |
 | Log contacts and upload them to Logbook of the World | [`logging`](logging.md) |
 | Make FT8, JS8Call or PSK31 contacts | [`station`](station.md), [`digital-modes`](digital-modes.md) |
+| Message another laptop with no internet and no server | [`mesh`](mesh.md) |
 | Model an antenna or predict its coverage | [`antenna`](antenna.md) |
 | Navigate offline from my own GPS | [`navigation`](navigation.md) |
 | Program a handheld radio | [`station`](station.md) |
@@ -64,6 +66,7 @@ Find what you want to do. The profiles are listed in the order to install them, 
 | Receive weather satellite images | [`listening`](listening.md) |
 | Report my position on APRS | [`packet`](packet.md) |
 | Run a packet node or BBS | [`packet`](packet.md) |
+| Run Reticulum over LoRa | [`mesh`](mesh.md) |
 | See repeaters, airfields and hospitals on an offline map | [`navigation`](navigation.md) |
 | Send and receive pictures (SSTV) or weather faxes | [`digital-modes`](digital-modes.md) |
 | Send email by radio (Winlink) or run packet | [`station`](station.md), [`packet`](packet.md) |
@@ -73,6 +76,7 @@ Find what you want to do. The profiles are listed in the order to install them, 
 | Study wireless and Bluetooth security | [`rf-security`](rf-security.md) |
 | Track and hear satellites | [`satellite`](satellite.md) |
 | Use digital voice (FreeDV, M17, DMR, D-STAR) without a radio | [`digital-modes`](digital-modes.md) |
+| Use Meshtastic from the desktop | [`mesh`](mesh.md) |
 | Watch the grey line and DX spots on a live map | [`propagation`](propagation.md) |
 | Work at a bench: flash devices, measure with a NanoVNA or tinySA | [`electronics`](electronics.md) |
 

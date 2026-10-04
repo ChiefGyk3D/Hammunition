@@ -23,13 +23,12 @@ stderr, so stdout parses as exactly one document on every path.
 from __future__ import annotations
 
 import argparse
-import importlib
 import io
 import json
 import pkgutil
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, is_dataclass
-from importlib import metadata
+from importlib import import_module, metadata
 from typing import Any, ClassVar, TextIO
 
 from pydantic import ConfigDict
@@ -255,7 +254,7 @@ def kinds() -> dict[str, type]:
 
     found: dict[str, type] = {}
     for info in sorted(pkgutil.iter_modules(package.__path__), key=lambda i: i.name):
-        module = importlib.import_module(f"{package.__name__}.{info.name}")
+        module = import_module(f"{package.__name__}.{info.name}")
         for value in vars(module).values():
             if not isinstance(value, type) or value.__module__ != module.__name__:
                 continue

@@ -125,6 +125,7 @@ nav:
       - antenna: profiles/antenna.md
       - sdr: profiles/sdr.md
       - listening: profiles/listening.md
+      - mesh: profiles/mesh.md
       - navigation: profiles/navigation.md
       - reference: profiles/reference.md
       - phone-maps: profiles/phone-maps.md
@@ -147,6 +148,7 @@ nav:
           - FT8 and the digital modes: guides/digital-modes.md
           - Packet and Winlink: guides/packet-winlink.md
           - APRS: guides/aprs.md
+          - Mesh and Reticulum: guides/mesh-and-reticulum.md
       - Receiving:
           - SDR first steps: guides/sdr.md
           - Satellites: guides/satellite.md
@@ -196,6 +198,7 @@ nav:
           - DMR radios: hardware/dmr-radio-class.md
           - GPS receivers: hardware/gps-receiver-class.md
           - Meshtastic nodes: hardware/meshtastic.md
+          - RNode, Reticulum's LoRa radio: hardware/rnode.md
           - ClockworkPi uConsole: hardware/uconsole.md
       - Security and research hardware:
           - Proxmark3: hardware/proxmark3.md

@@ -189,7 +189,7 @@ def test_refuses_to_run_as_root_when_the_tree_is_group_or_other_writable(
     refused on *any* writability finding, including one specific non-root
     account merely owning the tree -- the documented install's own shape --
     which made this check fire on every privileged run in that state."""
-    import hammunition.cli.devctl as devctl
+    from hammunition.cli import devctl
 
     monkeypatch.setattr(os, "geteuid", lambda: 0)
     monkeypatch.setattr(
@@ -212,7 +212,7 @@ def test_warns_but_proceeds_when_the_tree_is_merely_owned_by_non_root(
     """The documented install: a venv under `$HOME` is owned by exactly one
     non-root account and nobody else. That must never refuse -- a warning on
     stderr, then the verb still runs."""
-    import hammunition.cli.devctl as devctl
+    from hammunition.cli import devctl
 
     monkeypatch.setattr(os, "geteuid", lambda: 0)
     monkeypatch.setattr(
@@ -237,7 +237,7 @@ def test_does_not_refuse_when_not_actually_running_as_root(
     file runs unprivileged (via the autouse ``_unprivileged`` fixture, pinned
     explicitly here too for the reader's benefit) and would break the moment
     the gate stopped checking ``geteuid()`` first."""
-    import hammunition.cli.devctl as devctl
+    from hammunition.cli import devctl
 
     monkeypatch.setattr(os, "geteuid", lambda: 1000)
     monkeypatch.setattr(
@@ -262,7 +262,7 @@ def test_runtime_check_is_load_bearing_for_the_package_directory(
     `tmp_path` tree, with the interpreter pointed at a genuinely safe system
     binary, so only the package-directory call site can be driving the
     refusal."""
-    import hammunition.cli.devctl as devctl
+    from hammunition.cli import devctl
 
     unsafe_root = tmp_path / "pkg"
     unsafe_root.mkdir()
@@ -287,7 +287,7 @@ def test_runtime_check_is_load_bearing_for_the_interpreter(
     """The mirror of the test above: the package directory is pointed at a
     real, safely root-owned system directory (`/usr`), so only the
     interpreter call site can be driving the refusal here."""
-    import hammunition.cli.devctl as devctl
+    from hammunition.cli import devctl
 
     unsafe_root = tmp_path / "venv"
     unsafe_root.mkdir()
@@ -549,14 +549,14 @@ def test_caller_uid_prefers_pkexec_then_sudo_then_self(monkeypatch: pytest.Monke
 def test_linger_handler_uses_the_plan(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """`linger on` when it is off runs loginctl enable-linger for the caller's
     own account and writes an ours=True record — without touching real systemd."""
-    import hammunition.cli.devctl as devctl
     from hammunition.backends.base import CommandResult, SubprocessRunner
+    from hammunition.cli import devctl
     from hammunition.hardware import linger as linger_mod
 
     record = tmp_path / "linger.yaml"
     monkeypatch.setattr(linger_mod, "LINGER_RECORD", record)
     monkeypatch.setattr(devctl, "LINGER_RECORD", record)
-    monkeypatch.setattr(devctl, "caller_uid", lambda: os.getuid())
+    monkeypatch.setattr(devctl, "caller_uid", os.getuid)
     monkeypatch.setattr(devctl, "_linger_is_on", lambda _u: False)
 
     ran: list[tuple[str, ...]] = []

@@ -124,14 +124,14 @@ def main() -> int:
         "## Why this source exists",
         "",
         "Meshtastic and MeshCore build with PlatformIO, so every supported board "
-        "ships a `boards/*.json` naming the identifiers its flasher looks for. "
-        "Curated, machine-readable, and maintained by the people who ship the "
-        "firmware — the same reasons Debian's udev rules were worth mining.",
+        + "ships a `boards/*.json` naming the identifiers its flasher looks for. "
+        + "Curated, machine-readable, and maintained by the people who ship the "
+        + "firmware — the same reasons Debian's udev rules were worth mining.",
         "",
         "It is also the only way this catalog's `meshtastic` entry can be "
-        "closed. The maintainer's boards were lost in a flood, and *Meshtastic "
-        "was never one device* — it is firmware that runs on a hundred. Upstream "
-        "publishes what all hundred present, and none has to be on a desk.",
+        + "closed. The maintainer's boards were lost in a flood, and *Meshtastic "
+        + "was never one device* — it is firmware that runs on a hundred. Upstream "
+        + "publishes what all hundred present, and none has to be on a desk.",
         "",
         "## The finding",
         "",
@@ -139,10 +139,10 @@ def main() -> int:
         f"six cover {top_share} of them.**",
         "",
         "That is the D-028 argument arriving from a third independent direction, "
-        "and in its most extreme form yet. The Debian sweep found bridge chips "
-        "shared by unrelated products; this finds an entire product category "
-        "built on a handful of modules, where the identifier tells you which "
-        "*module* a board uses and nothing whatever about which board it is.",
+        + "and in its most extreme form yet. The Debian sweep found bridge chips "
+        + "shared by unrelated products; this finds an entire product category "
+        + "built on a handful of modules, where the identifier tells you which "
+        + "*module* a board uses and nothing whatever about which board it is.",
         "",
         "| Identifier | Boards | Flagged | Examples |",
         "|---|---:|:---:|---|",
@@ -163,10 +163,10 @@ def main() -> int:
         "## What this does not settle",
         "",
         "**A board definition is what the flasher matches, not necessarily what "
-        "the board reports.** These identifiers come from firmware build "
-        "metadata; a running board's descriptor may carry a manufacturer or "
-        "product string the JSON never mentions, and that string is exactly what "
-        "would make a safe symlink possible. Only a capture shows it.",
+        + "the board reports.** These identifiers come from firmware build "
+        + "metadata; a running board's descriptor may carry a manufacturer or "
+        + "product string the JSON never mentions, and that string is exactly what "
+        + "would make a safe symlink possible. Only a capture shows it.",
         "",
         "So this closes the *identifier* question for a hundred boards and "
         "leaves the *distinguishability* question open for all of them. The "
@@ -174,14 +174,14 @@ def main() -> int:
         "the firmware are on the same footing.",
         "",
         "**Nothing here is `maintainer_verified`.** D-027 keeps that separate: "
-        "upstream metadata is good evidence that an identifier is correct and no "
-        "evidence at all that anyone here has run the hardware.",
+        + "upstream metadata is good evidence that an identifier is correct and no "
+        + "evidence at all that anyone here has run the hardware.",
         "",
         "## Which product strings are worth asking for",
         "",
         "Not all of them, and working out which is the useful part. A product "
-        "string is only worth collecting where it can *distinguish* a board — "
-        "and for the largest identifier family here it provably cannot.",
+        + "string is only worth collecting where it can *distinguish* a board — "
+        + "and for the largest identifier family here it provably cannot.",
         "",
         "| Identifier | Boards | Product string here | Worth asking? |",
         "|---|---:|---|---|",
@@ -220,9 +220,9 @@ def main() -> int:
         "49 boards' worth of owners for one.",
         "",
         "The nRF52840 families are the opposite case: their UF2 bootloaders are "
-        "built per board, so the string is usually the board's own name. That is "
-        "where a thirty-second capture buys something, and it is what "
-        "`.github/ISSUE_TEMPLATE/lora-product-string.yml` asks for.",
+        + "built per board, so the string is usually the board's own name. That is "
+        + "where a thirty-second capture buys something, and it is what "
+        + "`.github/ISSUE_TEMPLATE/lora-product-string.yml` asks for.",
         "",
     ]
     body = "\n".join(lines) + "\n"

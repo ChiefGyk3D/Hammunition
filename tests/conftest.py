@@ -122,7 +122,7 @@ def _isolated_operator_environment(
     changed.
     """
     global _ISOLATED_ROOT
-    import hammunition.paths as hpaths
+    from hammunition import paths as hpaths
 
     root = tmp_path_factory.mktemp("operator-isolation")
     _ISOLATED_ROOT = root

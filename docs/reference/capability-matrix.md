@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 106 | 2 | 214 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 104 | 2 | 216 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 103 | 3 | 216 |
-| kali-rolling *(unswept)* | 0 | 0 | 97 | 1 | 224 |
-| parrot *(unswept)* | 0 | 0 | 104 | 2 | 216 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 103 | 3 | 216 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 101 | 7 | 214 |
+| debian-13 *(unswept)* | 0 | 0 | 109 | 2 | 214 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 107 | 2 | 216 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 106 | 3 | 216 |
+| kali-rolling *(unswept)* | 0 | 0 | 100 | 1 | 224 |
+| parrot *(unswept)* | 0 | 0 | 107 | 2 | 216 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 106 | 3 | 216 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 104 | 7 | 214 |
 
-**322 manifests** against **7 targets**.
+**325 manifests** against **7 targets**.
 
 ---
 
@@ -214,6 +214,7 @@ build HAS been run in a container say so in their own install notes.
 | `linbpq` | git | git | git | git | git | git | git |
 | `linpac` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `linrad` | source | source | source | source | source | source | — |
+| `lxmf` | venv | venv | venv | venv | venv | venv | venv |
 | `m2kcli` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `mapsforge-map` | derived | derived | derived | derived | derived | derived | derived |
 | `mapsforge-poi` | derived | derived | derived | derived | derived | derived | derived |
@@ -236,6 +237,7 @@ build HAS been run in a container say so in their own install notes.
 | `navit` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `nec2c` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `noaa-apt` | binary | binary | binary | binary | binary | binary | binary |
+| `nomadnet` | venv | venv | venv | venv | venv | venv | venv |
 | `not1mm` | venv | venv | venv | venv | venv | venv | venv |
 | `nrsc5` | git | git | git | git | git | git | git |
 | `odr-audioenc` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -290,6 +292,7 @@ build HAS been run in a container say so in their own install notes.
 | `readsb` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `remotetrx` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `rig-service` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `rns` | venv | venv | venv | venv | venv | venv | venv |
 | `routino` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `rtl-433` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `rtl-ais` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

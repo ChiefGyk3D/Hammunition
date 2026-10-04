@@ -22,16 +22,18 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hammunition.manifest.schema import STATION_REF, UserService
+from hammunition.deferral import Deferral
+from hammunition.manifest.schema import STATION_REF, UserService, VenvInstall
+from hammunition.paths import venv_root
 from hammunition.rig import RigError, resolve_rig
 from hammunition.station import Station
 
 if TYPE_CHECKING:
     from hammunition.manifest.hardware import DeviceClass, DeviceManifest
     from hammunition.manifest.schema import PackageManifest
-    from hammunition.plan import Deferral
 
 __all__ = [
     "HEADER",
@@ -43,6 +45,7 @@ __all__ = [
     "is_ours",
     "plan_user_services",
     "render_unit_file",
+    "service_venv_dir",
 ]
 
 #: The first words of every unit file the engine writes; the catalog unit that
@@ -187,10 +190,22 @@ def _matches(conditions: Mapping[str, str], facts: Mapping[str, str]) -> bool:
     return all(facts.get(key) == value for key, value in conditions.items())
 
 
-def _substitute(word: str, values: Mapping[str, str], interpreter: str) -> str:
-    """Replace every ``{station.*}`` and ``{python}`` in *word*, re-checking the
-    result is one safe argv word. A reference with no value is a bug (the caller
-    decides what is needed before calling); an unsafe result raises."""
+def service_venv_dir(manifest: PackageManifest, owner: str | None = None) -> Path | None:
+    """The virtualenv ``{venv}`` names for *manifest*'s services: where the venv
+    backend puts this unit's environment for *owner* (the operator, never root's
+    home under ``sudo``), or None when the manifest has no venv block."""
+    if not any(isinstance(block.install, VenvInstall) for block in manifest.install):
+        return None
+    return venv_root(owner or None) / manifest.name
+
+
+def _substitute(
+    word: str, values: Mapping[str, str], interpreter: str, venv_dir: Path | None = None
+) -> str:
+    """Replace every ``{station.*}``, ``{python}`` and ``{venv}`` in *word*,
+    re-checking the result is one safe argv word. A reference with no value is a
+    bug (the caller decides what is needed before calling); an unsafe result
+    raises."""
 
     def repl(match: re.Match[str]) -> str:
         key = match.group(1)
@@ -199,6 +214,10 @@ def _substitute(word: str, values: Mapping[str, str], interpreter: str) -> str:
         return values[key]
 
     result = STATION_REF.sub(repl, word).replace("{python}", interpreter)
+    if "{venv}" in result:
+        if venv_dir is None:
+            raise PlanUserServiceError("{venv} is used but this manifest has no venv block")
+        result = result.replace("{venv}", str(venv_dir))
     # A quote or backslash is as much a shell token to systemd as the others;
     # RIG_DEVICE already excludes them, this is defence in depth (review minor).
     if any(c in result for c in " \t\n\r;|&$`%<>\"'\\"):
@@ -223,6 +242,7 @@ def plan_user_services(
     *,
     model_lister: Callable[[], Mapping[int, tuple[int, int]]] | None = None,
     interpreter: str | None = None,
+    venv_dir: Path | None = None,
 ) -> tuple[list[PlannedUserService], list[Deferral], list[str]]:
     """Plan *manifest*'s user services against *station*.
 
@@ -237,10 +257,10 @@ def plan_user_services(
 
     ``interpreter`` fills ``{python}`` in an exec (the loopback filter runs
     under the engine's own interpreter); it defaults to :data:`sys.executable`.
+    ``venv_dir`` fills ``{venv}``, the unit's own virtualenv
+    (:func:`service_venv_dir`).
     """
     import sys
-
-    from hammunition.plan import Deferral
 
     if not manifest.user_services:
         return [], [], []
@@ -250,8 +270,15 @@ def plan_user_services(
     deferred: list[Deferral] = []
     for svc in manifest.user_services:
         if svc.is_plain:
+            if venv_dir is None and any("{venv}" in word for word in svc.exec):
+                # The loader refuses a manifest with no venv block, so this is a
+                # caller that did not pass service_venv_dir(): a bug, not an
+                # operator's problem, and not something to defer quietly.
+                raise PlanUserServiceError(
+                    f"{svc.name}: {{venv}} is used but no venv directory was given"
+                )
             try:
-                exec_argv = tuple(_substitute(word, {}, python) for word in svc.exec)
+                exec_argv = tuple(_substitute(word, {}, python, venv_dir) for word in svc.exec)
             except PlanUserServiceError as exc:
                 # A home the unit file cannot carry (a space, a `%`): named, not a traceback.
                 deferred.append(
@@ -269,7 +296,7 @@ def plan_user_services(
     if not rig_entries:
         return planned, deferred, []
     rig_planned, deferrals, notes = _plan_rig(
-        manifest, rig_entries, station, devices, model_lister, python
+        manifest, rig_entries, station, devices, model_lister, python, venv_dir
     )
     return planned + rig_planned, deferred + deferrals, notes
 
@@ -313,9 +340,9 @@ def _plan_rig(
     devices: Mapping[str, DeviceManifest | DeviceClass] | None,
     model_lister: Callable[[], Mapping[int, tuple[int, int]]] | None,
     python: str,
+    venv_dir: Path | None = None,
 ) -> tuple[list[PlannedUserService], list[Deferral], list[str]]:
     """The station-driven entries: resolve the rig, defer or skip, render."""
-    from hammunition.plan import Deferral
 
     first = entries[0].name
     if devices is None:
@@ -422,7 +449,7 @@ def _plan_rig(
         return planned, deferrals, notes
 
     for svc in selected:
-        exec_argv = tuple(_substitute(word, values, python) for word in svc.exec)
+        exec_argv = tuple(_substitute(word, values, python, venv_dir) for word in svc.exec)
         filled = _station_sources(svc, res)
         device_path = station.rig_device if svc.binds_to_device else None
         planned.append(_planned(manifest, svc, exec_argv, device_path, filled))

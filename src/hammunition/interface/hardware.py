@@ -147,6 +147,6 @@ def render_hardware(doc: HardwareDocument) -> list[str]:
     lines += [
         "",
         "`hammunition hardware park NAME` keeps it parked across reboots; "
-        "`park --until-reboot NAME` lets a reboot wake it; `wake NAME` brings it back.",
+        + "`park --until-reboot NAME` lets a reboot wake it; `wake NAME` brings it back.",
     ]
     return lines

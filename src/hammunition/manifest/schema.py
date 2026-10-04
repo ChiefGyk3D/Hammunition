@@ -998,6 +998,31 @@ class VenvInstall(Strict):
             "nothing while reporting success."
         ),
     )
+    licence: str | None = Field(
+        default=None,
+        min_length=2,
+        description=(
+            "The terms the installed software is under, when they are not a "
+            "licence the operator would assume (SPDX where one exists, else the "
+            "publisher's own words). Printed on the plan line that installs the "
+            "venv, before the confirmation, and stated, never adjudicated (D-021, "
+            "D-033). Requires licence_url."
+        ),
+    )
+    licence_url: str | None = Field(
+        default=None,
+        description="Where those terms are stated, on the publisher's site. Requires licence.",
+    )
+
+    @model_validator(mode="after")
+    def _licence_has_its_url(self) -> VenvInstall:
+        if (self.licence is None) != (self.licence_url is None):
+            raise ManifestError(
+                "a venv block's licence and licence_url are set together or not at all"
+            )
+        if self.licence_url is not None and not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        return self
 
     @model_validator(mode="after")
     def _payload_script_needs_payload(self) -> VenvInstall:
@@ -2036,6 +2061,18 @@ class ConfigFile(Strict):
         return self
 
     @model_validator(mode="after")
+    def _mode_is_a_plain_permission(self) -> ConfigFile:
+        # The mode reaches os.chmod and `install -m` as written, so a manifest
+        # (a community or local one included) must not be able to ask for a
+        # setuid, setgid or sticky bit or a world-writable file.
+        if not re.fullmatch(r"0?[0-7]{3}", self.mode) or int(self.mode, 8) & 0o7002:
+            raise ManifestError(
+                f"{self.path}: mode {self.mode!r} must be three octal digits with no "
+                f"setuid, setgid or sticky bit and no world write (for example 0644)"
+            )
+        return self
+
+    @model_validator(mode="after")
     def _skip_only_when_appending(self) -> ConfigFile:
         if self.skip_if_present and not self.append:
             raise ManifestError(
@@ -2051,13 +2088,6 @@ class ConfigFile(Strict):
                 ) from exc
         return self
 
-
-#: Names the engine derives at plan time from the catalog, not stored on the
-#: station, and so not in `TEMPLATE_VARIABLES`: the hamlib model and kind come
-#: from the selected rig's manifest, the uppercase PTT line from `rig_ptt_line`
-#: (D-073 §5, §6a). A `user_services` block may reference these in its `exec`;
-#: the rig planning layer fills them.
-RIG_DERIVED_AT_PLAN = frozenset({"rig_hamlib_model", "rig_kind", "rig_ptt_line_hamlib"})
 
 #: What may not appear in a `user_services` exec element after station
 #: substitution: shell metacharacters and any whitespace. A unit file's
@@ -2158,21 +2188,26 @@ class UserService(Strict):
             raise ManifestError(
                 f"user service name {self.name!r} must be a lowercase unit-file base name"
             )
-        # exec[0] is an absolute path, or the engine placeholder {python} (the
+        # exec[0] is an absolute path, the engine placeholder {python} (the
         # interpreter that rendered the unit, as a launcher embeds the engine
-        # path, #145). Nothing else: a bare name resolves against systemd's own
-        # PATH, not ours.
-        if self.exec[0] != "{python}" and not self.exec[0].startswith("/"):
+        # path, #145), or a file inside the unit's own virtualenv
+        # ({venv}/bin/rnsd). Nothing else: a bare name resolves against
+        # systemd's own PATH, not ours.
+        if (
+            self.exec[0] != "{python}"
+            and not self.exec[0].startswith("/")
+            and not self.exec[0].startswith("{venv}/")
+        ):
             raise ManifestError(
-                f"user service {self.name!r}: exec[0] {self.exec[0]!r} must be an absolute path "
-                f"or {{python}}"
+                f"user service {self.name!r}: exec[0] {self.exec[0]!r} must be an absolute path, "
+                f"{{python}} or a file under {{venv}}/"
             )
         for word in self.exec:
             # A {station.*} reference stands in for a value re-checked after
             # substitution (D-073 §4, §6a); strip it before the word check so a
             # legitimate reference is not mistaken for a metacharacter. {python}
-            # is likewise an engine placeholder, not a shell token.
-            bare = STATION_REF.sub("X", word).replace("{python}", "X")
+            # and {venv} are likewise engine placeholders, not shell tokens.
+            bare = STATION_REF.sub("X", word).replace("{python}", "X").replace("{venv}", "X")
             if any(c in bare for c in _EXEC_FORBIDDEN):
                 raise ManifestError(
                     f"user service {self.name!r}: exec element {word!r} is not one argv word; "
@@ -2561,6 +2596,19 @@ class PackageManifest(Strict):
     def _user_services_names_exclusive(self) -> PackageManifest:
         if self.user_services:
             _user_services_names_are_exclusive(self.user_services)
+        return self
+
+    @model_validator(mode="after")
+    def _user_service_venv_needs_a_venv(self) -> PackageManifest:
+        """``{venv}`` in a service's exec is the unit's own virtualenv; a manifest
+        with no venv block has none to name, and the service would start a path
+        that does not exist."""
+        uses = [svc.name for svc in self.user_services if any("{venv}" in w for w in svc.exec)]
+        if uses and not any(isinstance(b.install, VenvInstall) for b in self.install):
+            raise ManifestError(
+                f"{self.name}: user service {uses[0]!r} runs a file under {{venv}}/ but no "
+                f"install block of this manifest is a venv, so there is no virtualenv to name"
+            )
         return self
 
     @model_validator(mode="after")

@@ -135,28 +135,28 @@ def render(
         "## What this is",
         "",
         "A distribution's udev rules are a primary source about hardware we will "
-        "never own, written and maintained by the people who ship the drivers. "
-        "They are the same kind of asset as the Debian Blend task lists: curated, "
-        "machine-readable, and unmined by anyone in this space.",
+        + "never own, written and maintained by the people who ship the drivers. "
+        + "They are the same kind of asset as the Debian Blend task lists: curated, "
+        + "machine-readable, and unmined by anyone in this space.",
         "",
         "The `rtl-sdr` entry is why this exists. It carried three identifiers "
-        "and Debian's `librtlsdr0` rule carries 42 — the missing 39 being "
-        "rebadged DVB-T sticks from Hauppauge, Terratec, Dexatek and Gigabyte, "
-        "all RTL2832U underneath. Every one of those meant a working device with "
-        "no `/dev` symlink and no error message anywhere in the chain, which is "
-        "the failure this catalog refuses to *guess* its way into, reached by "
-        "omission instead.",
+        + "and Debian's `librtlsdr0` rule carries 42 — the missing 39 being "
+        + "rebadged DVB-T sticks from Hauppauge, Terratec, Dexatek and Gigabyte, "
+        + "all RTL2832U underneath. Every one of those meant a working device with "
+        + "no `/dev` symlink and no error message anywhere in the chain, which is "
+        + "the failure this catalog refuses to *guess* its way into, reached by "
+        + "omission instead.",
         "",
         "**Nothing is filtered out of the sweep.** Every package in the archive "
-        "that ships a udev rule is downloaded and read — a curated shortlist is "
-        "how the `rtl-sdr` gap happened in the first place. The section split "
-        "below decides only what gets a detailed table. That claim was true of "
-        "packages and false of syntax until 2026-09-12: the parser read only "
-        '`ATTRS{idVendor}`, and a rule written as `ENV{PRODUCT}=="403/de58/*"` '
-        "or `ENV{ID_VENDOR_ID}` had no row — `brltty`'s whole file, among others. "
-        "All three syntaxes are read now (`scripts/udev_rule_pairs.py`, **D-047**); "
-        "brltty itself ships no rules on Debian 13, and "
-        "`docs/reference/brltty-inventory.md` measures it on the targets that do.",
+        + "that ships a udev rule is downloaded and read — a curated shortlist is "
+        + "how the `rtl-sdr` gap happened in the first place. The section split "
+        + "below decides only what gets a detailed table. That claim was true of "
+        + "packages and false of syntax until 2026-09-12: the parser read only "
+        + '`ATTRS{idVendor}`, and a rule written as `ENV{PRODUCT}=="403/de58/*"` '
+        + "or `ENV{ID_VENDOR_ID}` had no row — `brltty`'s whole file, among others. "
+        + "All three syntaxes are read now (`scripts/udev_rule_pairs.py`, **D-047**); "
+        + "brltty itself ships no rules on Debian 13, and "
+        + "`docs/reference/brltty-inventory.md` measures it on the targets that do.",
         "",
         "## By archive section",
         "",
@@ -176,8 +176,8 @@ def render(
     lines += [
         "",
         "Bold sections are the ones detailed below. The others are printers, "
-        "scanners, storage, input devices and desktop plumbing — swept and "
-        "counted, not tabulated.",
+        + "scanners, storage, input devices and desktop plumbing — swept and "
+        + "counted, not tabulated.",
         "",
         "## Packages worth mining",
         "",
@@ -208,38 +208,38 @@ def render(
         "## What the first sweep found",
         "",
         "Curated, like the blocking assessment in `gen_hardware_gaps.py`: the "
-        "counts above are measured, this section is judgement.",
+        + "counts above are measured, this section is judgement.",
         "",
         "**Two gaps closed without owning anything.**",
         "",
         '- **LimeSDR.** The entry said *"no USB identifier confirmed, and the '
-        "maintainer does not own the hardware to confirm one\"*. Debian's "
-        "`limesuite-udev` ships `64-limesuite.rules`, which names the board: "
-        "`1d50:6108`, plus the FT601 the Mini uses. Now `status: supported` with "
-        "no `maintainer_verified` — the D-027 shape exactly.",
+        + "maintainer does not own the hardware to confirm one\"*. Debian's "
+        + "`limesuite-udev` ships `64-limesuite.rules`, which names the board: "
+        + "`1d50:6108`, plus the FT601 the Mini uses. Now `status: supported` with "
+        + "no `maintainer_verified` — the D-027 shape exactly.",
         "- **Flipper Zero.** Debian packages `qflipper` and its rule names all "
-        "three modes. A device the catalog should obviously have carried, "
-        "surfaced by a sweep rather than by someone remembering it.",
+        + "three modes. A device the catalog should obviously have carried, "
+        + "surfaced by a sweep rather than by someone remembering it.",
         "",
         "**The hazard, which is the mirror image of the gap this method fixed.**",
         "",
         "Not every identifier in a rule identifies the device the rule is for. "
-        "`64-limesuite.rules` also lists `0403:6001` (FTDI FT232 serial) and "
-        "`04b4:8613` (the stock Cypress FX2 development kit); LimeSuite matches "
-        "them because it *probes*, not because they mean LimeSDR. A `SYMLINK` on "
-        "`0403:6001` would name every FTDI adapter on the machine `/dev/limesdr`.",
+        + "`64-limesuite.rules` also lists `0403:6001` (FTDI FT232 serial) and "
+        + "`04b4:8613` (the stock Cypress FX2 development kit); LimeSuite matches "
+        + "them because it *probes*, not because they mean LimeSDR. A `SYMLINK` on "
+        + "`0403:6001` would name every FTDI adapter on the machine `/dev/limesdr`.",
         "",
         "`0483:df11` is the sharper case: it is STMicroelectronics' generic "
-        "STM32 DFU identifier, and this sweep found it in **both** `qflipper`'s "
-        "rule and `dmrconfig`'s, where it is a TYT MD-UV380 radio. Two unrelated "
-        "devices, one pair. It is safe as a firmware target, where the operator "
-        "chose the device, and unsafe as a symlink rule, where the kernel matches "
-        "whatever is attached — so the Flipper entry records it under `firmware` "
-        "and not under `usb_ids`.",
+        + "STM32 DFU identifier, and this sweep found it in **both** `qflipper`'s "
+        + "rule and `dmrconfig`'s, where it is a TYT MD-UV380 radio. Two unrelated "
+        + "devices, one pair. It is safe as a firmware target, where the operator "
+        + "chose the device, and unsafe as a symlink rule, where the kernel matches "
+        + "whatever is attached — so the Flipper entry records it under `firmware` "
+        + "and not under `usb_ids`.",
         "",
         "Under-matching is silent and over-matching is silent. **A sweep produces "
-        "candidates, not answers**, and the judgement about which is which is the "
-        "part that cannot be generated.",
+        + "candidates, not answers**, and the judgement about which is which is the "
+        + "part that cannot be generated.",
         "",
         "**Still on the table**, in rough order of value to this project:",
         "",
@@ -255,24 +255,24 @@ def render(
         "| `openocd`, `stlink-tools`, `avrdude`, `flashrom`, `openfpgaloader` | 200+ | Programmers and flashers, for a hardware-hacking profile |",
         "",
         "The 1,800-odd remaining identifiers are printers, scanners, cameras, "
-        "game controllers and desktop plumbing. Counted above so the number is "
-        "honest, and deliberately not mined: an identifier is only worth carrying "
-        "when a device entry gives it a purpose.",
+        + "game controllers and desktop plumbing. Counted above so the number is "
+        + "honest, and deliberately not mined: an identifier is only worth carrying "
+        + "when a device entry gives it a purpose.",
         "",
         "## How to use this",
         "",
         "An identifier here is **evidence, not a device entry**. Adding one means "
-        "deciding which device or class it belongs to and writing the prose that "
-        "makes it useful — this document says what is available, not what is "
-        "already decided.",
+        + "deciding which device or class it belongs to and writing the prose that "
+        + "makes it useful — this document says what is available, not what is "
+        + "already decided.",
         "",
         "Every identifier added from a sweep cites the rule file it came from in "
-        "its `evidence` field, exactly as a capture from real hardware cites the "
-        "`lsusb` that produced it. Both are primary sources; neither is a guess.",
+        + "its `evidence` field, exactly as a capture from real hardware cites the "
+        + "`lsusb` that produced it. Both are primary sources; neither is a guess.",
         "",
         "This closes gaps for hardware nobody here owns, which is most of it. It "
-        "does **not** make a device `maintainer_verified` — that is a separate "
-        "claim about whether anyone ran it, and D-027 keeps the two apart.",
+        + "does **not** make a device `maintainer_verified` — that is a separate "
+        + "claim about whether anyone ran it, and D-027 keeps the two apart.",
         "",
     ]
     return "\n".join(lines)

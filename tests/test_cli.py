@@ -763,7 +763,6 @@ CLI_DOC = REPO_ROOT / "docs" / "reference" / "cli.md"
 def test_the_documented_exit_codes_match_the_code() -> None:
     """A table of exit codes is exactly the kind of prose that goes stale
     silently: scripts read these, and nothing else would notice a drift."""
-    import re
 
     table = dict(re.findall(r"^\| (\d) \| (.+?) \|$", CLI_DOC.read_text(), re.MULTILINE))
     documented = {int(code) for code in table}
@@ -1281,7 +1280,6 @@ def test_install_refreshes_the_lists_by_default_and_no_refresh_turns_it_off(
 def test_a_failed_apt_fetch_advises_retry_without_changing_failure_log(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Any
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     _mock_apt(monkeypatch, populated=True)
@@ -2055,7 +2053,6 @@ def test_hardware_park_refuses_when_the_helper_is_not_installed(
     A pkexec against a path that does not exist gives the operator an
     authentication prompt followed by 'command not found', which is the worst
     of both."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2071,7 +2068,6 @@ def test_hardware_park_refuses_when_pkexec_is_not_installed(
 ) -> None:
     """A headless target may have the helper and no polkit at all. The CLI
     reference promises an exit code for every refusal; a traceback is not one."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2090,7 +2086,6 @@ def test_hardware_park_refuses_when_pkexec_is_not_installed(
 def test_hardware_park_prints_the_pkexec_line_and_stops_on_dry_run(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2120,7 +2115,6 @@ def test_hardware_park_maps_a_dismissed_prompt_to_exit_3(
 ) -> None:
     """pkexec exits 126 when the dialog is dismissed. That is a declined
     consent, not a failure: nothing was written and exit 3 says so."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2146,7 +2140,6 @@ def test_hardware_state_needs_no_privilege_and_prints_a_table(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import dataclasses
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2165,7 +2158,6 @@ def test_hardware_unapply_removes_nothing_the_log_does_not_record(
 ) -> None:
     """A file sitting at the helper's path that we did not write belongs to
     whoever did. An empty log means an empty removal, not a guess."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2305,7 +2297,6 @@ def test_hardware_apply_stages_in_an_unpredictable_directory_and_cleans_up(
     directory that a local attacker could pre-create and race. The real
     staging directory must have an unguessable name and must be gone once
     `apply` returns, whether it succeeds or not."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2330,7 +2321,6 @@ def test_hardware_apply_stages_in_an_unpredictable_directory_and_cleans_up(
 def test_hardware_apply_discloses_the_interpreter_above_the_install_commands(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2351,7 +2341,6 @@ def test_hardware_apply_refuses_yes_alone_when_the_interpreter_tree_is_unsafe(
     """D-056's ruling: never refused outright, but never satisfied by --yes
     either (D-021). No stdin answer at all -- the same as a dismissed
     prompt -- must decline, not hang or default to proceeding."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2378,7 +2367,6 @@ def test_hardware_apply_refuses_yes_alone_when_the_interpreter_tree_is_unsafe(
 
 def test_hardware_apply_proceeds_on_yes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """2026-09-27 amendment: the answer is `yes`, not the path typed back."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2404,7 +2392,6 @@ def test_hardware_apply_declines_anything_but_yes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, answer: str
 ) -> None:
     """The old answer, the path typed back, is now just another non-yes."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2432,7 +2419,6 @@ def test_hardware_apply_asks_once_without_yes(
 ) -> None:
     """Without `--yes` the operator is asked one question, not the gate's
     and then the generic "Proceed?" as well."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2469,7 +2455,6 @@ def test_hardware_apply_refuses_hard_when_the_interpreter_tree_is_group_or_other
     monkeypatched here on purpose: if the code asked for one, the real
     `input()` would raise in pytest's captured-output mode and the test
     would fail loudly rather than silently pass."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     from hammunition.hardware.polkit import WritabilityRisk
@@ -2506,7 +2491,6 @@ def test_hardware_apply_gates_a_policy_only_install_too(
     session can authorise. Both prior tests exercised the opposite
     combination (helper installing, policy already current), which is why a
     gate keyed on `preview_helper is not None` alone was invisible to them."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     from hammunition.hardware.polkit import WritabilityRisk
@@ -2540,7 +2524,6 @@ def test_hardware_apply_dry_run_discloses_a_refusal_instead_of_a_plan(
     must say so, not print "Dry run: nothing above was executed" and exit 0
     as though everything were fine -- CLAUDE.md's "complete and accurate,
     not approximate." """
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     from hammunition.hardware.polkit import WritabilityRisk
@@ -2573,7 +2556,6 @@ def test_hardware_apply_discloses_both_offending_paths_when_both_are_flagged(
     """Fix round 2, item 5: a partial disclosure is not a disclosure. Both
     the interpreter's and the package's offending paths are printed before
     the one yes/no question."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2614,7 +2596,6 @@ def test_hardware_apply_dry_run_never_calls_mkdtemp(
     `after - before` was already empty against the exact code this was
     written to catch -- it passed without ever exercising the fix. This
     instead asserts `mkdtemp` is never *called* in the first place."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2646,7 +2627,6 @@ def test_hardware_apply_logs_the_helper_even_when_the_policy_install_then_fails(
     """Fix round 1, item 4: a log entry is written as soon as its own install
     command succeeds, not batched to the end. A failed policy install must
     not erase the record that the helper already landed."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2679,7 +2659,6 @@ def test_hardware_apply_is_noop_message_mentions_the_polkit_artefacts(
     """Fix round 1, item 7: `is_noop` covers the helper and policy too, and
     the message printed when it fires must say so, not just the rules file
     and group membership."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2700,7 +2679,6 @@ def test_hardware_unapply_only_removes_paths_it_owns(
     an operator read *another* account's log, which that account can append
     to freely, so only the two paths this command actually owns may ever be
     removed -- everything else is reported and skipped."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2754,7 +2732,6 @@ def test_hardware_unapply_tolerates_a_files_field_that_is_a_string(
     """Fix round 1, item 2: `entry.get("files", [])` iterated a string
     character by character and then crashed on `item.get`. A malformed
     *known* event must be tolerated, not raise."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2770,7 +2747,6 @@ def test_hardware_unapply_tolerates_a_files_field_that_is_a_string(
 def test_hardware_unapply_tolerates_files_entries_that_are_not_dicts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2797,7 +2773,6 @@ def test_hardware_unapply_dry_run_removes_nothing(
     """Falsifies an implementation that hardcodes the `rm -f` whenever the
     log is non-empty without checking `--dry-run` at all: the stubbed runner
     here raises if it is ever invoked."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2842,7 +2817,6 @@ def test_hardware_unapply_fails_when_a_path_survives_a_stubbed_successful_rm(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """D-031: `rm` exiting 0 is not evidence the file is gone."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2883,7 +2857,6 @@ def test_hardware_unapply_removes_both_recorded_owned_paths(
 ) -> None:
     """The positive path #3 in fix round 1 was entirely untested: two
     entries, each naming one owned file, both removed and both verified."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
@@ -2930,7 +2903,6 @@ def test_hardware_unapply_removes_both_recorded_owned_paths(
 def test_station_set_map_regions_and_freshness(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     target = tmp_path / "station.yaml"
@@ -2973,7 +2945,6 @@ def test_station_set_map_regions_with_nothing_after_splitting_is_refused(
     """Fix round 1 (7+9), M1: an empty result after splitting on ',' and
     stripping is refused with a clear message, whether or not other flags
     are given -- not silently saved as "no regions"."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     target = tmp_path / "station.yaml"
@@ -2989,7 +2960,6 @@ def test_station_set_map_regions_with_nothing_after_splitting_is_refused(
 def test_station_set_map_regions_strips_whitespace_around_commas(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import importlib
 
     from hammunition.station import load_station
 
@@ -3402,7 +3372,6 @@ _MAPS_INDEX = (
 def test_maps_regions_filters_case_insensitively(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     monkeypatch.setattr(cli, "UrllibProbe", lambda: _MapsProbe(text=_MAPS_INDEX))
@@ -3416,7 +3385,6 @@ def test_maps_regions_fetches_the_smaller_nogeom_index(
     """Fix round 1 (7+9), M6: index-v1-nogeom.json (0.51 MB, measured live
     2026-09-28) carries the same `properties.urls.pbf` shape as
     index-v1.json (3.79 MB); fetch the smaller one."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     probe = _MapsProbe(text=_MAPS_INDEX)
@@ -3428,7 +3396,6 @@ def test_maps_regions_fetches_the_smaller_nogeom_index(
 def test_maps_regions_with_no_filter_lists_everything_sorted(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     monkeypatch.setattr(cli, "UrllibProbe", lambda: _MapsProbe(text=_MAPS_INDEX))
@@ -3439,7 +3406,6 @@ def test_maps_regions_with_no_filter_lists_everything_sorted(
 def test_maps_regions_a_network_failure_is_a_named_error(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     monkeypatch.setattr(
@@ -3540,7 +3506,6 @@ def _stub_unapply_with_nothing_logged(monkeypatch: pytest.MonkeyPatch, cli: Any)
 def test_hardware_park_dry_run_discloses_the_kept_entry(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     _stub_power_verb(monkeypatch, cli, tmp_path, [_gps_parkable()])
@@ -3554,7 +3519,6 @@ def test_hardware_park_dry_run_discloses_the_kept_entry(
 def test_hardware_park_until_reboot_passes_the_flag_and_writes_no_entry(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     _stub_power_verb(monkeypatch, cli, tmp_path, [_gps_parkable()])
@@ -3573,7 +3537,6 @@ def test_hardware_park_until_reboot_passes_the_flag_and_writes_no_entry(
 def test_hardware_wake_of_an_absent_kept_device_discloses_the_removal(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    import importlib
 
     from hammunition.hardware.power import KeptEntry
 
@@ -3592,7 +3555,6 @@ def test_hardware_wake_of_an_absent_kept_device_discloses_the_removal(
 def test_hardware_state_shows_kept_and_absent(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import importlib
 
     from hammunition.hardware.power import KeptEntry
 
@@ -3616,7 +3578,6 @@ def test_hardware_state_shows_kept_and_absent(
 def test_hardware_unapply_removes_the_kept_rules_file(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     kept = tmp_path / "66-hammunition-kept.rules"
@@ -3635,7 +3596,6 @@ def test_hardware_wake_dry_run_of_an_ambiguous_attached_name_is_refused(
     """Final review finding 1, the CLI half: an attached device is never
     disclosed as "not attached" because its name was ambiguous."""
     import dataclasses
-    import importlib
 
     from hammunition.hardware.power import KeptEntry
 
@@ -3659,7 +3619,6 @@ def test_hardware_state_survives_a_device_whose_identity_is_not_a_kept_shape(
     """Final review finding 7: kept_entry() raising for one attached device was
     a traceback out of `hardware state`."""
     import dataclasses
-    import importlib
 
     from hammunition.hardware.power import KeptEntry
 
@@ -3679,7 +3638,6 @@ def test_kept_split_skips_only_the_device_that_will_not_validate() -> None:
     """Final review finding 7, doctor's half: one bad attached device drops
     that device from the kept checks, never all of them."""
     import dataclasses
-    import importlib
 
     from hammunition.hardware.power import KeptEntry
 
@@ -3703,7 +3661,6 @@ def test_hardware_unapply_names_what_it_leaves_and_how_kept_entries_return(
     """Final review finding 6: the listing that removes the kept file said
     "the udev rules file is not touched", and the closing line said `apply`
     reinstalls what it removed -- which apply never does for kept entries."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     kept = tmp_path / "66-hammunition-kept.rules"
@@ -3778,7 +3735,6 @@ def test_hardware_apply_discloses_and_installs_the_gps_time_grants(
     monkeypatch: pytest.MonkeyPatch,
     time_files: Path,
 ) -> None:
-    import importlib
     from dataclasses import replace
 
     from hammunition.gpstime import files
@@ -3813,7 +3769,6 @@ def test_hardware_apply_discloses_and_installs_the_gps_time_grants(
 def test_hardware_apply_logs_each_gps_time_step(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, time_files: Path
 ) -> None:
-    import importlib
     from dataclasses import replace
 
     cli = importlib.import_module("hammunition.cli.main")
@@ -3844,7 +3799,6 @@ def test_hardware_apply_dry_run_shows_the_gps_time_commands_and_runs_none(
     monkeypatch: pytest.MonkeyPatch,
     time_files: Path,
 ) -> None:
-    import importlib
     from dataclasses import replace
 
     from hammunition.gpstime import files
@@ -3894,7 +3848,6 @@ def test_hardware_unapply_takes_gps_time_back_exactly(
     time_files: Path,
     debian_ntp_conf: str,
 ) -> None:
-    import importlib
 
     from hammunition.gpstime import files
     from hammunition.gpstime.grants import APPARMOR_BLOCK, DROPIN_CONTENT
@@ -3932,7 +3885,6 @@ def test_hardware_unapply_refuses_a_hand_edited_conffile_before_running_anything
     debian_ntp_conf: str,
 ) -> None:
     """Review Focus 2."""
-    import importlib
 
     from hammunition.gpstime import files
     from hammunition.gpstime.ntpconf import transform
@@ -3959,7 +3911,6 @@ def test_hardware_unapply_dry_run_lists_the_gps_time_steps(
     time_files: Path,
     debian_ntp_conf: str,
 ) -> None:
-    import importlib
 
     from hammunition.gpstime import files
     from hammunition.gpstime.ntpconf import transform
@@ -3987,7 +3938,6 @@ def _ready_helper(monkeypatch: pytest.MonkeyPatch, cli: Any, tmp_path: Path) -> 
 def test_time_reads_without_privilege_and_says_what_the_clock_follows(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import importlib
     from datetime import UTC, datetime
 
     from hammunition.gpstime import state as time_state
@@ -4033,7 +3983,6 @@ def test_time_mode_dry_run_discloses_every_write_and_runs_nothing(
     monkeypatch: pytest.MonkeyPatch,
     time_files: Path,
 ) -> None:
-    import importlib
 
     from hammunition.gpstime import files
 
@@ -4061,7 +4010,6 @@ def test_time_mode_refuses_without_ntpsec(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     _ready_helper(monkeypatch, cli, tmp_path)
@@ -4072,7 +4020,6 @@ def test_time_mode_refuses_without_ntpsec(
 def test_time_mode_refuses_without_the_helper(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     monkeypatch.setattr(cli, "HELPER_PATH", "/nonexistent/hammunition-devctl")
@@ -4086,7 +4033,6 @@ def test_time_mode_says_a_gps_mode_waits_for_a_receiver(
     monkeypatch: pytest.MonkeyPatch,
     time_files: Path,
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     _ready_helper(monkeypatch, cli, tmp_path)
@@ -4101,7 +4047,6 @@ def test_time_mode_maps_a_dismissed_prompt_to_exit_3(
     monkeypatch: pytest.MonkeyPatch,
     time_files: Path,
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     _ready_helper(monkeypatch, cli, tmp_path)
@@ -4129,7 +4074,6 @@ def test_time_mode_refuses_when_only_the_conffile_is_left(
     time_files: Path,
 ) -> None:
     """Final review I3."""
-    import importlib
 
     from hammunition.gpstime import files
 
@@ -4147,7 +4091,6 @@ def test_hardware_apply_dry_run_shows_the_conffile_edits_of_the_first_mode(
     time_files: Path,
 ) -> None:
     """Final review I1."""
-    import importlib
     from dataclasses import replace
 
     from hammunition.gpstime.grants import plan_time_grants
@@ -4167,7 +4110,6 @@ def test_hardware_apply_no_gps_time_plans_no_time_step(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Final review I2: an operator can set up devices without GPS time."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     plan = _hardware_plan(tmp_path, polkit=_polkit_artifacts(tmp_path))
@@ -4190,7 +4132,6 @@ def test_hardware_apply_refuses_a_conffile_it_cannot_edit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Final review I1: the helper step would fail mid-run; refuse up front."""
-    import importlib
 
     from hammunition.gpstime.mode import TimeError
 
@@ -4252,7 +4193,6 @@ def test_hardware_apply_discloses_installs_and_logs_the_gps_resume_step(
     monkeypatch: pytest.MonkeyPatch,
     resume_files: Path,
 ) -> None:
-    import importlib
 
     from hammunition.hardware import gps_resume as gr
 
@@ -4293,7 +4233,6 @@ def test_hardware_apply_fails_when_the_resume_unit_is_not_enabled_after_all(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, resume_files: Path
 ) -> None:
     """D-031: `systemctl enable` exiting 0 is not the links existing."""
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     _stub_hardware_apply_scaffolding(monkeypatch, cli, _resume_plan(tmp_path))
@@ -4307,7 +4246,6 @@ def test_hardware_apply_dry_run_prints_the_resume_step_and_writes_nothing(
     monkeypatch: pytest.MonkeyPatch,
     resume_files: Path,
 ) -> None:
-    import importlib
 
     from hammunition.hardware import gps_resume as gr
 
@@ -4329,7 +4267,6 @@ def test_hardware_apply_dry_run_prints_the_resume_step_and_writes_nothing(
 def test_hardware_apply_no_gps_resume_does_not_ask_for_the_step(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     plan = _hardware_plan(tmp_path, polkit=_polkit_artifacts(tmp_path))
@@ -4351,7 +4288,6 @@ def test_hardware_apply_refuses_a_resume_unit_it_did_not_write(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import importlib
 
     from hammunition.hardware.gps_resume import GpsResumeError
 
@@ -4373,7 +4309,6 @@ def test_hardware_unapply_removes_the_gps_resume_step_by_content(
     monkeypatch: pytest.MonkeyPatch,
     resume_files: Path,
 ) -> None:
-    import importlib
 
     from hammunition.hardware import gps_resume as gr
 
@@ -4403,7 +4338,6 @@ def test_hardware_unapply_leaves_a_resume_unit_someone_else_wrote(
     monkeypatch: pytest.MonkeyPatch,
     resume_files: Path,
 ) -> None:
-    import importlib
 
     from hammunition.hardware import gps_resume as gr
 
@@ -4420,7 +4354,6 @@ def test_doctor_asks_about_the_resume_step_only_with_a_receiver_and_gpsd(
     monkeypatch: pytest.MonkeyPatch, resume_files: Path
 ) -> None:
     import argparse
-    import importlib
 
     from hammunition.hardware import gps_resume as gr
     from hammunition.hardware.power import Parkable

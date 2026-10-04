@@ -173,6 +173,6 @@ def render_services(doc: ServicesDocument) -> list[str]:
     lines += [
         "",
         "`hammunition services start NAME`, `stop NAME`, `enable NAME` and `disable NAME` "
-        "change one. A system service asks for your password once; a user service never does.",
+        + "change one. A system service asks for your password once; a user service never does.",
     ]
     return lines

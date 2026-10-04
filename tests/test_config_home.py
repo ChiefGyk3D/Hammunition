@@ -214,3 +214,14 @@ def test_the_plan_step_under_root_is_the_operator_write(operator: Any) -> None:
     assert "handed to operator" in step.detail
     step.perform()
     assert (home / ".config" / "App" / "x.conf").read_text() == "CALL=N0TST\n"
+
+
+@pytest.mark.parametrize("mode", ["4755", "2755", "1777", "0666", "0777", "644x", "rw-r--r--", ""])
+def test_a_config_file_mode_with_a_special_bit_or_world_write_is_refused(mode: str) -> None:
+    with pytest.raises(ValueError, match="mode"):
+        ConfigFile(path="/etc/x.conf", template="x", mode=mode)
+
+
+@pytest.mark.parametrize("mode", ["0644", "0600", "0640", "0660", "0755", "644"])
+def test_an_ordinary_config_file_mode_is_accepted(mode: str) -> None:
+    assert ConfigFile(path="/etc/x.conf", template="x", mode=mode).mode == mode

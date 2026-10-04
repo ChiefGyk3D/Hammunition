@@ -147,7 +147,6 @@ def test_the_matrix_lists_every_manifest() -> None:
 
 
 def test_the_matrix_lists_no_package_that_left_the_catalog() -> None:
-    import re
 
     catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
     # Only the full table at the end. The legend above it uses the same row

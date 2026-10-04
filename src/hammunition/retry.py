@@ -179,7 +179,6 @@ class RetryPolicy:
         with self._lock:
             tripped = self._failures.get(host, 0) >= self.breaker
         attempts = 1 if tripped else self.attempts
-        answer = "no answer"
         for attempt in range(1, attempts + 1):
             try:
                 result = fn()
