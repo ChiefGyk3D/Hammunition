@@ -10051,7 +10051,7 @@ documents its default and opt-in behavior. The package reference and JSON
 reference are generated from those declarations.
 
 
-## D-080 — Reticulum is carried as per-user venvs with one shared instance per operator; the Reticulum License is stated, not gated; the engine writes no Reticulum configuration
+## D-080 — Reticulum is carried as per-user venvs with one shared instance per machine; the Reticulum License is stated, not gated; the engine writes no Reticulum configuration
 
 **Date:** 2026-10-03. **Status:** accepted (the maintainer's rulings of
 2026-10-03 on the design and on its four open points, recorded in
@@ -10066,8 +10066,9 @@ upstream), D-027 and D-018 (a hardware claim is earned).
 **The shape.** Three catalog units, `rns`, `lxmf` and `nomadnet`, each a
 hash-pinned `venv` from PyPI, because no archive on any of the seven targets
 carries any of it (`docs/reference/mesh-inventory.md`, 2026-10-03). `rns`
-exposes `rnsd`, `rnstatus`, `rnpath`, `rnprobe`, `rnid`, `rncp`, `rnx`, `rnsh`
-and `rnodeconf`; there is **no `rnsh` unit**, because `rns` 1.5.x installs its
+exposes every console script `rns` 1.5.6 declares (14): `rnsd`, `rnstatus`,
+`rnpath`, `rnprobe`, `rnid`, `rncp`, `rnx`, `rnsh`, `rnodeconf`, `rnir`,
+`rnpkg`, `rngit`, `rngcs` and `git-remote-rns`; there is **no `rnsh` unit**, because `rns` 1.5.x installs its
 own and PyPI's separate `rnsh` would be a second owner of one command name.
 `lxmf` exposes `lxmd` and starts nothing: a propagation node stores other
 people's messages, and running one is the operator's decision. `nomadnet`
@@ -10076,7 +10077,11 @@ exposes `nomadnet` and ships a terminal launcher named `nomadnet-terminal`
 three venvs each carry their own `rns`, so they are pinned to one version and
 bumped as a set; `tests/test_reticulum_catalog.py` fails if they are not.
 
-**One shared instance per operator.** `rns` carries a `user_services` block,
+**One shared instance per machine.** The instance is run by the first
+operator's service; another account's service attaches to it as a client
+(measured in a Debian 13 container, 2026-10-03: a second account's
+`hammunition-rnsd` attached to the first account's `@rns/default` with the
+"another shared local instance" warning). `rns` carries a `user_services` block,
 `hammunition-rnsd` (`{venv}/bin/rnsd --service`), a plain service in D-073's
 sense: no station value, nothing to defer. It is **enabled at install** and,
 as every plain service does, starts at the operator's next login (the guide

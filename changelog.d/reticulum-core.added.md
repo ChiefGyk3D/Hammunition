@@ -3,7 +3,8 @@
   carries any of them: `rns` exposes every console script Reticulum declares
   (`rnsd`, `rnstatus`, `rnpath`, `rnprobe`, `rnid`, `rncp`, `rnx`, `rnsh`, the
   RNode flasher `rnodeconf` and the rest) and installs a user service,
-  `hammunition-rnsd`, that keeps one shared instance per operator (enabled at
+  `hammunition-rnsd`, that keeps one shared instance per machine (the first
+  operator's service runs it and another account's attaches as a client; enabled at
   install, started at next login; an abstract local socket, not a TCP port,
   measured in a Debian 13 container); `lxmf` gives `lxmd` and starts nothing;
   `nomadnet` gives the terminal messenger and a menu entry. The Reticulum

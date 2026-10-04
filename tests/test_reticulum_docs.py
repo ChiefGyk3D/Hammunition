@@ -171,3 +171,59 @@ def test_no_record_calls_the_socket_finding_provisional() -> None:
     d080 = decisions[decisions.index("## D-080 ") :]
     assert "stays provisional" not in d080
     assert "Debian 13 container" in d080
+
+
+def test_the_shared_instance_is_per_machine_in_the_record_the_row_and_the_fragment() -> None:
+    """The instance is an abstract Unix socket, machine-wide: a second account's
+    rnsd attached to the first's (Debian 13 container, 2026-10-03). 'Per operator'
+    was wrong, and it was wrong in the authoritative record."""
+    files = [
+        ROOT / "docs" / "DECISIONS.md",
+        ROOT / "CLAUDE.md",
+        ROOT / "changelog.d" / "reticulum-core.added.md",
+    ]
+    for path in files:
+        text = _flat(_text(path))
+        if path.name == "DECISIONS.md":
+            text = text[text.index("## D-080 ") : text.index("## D-081 ") if "## D-081 " in text else None]
+        assert not re.search(r"shared instance per operator", text, re.IGNORECASE), path.name
+        assert not re.search(r"per operator[^.]{0,40}shared instance", text, re.IGNORECASE), path.name
+        assert "per machine" in text, path.name
+    decision = _flat(_text(files[0]))
+    assert "every console script `rns` 1.5.6 declares (14)" in decision
+
+
+def test_the_guide_and_the_page_warn_that_an_old_pip_or_pipx_reticulum_is_overwritten() -> None:
+    """D-022: coexist, disclose, never remove silently. The venv backend writes
+    its wrappers over ~/.local/bin and follows a pipx symlink."""
+    guide = _flat(_text(GUIDE))
+    for needle in (
+        "installed Reticulum with pip or pipx",
+        "replace `~/.local/bin/rnsd`",
+        "pipx uninstall rns",
+        "python3 -m pip uninstall rns",
+        "does not bring the old one back",
+    ):
+        assert needle in guide, needle
+    rns = load_catalog(ROOT / "catalog" / "packages")["rns"].documentation.known_problems
+    assert rns is not None
+    assert "pipx uninstall rns" in _flat(rns) and "does not bring the old one back" in _flat(rns)
+
+
+def test_nothing_is_claimed_not_to_transmit_on_a_network_and_the_autointerface_can_be_scoped() -> None:
+    rns = load_catalog(ROOT / "catalog" / "packages")["rns"].documentation.prerequisites
+    assert rns is not None
+    flat = _flat(rns)
+    assert "Nothing here transmits" not in flat
+    assert "no radio transmits until you attach and configure one" in flat.lower()
+    assert "announces on every link-local interface from the first start" in flat
+    guide = _flat(_text(GUIDE)).replace("No radio transmits","no radio transmits")
+    for needle in (
+        "no radio transmits until you attach and configure one",
+        "announces on every link-local interface from the first start",
+        "`devices`",
+        "`ignored_devices`",
+        "`enabled = No`",
+        "installed `AutoInterface.py` source (`devices`, `ignored_devices`)",
+    ):
+        assert needle in guide, needle

@@ -19,7 +19,7 @@ For messaging and file transfer that keep working when the infrastructure does n
 
 ## Before it will work
 
-Python 3.11 or newer from the distribution, and `python3-venv`. Nothing else for the local-network case: AutoInterface needs link-local IPv6 and a network that passes multicast between its devices. For LoRa an RNode and membership of `dialout` (log out and back in after being added). Nothing here transmits until you attach a radio or a network and configure it.
+Python 3.11 or newer from the distribution, and `python3-venv`. Nothing else for the local-network case: AutoInterface needs link-local IPv6 and a network that passes multicast between its devices. For LoRa an RNode and membership of `dialout` (log out and back in after being added). No radio transmits until you attach and configure one; on a network, the AutoInterface announces on every link-local interface from the first start.
 
 ## How it installs
 
@@ -28,6 +28,7 @@ Python 3.11 or newer from the distribution, and `python3-venv`. Nothing else for
 
 ## Known problems
 
+**An existing pip or pipx Reticulum is overwritten.** If Reticulum was installed with pip or pipx, the engine's wrappers replace `~/.local/bin/rnsd` and the other commands, and a pipx install can be damaged through its symlink (issue #288; the engine does not yet check who wrote a `~/.local/bin` entry). Remove it first: `pipx uninstall rns` or `python3 -m pip uninstall rns`. Uninstalling this unit does not bring the old one back.
 **The licence is not an OSI licence.** The Reticulum License is the MIT text plus two added conditions, quoted from upstream's LICENSE (read 2026-10-03): "The Software shall not be used in any kind of system which includes amongst its functions the ability to purposefully do harm to human beings." and "The Software shall not be used, directly or indirectly, in the creation of an artificial intelligence, machine learning or language model training dataset, including but not limited to any use that contributes to the training or development of such a model or algorithm." Hammunition installs it from PyPI at your direction and never mirrors or vendors it, states the terms and does not judge your use of it (D-033, D-021).
 **First start writes a configuration, and the engine writes none.** `rnsd` creates `~/.reticulum/config` with its defaults, which enable the AutoInterface: link-local IPv6 multicast on every interface, so two machines on one network find each other. Upstream's manual (1.5.5) says it uses UDP ports 29716 and 42671 and that a firewall may need to allow them; in a Debian 13 container `rnsd` held UDP 29716 (on a multicast address), 29717 and 42671 (on the link-local address) and no TCP port (measured 2026-10-03). The file and the identity beside it are yours: Hammunition never edits them and `hammunition uninstall rns` leaves `~/.reticulum` in place.
 **The shared instance is a local socket, not a TCP port, and it is not private to your account.** On Linux it is the abstract Unix socket `@rns/default` (measured 2026-10-03), which has no file permissions, so another account on the same machine can attach to it as a client: a second account's `rnsd` did, with the same warning as below (measured 2026-10-03, Debian 13 container). What an attached client can then send through your interfaces was not measured; treat the machine as a single-operator one.

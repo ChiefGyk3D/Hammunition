@@ -134,6 +134,13 @@ wheel's metadata says MIT while the licence text it ships, and the one in its
 repository, is the GNU GPL v3; the shipped text governs here, so the manifest
 says GPL-3.0-only.
 
+**If you installed Reticulum with pip or pipx before.** The wrappers this
+unit writes replace `~/.local/bin/rnsd` and the other commands, and a pipx
+install can be damaged through its symlink (issue #288: the engine does not
+yet check who wrote an entry there). Remove the old one first: `pipx uninstall
+rns` or `python3 -m pip uninstall rns`. Uninstalling this unit does not bring
+the old one back.
+
 **Where the programs went.** Each of `rns`, `lxmf` and `nomadnet` is a
 per-user virtualenv under `~/.local/share/hammunition/venvs/`, with a small
 wrapper for every command in `~/.local/bin`. If a new shell says `rnstatus:
@@ -202,6 +209,18 @@ writes none of this file and never edits it: it is created by `rnsd`, under
 your account, and it is yours. `rnsd --exampleconfig` prints the whole
 annotated reference.
 
+**What goes on the air, and how to narrow it.** No radio transmits until you
+attach and configure one. On a network it is different: the AutoInterface
+announces on every link-local interface from the first start, so on a network
+you do not trust, limit it or turn it off before you start the service. In
+`~/.reticulum/config`, inside the `[[Default Interface]]` block, `devices =
+eth0` (a comma-separated list) restricts it to the interfaces you name,
+`ignored_devices = wlan0` leaves some out, and `enabled = No` turns the
+interface off. These names were read from the installed
+`AutoInterface.py` source (`devices`, `ignored_devices`) and the
+default block `rnsd --exampleconfig` prints (`enabled`), not run against a
+network; restart the service after editing. The engine never edits the file.
+
 Three facts about the shared instance, each read from the installed program:
 
 - **It is a local socket, not a TCP port.** On Linux `rnsd` binds the abstract
@@ -209,9 +228,11 @@ Three facts about the shared instance, each read from the installed program:
   (`ss -xl`, measured 2026-10-03; upstream's example configuration names port
   37428 only for platforms without domain sockets). `rnstatus` names it
   `Shared Instance[rns/default]` on a default configuration.
-- **It is not private to your account.** An abstract socket has no file
-  permissions, so another account on the same machine can attach to it as a
-  client. Treat the machine as a single-operator one.
+- **It is not private to your account, and it is one per machine.** An abstract
+  socket has no file permissions, so another account on the same machine can
+  attach to it as a client: a second account's `hammunition-rnsd` attached to
+  the first account's instance (Debian 13 container, 2026-10-03). Treat the
+  machine as a single-operator one.
 - **`rnsd --service` logs to `~/.reticulum/logfile`**, not to the journal, so
   `journalctl --user -u hammunition-rnsd` shows very little. Read the file.
 

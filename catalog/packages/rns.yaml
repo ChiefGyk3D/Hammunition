@@ -131,9 +131,18 @@ documentation:
     Python 3.11 or newer from the distribution, and `python3-venv`. Nothing
     else for the local-network case: AutoInterface needs link-local IPv6 and a
     network that passes multicast between its devices. For LoRa an RNode and
-    membership of `dialout` (log out and back in after being added). Nothing
-    here transmits until you attach a radio or a network and configure it.
+    membership of `dialout` (log out and back in after being added). No radio
+    transmits until you attach and configure one; on a network, the
+    AutoInterface announces on every link-local interface from the first start.
   known_problems: >-
+    **An existing pip or pipx Reticulum is overwritten.** If Reticulum was
+    installed with pip or pipx, the engine's wrappers replace
+    `~/.local/bin/rnsd` and the other commands, and a pipx install can be
+    damaged through its symlink (issue #288; the engine does not yet check who
+    wrote a `~/.local/bin` entry). Remove it first: `pipx uninstall rns` or
+    `python3 -m pip uninstall rns`. Uninstalling this unit does not bring the
+    old one back.
+
     **The licence is not an OSI licence.** The Reticulum License is the MIT
     text plus two added conditions, quoted from upstream's LICENSE (read
     2026-10-03): "The Software shall not be used in any kind of system which
