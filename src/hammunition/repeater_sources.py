@@ -61,6 +61,7 @@ from .repeaters import (
     ETCC_HEAD,
     HAND,
     HEARHAM,
+    MODES,
     OPEN_REPEATER,
     OSM,
     REPEATERBOOK_API,
@@ -845,6 +846,9 @@ def parse_brandmeister(raw: bytes, url: str) -> ParsedInput:
         colour = item.get("colorcode")
         if isinstance(colour, int) and not isinstance(colour, bool):
             notes.append(f"colour code {colour}")
+        digital = {"dmr_network": "Brandmeister", "dmr_id": str(ident)}
+        if isinstance(colour, int) and not isinstance(colour, bool):
+            digital["dmr_color_code"] = str(colour)
         master = item.get("lastKnownMaster")
         if isinstance(master, int) and not isinstance(master, bool):
             notes.append(f"master {master}")
@@ -857,6 +861,7 @@ def parse_brandmeister(raw: bytes, url: str) -> ParsedInput:
                 source=BRANDMEISTER,
                 offset_hz=None if entry is None else entry - hz,
                 mode="DMR",
+                digital=digital,
                 place=_clean(item.get("city")),
                 notes="; ".join(notes),
                 updated=_clean(item.get("last_seen")),
@@ -1232,6 +1237,8 @@ def _fill(kept: Repeater, other: Repeater) -> Repeater:
         offset_hz=kept.offset_hz if kept.offset_hz is not None else other.offset_hz,
         tone=kept.tone or other.tone,
         mode=kept.mode or other.mode,
+        modes=tuple(m for m in MODES if m in {*kept.modes, *other.modes}),
+        digital=kept.digital or other.digital,
         place=kept.place or other.place,
         also=(*kept.also, other.source) if other.source not in kept.also else kept.also,
     )

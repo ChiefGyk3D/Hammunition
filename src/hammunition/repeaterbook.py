@@ -37,7 +37,10 @@ Fields read: ``Callsign``, ``Frequency``, ``Input Freq``, ``PL``, ``TSQ``,
 ``Lat``, ``Long``, ``Nearest City``, ``Landmark``, ``Use``,
 ``Operational Status``, ``Notes``, ``Last Update`` and the ``Yes``/``No``
 mode keys ``FM Analog``, ``DMR``, ``D-Star``, ``NXDN``, ``APCO P-25``,
-``M17``, ``System Fusion``, ``Tetra``. A key this needs that is absent is a
+``M17``, ``System Fusion``, ``Tetra``, and the digital details the
+client's ``RepeaterJSON`` names: ``DMR Color Code``, ``DMR ID``, ``P-25 NAC``
+(kept when non-empty; the API has no D-STAR module, YSF DG-ID or NXDN RAN
+key). A key this needs that is absent is a
 named error, never a silent empty layer.
 """
 
@@ -221,6 +224,7 @@ _MODE_KEYS = (
     ("D-Star", "D-STAR"),
     ("NXDN", "NXDN"),
     ("APCO P-25", "P25"),
+    ("P-25", "P25"),
     ("M17", "M17"),
     ("System Fusion", "Fusion"),
     ("Tetra", "TETRA"),
@@ -289,6 +293,15 @@ def parse_export(raw: bytes, url: str) -> ParsedInput:
         place = ", ".join(
             x for x in (_clean(item.get("Nearest City")), _clean(item.get("Landmark"))) if x
         )
+        digital = {
+            key: value
+            for key, value in (
+                ("dmr_color_code", _clean(item.get("DMR Color Code"))),
+                ("dmr_id", _clean(item.get("DMR ID"))),
+                ("p25_nac", _clean(item.get("P-25 NAC"))),
+            )
+            if value
+        }
         rows.append(
             Repeater(
                 callsign=call,
@@ -298,7 +311,8 @@ def parse_export(raw: bytes, url: str) -> ParsedInput:
                 source=REPEATERBOOK_API,
                 offset_hz=None if entry is None else entry - hz,
                 tone=tone,
-                mode=", ".join(modes),
+                mode=", ".join(dict.fromkeys(modes)),
+                digital=digital,
                 place=place,
                 notes=_clean(item.get("Notes")),
                 use=_clean(item.get("Use")),

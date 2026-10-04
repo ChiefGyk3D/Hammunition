@@ -5488,6 +5488,8 @@ pasting. D-074 (amended 2026-10-04).
 | `rows` | list of [`RowView`](#rowview) | the layers joined as `repeaters-all.gpx` is (D-074), in memory, without the heard layer |
 | `merged` | integer | rows joined to another layer's |
 | `credits` | list of string | one attribution or licence text per distinct source present, to print beside the map |
+| `centre` | [`CentreView`](#centreview) or null | where distances are measured from: `--near`, else the station's grid square when one is set; null when neither, and every row's `distance_km` is then null |
+| `within_km` | <class 'float'> or null | `--within`: rows farther than this from `centre` were left out; null when not asked |
 
 #### `LayerView`
 
@@ -5515,7 +5517,12 @@ One repeater, after the layers were joined.
 | `output_hz` | integer | output frequency in Hz; 0 only when a waypoint gave none |
 | `offset_hz` | integer or null | transmit minus receive in Hz, signed; null when unknown |
 | `tone` | string | CTCSS in Hz as text; empty for none |
-| `mode` | string | `FM`, `DMR` and the like; empty when unknown |
+| `mode` | string | `FM`, `FM, DMR` and the like: `modes` joined, or the source's own words when they say more than the vocabulary does; empty when unknown |
+| `modes` | list of string | what it speaks, from `FM`, `DMR`, `D-STAR`, `YSF`, `P25`, `NXDN`, `M17`, `TETRA`, `ATV`, in that order; empty when the source says nothing or says a word outside the list (which stays in `mode`) |
+| `band` | string | `10m`, `6m`, `2m`, `1.25m`, `70cm`, `33cm`, `23cm`, `13cm` from the output frequency, else `other` |
+| `digital` | object | digital details the source supplied, never invented: `dmr_color_code`, `dmr_network`, `dmr_id`, `dstar_module`, `dstar_gateway`, `ysf_dgid`, `p25_nac`, `nxdn_ran`; empty when it supplied none |
+| `distance_km` | <class 'float'> or null | great-circle kilometres from `centre` (haversine, 6371.0088 km sphere); null when there is no centre |
+| `bearing_deg` | <class 'float'> or null | initial bearing from `centre` in degrees, 0 to 360, 0 north; null when there is no centre |
 | `place` | string | where it is, as the source says |
 | `notes` | string | the source's notes |
 | `use` | string | `OPEN`, `CLOSED` and the like; empty when unknown |
@@ -5529,11 +5536,46 @@ One repeater, after the layers were joined.
 | `layer` | string | the id of the layer the kept row came from |
 | `personal_use` | boolean | true when the source or any of `also` is RepeaterBook's: do not serve this row beyond the machine (D-081) |
 
+#### `CentreView`
+
+The point distances and bearings are measured from.
+
+| field | type | meaning |
+|---|---|---|
+| `lat` | <class 'float'> | degrees north |
+| `lon` | <class 'float'> | degrees east |
+| `source` | string | `argument` (`--near`) or `station` (the station's grid square: the centre of its square, so a program that shows this is showing the operator's area) |
+
 <details><summary>JSON Schema</summary>
 
 ```json
 {
   "$defs": {
+    "CentreView": {
+      "additionalProperties": false,
+      "description": "The point distances and bearings are measured from.",
+      "properties": {
+        "lat": {
+          "title": "Lat",
+          "type": "number"
+        },
+        "lon": {
+          "title": "Lon",
+          "type": "number"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lat",
+        "lon",
+        "source"
+      ],
+      "title": "CentreView",
+      "type": "object"
+    },
     "LayerSkipView": {
       "additionalProperties": false,
       "description": "A layer the all-sources file could not read.",
@@ -5646,6 +5688,46 @@ One repeater, after the layers were joined.
           "title": "Mode",
           "type": "string"
         },
+        "modes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Modes",
+          "type": "array"
+        },
+        "band": {
+          "title": "Band",
+          "type": "string"
+        },
+        "digital": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Digital",
+          "type": "object"
+        },
+        "distance_km": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Distance Km"
+        },
+        "bearing_deg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bearing Deg"
+        },
         "place": {
           "title": "Place",
           "type": "string"
@@ -5704,6 +5786,11 @@ One repeater, after the layers were joined.
         "offset_hz",
         "tone",
         "mode",
+        "modes",
+        "band",
+        "digital",
+        "distance_km",
+        "bearing_deg",
         "place",
         "notes",
         "use",
@@ -5759,6 +5846,27 @@ One repeater, after the layers were joined.
       },
       "title": "Credits",
       "type": "array"
+    },
+    "centre": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CentreView"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "within_km": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Within Km"
     }
   },
   "required": [
@@ -5767,7 +5875,9 @@ One repeater, after the layers were joined.
     "skipped",
     "rows",
     "merged",
-    "credits"
+    "credits",
+    "centre",
+    "within_km"
   ],
   "title": "RepeatersListDocument",
   "type": "object"

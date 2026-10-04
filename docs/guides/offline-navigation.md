@@ -1029,13 +1029,62 @@ they are. To refresh it, export again and import again.
   QMapShack's settings; if QMapShack was open during the import, close it
   and start it from `qmapshack-offline`, which adds the directory back. The
   GPX is there too, for *File → Load* or to copy to a phone or a Garmin
-  unit.
+  unit. To find one by what it speaks, see
+  [Find repeaters near you, by mode](#find-repeaters-near-you-by-mode).
 - **Navit.** Start `navit-offline`. Repeaters draw as towers labelled with
   callsign and frequency, and list under *POIs → Other* with their
   distance. They are **not** in Navit's address search: the file format
   Navit reads them from has no search. The launcher now runs
   `hammunition maps navit`; a launcher from an earlier install is updated
   by `hammunition menus apply`.
+
+### Find repeaters near you, by mode
+
+When you need a repeater in a hurry, you want the ones near a place that speak
+what your radio speaks. From a terminal, offline:
+
+```
+hammunition maps repeaters list --near FN31pr --within 60 --mode DMR
+hammunition maps repeaters list --near 41.73,-72.71 --band 2m --mode FM --mode YSF
+```
+
+`--near` takes a Maidenhead locator or `LAT,LON`; with your station's grid
+square set it is the default. The list is nearest first, with distance,
+compass bearing, band, modes and whatever digital detail the source gave (DMR
+colour code and id, P25 NAC). The modes are `FM`, `DMR`, `D-STAR`, `YSF`
+(System Fusion), `P25`, `NXDN`, `M17`, `TETRA` and `ATV`; each source's own
+spelling is mapped onto them, a word outside the list stays in the repeater's
+description and out of the filter, and a repeater whose source names no mode
+has none (it is in QMapShack's *Unknown mode*). A detail a source does not
+carry is not guessed: only RepeaterBook's API (colour code, DMR id, P25 NAC)
+and Brandmeister (colour code, id) give any, so a hearham or OpenStreetMap row
+has band and modes and no colour code. The distance is to the repeater's
+position as the source gives it, from the centre of a locator's square: do not
+use it to visit a site.
+
+In **QMapShack**, the POI collection has one category under *Amateur radio
+repeaters* for each mode present: *FM*, *DMR*, *D-STAR* and so on, and
+*Unknown mode*. A repeater is in every category it speaks, so ticking *DMR* in
+the *POI Collections* dock shows the DMR machines, and ticking two shows
+either. The POI dock itself has no text search. The **Workspace** dock's
+filter does, for the GPX (`repeaters-all.gpx`, or any layer's `.gpx`, loaded
+with *File → Load*): each waypoint is named like `N0CALL 146.940 2m FM DMR`,
+so typing `DMR`, `70cm` or `146.94` in the filter finds it.
+
+What was measured, and what was not. From QMapShack 1.17.1's source (tag
+`V_1.17.1`, read and not run): the category tree is built from the file's
+categories in descending id order and a child attaches only to a parent
+already seen, so the file numbers a layer's mode categories before its own
+(`CPoiFilePOI::addTreeWidgetItems`); ticking a parent ticks its children
+(`CPoiCategory`), and a point in two ticked categories is drawn once
+(`CPoiFilePOI::draw`, which keeps a set); the Workspace filter's default
+full-text mode and its name-only mode are both case-insensitive substring
+matches, the first over the name and description and the second the name
+(`CSearch.cpp`, `CGisItemWpt.cpp`). So `FM` also matches any name or
+description containing those letters, and `dstar` will not find `D-STAR`.
+Nobody has yet run QMapShack on these files: the category tree and the
+filter are read from the source, and the first look at them on screen is the
+maintainer's.
 
 ### hearham.com's open list
 
@@ -1310,6 +1359,7 @@ and rebuilds the rest.
 ```
 hammunition maps repeaters list
 hammunition maps repeaters list --json
+hammunition maps repeaters list --json --near FN31pr --within 60 --mode DMR
 ```
 
 A front end reads the layers through this command, never the files. The text
@@ -1321,6 +1371,11 @@ print those beside the map. It is read-only and a layer it cannot read is
 listed as left out while the rest is returned, exit 0. RepeaterBook rows are
 for your personal use (**D-081**): `personal_use` marks the layers and the
 rows that carry them, and a program must not serve those beyond this machine.
+With `--near`, `--within`, `--band` or `--mode` the rows are filtered, each
+carries `distance_km` and `bearing_deg`, and the document names the `centre`
+the distances are measured from (the centre of your station's grid square when
+that is where it came from: the document is for local programs, not for
+pasting).
 
 ### Not carried
 

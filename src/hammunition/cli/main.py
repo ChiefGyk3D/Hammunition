@@ -2850,6 +2850,24 @@ def cmd_maps_repeaters_fetch_hearham(args: argparse.Namespace) -> int:
     )
 
 
+def _repeater_bands() -> tuple[tuple[str, int, int], ...]:
+    from hammunition.repeaters import BANDS
+
+    return BANDS
+
+
+def _repeater_mode(text: str) -> str:
+    """``--mode``'s value as a vocabulary mode, or an argparse error."""
+    from hammunition.repeaters import MODES, normalise_modes
+
+    found = normalise_modes(text)
+    if len(found) != 1:
+        raise argparse.ArgumentTypeError(
+            f"{text!r} is not one repeater mode; the modes are {', '.join(MODES)}"
+        )
+    return found[0]
+
+
 @envelope.json_capable()
 def cmd_maps_repeaters_list(args: argparse.Namespace) -> int:
     """The repeater layers as data for a front end.  D-074 (amended 2026-10-04), D-059.
@@ -2862,6 +2880,7 @@ def cmd_maps_repeaters_list(args: argparse.Namespace) -> int:
     front end can draw what there is. Exit 1 only when the directory itself
     cannot be read."""
     from hammunition.interface.repeaters import (
+        CentreView,
         LayerSkipView,
         LayerView,
         RepeatersListDocument,
@@ -2874,12 +2893,45 @@ def cmd_maps_repeaters_list(args: argparse.Namespace) -> int:
         LAYERS,
         SOURCE_TRAITS,
         Repeater,
+        band_of,
+        bearing_deg,
+        distance_km,
         layer_files,
         overlay_dir,
+        parse_position,
         present_layers,
         read_layer_rows,
         source_credit,
     )
+
+    centre: CentreView | None = None
+    if args.near is not None:
+        try:
+            lat, lon = parse_position(args.near)
+        except ValueError as exc:
+            print(f"error: --near: {exc}", file=sys.stderr)
+            return EXIT_FAILED
+        centre = CentreView(lat=lat, lon=lon, source="argument")
+    else:
+        try:
+            grid = load_station(owner=operator(args)).grid_square
+            if grid:
+                lat, lon = parse_position(grid)
+                centre = CentreView(lat=lat, lon=lon, source="station")
+        except (StationError, ValueError):
+            centre = None  # no usable station: no distances, and not an error
+    if args.within is not None and centre is None:
+        print(
+            "error: --within needs a position: give --near GRID|LAT,LON, or set the station's "
+            "grid square (hammunition station set --grid-square ...)",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    if args.within is not None and not args.within >= 0:
+        print("error: --within is a distance in kilometres, zero or more", file=sys.stderr)
+        return EXIT_FAILED
+    wanted_bands = set(args.band or ())
+    wanted_modes = set(args.mode or ())
 
     directory = overlay_dir()
     try:
@@ -2941,17 +2993,31 @@ def cmd_maps_repeaters_list(args: argparse.Namespace) -> int:
         if layer_id not in HEARD_LAYERS:
             joinable.append((layer_id, layer.rows))
     merged_rows, merged, origin = cross_merge_origins(rows for _, rows in joinable)
-    doc = RepeatersListDocument(
-        directory=str(directory),
-        layers=tuple(views),
-        skipped=tuple(skipped),
-        rows=tuple(
+    found: list[RowView] = []
+    for r, o in zip(merged_rows, origin, strict=True):
+        band = band_of(r.output_hz)
+        if wanted_bands and band not in wanted_bands:
+            continue
+        if wanted_modes and not wanted_modes & set(r.modes):
+            continue
+        km = bearing = None
+        if centre is not None:
+            km = round(distance_km(centre.lat, centre.lon, r.lat, r.lon), 2)
+            bearing = round(bearing_deg(centre.lat, centre.lon, r.lat, r.lon), 1)
+            if args.within is not None and km > args.within:
+                continue
+        found.append(
             RowView(
                 callsign=r.callsign,
                 output_hz=r.output_hz,
                 offset_hz=r.offset_hz,
                 tone=r.tone,
-                mode=r.mode,
+                mode=r.mode_text(),
+                modes=r.modes,
+                band=band,
+                digital=dict(r.digital),
+                distance_km=km,
+                bearing_deg=bearing,
                 place=r.place,
                 notes=r.notes,
                 use=r.use,
@@ -2965,15 +3031,24 @@ def cmd_maps_repeaters_list(args: argparse.Namespace) -> int:
                 layer=joinable[o][0],
                 personal_use=any(SOURCE_TRAITS[s][0] for s in (r.source, *r.also)),
             )
-            for r, o in zip(merged_rows, origin, strict=True)
-        ),
+        )
+    if centre is not None:
+        found.sort(key=lambda row: row.distance_km or 0.0)
+    doc = RepeatersListDocument(
+        directory=str(directory),
+        layers=tuple(views),
+        skipped=tuple(skipped),
+        rows=tuple(found),
         merged=merged,
         credits=tuple(credits),
+        centre=centre,
+        within_km=args.within,
     )
     if envelope.wanted(args):
         envelope.emit(doc)
         return EXIT_OK
-    for line in render_repeaters_list(doc):
+    named = bool(args.near or args.within is not None or wanted_bands or wanted_modes)
+    for line in render_repeaters_list(doc, rows=named):
         print(line)
     return EXIT_OK
 
@@ -7733,6 +7808,38 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="ID",
         help="read only this layer; repeatable; an id that is not a layer is reported, not an error",
+    )
+    p_rep_list.add_argument(
+        "--near",
+        default=None,
+        metavar="GRID|LAT,LON",
+        help="measure distance and bearing from here: a Maidenhead locator (four, six or eight "
+        "characters: the centre of the square) or LAT,LON in decimal degrees; default the "
+        "station's grid square when one is set, else no distances; rows are then nearest first",
+    )
+    p_rep_list.add_argument(
+        "--within",
+        type=float,
+        default=None,
+        metavar="KM",
+        help="only repeaters this far or nearer (needs --near or a station grid square)",
+    )
+    p_rep_list.add_argument(
+        "--band",
+        action="append",
+        default=None,
+        choices=[*(name for name, _, _ in _repeater_bands()), "other"],
+        help="only this band; repeatable",
+    )
+    p_rep_list.add_argument(
+        "--mode",
+        action="append",
+        default=None,
+        type=_repeater_mode,
+        metavar="MODE",
+        help="only what speaks this mode (FM, DMR, D-STAR, YSF, P25, NXDN, M17, TETRA, ATV; "
+        "a source's spelling such as dstar or fusion is accepted); repeatable, any of them "
+        "matches. Naming a place, a band or a mode lists the matching repeaters in the text",
     )
     p_rep_list.set_defaults(func=cmd_maps_repeaters_list)
 

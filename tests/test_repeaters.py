@@ -201,9 +201,9 @@ def test_exported_parses_an_iso_date(text: str) -> None:
 # --- writers ------------------------------------------------------------------
 
 
-def test_the_label_is_callsign_and_frequency() -> None:
-    assert _row().label_text() == "N0CALL 146.940"
-    assert _row(output_hz=146_942_500).label_text() == "N0CALL 146.9425"
+def test_the_label_is_callsign_frequency_band_and_modes() -> None:
+    assert _row().label_text() == "N0CALL 146.940 2m"
+    assert _row(output_hz=146_942_500).label_text() == "N0CALL 146.9425 2m"
     assert _row(callsign="", output_hz=0, label="Springfield hilltop").label_text() == (
         "Springfield hilltop"
     )
@@ -223,8 +223,8 @@ def test_the_gpx_carries_the_layer_name_and_each_waypoint() -> None:
     assert root.findtext("g:metadata/g:desc", namespaces=ns) == "about"
     wpts = root.findall("g:wpt", ns)
     assert [w.findtext("g:name", namespaces=ns) for w in wpts] == [
-        "N0CALL 146.940",
-        "N0TST 442.500",
+        "N0CALL 146.940 2m FM",
+        "N0TST 442.500 70cm",
     ]
     assert {w.findtext("g:sym", namespaces=ns) for w in wpts} == {"Tall Tower"}
     desc = wpts[0].findtext("g:desc", namespaces=ns) or ""
@@ -245,9 +245,9 @@ def test_the_gpx_escapes_markup() -> None:
 def test_the_navit_textfile_has_one_labelled_tower_per_repeater() -> None:
     text = repeaters.navit_text((_row(), _row(callsign="N0TST", label='a"b')))
     assert text.splitlines() == [
-        '-89.64360 39.80170 type=poi_custom0 label="N0CALL 146.940" '
+        '-89.64360 39.80170 type=poi_custom0 label="N0CALL 146.940 2m" '
         + 'icon_src="/usr/share/navit/icons/tower.png"',
-        '-89.64360 39.80170 type=poi_custom0 label="N0TST 146.940" '
+        '-89.64360 39.80170 type=poi_custom0 label="N0TST 146.940 2m" '
         + 'icon_src="/usr/share/navit/icons/tower.png"',
     ]
 
@@ -273,6 +273,10 @@ def _tiles_holding(db: sqlite3.Connection, lat: float, lon: float, poi: int = 1)
     import math
 
     found = 0
+    # The layer's own category: it holds every point, whatever its modes.
+    category = db.execute(
+        "SELECT id FROM poi_categories WHERE name = ?", (repeaters.POI_CATEGORY,)
+    ).fetchone()[0]
     for dlat in (-1, 0, 1):
         for dlon in (-1, 0, 1):
             lat10 = math.floor(lat * 10) + dlat
@@ -283,7 +287,7 @@ def _tiles_holding(db: sqlite3.Connection, lat: float, lon: float, poi: int = 1)
                 "minLat": f"{lat10 / 10.0:f}",
                 "maxLon": f"{(lon10 + 1) / 10.0:f}",
                 "minLon": f"{lon10 / 10.0:f}",
-                "categoryID": 1,
+                "categoryID": category,
             }
             found += sum(1 for r in db.execute(QMS_QUERY, params).fetchall() if r[5] == poi)
     return found
@@ -307,9 +311,15 @@ def test_every_poi_is_found_by_qmapshacks_own_query_in_exactly_one_tile(tmp_path
     assert meta["comment"] == "Layer. comment"
     assert meta["writer"] == "hammunition"
     cats = db.execute("SELECT id, name, parent FROM poi_categories ORDER BY id").fetchall()
-    assert cats == [(0, "root", None), (1, "Amateur radio repeaters", 0)]
+    # No mode on these rows: one child, "Unknown mode", numbered below its parent
+    # because QMapShack attaches a child only to a parent it has already seen.
+    assert cats == [
+        (0, "root", None),
+        (1, "Unknown mode", 2),
+        (2, "Amateur radio repeaters", 0),
+    ]
     data = db.execute("SELECT data FROM poi_data WHERE id=1").fetchone()[0]
-    assert data.split("\r")[0] == "name=N0CALL 146.940"
+    assert data.split("\r")[0] == "name=N0CALL 146.940 2m"
 
 
 def test_the_repeater_poi_is_the_generic_writer_given_repeater_points(tmp_path: Path) -> None:
@@ -326,6 +336,7 @@ def test_the_repeater_poi_is_the_generic_writer_given_repeater_points(tmp_path: 
             r.label_text(),
             r.description(),
             "communication:amateur_radio:repeater=yes",
+            r.modes or (repeaters.UNKNOWN_MODE,),
         )
         for r in rows
     ]
@@ -336,6 +347,7 @@ def test_the_repeater_poi_is_the_generic_writer_given_repeater_points(tmp_path: 
         date(2026, 9, 1),
         points,
         category=repeaters.POI_CATEGORY,
+        subcategory_order=(*repeaters.MODES, repeaters.UNKNOWN_MODE),
     )
     for table in ("metadata", "poi_categories", "poi_data", "poi_category_map", "poi_index"):
         query = f"SELECT * FROM {table} ORDER BY 1, 2"
