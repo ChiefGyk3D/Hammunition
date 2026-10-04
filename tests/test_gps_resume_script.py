@@ -128,11 +128,25 @@ def gpsd() -> Iterator[list[FakeGpsd]]:
         server.close()
 
 
-def _argv(m: dict[str, Path], server: FakeGpsd | None, timeout: float = 2.0) -> list[str]:
+def _argv(
+    m: dict[str, Path],
+    server: FakeGpsd | None,
+    timeout: float = 2.0,
+    data_window: float = 1.0,
+) -> list[str]:
+    """The script's argv against the fake machine.
+
+    ``data_window`` is how long a data check waits before calling a receiver
+    silent. A check returns the moment every receiver has reported, so a test
+    whose receiver answers at once pays nothing for a long window; the default
+    is for the tests that need a window to *expire*, and it is a second rather
+    than the 0.4 s it was because a loaded CI runner once took longer than that
+    to schedule the fake gpsd's thread (Python 3.14, 2026-10-04).
+    """
     port = server.port if server is not None else 9
     return [
         "--data-window",
-        "0.4",
+        f"{data_window:g}",
         "--cycle-pause",
         "0.01",
         "--reenum-window",
@@ -180,7 +194,7 @@ def test_a_receiver_gpsd_knows_by_its_tty_is_removed_and_added_by_that_path(
     tty = str(machine["dev"] / "ttyACM0")
     server = FakeGpsd([[tty], [tty], alive(tty)])
     gpsd.append(server)
-    assert script.main(_argv(machine, server)) == 0
+    assert script.main(_argv(machine, server, data_window=5.0)) == 0
     socket_env = f"GPSD_SOCKET={machine['control']}"
     assert _ran(machine) == [
         f"gpsdctl remove {tty} {socket_env}",
@@ -201,7 +215,7 @@ def test_a_receiver_gpsd_knows_by_its_gps_name_keeps_that_name(
     link = str(machine["dev"] / "gps0")
     server = FakeGpsd([[link], [link], alive(link)])
     gpsd.append(server)
-    assert script.main(_argv(machine, server)) == 0
+    assert script.main(_argv(machine, server, data_window=5.0)) == 0
     assert [line.split()[:3] for line in _ran(machine)] == [
         ["gpsdctl", "remove", link],
         ["gpsdctl", "add", link],
@@ -216,7 +230,7 @@ def test_every_receiver_in_number_order(machine: dict[str, Path], gpsd: list[Fak
         [ttys, ttys, Stream([{"class": "TPV", "device": t, "mode": 1} for t in ttys])]
     )
     gpsd.append(server)
-    assert script.main(_argv(machine, server)) == 0
+    assert script.main(_argv(machine, server, data_window=5.0)) == 0
     assert [line.split()[1:3] for line in _ran(machine)] == [
         ["remove", ttys[0]],
         ["add", ttys[0]],
@@ -232,7 +246,7 @@ def test_no_device_after_the_re_add_restarts_gpsd(
     tty = str(machine["dev"] / "ttyACM0")
     server = FakeGpsd([[tty], [], alive(tty)])
     gpsd.append(server)
-    assert script.main(_argv(machine, server)) == 0
+    assert script.main(_argv(machine, server, data_window=5.0)) == 0
     assert _ran(machine)[-1].startswith("systemctl try-restart gpsd.service")
     assert "no device" in capsys.readouterr().out
 
@@ -244,7 +258,7 @@ def test_a_gpsd_that_does_not_answer_in_time_is_restarted(
     tty = str(machine["dev"] / "ttyACM0")
     server = FakeGpsd([None, None, alive(tty)])
     gpsd.append(server)
-    assert script.main(_argv(machine, server, timeout=0.3)) == 0
+    assert script.main(_argv(machine, server, timeout=0.3, data_window=5.0)) == 0
     ran = _ran(machine)
     # Not knowing what gpsd holds, the tty gpsdctl@ registers is cycled.
     assert [line.split()[:3] for line in ran[:2]] == [
@@ -285,7 +299,7 @@ def test_a_failing_gpsdctl_is_logged_and_data_decides_the_exit(
     tty = str(machine["dev"] / "ttyACM0")
     server = FakeGpsd([[tty], [tty], alive(tty)])
     gpsd.append(server)
-    assert script.main(_argv(machine, server)) == 0
+    assert script.main(_argv(machine, server, data_window=5.0)) == 0
     out = capsys.readouterr().out
     assert "failed: no gpsd" in out
     assert server.asked == 3
@@ -339,7 +353,7 @@ def test_the_installed_file_runs_on_its_own(
     server = FakeGpsd([[tty], [tty], alive(tty)])
     gpsd.append(server)
     result = subprocess.run(
-        [sys.executable, "-I", str(installed), *_argv(machine, server)],
+        [sys.executable, "-I", str(installed), *_argv(machine, server, data_window=5.0)],
         capture_output=True,
         text=True,
         cwd=tmp_path,
@@ -424,7 +438,7 @@ def test_data_after_the_re_add_means_no_cycle_and_exit_0(
     tty = str(machine["dev"] / "ttyACM0")
     server = FakeGpsd([[tty], [tty], alive(tty)])
     gpsd.append(server)
-    assert script.main(_argv(machine, server)) == 0
+    assert script.main(_argv(machine, server, data_window=5.0)) == 0
     assert _writes(usb) == []
     assert "data from" in capsys.readouterr().out
 
@@ -438,7 +452,7 @@ def test_satellites_without_a_fix_and_a_mode_report_count_as_alive(
         [[tty], [tty], Stream([{"class": "WATCH"}, {"class": "TPV", "device": tty, "mode": 1}])]
     )
     gpsd.append(server)
-    assert script.main(_argv(machine, server)) == 0
+    assert script.main(_argv(machine, server, data_window=5.0)) == 0
     assert _writes(usb) == []
 
 
