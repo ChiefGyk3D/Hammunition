@@ -7087,6 +7087,8 @@ commands in `src/hammunition/cli/main.py`, the `navit-offline` launcher in
 `tests/test_repeaters_cli.py` and `tests/test_navit_config.py`; the
 offline-navigation guide's section 13 and `docs/reference/cli.md`.
 
+**Amended 2026-10-04 (#324): the name and the tooltip carry what an operator keys in.** QMapShack 1.17.1 draws only a POI's `name` on the map and, on hover, every other `poi_data` key as `key: value` (`CPoiFilePOI::getToolTip`, `CPoiItemPOI::getDesc`; read from source, not run), so the name is now `N0CALL 146.940 2m -0.600 T100.0 FM` (callsign, output MHz, band, signed offset, `T`/`D` tone or `CSQ`, modes), the POI gains a `keying=` line, the GPX gains `<cmt>`, Navit's label and `maps repeaters list` use the same line, and an `=` in a value is written as `:` because QMapShack drops a line with two. A tone is `CSQ` only where the source gave an offset. Nothing is invented: a row with neither offset nor tone keeps the old name. On-screen confirmation is the maintainer's.
+
 ## D-065 — The documentation is published as a static site built from `docs/` by MkDocs and Material, pinned exactly, strict on every link, with the project records left in the repository
 
 **Date:** 2026-09-30. **Status:** the site is the maintainer's ask (2026-09-30:

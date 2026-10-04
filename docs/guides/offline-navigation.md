@@ -1086,6 +1086,49 @@ Nobody has yet run QMapShack on these files: the category tree and the
 filter are read from the source, and the first look at them on screen is the
 maintainer's.
 
+#### What you see on the map, and where the rest is
+
+The first live layer showed callsign, frequency and band and nothing to key a
+repeater in with. From the same source (QMapShack 1.17.1, tag `V_1.17.1`,
+read and not run), for a POI from a `.poi` file:
+
+- **On the map** the only text drawn beside an icon is the POI's `name`
+  (`CPoiFilePOI::draw`, `poi/CPoiFilePOI.cpp`), whole: it is never truncated,
+  it is hidden only when it would overlap another icon, and when POIs are
+  grouped at one point the map shows a count instead. So the name has to
+  carry what you key in: `N0CALL 146.940 2m -0.600 T100.0 FM`, the
+  callsign, output MHz, the band token the Workspace filter finds, the signed
+  offset in MHz, the tone as `T100.0` (CTCSS) or `D023` (DCS) or `CSQ`, and
+  the modes. A tone is `CSQ` only where the source gave an offset and no
+  tone; a repeater whose source gave neither has neither token.
+- **On hover** over a single POI, `CPoiFilePOI::getToolTip` shows the name in
+  bold, `Category:`, then `CPoiItemPOI::getDesc` (`poi/CPoiItemPOI.cpp`):
+  the address fields, phone numbers and then *every other key of the POI's
+  `poi_data` as a line `key: value`*, in alphabetical key order. So
+  `description` (the whole story: output, offset, tone, modes, use, status,
+  place, notes, source) was already there as a `description: ...` line, and
+  the writer now adds a `keying: 146.940 -0.600 T100.0 FM` line. Zoomed out,
+  where several POIs share a point, the tooltip lists only names (up to ten)
+  and says *Zoom in to see more details*: hover after zooming in.
+- **On click** (`CPoiFilePOI::findPoiCloseBy`, `CPoiItemPOI::toPoi`) the same
+  `getDesc` text goes to the POI list and, if you add the POI as a waypoint,
+  becomes the waypoint's description. The POI dock itself lists categories,
+  not POIs.
+- A line of `poi_data` with a second `=` is dropped whole
+  (`CPoiItemPOI::CPoiItemPOI`), so the writer turns any `=` in a value into
+  `:`; a note holding `a=b` used to cost the repeater its description.
+- **The GPX** loaded with *File → Load*: the map draws `<name>`
+  (`CGisItemWpt::drawLabel`); the hover text shows `<desc>`, cut at 297
+  characters unless full text is on, then `<cmt>` when it differs from
+  `<desc>` (`CGisItemWpt.cpp`); the bubble shows both whole. `<cmt>` now
+  holds the keying line without the callsign, `146.940 -0.600 T100.0 FM`.
+- **Navit and the terminal** use the same line: Navit's label is the name,
+  and `hammunition maps repeaters list --near ...` prints
+  `N0CALL 2m 146.940 -0.600 T100.0 FM` per row.
+
+Not run: none of this has been seen on screen; the maintainer's first look at
+a hover tooltip is the check.
+
 ### hearham.com's open list
 
 ```
@@ -1193,10 +1236,11 @@ YYYY-MM-DD, unverified)*. A second state, in this run or a later one, merges
 into the same layer the way D-074's merge works (the newer *Last Update*
 wins). `remove --layer repeaterbook` deletes it.
 
-**Not established** (2026-10-04): that the client behaves against the live
-API as its source reads; RepeaterBook's rate limit (unpublished); that an
-answer is cut at about 3,500 rows (from the client; Hammunition prints a note
-near it). The row field names and the `state_id` form were read from the
+A live fetch of one state works (measured 2026-10-04, on the field laptop,
+with the operator's own token; the layer appeared in QMapShack). **Not
+established**: RepeaterBook's rate limit (unpublished), and that an answer is
+cut at about 3,500 rows (from the client; Hammunition prints a note near it).
+The row field names and the `state_id` form were read from the
 client's own models, not from RepeaterBook's wiki, which prints neither.
 
 ### More sources, one layer each

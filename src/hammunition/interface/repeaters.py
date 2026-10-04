@@ -363,16 +363,16 @@ def render_removed(doc: RepeatersRemovedDocument) -> list[str]:
 
 
 def _row_line(row: RowView) -> str:
+    from hammunition.repeaters import keying_line
+
     where = ""
     if row.distance_km is not None and row.bearing_deg is not None:
         where = f"{row.distance_km:6.1f} km {_compass(row.bearing_deg):<2}  "
     name = row.callsign or row.label
-    freq = f"{row.output_hz / 1e6:.4f}".rstrip("0").ljust(len("000.000"), "0")
-    parts = [f"{where}{name:<8} {freq} MHz {row.band:<5}", row.mode]
-    if row.offset_hz is not None:
-        parts.append(f"offset {row.offset_hz / 1e6:+.3f}")
-    if row.tone:
-        parts.append(f"tone {row.tone}")
+    keying = keying_line(
+        row.output_hz, row.offset_hz, row.tone, row.modes or ((row.mode,) if row.mode else ())
+    )
+    parts = [f"{where}{name:<8} {row.band:<5} {keying}"]
     parts += [f"{k} {v}" for k, v in row.digital.items()]
     if row.place:
         parts.append(row.place)

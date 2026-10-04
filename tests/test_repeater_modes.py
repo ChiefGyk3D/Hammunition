@@ -445,6 +445,59 @@ def test_the_description_names_the_digital_details() -> None:
     assert "dmr_color_code 1" in row.description() and "dmr_id 310001" in row.description()
 
 
+# --- the keying line (#324) ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("tone", "token"),
+    [
+        ("100.0", "T100.0"),
+        ("PL 100.0", "T100.0"),
+        ("100.0 (decode 94.8)", "T100.0"),
+        ("TSQ 100.0", "T100.0"),
+        ("DCS 023", "D023"),
+        ("D023", "D023"),
+        ("023N", "D023"),
+        ("", "CSQ"),
+    ],
+)
+def test_tone_token(tone: str, token: str) -> None:
+    assert repeaters.tone_token(tone) == token
+
+
+def test_keying_line_is_what_an_operator_keys_in() -> None:
+    row = _row(offset_hz=-600_000, tone="100.0", modes=("FM",))
+    assert row.keying() == "146.940 -0.600 T100.0 FM"
+    assert row.label_text() == "N0CALL 146.940 2m -0.600 T100.0 FM"
+    assert _row(offset_hz=600_000, modes=("FM", "DMR")).keying() == "146.940 +0.600 CSQ FM DMR"
+    assert _row(offset_hz=0).keying() == "146.940 0.000 CSQ"
+    # no offset and no tone known: nothing is claimed
+    assert _row().keying() == "146.940"
+
+
+def test_gpx_carries_the_keying_line_as_cmt_and_the_name() -> None:
+    row = _row(offset_hz=-600_000, tone="100.0", modes=("FM",))
+    gpx = repeaters.gpx_text("L", "d", (row,))
+    assert "<name>N0CALL 146.940 2m -0.600 T100.0 FM</name>" in gpx
+    assert "<cmt>146.940 -0.600 T100.0 FM</cmt>" in gpx
+    assert 'label="N0CALL 146.940 2m -0.600 T100.0 FM"' in repeaters.navit_text((row,))
+
+
+def test_poi_has_the_keying_line_and_no_equals_sign_in_a_value(tmp_path: Path) -> None:
+    row = _row(offset_hz=-600_000, tone="100.0", modes=("FM",), notes="a=b and c=d")
+    path = tmp_path / "x.poi"
+    repeaters.write_poi(path, "L", "c", date(2026, 10, 1), (row,))
+    db = sqlite3.connect(path)
+    (data,) = db.execute("SELECT data FROM poi_data").fetchone()
+    db.close()
+    lines = data.split("\r")
+    assert lines[0] == "name=N0CALL 146.940 2m -0.600 T100.0 FM"
+    assert "keying=146.940 -0.600 T100.0 FM" in lines
+    # QMapShack drops a line with a second '=' (CPoiItemPOI), so none is written
+    assert all(line.count("=") == 1 for line in lines)
+    assert any(line.startswith("description=") and "a:b and c:d" in line for line in lines)
+
+
 # --- QMapShack categories -------------------------------------------------------------------
 
 
@@ -543,6 +596,8 @@ def _fill(where: Path) -> None:
         lat=42.60,
         lon=-72.70,
         modes=("DMR",),
+        offset_hz=5_000_000,
+        tone="DCS 023",
         digital={"dmr_color_code": "1"},
         source=repeaters.OSM,
     )
@@ -663,8 +718,10 @@ def test_text_prints_the_nearest_first_when_asked_for_a_place_or_a_mode(
     out = capsys.readouterr().out
     lines = [ln for ln in out.splitlines() if "N0" in ln]
     assert len(lines) == 2 and "N0MID" in lines[0] and "N0FAR" in lines[1]
-    assert "km" in lines[0] and "2m" in lines[0] and "DMR, FM" in lines[0]
+    assert "km" in lines[0] and "2m" in lines[0] and "DMR FM" in lines[0]
     assert "dmr_color_code 1" in lines[1]
+    # the terminal reads like the map: the keying line, not a spelled-out one
+    assert "442.100 +5.000 D023 DMR" in lines[1]
     # a plain list stays the layers' summary and names no repeater
     assert cli.main(["maps", "repeaters", "list"]) == 0
     assert "N0MID" not in capsys.readouterr().out
