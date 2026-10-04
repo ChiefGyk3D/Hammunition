@@ -1,9 +1,0 @@
-- **Docs: bench session 13 on the field laptop** (**D-056**, **D-058**,
-- **Fix: the weekly ref check reported three correct pins as missing; changed
-- **The plan groups repeated same-shape steps; `--dry-run --full` expands them**
-- **Every run leaves a log** (**D-077**). `install`, `uninstall`, `update`,
-- **A publisher outage at plan time retries, then defers by name instead of
-- **The engine's own GPS tether copy retired; the ACMA Bunker ruling recorded**
-- **HydraSDR RFOne and RigExpert Fobos SDR: host software and device entries,
-- **tar1090, the ADS-B aircraft map, as a page in `reference serve`**
-- **Docs sweep after the 2026-10-02 batch** (documentation only, no code). A
