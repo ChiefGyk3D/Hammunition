@@ -141,12 +141,12 @@ def _isolated_operator_environment(
         os.environ[key] = str(value)
     for key in ("USER", "SUDO_USER", "LOGNAME"):
         os.environ.pop(key, None)
-    real_pwd = hpaths.pwd
-    hpaths.pwd = _NoRealAccounts()  # type: ignore[assignment]
+    real_pwd = vars(hpaths)["pwd"]
+    vars(hpaths)["pwd"] = _NoRealAccounts()
     try:
         yield
     finally:
-        hpaths.pwd = real_pwd
+        vars(hpaths)["pwd"] = real_pwd
         os.environ.clear()
         os.environ.update(saved)
     after = _station_fingerprint()
