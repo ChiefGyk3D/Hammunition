@@ -437,7 +437,8 @@ thread. A step that needs knowledge not in our docs is a documentation bug.
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full version, including what
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full version (security
+issues go to [`SECURITY.md`](SECURITY.md), privately), including what
 the copyright headers do and do not mean — **there is no CLA and no copyright
 assignment; you keep copyright on what you write.**
 

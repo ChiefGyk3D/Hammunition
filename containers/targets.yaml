@@ -10,18 +10,21 @@
 # something expects `docker`.
 #
 # `os_release_id` / `os_release_version` are what /etc/os-release reports, which
-# is what the engine keys on (DESIGN.md §8 — no heuristics). `image` is verified
+# is what the engine keys on (DESIGN.md §8 — no heuristics). `image` is pinned by
+# the multi-arch index digest (`repo:tag@sha256:...`, resolved 2026-10-03; refresh
+# with containers/refresh-digests.sh, which docs/contributing/ci.md describes;
+# the same pins sit in ci.yml's matrix and the Dockerfile default). It is verified
 # to exist on Docker Hub; see scripts/verify-images.sh.
 targets:
   - name: debian-13
-    image: debian:13
+    image: debian:13@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c
     os_release_id: debian
     os_release_version: "13"
     arch: x86_64
     priority: 2
 
   - name: ubuntu-26.04
-    image: ubuntu:26.04
+    image: ubuntu:26.04@sha256:3595d7fc4286a33fad0fd853a4063e654287a9c3787437d7937c94ca3f7a804e
     os_release_id: ubuntu
     os_release_version: "26.04"
     arch: x86_64
@@ -39,7 +42,7 @@ targets:
   # archive -- but Mint's os-release says ID=linuxmint, so a `distro: ubuntu`
   # selector could never be exercised against 24.04's archive until now.
   - name: ubuntu-24.04
-    image: ubuntu:24.04
+    image: ubuntu:24.04@sha256:a853f94d226358a79c740cfc7bce0c289748f3fe3488d921d038ccd752c61b60
     os_release_id: ubuntu
     os_release_version: "24.04"
     arch: x86_64
@@ -54,7 +57,7 @@ targets:
   # would redden every unrelated pull request -- the calendar-driven
   # failure the commit-pin job's comment warns teaches people to ignore CI.
   - name: kali-rolling
-    image: kalilinux/kali-rolling:latest
+    image: kalilinux/kali-rolling:latest@sha256:d1d7e581ed60b0bbf9cb8a4bc853526355978f3b943d3a1d7dc7ce209e4231b6
     os_release_id: kali
     os_release_version: "2026.3"
     rolling: true
@@ -62,7 +65,7 @@ targets:
     priority: 4
 
   - name: parrot
-    image: parrotsec/core:latest
+    image: parrotsec/core:latest@sha256:97f64574565cc2cd7dfe1e3128ab6ad4131cd745cfba5fbd4bc28421a9827e9d
     os_release_id: parrot
     os_release_version: "7.3"
     rolling: true        # the *tag* rolls: 7.3 becomes 7.4 in place
@@ -82,7 +85,7 @@ targets:
   # package from the distribution's own repo. This is what lets js8call's
   # Mint-specific selector be exercised against a real Mint os-release.
   - name: linuxmint-22.3
-    image: linuxmintd/mint22.3-amd64:latest
+    image: linuxmintd/mint22.3-amd64:latest@sha256:304bbf7ec2a61252962c5210467d231a141661490e8962f52fd4df7688370369
     os_release_id: linuxmint
     os_release_version: "22.3"
     identity_package: base-files/zena
@@ -97,7 +100,7 @@ targets:
   # NOT Raspberry Pi OS. See `claims` below — this exercises aarch64 selectors
   # and nothing more.
   - name: debian-13-arm64
-    image: debian:13
+    image: debian:13@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c
     platform: linux/arm64
     os_release_id: debian
     os_release_version: "13"
