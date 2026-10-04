@@ -17,7 +17,7 @@ links to it, so a copy here cannot drift from the project.
 |---|---|---|---|
 | [Hammunition](https://github.com/ChiefGyk3D/Hammunition) | The engine and the catalog: installs, configures and documents the software | Pre-1.0 (v0.20.0 in this tree) | It *is* the engine |
 | [Hammunition Tray](https://github.com/ChiefGyk3D/hammunition-tray) | System-tray switches to park GPS, modem, Bluetooth and camera and to start services | v0.5.0 pinned; the Qt tray is built, not yet run on any desktop it lists | Yes |
-| [Hammunition Hill](https://github.com/ChiefGyk3D/hammunition-hill) | A ham-radio dashboard in your browser | v1.0.0 pinned by the catalog; upstream may be newer | No |
+| [Hammunition Hill](https://github.com/ChiefGyk3D/hammunition-hill) | A ham-radio dashboard in your browser | v1.2.0 pinned by the catalog (the repeaters panel); upstream may be newer | No |
 | [Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker) | A LAN server that keeps verified copies of the offline data | 0.1.0, unreleased: tested against a fake engine, never run on a NAS | Yes |
 | [Hammunition Console](https://github.com/ChiefGyk3D/hammunition-console) | A full-screen terminal front end for the engine | v0.1.0 pinned; not yet run through a real install | Yes |
 | [Hammunition GPS Tether](https://github.com/ChiefGyk3D/hammunition-gps-tether) | Your gpsd position as NMEA and as a browser stream, on this machine only | v0.1.1 pinned; measured on the field laptop as a service, including across a reboot ([bench session 13](reference/bench-verification-5430.md)) | Needs gpsd; the engine installs it |
