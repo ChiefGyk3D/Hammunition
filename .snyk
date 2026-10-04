@@ -1,0 +1,10 @@
+# Snyk policy file. Snyk Code honours `exclude: code:` paths; it does not honour
+# per-rule `ignore:` entries, so findings in shipped source are fixed or
+# dismissed in GitHub code scanning with a reason, never hidden here.
+version: v1.25.0
+exclude:
+  code:
+    # Fixtures, weak hashes and fake secrets are what tests are made of: 37 of
+    # the first run's 47 LOW findings were test-only (md5/sha1 fixture digests,
+    # ElementTree on literals, localhost servers, tmp paths).
+    - tests/**
