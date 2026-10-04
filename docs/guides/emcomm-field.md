@@ -96,7 +96,7 @@ refreshing it does.
 | Trail and terrain maps, routing, browser map | Built here from the same extracts; Copernicus elevation | Your regions | Reinstall | same |
 | US topo sheets | USGS, Forest Service | Within `topo_radius_km` of your grid square | Reinstall | same |
 | Medical, responders, supply, shelter candidates, transport, power, telecom, water | OpenStreetMap, from the installed extracts | Your regions | `maps infra import --from-osm` | same |
-| Airports, power plants | FAA NASR, EIA, WRI | US, US and world | Reinstall after the pin moves | same |
+| Airports, power plants | FAA NASR, EIA, WRI | US airports; US plants from EIA, plants outside the US from WRI | Reinstall after the pin moves | same |
 | Towers, Weather Radio | FCC, NOAA, fetched on request | Your regions | Run again; **unverified** | same |
 | Repeaters | Your own export, Open Repeater, hearham, ETCC, Brandmeister, OSM | Varies | Import again | same |
 | Books, dictionaries, ICS forms | Kiwix, FEMA | What you chose | `update --upstream` online | [Offline reference](offline-reference.md) |
@@ -140,7 +140,7 @@ receiver, gpsd, then the [GPS Tether](../suite.md#hammunition-gps-tether), then
 QMapShack, Navit, CoMaps or the browser map at `hammunition reference serve`.
 No fix means no position, whatever the maps hold. Parking the GPS from the tray
 ([Tray controls](tray-controls.md)) switches it off. **Not measured:** the tether
-as a service after a reboot, and QMapShack drawing the infrastructure layers.
+across a suspend and resume, and QMapShack drawing the infrastructure layers.
 
 ## 5. Saving and recovering your configuration
 
@@ -152,7 +152,7 @@ what you back up is yours.
 |---|---|---|
 | Station values | `~/.config/hammunition/station.yml` (0600) | Yes: callsign and location |
 | Repeater and infrastructure layers | `~/.local/share/hammunition/overlays/` | Yes; personal-use terms, keep to your machines |
-| Pat's configuration and mailbox | `~/.config/pat/` | Yes: the password |
+| Pat's configuration | `~/.config/pat/config.json`; its mailbox is wherever Pat's own documentation says for your version | Yes: the password |
 | Configuration the engine wrote | `/etc/direwolf.conf`, `/etc/bpq32.cfg`, `/etc/hammunition-hill/config.toml` | Contains your callsign |
 | Mesh identities | `~/.reticulum`, `~/.nomadnetwork`, `~/.lxmd`, `~/.rnsh` (an identity cannot be recreated) | Yes; archive command in [Mesh and Reticulum](mesh-and-reticulum.md) |
 | Your logs | wherever your logging program keeps them | Yes |
@@ -199,7 +199,7 @@ Stated here so no one reads it as a promise.
 - Rig control on a bench (D-073: proposed).
 - Packet or Winlink over the air from the field laptop; HF Winlink over the air.
 - Any LoRa mesh link; only two containers over a LAN.
-- The GPS tether as a service across a reboot; GPS time on the bench (D-058).
+- The GPS tether across a suspend and resume (a reboot is measured); GPS time on the bench (D-058).
 - The Tray on the Qt desktops; the Bunker on a NAS; the Console through a real install.
 - QMapShack and Navit drawing the infrastructure layers, and real `fetch-fcc-asr` and `fetch-nwr`.
 - The accuracy and currency of any mapped place.

@@ -3,7 +3,7 @@
 # Applications by activity
 
 Every application the catalog carries, laid out the way the desktop menu is: one
-chapter per activity, one section per thing a person looks for. **325
+chapter per activity, one section per thing a person looks for. **326
 applications.** A program with several tags is listed under each.
 
 Each entry links to its page, which says what it does and why you would want it,
@@ -140,6 +140,7 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [osm-regions](packages/osm-regions.md) — OpenStreetMap region extracts from Geofabrik, the regions you choose, verified (in [`navigation`](profiles/navigation.md), [`phone-maps`](profiles/phone-maps.md))
 - [osm-routino](packages/osm-routino.md) — One Routino routing database over all your regions, for routes on foot (in [`navigation`](profiles/navigation.md))
 - [qmapshack](packages/qmapshack.md) — Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot (in [`navigation`](profiles/navigation.md))
+- [repeaterbook-client](packages/repeaterbook-client.md) — The unofficial repeaterbook Python client, App (by name only)
 - [routino](packages/routino.md) — Offline routing over OpenStreetMap data, on foot, by bike or by car (in [`navigation`](profiles/navigation.md))
 - [socat](packages/socat.md) *(retired)* — A relay between two data channels, sockets, files or programs (by name only)
 - [usfs-fstopo](packages/usfs-fstopo.md) — Forest Service FSTopo 7.5-minute sheets for your US map regions, with trail numbers (by name only)

@@ -20,7 +20,7 @@ links to it, so a copy here cannot drift from the project.
 | [Hammunition Hill](https://github.com/ChiefGyk3D/hammunition-hill) | A ham-radio dashboard in your browser | v1.0.0 pinned by the catalog; upstream may be newer | No |
 | [Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker) | A LAN server that keeps verified copies of the offline data | 0.1.0, unreleased: tested against a fake engine, never run on a NAS | Yes |
 | [Hammunition Console](https://github.com/ChiefGyk3D/hammunition-console) | A full-screen terminal front end for the engine | v0.1.0 pinned; not yet run through a real install | Yes |
-| [Hammunition GPS Tether](https://github.com/ChiefGyk3D/hammunition-gps-tether) | Your gpsd position as NMEA and as a browser stream, on this machine only | v0.1.1 pinned; built, not yet measured as a service on hardware | Needs gpsd; the engine installs it |
+| [Hammunition GPS Tether](https://github.com/ChiefGyk3D/hammunition-gps-tether) | Your gpsd position as NMEA and as a browser stream, on this machine only | v0.1.1 pinned; measured on the field laptop as a service, including across a reboot ([bench session 13](reference/bench-verification-5430.md)) | Needs gpsd; the engine installs it |
 
 "Pinned" is the version `catalog/packages/` installs; a project's repository
 may be ahead of it. **If a status here disagrees with the project's own README,
@@ -135,7 +135,7 @@ suite's runtime.
   `systemctl --user start hammunition-gps-tether.service`; with a fix
   it writes `$GPRMC` and `$GPGGA` sentences on 127.0.0.1:10110. QMapShack steps:
   [Offline navigation](guides/offline-navigation.md#11-your-position-in-qmapshack-the-gps-tether).
-- **Not yet measured:** the service after a reboot.
+- **Measured:** installed, enabled and active on both ports on the field laptop, and still active at login after a reboot (bench, 2026-10-03). **Not yet measured:** a suspend and resume with it running.
 - **Report problems:** [issues](https://github.com/ChiefGyk3D/hammunition-gps-tether/issues);
   `cgps` for a receiver with no fix.
 
