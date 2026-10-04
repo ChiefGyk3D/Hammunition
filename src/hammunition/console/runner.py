@@ -50,7 +50,7 @@ def _signal_group(number: int) -> None:
     try:
         os.killpg(os.getpgrp(), number)
     except OSError:
-        pass
+        pass  # the group is already gone; there is nobody left to signal
     finally:
         signal.signal(number, previous)
 
@@ -78,7 +78,7 @@ def main(argv: list[str]) -> int:
         with open(status_path, "w", encoding="utf-8") as handle:
             handle.write(f"{code}\n")
     except OSError:
-        pass
+        pass  # the pane reads a missing status file as "unknown"; the exit code still returns
     return code
 
 

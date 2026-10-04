@@ -106,7 +106,7 @@ class Shell:
         self.registry = dict(registry or {})
         self._pane_factory = pane_factory
         self._after = after
-        self._save = save or (lambda cfg: config_mod.save(cfg))
+        self._save = save or config_mod.save
         self._header = urwid.Text("", wrap="clip")
         self._frame = urwid.Frame(
             urwid.SolidFill(" "),
