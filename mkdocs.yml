@@ -147,6 +147,7 @@ nav:
           - FT8 and the digital modes: guides/digital-modes.md
           - Packet and Winlink: guides/packet-winlink.md
           - APRS: guides/aprs.md
+          - Mesh and Reticulum: guides/mesh-and-reticulum.md
       - Receiving:
           - SDR first steps: guides/sdr.md
           - Satellites: guides/satellite.md
