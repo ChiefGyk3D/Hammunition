@@ -43,15 +43,15 @@ jobs:
       # measured on its VM 2026-09-02, suite green). Test the matrix, not the
       # dev machine.
       python-versions: '["3.11", "3.12", "3.13", "3.14"]'
-      install-command: pip install -e ".[dev]"
+      install-command: pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
       # The tether contract test reads hammunition-gps-tether's source (#215);
       # the script checks it out at the tag the catalog pins, then runs pytest.
       test-command: bash scripts/ci-test.sh
       # CLAUDE.md: Python 3.11+. Lint and types run on the floor.
       lint-python-version: "3.11"
-      lint-install-command: pip install -e ".[dev]"
+      lint-install-command: pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
       lint-command: ruff check . && ruff format --check .
-      typecheck-install-command: pip install -e ".[dev]"
+      typecheck-install-command: pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
       typecheck-command: mypy --strict
       # No image of its own; the per-distribution containers are the targets job.
       docker-build: false
@@ -84,7 +84,7 @@ jobs:
         env:
           BASE: ${{ github.base_ref }}
         run: |
-          pip install pytest
+          pip install --require-hashes -r requirements/dev.txt
           git fetch --no-tags origin "$BASE:refs/remotes/origin/$BASE"
           # --noconftest: the check is stdlib-only; conftest imports the engine.
           HAMMUNITION_REQUIRE_PR_RANGE=1 python -m pytest tests/test_changelog.py -q \
@@ -208,7 +208,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - run: pip install -e ".[dev]"
+      - run: pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
       # Runs before the tests so its report is the first thing in the log: it
       # names the offending rule and line, which a pytest assertion cannot.
       - run: python scripts/audit_gitignore.py
@@ -237,7 +237,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - run: pip install -e ".[dev]"
+      - run: pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
       - name: Verify the git refs of changed manifests
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
@@ -275,7 +275,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - run: pip install -e ".[dev]"
+      - run: pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
       # --verify-refs fetches each ref from its upstream, which needs the
       # network. That is fine on a scheduled job and is why this check lives
       # here rather than in the test suite, which blocks the network on
@@ -360,7 +360,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - run: pip install -e ".[dev]"
+      - run: pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
       - name: Sweep every udev rule in the archive
         # The same runner a developer uses, so the mounts the sweep needs
         # (the script and its parser module) live in one place. A hand-written

@@ -76,8 +76,12 @@ ENV PATH="/opt/hammunition-venv/bin:${PATH}"
 
 WORKDIR /work
 COPY pyproject.toml README.md ./
+COPY requirements ./requirements
 COPY src ./src
-RUN pip install --no-cache-dir -e ".[dev]"
+# Hash-pinned (OpenSSF Scorecard: PinnedDependencies); `scripts/refresh-locks.sh`
+# regenerates the lock, `scripts/check_locks.py` keeps it honest.
+RUN pip install --no-cache-dir --require-hashes -r requirements/dev.txt \
+ && pip install --no-cache-dir --no-deps -e .
 
 # The whole repository, not a curated list: the list this replaced predated
 # tests that read .gitignore, LICENSE, REUSE.toml and .github/, so the tests

@@ -95,10 +95,13 @@ fi
 
 say "Installing the engine into .venv"
 if .venv/bin/python -m pip --version >/dev/null 2>&1; then
-  .venv/bin/python -m pip install --quiet --upgrade pip
-  .venv/bin/python -m pip install --quiet -e .
+  # Hash-pinned (requirements/runtime.txt): pip refuses any package whose hash
+  # is not in the lock. The venv's own pip is not upgraded for the same reason.
+  .venv/bin/python -m pip install --quiet --require-hashes -r requirements/runtime.txt
+  .venv/bin/python -m pip install --quiet --no-deps -e .
 elif command -v uv >/dev/null 2>&1; then
-  VIRTUAL_ENV="$here/.venv" uv pip install --quiet -e .
+  VIRTUAL_ENV="$here/.venv" uv pip install --quiet --require-hashes -r requirements/runtime.txt
+  VIRTUAL_ENV="$here/.venv" uv pip install --quiet --no-deps -e .
 else
   die "neither pip nor uv is available in the venv. 'sudo apt-get install python3-pip' and re-run."
 fi
