@@ -1,1 +1,0 @@
-- Isolate the real-catalog `list` test from the caller's transaction log and assert the empty-state path does not run `dpkg-query` (fixes #265).

@@ -14,6 +14,356 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 Nothing yet.
 
+## v0.20.0 — 2026-10-03 — the run log and live feedback, an offline aircraft map, bounded US Topo, retries and deferrals when a publisher is down, SDR entries for the HydraSDR RFOne and Fobos, and a wiki and a documentation pass for newcomers
+
+- **tar1090, the ADS-B aircraft map, as a page in `reference serve`**
+  (**D-071** amended 2026-10-02; D.10b's route). A new `tar1090` unit
+  (`listening`, depends on `readsb`, so deferred by name where readsb is) is a
+  `data` unit: GitHub's archive of upstream's commit `e784ee5` (no tags, no
+  distribution packages it: own-choice pin, D-024), sha256 pinned, `html/` and
+  the GPL-2.0-or-later licence kept. Its root `wget | bash` installer and
+  lighttpd on port 80 are not used. `hammunition reference serve` serves the
+  page at `/aircraft/` on 127.0.0.1, with `data/` read from readsb's directory
+  (`/run/readsb`, or `--readsb-json DIR`), read-only. The page cannot call
+  out: tar1090's settings for photographs, routes and overlays are switched
+  off, its online layers are replaced by the station's PMTiles map (a blank
+  background, with the reason on the page, when `osm-pmtiles` is absent), and
+  every response carries a Content-Security-Policy that names no host. The
+  page is given a reduced `receiver.json` so it reads plain `aircraft.json`
+  (readsb 3.14.1630 also writes `aircraft.binCraft.zst`, which tar1090 would
+  otherwise ask for). The aircraft database is not carried (upstream's one commit cannot be pinned).
+  Tested in headless Chromium: the aircraft appear, no request leaves
+  loopback, the same page as upstream ships it does ask other hosts, and the
+  policy alone refuses them. Not measured: a live receiver, Firefox, a real
+  region at street zoom.
+
+- **Every run leaves a log** (**D-077**). `install`, `uninstall`, `update`,
+  `menus apply`, `hardware apply|unapply|park|wake`, every `maps ...`,
+  `reference serve`, `services ...` and `time mode` -- `--dry-run` included --
+  write `<state dir>/logs/<UTC>-<command>-<pid>.log`: the argv with station
+  flags redacted, everything printed on stdout and stderr, each command run with
+  its output as it arrives and its exit code, a `result` line; 0600, flushed
+  per line, owner-aware under sudo. Rotated at the start of each run to 30
+  files and 200 MB, never a run in progress. New `hammunition logs [--last |
+  --path | --json]`; `doctor` reports the logs; a run ends `Log: <path>`. The
+  transaction log now rotates past 1 MiB into `transactions-<NNNNNN>-<UTC>.jsonl`
+  archives that every reader walks in order (never deleted); `status` is tested
+  identical before and after. `docs/reference/run-logs.md`.
+
+- **SuperSDR joins the `listening` profile.** Its profile documentation states
+  the D-033 position for its missing upstream licence and that it is never
+  mirrored.
+
+- **Transaction history is now readable** (#243, **D-077**). `hammunition
+  transactions [--last N] [--json]` lists the live and archived transaction
+  records in chronological order, including deferred units and whether a run
+  completed, failed, aborted or is still in progress.
+
+- **Live feedback while an install step runs** (#270, **D-077**). On a terminal a
+  command that runs longer than two seconds gets one in-place status line under
+  its `$` line, `… 1m 42s  <the command's last output line>`, erased when the
+  command ends; `install -v` / `--verbose` (and `uninstall`) stream every output
+  line as it arrives instead. Nothing is added when stdout is not a terminal,
+  and the run log is byte-for-byte what it was in every mode. The status line and
+  the sudo keepalive's warnings share one terminal writer (`progress.LiveStatus`),
+  so they cannot interleave. A step the backend knows is long (a submodule fetch,
+  a `cmake`/`make`/`qmake` compile, a venv `pip install`, a node build) says
+  `this step can take several minutes` in the plan and at step start, with no
+  invented duration; `StepView` gains `long_running` in `--json`.
+
+- **HydraSDR RFOne and RigExpert Fobos SDR: host software and device entries,
+  from upstream's own files, for hardware nobody here owns** (**D-024**,
+  **D-027**, **D-028**, **D-029**, **D-032**). Five units: `hydrasdr-host` (the
+  library and its seventeen tools) and `soapysdr-module-hydrasdr`, and
+  `libfobos`, `libfobos-sdr-agile` and `soapysdr-module-fobos`, the last
+  needing both libraries to build. Kali and Ubuntu 26.04 take the HydraSDR
+  units from apt; every other target builds the tags Debian packages
+  (v1.1.1, v1.0.1). Nothing Fobos is packaged anywhere, so `libfobos` (head
+  1e0fab3) and `soapysdr-module-fobos` (aa8d486) are commit pins with a
+  `pin_review`, `libfobos-sdr-agile` is upstream's tag. Two entries under
+  `catalog/hardware/devices/`: `hydrasdr-rfone` (38af:0001, `status:
+  supported` in D-027's shape, with 1d50:60a1 recorded in `rejected_ids`
+  because the Airspy R2 and Mini use it and no rule can tell them apart, and
+  the NXP DFU recovery id marked shared with the HackRF) and `fobos-sdr`
+  (16d0:132e, `untested`; both firmware families present it and differ only
+  in bcdDevice). Identifiers are cited as commit-pinned URLs into the vendors'
+  repositories; `scripts/check_rule_citations.py` now ignores a rules file
+  named inside a URL, since the sweep covers distribution packages only.
+  Built in rootless containers on Debian 13, Ubuntu 24.04, Ubuntu 26.04 and
+  Kali (x86_64): all five units build and install, `hydrasdr_info` and
+  `fobos_devinfo` run without a board, `SoapySDRUtil --info` lists both
+  modules. Three defects of upstream's builds are handled in the manifests,
+  each measured: libfobos-sdr-agile wrote `/etc/udev/rules.d` as root (a
+  CRLF-preserving patch removes it), SoapyHydraSDR also wrote into dpkg's
+  module directory (a define), and nothing a build into `/usr/local` links
+  was found without `ldconfig` (an embedded run path). Not owned, not run
+  against a board; the units stay out of the `sdr` profile (D-020). The
+  HydraSDR tree states two licences (per-directory LICENSE.md files, and a
+  debian/copyright reading "licensed exclusively for HydraSDR products"); the
+  unit's page says so and the catalog follows the LICENSE.md files (D-033).
+
+- **`requires_java`: a plan-time Java floor measured with `java -version`**
+  (**D-037**, amended 2026-10-02). `default-jre-headless` is a metapackage that
+  says nothing about the Java major, so GraphHopper (17, from its pom and the
+  jar's class-file major) planned cleanly on Ubuntu 22.04 and Pop!_OS 22.04 and
+  failed at run time. A manifest names `requires_java`; the plan runs `java
+  -version` once and defers a profile member, or refuses a typed unit, below the
+  floor, stating the measured version and the archive's `openjdk-N-jre-headless`
+  that would meet it. Nothing is fetched. BRouter is set to 11, its measured
+  build target (the ruling said 17; the build file says 11).
+
+- **Profile state in `list --json`** (#259). `list --json` profile entries gain `members`, `installed` and `installed_size_bytes` (apt members only, from one `dpkg-query` call), and the text table shows `installed N of M` with a size: engine prerequisite E1 of the hammunition-console design spec (branch console-spec).
+
+- **Unverified repeater snapshots can sit on a Bunker; the bring-your-own-data
+  principle is recorded; Canada's sources measured and not carried**
+  (**D-078**, **D-074** amendment of 2026-10-03). `hammunition artifacts
+  --json` lists the three on-request lists (ETCC, Brandmeister, hearham) as
+  unit `repeater-snapshots`, check `unverified-fetch` (no digest, the
+  publisher's URL, the size from a `HEAD`, the licence position), so a Bunker
+  can hold them under `hold_unverified`; `maps repeaters fetch-etcc`,
+  `fetch-brandmeister` and `fetch-hearham` read the station's mirror first at
+  `<mirror>/repeater-snapshots/<name>` (`--no-mirror` skips it) and the
+  publisher on any failure, still marked unverified. Operators bring their own
+  export or key for questionable or personal data, the project never hosts it,
+  and no licence letters are sent on its behalf. Canada's TAFL (no amateur
+  rows, licensee names and addresses) and ISED's call-sign file (names and
+  addresses) are not carried.
+
+- **A GitHub wiki generated from `docs/`** (`wiki-mirror`). `scripts/gen_wiki.py` writes one flat wiki page per nav document and package page, a Home banner, a sidebar from the nav, a footer naming the source commit, and `Software-by-activity` from the menu vocabulary (D-055); links to project records the site excludes point at GitHub. `.github/workflows/wiki.yml` publishes it on every push to `main`, and fails naming the one-time first-page step while the wiki has none. `tests/test_wiki.py` covers it.
+
+- **A repeat plan no longer asks publishers about data it already installed**
+  (#197, **D-049** amended 2026-10-02). A terrain or 3DEP tile, US Topo or
+  FSTopo sheet, Kiwix book or CoMaps map that the transaction log attributes
+  as installed is planned as "installed, not re-checked (attributed DATE)" and
+  makes no request while the attribution is under seven days old
+  (`RECHECK_AFTER_DAYS`); one older than that, or whose file is not the one the
+  log recorded, is asked again, and a re-check that fails is a note, never a
+  refusal. The plan counts what it skipped and names the oldest attribution;
+  `install --json` gains `publisher_checks` (`checked`, `reason`,
+  `attributed`). New `install --recheck` asks every publisher regardless. An
+  item on disk the log does not attribute behaves as before. `install-data`
+  log entries now carry `size` (and `digest` for books and maps).
+
+- **The plan groups repeated same-shape steps; `--dry-run --full` expands them**
+  (**D-016** amendment, 2026-10-02). A unit that repeats one step per sheet,
+  tile or book (`ustopo-qmapshack`, contours, SPLAT, terrain tiles, FSTopo,
+  Kiwix, the vector-tile builds) printed hundreds of near-identical blocks. The
+  text now prints the template once with `<placeholders>`, the first item in
+  full, every item's own values and the totals; a group is kept only if it
+  rebuilds every step exactly. `--full` prints every step as before; the JSON
+  document, the transaction log and the real run are unchanged.
+
+- **Plan and run steps now have stable 1-based indices** (#244): JSON plans carry
+  each step's index and the transaction's `step_count`; grouped text shows the
+  covered range; real-run progress and run logs identify each step as it starts.
+
+- **A failed install keeps the units that finished** (#272). Each unit's
+  completion is written to the transaction log as a `unit_end` when its last
+  step exits 0, inside the transaction, so a failure in a later unit no longer
+  forgets the earlier ones: the run still ends `transaction_failed`, `status`
+  reports the finished units `completed` (new `completed_in_failed_run` on each
+  recorded unit in `status --json`), and a rerun of the same request plans the
+  failing unit and those after it. A built unit is skipped only after the D-051
+  check, the declared files on disk and the recording at the manifest's current
+  pin; map units that share a ledger are not recorded per unit. Documented in
+  `docs/reference/transaction-log.md` and `docs/reference/cli.md`.
+
+- **`station set --clear-rig` refuses rig-setting flags instead of silently
+  discarding them** (#217, issue #206, **D-073**). `--clear-rig` with `--rig`,
+  `--rig-baud` or any other rig-setting flag exits with an error saying to
+  clear first and set in a second command; clear-only behaviour is unchanged
+  and the saved station values are preserved.
+
+- **Switching rigs resets the baud and PTT line that belonged to the old
+  radio** (#218, issue #207, **D-073**). `station set --rig` naming a different
+  rig starts baud and PTT line unset, so a setting that does not apply to the
+  new rig no longer makes `station set` reject the command; values given in the
+  same command are applied, the rig device and owner carry over, and
+  re-selecting the saved rig, or changing baud without `--rig`, behaves as
+  before.
+
+- **`hardware unapply` reverses an owned unattended linger even when no other
+  hardware artefact is recorded** (#219, issue #208, **D-073**). The recorded uid
+  is resolved before the no-op checks and an owned linger record counts as
+  pending work, so the plan includes `loginctl disable-linger` and removal of
+  `/etc/hammunition/linger.yaml`; with no owned record nothing changes.
+
+- **FCC ASR construction-date field deliberately not read** (#221, issue #210,
+  **D-075**). The unused `_RA_BUILT` constant is removed and the field map says
+  field 12 is intentionally not read; a test requires every `_RA_*` constant to
+  be loaded.
+
+- **NWS transmitter lists ignore trailing JavaScript after their data array**
+  (#222, issue #211, **D-075**). `parse_nwr` decodes from the `cclData` opening
+  bracket with `JSONDecoder.raw_decode` instead of ending at the file's last
+  `]`; invalid or non-list data still errors as before.
+
+- **Tests cover boxless map-region extracts in `maps infra import`** (#223,
+  issue #212, **D-075**). No code change: a CLI test for text and one for
+  `--json` assert that an installed extract with no bounding box is left out
+  with a numbered note, the usable extracts still import, and neither extract's
+  name appears in the output.
+
+- **Books and CoMaps disk checks include the same run's vector tiles and route
+  graphs** (#224, issue #213, **D-076**). Tile and graph
+  needs join the per-path map-needs total, including when either is the only
+  pending work, so a plan that would exceed free disk is refused with the
+  combined figures.
+
+- **Terrain tile HEAD answers are cached for six hours** (#214, **D-061**). A repeated install plan reuses successful publisher answers; failed and non-200 checks are asked again. The cache sits below #261's attribution rule and #260's bound: only a candidate they select is probed, and a cached answer counts as a check in `publisher_checks` (its reason says it came from the cache).
+
+- **TCP listener inspection shared by the CLI and map-server test** (#227,
+  issue #216). New `hammunition.listening` (`listening_addresses`, `LOOPBACK`,
+  `bound_to_loopback_only`) reads `/proc/net/tcp` and `tcp6` once for both, skips
+  missing tables and malformed or non-listening rows, and returns `None` when a
+  table cannot be read.
+
+- **SPLAT Signal-Server links are repaired without rebuilding terrain when
+  only a link is missing or wrong** (#220, issue #209, **D-061**). The converter
+  separates `pending()` (data and sidecar faults, which still convert) from
+  `links_to_repair()`; each bad link gets its own `install-data` action,
+  keeping uninstall attribution.
+
+- **gps-tether 0.1.1: refusals exit 3, the unit retries crashes only** (**D-073**
+  amendment, the maintainer's ruling). hammunition-gps-tether v0.1.1 exits 3 on
+  a refusal (a taken port or socket, root, an unusable option) and 1 on an
+  uncaught crash; the `gps-tether` unit is re-pinned to it and carries
+  `RestartPreventExitStatus=3`, so systemd stops retrying refusals and keeps
+  retrying crashes. `hammunition maps gps-tether` passes the tether's exit code
+  through.
+
+- **US Topo is bounded: a radius around your grid square by default,
+  `--topo-regions`, `--topo-all`, and a typed `yes` to a size above 10 GB**
+  (**D-068** amendment, 2026-10-02, #232). Every sheet of three whole-state
+  regions was 7,284 sheets, 55 GB of download and 111 GB of disk, and the
+  `navigation` profile could not leave them out. `station set
+  --topo-radius-km N` (100 when unset, 0 for none), `--topo-regions a,b` (a
+  subset of `--map-regions`) and `--topo-all` / `--no-topo-all` choose; FSTopo
+  and 3DEP follow, Copernicus terrain does not. The install prints a `note:`
+  line before the plan saying what was chosen and how to change it. With
+  `--topo-all`, or more than 10 GB, the plan prints the count, download and
+  disk in one sentence and asks you to type `yes`, which `--yes` does not
+  answer. With no grid square the unit defers by name and keeps what is
+  installed.
+
+- **A publisher outage at plan time retries, then defers by name instead of
+  refusing the install** (#200, **D-039** amended 2026-10-02). `install
+  navigation --dry-run` refused whole over a Geofabrik outline answering 502, one
+  timing out and one US Topo sheet answering 503, none of which was a fault in
+  the plan. Every plan-time probe (terrain, 3DEP, US Topo, FSTopo, Kiwix, CoMaps
+  and the outlines they share) now retries an HTTP 5xx or 429, a connection
+  error and a read timeout three times, waiting 1 s, 3 s, 9 s, one stderr line
+  per retry; any other 4xx is final. A profile member's items a publisher still
+  does not answer for are deferred by name with its last answer quoted (printed
+  under "Will NOT happen", in `--json` `deferrals`, in the log and `status`), a
+  dead outline defers that region in every unit that needs it and no other, and
+  a line at the foot says to run the command again; a unit you typed refuses,
+  saying the publisher is not answering rather than naming the stale-index
+  remedy, which a 404 keeps. A deferred sheet leaves its older edition
+  installed, and a deferred book or map suspends the unit's removals for the
+  run. New `hammunition.retry`; tests `tests/test_retry.py`,
+  `tests/test_plan_retry.py`.
+
+- CI's `tests` job now checks out `hammunition-gps-tether` at the tag `catalog/packages/gps-tether.yaml` pins, and `tests/test_tether_contract.py` fails instead of skipping in CI when the source is absent, so the shared-constants drift check actually runs (#215; replaces the empty #226).
+
+- **Fix: the weekly ref check reported three correct pins as missing; changed
+  pins are now verified per pull request** (**D-024**, **D-031**; affects the
+  report on v0.19.0, not its installs). `check_pin_reviews.py --verify-refs`
+  compared the tag object's id (what `FETCH_HEAD` is after fetching an
+  *annotated* tag) with the pinned commit, so `librevna` v1.6.5, `nrsc5` v3.2.0
+  and `pihpsdr` v3.0 failed it although each pin is exactly the commit the tag
+  peels to. The install checks out `FETCH_HEAD` and compares `rev-parse HEAD`,
+  the commit, so it was never affected; the check now peels with `^{commit}`
+  and a test with an annotated tag proves it (red before, green after). It also
+  now rejects a pin that is the tag object's id. New `--only` flag (needs `--verify-refs`, skips the calendar review) and a
+  pull-request job, `changed git pins resolve upstream`, run the check for the
+  manifests a diff changed. No manifest changed.
+
+- **The tether call-through test no longer finds a tether installed on the
+  host** (#230). `test_the_installed_program_is_really_run_and_its_exit_follows`
+  ran the real `hammunition-gps-tether` tree when `hammunition install
+  gps-tether` had been run on the machine, and failed under `unshare -r`; it
+  now points the engine's `TETHER_TREE` at an empty place, so only its stand-in
+  program on the PATH is found.
+
+- **Transient apt archive failures are retried before a step fails** (#236; **D-016**, **D-044**). `apt-get update`, installs and simulations now use apt's three-retry setting. If a fetch still fails, install output names the option and advises rerunning the same command; apt reuses cached downloads. `--no-remove`, noninteractive apt and the refresh opt-out are unchanged.
+
+- **`update` reports retired installed units instead of failing to plan** (#239).
+  Text and JSON identify each retired unit and include its catalog reason.
+
+- **The GraphHopper startup test no longer races for a free port** (#262). It
+  keeps a loopback socket bound without listening while requesting a route, so
+  the tested connection-refused case cannot be claimed by another process.
+
+- A tarball or zip data artifact under a root-owned prefix is now unpacked into the operator's build directory and installed through the tree steps the plan prints (`rm -rf`, `install -d`, `cp -aT`, the D-043 `chown -R -h` hand-over, and removal of the staged copy), instead of being written to the prefix by the unprivileged process; `hammunition install vector-map-kit` no longer fails with `Permission denied` at its last step (#271).
+
+- **Issue #123:** allow four-character callsign suffixes so the documented placeholder passes station validation; add a regression test.
+
+- #245: expose doctor command fixes as argv in JSON and render them as code in text output.
+
+- **A git build no longer stops in a text editor on a machine whose git signs
+  tags.** (#238, **D-031**) `tag.gpgsign true` in the operator's `~/.gitconfig` turned the git
+  backend's plain `git tag -f` into an annotated, signed tag, and nano opened
+  inside a navigation install on the bench (2026-10-03). Every git step now
+  runs with `GIT_TERMINAL_PROMPT=0` and `GIT_EDITOR=true`, and the tag step
+  disables `tag.gpgSign` and `tag.forceSignAnnotated` for that one command;
+  the operator's configuration is never changed. Two tests hold it, and
+  `docs/troubleshooting/install-failures.md#git-editor` names the symptom.
+
+- **The engine's own GPS tether copy retired; the ACMA Bunker ruling recorded**
+  (**D-071** note, **D-074**, 2026-10-02). `gps_tether.py` and its tests are
+  deleted: the tether is hammunition-gps-tether, installed by the `gps-tether`
+  unit. `hammunition maps gps-tether` runs the installed program and, absent,
+  refuses naming `hammunition install gps-tether`. `tether_contract.py` holds
+  the ports and the four GeoClue constants shared with the tether, asserted
+  equal to its source by `tests/test_tether_contract.py` (skipped where that
+  source is absent). `reference serve` checks `--position-port` itself. The
+  maintainer's ruling that a Bunker may hold the ACMA register zip (it contains
+  `client.csv`, never opened by the engine) is recorded, with Bunker's
+  `hold_unverified = false` as the opt-out.
+
+- **Docs sweep after the 2026-10-02 batch** (#205; documentation only, no code). A
+  guide for the tray's Controls panel and `hammunition services`
+  (`docs/guides/tray-controls.md`); contradictions between pages resolved in
+  favour of the code, the bench record and `docs/DECISIONS.md` (park and wake
+  on hardware, the helper's lists, the rig's default owner, the tether as a
+  service, desktop tray versions); the README status table gains the rows
+  v0.19.0 left out; the nav and entry pages reach every guide; and
+  `docs/contributing/docs-sweep.md` is the checklist, now a release step.
+
+- **Document the unit JSON command** (#246). The unit manifest was already
+  emitted by `hammunition show UNIT --json`; the JSON command list and CLI
+  reference now name it and explain profile-first resolution.
+
+- **Docs: bench session 13 on the field laptop** (#233, **D-056**, **D-058**). `docs/reference/bench-verification-5430.md` records the tray
+  0.5.0 helper installed and answering contract 1, `services` and `doctor`
+  after it, the tether enabled at login, a 3D fix from a cold boot and the
+  whole-`navigation` dry run, with what is still owed; the tray-controls,
+  gps-time and offline-navigation guides move their measured lines only where
+  this session measured them.
+
+- **Documentation for newcomers.** (#256) A new page, `docs/getting-started/disk-space.md`, says how much disk a profile, the whole catalog and each offline data layer need, with three tiers (about 5 GB, about 55 GB, about 220 to 300 GB) and each figure marked measured, pinned, quoted or unmeasured; the README opens with what it is, who it is for, targets, disk space, a five-command quick start and where to go next, ahead of the status table; the home page routes by situation; the getting-started pages link back and forward in order; the `status` sample and the backend count are corrected.
+
+- **Docs: a verbose installation guide and newcomer-ready profile pages** (#276). A verbose installation guide (`docs/getting-started/installation.md`, linked from the short `install.md`) and every profile laid out for newcomers. The profiles index is now a full orientation table (stage, units, disk, hardware assumed, consent gates, what each leaves out) with a "which profile do I want" table by goal, and each profile page gains who it is for, an at-a-glance table, install and uninstall steps and a first-ten-minutes list. The new prose lives in the profile manifests (`who_for`, `hardware_assumed`, `footprint_short`, `excludes_short`, `goals`, `first_ten_minutes`, all optional in the schema and required of every shipped profile by `tests/test_profile_docs.py`), so the pages stay generated. The nav now leads with Installation, Profiles, Guides and Troubleshooting.
+- #242: Add the local-only `station set --json` result with saved values and per-flag refusals (D-059).
+- CI starts again: the GYST `python-ci` caller job grants `id-token: write`, which the called workflow declares; without it GitHub refused the workflow file at startup and no `CI green` check ever appeared (#281 follow-up).
+- **Resume completed regional and derived work safely** (#279, completing
+  #272). Regional, derived, DEM, topo and CoMaps units now record completion
+  and resume only when their state fingerprint and on-disk checks still match.
+  Completion records on successful runs follow effect verification.
+- CI calls ChiefGyk3D/git-your-ship-together v1.7.1 for ruff, `mypy --strict`, the pytest matrix (3.11 to 3.14) and workflow lint (`ci / CI green`), adds a `security.yml` caller (CodeQL, gitleaks, Scorecard, pip-audit) and a Dependabot entry for the pins; `pages.yml` and `wiki.yml` become callers of its `docs-pages.yml` and `wiki-publish.yml`; the per-distribution containers, commit claims, pin and citation checks, link check and repo hygiene stay local; the tether checkout moves into `scripts/ci-test.sh`; required checks are listed in `docs/contributing/ci.md`.
+- A release workflow: a `v*` tag builds the documentation site and a source archive through GYST's `artifact-release`, checks the tag against `pyproject.toml`, takes the notes from that version's changelog section, signs and publishes them; the site tarball is what the coming `hammunition-docs` offline unit pins.
+- **The failed apt-fetch regression test reads the transaction log from the engine's resolved state path** (#268). It pins the run to root so `XDG_STATE_HOME` is honored under `unshare -r`.
+- Correct the station-settings guide with a generated, drift-checked table of every manifest's configuration files, station values and per-file deferrals; distinguish chrony's fixed drop-ins from ntpsec's helper-managed files (#277, D-035, D-058, D-072).
+- Add typed consent for planned file-capability grants, with exact-value scripted affirmation and uninstall reversal for #96; declining keeps LinBPQ unprivileged and installs the rest.
+- Isolate the real-catalog `list` test from the caller's transaction log and assert the empty-state path does not run `dpkg-query` (fixes #265).
+- **Mesh and Reticulum inventory** (documentation only, Track C, issue #105).
+  `docs/reference/mesh-inventory.md` measures the Reticulum, Meshtastic and MeshCore
+  tools on 2026-10-03: versions, licences (the non-OSI Reticulum License, Sideband
+  and LXST under Creative Commons non-commercial terms), hash-pinned closures
+  (`docs/reference/mesh-venv-closures.txt`), venv sizes, arm64 wheel gaps, archive
+  presence per target, and the `meshtasticd` repository keys for D-040.
+
 ## v0.19.0 — 2026-10-02 — the rig as station data, repeater sources, infrastructure layers, GraphHopper, terrain for coverage plots, the tether as its own project, device and service control for the tray
 
 Twenty pull requests since v0.18.0 (#176, #178-#196), 20 entries.

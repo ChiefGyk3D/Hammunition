@@ -1,4 +1,0 @@
-- **A publisher outage at plan time retries, then defers by name instead of
-- **Books and CoMaps disk checks include the same run's vector tiles and route
-- **The engine's own GPS tether copy retired; the ACMA Bunker ruling recorded**
-- **HydraSDR RFOne and RigExpert Fobos SDR: host software and device entries,
