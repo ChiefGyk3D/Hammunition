@@ -113,12 +113,12 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 **321**, up from 71 |
+| Package manifests | 🟡 **324**, up from 71 |
 | …Debian Blend coverage | ✅ **152 of 152** — SCOPE.md's first 1.0 stage, complete |
 | …parity coverage | 🟡 **111 of the 125 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
-| Hardware catalog | 🟡 33 devices, 9 classes, 302 confirmed USB identifiers |
+| Hardware catalog | 🟡 34 devices, 9 classes, 302 confirmed USB identifiers |
 | …of which **supported** / **run on hardware here** | **19** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
-| Profiles | ✅ **all 12 of the 1.0 set**, plus 7 post-1.0 — every package installable, asserted by test; a member a target's archive lacks is deferred by name, never the whole profile (D-039) |
+| Profiles | ✅ **all 12 of the 1.0 set**, plus 8 post-1.0 — every package installable, asserted by test; a member a target's archive lacks is deferred by name, never the whole profile (D-039) |
 | Inventories of all six upstream sources | ✅ complete and measured |
 | Consent gates for RF-research tooling | ✅ working |
 | Distro detection from `/etc/os-release` | ✅ working |
@@ -129,7 +129,7 @@ exactly where things stand:
 | Builds from a pinned git revision, with the pin verified after checkout | ✅ working |
 | Prebuilt binaries: `.deb`, tarball, zip, executable | ✅ working — `.deb` through apt, never `dpkg -i` |
 | Per-user venv installs, hash-pinned end to end (`--require-hashes`) | ✅ working — not1mm and NanoVNASaver run from them |
-| Launcher + desktop-entry generation from manifests (D-036) | ✅ working — 33 units carry launchers; terminal launchers hold their window; a wrapper never shadows its own tool (found and fixed 2026-09-12) |
+| Launcher + desktop-entry generation from manifests (D-036) | ✅ working — 37 units carry launchers; terminal launchers hold their window; a wrapper never shadows its own tool (found and fixed 2026-09-12) |
 | Idempotent re-runs for builds (D-051) | ✅ a source, git or prebuilt unit already installed at its pin is skipped; measured on the field laptop: 143 of 165 units plan nothing on a re-run |
 | AppImage backend | ❌ post-1.0 (SCOPE.md) — refused by name |
 | pipx / CPAN backends | ⚪ re-measured to **zero users** and dropped from 1.0 (D-014 amendment) |
@@ -204,8 +204,8 @@ this project's own maintainer.
 | [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) | A KDE Plasma tray applet: a switch per parkable device, and a Controls panel for services and radios, calling the helper this project installs (D-056). | [`hammunition-tray`](docs/packages/hammunition-tray.md), in the `station` profile: the release's source archive, digest-pinned, installing the helper too (0.5.0 published no `.deb`); `hammunition-tray-qt` is the same for Xfce, LXQt, LXDE, MATE and Cinnamon. KDE Plasma 6 only, deferred from `station` on a machine with no Plasma session ([desktops](docs/desktops.md)); run `hammunition hardware apply` first. |
 
 **There is one thing you can help with right now**, and it needs no code:
-[contributing hardware identifiers](docs/contributing/hardware.md). Eighteen of
-the 33 catalogued devices still have something unknown about them, and ten of
+[contributing hardware identifiers](docs/contributing/hardware.md). Nineteen of
+the 34 catalogued devices still have something unknown about them, and eleven of
 those are waiting on somebody who owns the hardware — the maintainer does not.
 Sixty-seven Meshtastic and MeshCore boards are waiting on one line each. It
 takes thirty seconds, there is a read-only script for it, and there are
@@ -327,13 +327,13 @@ systemd's `60-serial.rules` already gives every USB-*serial* device a stable
 `/dev/serial/by-id/` path, per unit, with no help from anybody. Stable naming
 was never the hard part.
 
-Of 33 catalogued devices, **29 are ones `by-id` does not settle**, and the
+Of 34 catalogued devices, **29 are ones `by-id` does not settle**, and the
 reasons are the work:
 
 | What `by-id` cannot do | Where it bites |
 |---|---|
 | **Permissions** | A device only root can open is unusable however stable its path. This is what actually stops people. |
-| **Non-serial devices** | 15 of 33 present nothing serial at all — every SDR, the Ubertooth, the Proxmark in client mode. `libusb` devices get no `/dev/serial/` entry to name. |
+| **Non-serial devices** | 15 of 34 present nothing serial at all — every SDR, the Ubertooth, the Proxmark in client mode. `libusb` devices get no `/dev/serial/` entry to name. |
 | **Identical units** | A Proxmark3 ships no product string and no serial. `by-id` builds its path from exactly those, so two of them collide there too. Only `by-path` separates them, and `by-path` changes when you move the cable. |
 | **Which interface is which** | A Free-WiLi 2 is six USB devices behind an internal hub, four serial ports on one of them. `by-id` gives each a stable path and labels none. |
 
@@ -421,7 +421,7 @@ catalog and the measurements, so they cannot say what the code does not.
 | [`docs/QUESTIONS.md`](docs/QUESTIONS.md) | Open questions, with recommendations |
 | [`docs/reference/`](docs/reference/) | The measured inventories everything rests on |
 | [`docs/reference/hardware-gaps.md`](docs/reference/hardware-gaps.md) | Every USB identifier we don't have, who can close it, and what it blocks |
-| [`docs/reference/device-naming.md`](docs/reference/device-naming.md) | What `/dev/serial/by-id/` already covers, and the 29 of 33 devices where it does not |
+| [`docs/reference/device-naming.md`](docs/reference/device-naming.md) | What `/dev/serial/by-id/` already covers, and the 29 of 34 devices where it does not |
 | [`docs/contributing/hardware.md`](docs/contributing/hardware.md) | How to send one, and what we do and don't store |
 | [`docs/reference/bench-verification-5430.md`](docs/reference/bench-verification-5430.md) | What has run on the field target itself, a Dell Latitude 5430 Rugged, and what has not |
 | [`docs/reference/release-1.0-checklist.md`](docs/reference/release-1.0-checklist.md) | What stands between here and a 1.0 tag, each item with its owner and its measurement |

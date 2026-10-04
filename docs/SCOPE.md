@@ -465,3 +465,11 @@ Every one of these is installable per-user (venv, node, AppImage post-1.0)
 or through a pinned repository, which is why the track can be cheap; what it
 must not do is arrive as a list of names. A `mesh` profile ships when its
 units have run against a node on the bench, and the tracking issue is #105.
+
+**Status, 2026-10-03 (D-080):** the Reticulum core is built: `rns`, `lxmf` and
+`nomadnet` as hash-pinned venvs, the `rnode` hardware entry, a post-1.0 `mesh`
+profile that also carries the two Meshtastic clients, and
+`docs/guides/mesh-and-reticulum.md`. The condition above is not yet met: no
+RNode or Meshtastic node has been run, so the profile says it is post-1.0 and
+the guide says what is measured. Still to come: `meshtasticd`, MeshCore's
+clients, Sideband and MeshChat (each its own decision).

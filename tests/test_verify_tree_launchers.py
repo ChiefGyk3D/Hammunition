@@ -367,6 +367,7 @@ def test_every_catalog_launcher_working_directory_is_under_the_shared_prefix() -
         "morse-runner": ("morse-runner",),
         "mshv": ("mshv",),
         "navit": ("navit-offline",),
+        "nomadnet": ("nomadnet-terminal",),
         "openhamclock": ("openhamclock",),
         "pihpsdr": ("pihpsdr-window",),
         "pygpsclient": ("pygpsclient",),

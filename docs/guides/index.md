@@ -42,6 +42,10 @@ Then, when you want to switch things off and on:
   radio email, ARDOP on HF.
 - **[APRS](aprs.md)** — Direwolf as the TNC, Xastir or YAAC on the map, and
   the decisions about digipeating and gating that affect other people.
+- **[Mesh and Reticulum](mesh-and-reticulum.md)** — encrypted messaging with no
+  infrastructure: two laptops on one network, then a LoRa RNode, a packet
+  modem or the internet, with NomadNet, `rnsh` and the Meshtastic clients beside
+  it.
 
 ## Receiving
 

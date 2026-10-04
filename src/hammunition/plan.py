@@ -37,6 +37,7 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hammunition.backends import (
     IMPLEMENTED_BINARY_FORMATS,
@@ -88,7 +89,9 @@ from hammunition.manifest.schema import (
 from hammunition.state.log import TransactionLog
 from hammunition.state.uninstall import deb_attributed
 from hammunition.station import Station
-from hammunition.userservice import PlannedUserService, plan_user_services
+
+if TYPE_CHECKING:
+    from hammunition.userservice import PlannedUserService
 
 __all__ = [
     "Blocker",
@@ -1480,7 +1483,13 @@ def resolve(
             # Plain services need nothing; the rig's need the hardware
             # catalog and defer by name without it (D-035) -- decided in
             # plan_user_services, which knows which is which.
-            svc_planned, svc_deferrals, svc_notes = plan_user_services(manifest, station, devices)
+            # Imported here, not at module top: userservice imports this module's
+            # Deferral, and CodeQL flags the top-level pair as an unsafe cycle.
+            from hammunition.userservice import plan_user_services, service_venv_dir
+
+            svc_planned, svc_deferrals, svc_notes = plan_user_services(
+                manifest, station, devices, venv_dir=service_venv_dir(manifest, user or None)
+            )
             user_services.extend(svc_planned)
             deferrals.extend(svc_deferrals)
             notes_early.extend(svc_notes)

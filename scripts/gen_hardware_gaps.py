@@ -102,6 +102,14 @@ BLOCKS: dict[str, tuple[str, str]] = {
         "STRINGS, which no upstream source records because a flasher does not "
         "need them — a contribution ask for anyone owning a node.",
     ),
+    "rnode": (
+        "nothing",
+        "Closed from upstream's board lists (Reticulum's manual and RNode_Firmware's "
+        "Boards.h, read 2026-10-03), which name boards and no USB identifier. A board "
+        "enumerates as its base module, which the badgelife class already covers. What "
+        "is left is what a provisioned RNode reports in its strings: a contribution "
+        "ask for anyone owning one.",
+    ),
     "limesdr": ("post-1.0", "No SDR in the 1.0 profiles depends on it."),
     "hackrf-pro": (
         "post-1.0",
