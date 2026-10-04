@@ -1,15 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-import os
 import re
-from pathlib import Path
 
 import pytest
 
 from hammunition.console import verbs
 from hammunition.console.verbs import NotAJsonVerb
 
-ENGINE_ROOT_VAR = "HAMMUNITION_ENGINE_ROOT"
+from .helpers import REPO
 
 
 @pytest.mark.parametrize(
@@ -51,17 +49,12 @@ def test_install_and_uninstall_are_only_ever_read_as_a_dry_run(verb: str) -> Non
 
 
 def test_every_verb_is_one_the_engine_lists_under_commands() -> None:
-    """The authority is the engine's own list. Opt-in: set HAMMUNITION_ENGINE_ROOT to an engine checkout."""
-    root = os.environ.get(ENGINE_ROOT_VAR)
-    if not root:
-        pytest.skip(
-            f"{ENGINE_ROOT_VAR} is not set (point it at an engine checkout to check the verb list)"
-        )
-    doc = Path(root) / "docs" / "reference" / "json-interface.md"
-    assert doc.is_file(), f"{ENGINE_ROOT_VAR} is set but {doc} does not exist"
+    """The authority is the engine's own list, in this repository: no opt-in, no checkout to point at."""
+    doc = REPO / "docs" / "reference" / "json-interface.md"
     text = doc.read_text()
     listed = {
-        tuple(m.group(1).split()) for m in re.finditer(r"^- `hammunition ([a-z ]+?)`", text, re.M)
+        tuple(m.group(1).split())
+        for m in re.finditer(r"^- `hammunition ([a-z ]+?)(?: [A-Z]+)?`", text, re.M)
     }
     for verb in verbs.JSON_VERBS:
         assert verb in listed, (
