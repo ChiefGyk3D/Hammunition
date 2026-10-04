@@ -559,7 +559,7 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         raise StationError(f"{target} is not valid YAML: {exc}") from exc
     if not isinstance(data, dict):
         raise StationError(f"{target} must contain a mapping, not {type(data).__name__}")
-    unknown = sorted(set(data) - _KNOWN_KEYS)
+    unknown = sorted(str(key) for key in set(data) - _KNOWN_KEYS)
     if unknown:
         raise StationError(
             f"{target} sets values nothing can use: {', '.join(unknown)}. "

@@ -12,6 +12,7 @@ cooldown, through `.github/dependabot.yml`.
 
 | Check | Where | What it does |
 |---|---|---|
+| `fuzz` | GYST `python-fuzz.yml`, job `fuzz` | Every Atheris target under `fuzz/` for 30 s on a pull request, 600 s on the weekly run; a crash fails it and uploads the input |
 | `ci / CI green` | GYST `python-ci.yml`, job `ci` | `ruff check` and `ruff format --check`, `mypy --strict` (Python 3.11, the floor), the pytest suite on 3.11 to 3.14, actionlint and zizmor over `.github/workflows`. The one gate that stands for all of them |
 | `security / CodeQL`, `security / Secret scan (gitleaks)`, `security / Dependency audit`, `security / OpenSSF Scorecard` | GYST `security.yml`, job `security` | CodeQL for Python and the workflows, gitleaks over the history, pip-audit over the frozen dev extras, Scorecard on `main`; weekly as well as per push |
 | `commit claims` | `ci.yml`, pull requests | The changelog fragment rule and `scripts/check_commit_claims.py` over every commit (D-031) |
@@ -63,6 +64,7 @@ Branch protection requires a pull request and these status checks (the names
 as GitHub reports them):
 
 - `ci / CI green`
+- `fuzz / fuzz` (the job's name as GitHub reports it; confirm on the first run)
 - `security / CodeQL`, `security / Secret scan (gitleaks)` and
   `security / Dependency audit`
 - `commit claims`
@@ -77,6 +79,36 @@ adds later can never merge unchecked. The local jobs are not behind it, which
 is why each is listed. A pull-request-only job reports as skipped on a push,
 which counts as passing. The weekly jobs are not required; they open no pull
 request and are read when they go red.
+
+## Fuzzing
+
+Atheris targets live in `fuzz/`, one `fuzz_<thing>.py` per parser: the
+manifest loaders, the repeater import readers, the Maidenhead parser, gpsd's
+JSON, `os-release` and the station config. Each takes bytes, shapes them with
+`atheris.FuzzedDataProvider`, and starts from a real document (a catalog
+manifest, a fixture under `tests/fixtures/repeaters/`) that it edits, so the
+fuzzer gets past the first syntax check. A parser's own error
+(`RepeaterInputError`, `StationError`, `LocatorError`, a YAML or schema error)
+is caught in the target, because it is the contract; anything else is a bug.
+A target never touches the network, a device or your real configuration: input
+that a parser reads from a path goes to a temporary file.
+
+To run one locally (CPython 3.12 to 3.14 on x86_64; `nice` it, it uses a core):
+
+```
+python3 -m venv .venv && .venv/bin/pip install -e '.[dev]' atheris==3.1.0
+nice -n 19 .venv/bin/python fuzz/fuzz_station_config.py -max_total_time=60 -max_len=4096
+```
+
+A crash prints the traceback and writes a `crash-<hash>` file (in CI it is the
+job's uploaded artifact). Reproduce it with `.venv/bin/python
+fuzz/fuzz_x.py crash-<hash>`, then write a pytest test with the crashing input
+as bytes in `tests/test_fuzz_regressions.py`, watch it fail, fix the parser
+(the fix is to the parser, not a wider `except` in the target), and keep the
+test. `tests/test_fuzz_targets.py` calls every target on a few seeds in the
+normal suite so a target cannot rot unnoticed. The `fuzz` job is not behind
+`ci / CI green` (that gate is inside the called `python-ci.yml`), which is why
+it is listed under the required checks.
 
 ## Pinned dependencies (OpenSSF Scorecard)
 

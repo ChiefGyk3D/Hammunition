@@ -44,7 +44,7 @@ import tempfile
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -1010,11 +1010,28 @@ def _read_csv(path: Path, text: str) -> Parsed:
     raise _unknown(path, f"a CSV whose header is {','.join(header)[:120]!r}")
 
 
+def csv_records(reader: Any) -> Iterator[list[str]]:
+    """*reader*'s records, a malformed one raised as :class:`RepeaterInputError`.
+
+    ``csv.reader`` raises ``csv.Error`` from the middle of the loop on input
+    such as a bare carriage return in an unquoted field or a field past the
+    size limit; an operator's own export is not trusted to be well formed, and
+    the refusal names the line (found by fuzzing, ``fuzz/``)."""
+    while True:
+        try:
+            record = next(reader)
+        except StopIteration:
+            return
+        except csv.Error as exc:
+            raise RepeaterInputError(f"not valid CSV near line {reader.line_num}: {exc}") from None
+        yield record
+
+
 def _read_hand(reader: Any) -> Parsed:
     rows: list[Repeater] = []
     skips = _Skips()
     read = 0
-    for record in reader:
+    for record in csv_records(reader):
         if not any(cell.strip() for cell in record):
             continue
         read += 1
@@ -1053,7 +1070,7 @@ def _read_repeaterbook(reader: Any, names: list[str]) -> Parsed:
     rows: list[Repeater] = []
     skips = _Skips()
     read = 0
-    for record in reader:
+    for record in csv_records(reader):
         if not any(cell.strip() for cell in record):
             continue
         read += 1
