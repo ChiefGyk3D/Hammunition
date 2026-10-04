@@ -1,0 +1,1 @@
+- `uninstall` removes the launcher wrapper and generated menu entry an install recorded in the transaction log, not only those the current manifest still lists, so a unit whose manifest lost its `launchers` block or was retired no longer leaves them behind; a file whose generated marker is gone is still kept and reported (#336).

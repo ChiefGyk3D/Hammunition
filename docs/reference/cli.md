@@ -1614,7 +1614,14 @@ Four attribution routes, each exact:
 
 Wrappers and desktop entries in your home are removed only after being read
 back: the file must carry the engine's generated marker, or it is reported
-and left. The plan partitions honestly and prints every part:
+and left. Which wrappers and entries to look at comes from two sources: the
+files the transaction log says an install wrote (the unit that owns one is
+read from its own marker), and the launchers the current manifest lists. The
+manifest alone would miss a launcher it has since dropped, or a unit since
+retired, so a `uninstall` reverses what the install did, not what the catalog
+says today (#336). A recorded file whose marker is gone is the operator's
+replacement and is named under *Left in place*. The plan partitions honestly
+and prints every part:
 
 - **Removing** — attributed apt packages (one `apt-get remove`, never
   `purge`: configuration a user may have edited stays on disk).
