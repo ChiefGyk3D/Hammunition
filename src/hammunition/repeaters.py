@@ -69,6 +69,7 @@ __all__ = [
     "REPEATERBOOK_API",
     "REPEATERBOOK_CSV",
     "REPEATERBOOK_GPX",
+    "SOURCE_TRAITS",
     "SUFFIXES",
     "AllSources",
     "Layer",
@@ -100,6 +101,7 @@ __all__ = [
     "read_layer_rows",
     "rebuild_all",
     "remove_layer",
+    "source_credit",
     "write_layer",
     "write_poi",
     "write_poi_points",
@@ -210,6 +212,25 @@ SOURCE_NAMES = {
     DIREWOLF: "heard off the air by this station (APRS object)",
 }
 
+#: What each source is, for a program that lists layers (D-074, amended
+#: 2026-10-04): ``(personal use, unverified)``. Personal use is RepeaterBook's
+#: terms (D-081): the rows may not be served beyond the machine. Unverified is
+#: what the engine records for a source whose data nothing checks. Every key of
+#: :data:`SOURCE_NAMES` is here; a test holds it.
+SOURCE_TRAITS: dict[str, tuple[bool, bool]] = {
+    REPEATERBOOK_GPX: (True, False),
+    REPEATERBOOK_CSV: (True, False),
+    REPEATERBOOK_API: (True, True),
+    HEARHAM: (False, True),
+    HAND: (False, False),
+    ACMA: (False, True),
+    OPEN_REPEATER: (False, False),
+    OSM: (False, False),
+    ETCC: (False, True),
+    BRANDMEISTER: (False, True),
+    DIREWOLF: (False, False),
+}
+
 REPEATERBOOK_TERMS = "repeaterbook.com/about/legal"
 REPEATERBOOK_LICENCE = (
     "Data courtesy of RepeaterBook.com. Exported by you for your own personal, "
@@ -232,6 +253,14 @@ def hearham_licence(when: str, sha256: str) -> str:
         "circumstances should this be relied upon for medical emergencies, or any "
         f"other life-and-death operations.' {when}, sha256 {sha256}, not verifiable."
     )
+
+
+def source_credit(source: str) -> str:
+    """The attribution a front end prints for *source*: RepeaterBook's whole
+    terms for any of its sources, else the source's name and licence."""
+    if SOURCE_TRAITS[source][0]:
+        return REPEATERBOOK_LICENCE
+    return SOURCE_NAMES[source]
 
 
 def licence_text(fmt: str) -> str:

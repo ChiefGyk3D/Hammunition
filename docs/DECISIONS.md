@@ -9429,6 +9429,20 @@ and `approximate`; `unverified-zip` in the `artifacts` contract;
 `tests/acma_support.py`; the guide's section 13, `docs/guides/lan-mirror.md`,
 `docs/reference/cli.md`.
 
+**Amendment, 2026-10-04: front ends read the layers through
+`maps repeaters list --json`, never the files.** A front end (Hammunition Hill's
+repeaters panel is the first) reads the layers through the `repeaters-list`
+document: every readable layer with its date, sources and files, the layers
+joined in memory as `repeaters-all.gpx` is (the heard layer apart), each row
+with the layer it came from, and one credit text per source present. The
+command is read-only and returns a partial list with exit 0 when a layer
+cannot be read, naming it in `skipped`. The document carries `personal_use`
+per layer and per row (true for any RepeaterBook source, D-081) so a front end
+can refuse to serve those rows beyond the machine: D-081 keeps RepeaterBook
+data off a Bunker, and a program that repeats the rows over a network breaks
+that as surely as a mirror would. The position of the station is not in this
+document; a front end reads it from `station show --json`.
+
 ## D-075 — Infrastructure and EMCOMM layers: eight OpenStreetMap layers from the extracts already here, FAA NASR, EIA-860M and WRI as pinned data, FCC ASR and NOAA Weather Radio on request, an `infra` tile layer and GeoJSON overlays on the browser map
 
 **Date:** 2026-10-01. **Status:** proposed (the spike's recommendation,

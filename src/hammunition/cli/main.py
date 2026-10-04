@@ -2851,6 +2851,134 @@ def cmd_maps_repeaters_fetch_hearham(args: argparse.Namespace) -> int:
 
 
 @envelope.json_capable()
+def cmd_maps_repeaters_list(args: argparse.Namespace) -> int:
+    """The repeater layers as data for a front end.  D-074 (amended 2026-10-04), D-059.
+
+    Read-only: reads the overlay directory and each layer's rows file, writes
+    nothing, fetches nothing, never rebuilds ``repeaters-all.gpx``. The layers
+    are joined in memory as that file is. A layer that cannot be read (no rows
+    file, a damaged one) or an id that is not a layer goes in ``skipped`` with
+    the reason and the rest is returned: **exit 0 with a partial list**, so a
+    front end can draw what there is. Exit 1 only when the directory itself
+    cannot be read."""
+    from hammunition.interface.repeaters import (
+        LayerSkipView,
+        LayerView,
+        RepeatersListDocument,
+        RowView,
+        render_repeaters_list,
+    )
+    from hammunition.repeater_sources import cross_merge_origins
+    from hammunition.repeaters import (
+        HEARD_LAYERS,
+        LAYERS,
+        SOURCE_TRAITS,
+        Repeater,
+        layer_files,
+        overlay_dir,
+        present_layers,
+        read_layer_rows,
+        source_credit,
+    )
+
+    directory = overlay_dir()
+    try:
+        if directory.exists():
+            list(directory.iterdir())  # an unreadable directory is an error, not "empty"
+    except OSError as exc:
+        print(f"error: {directory} cannot be read: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    here = present_layers(directory)
+    asked: list[str] = list(args.layer or [])
+    skipped: list[LayerSkipView] = []
+    for layer_id in dict.fromkeys(asked):
+        if layer_id not in LAYERS:
+            skipped.append(
+                LayerSkipView(
+                    layer=layer_id,
+                    reason=f"no repeater layer {layer_id!r}; the layers are {', '.join(LAYERS)}",
+                )
+            )
+        elif layer_id not in here:
+            skipped.append(LayerSkipView(layer=layer_id, reason="not present in the directory"))
+    wanted = [i for i in here if not asked or i in asked]
+    views: list[LayerView] = []
+    joinable: list[tuple[str, tuple[Repeater, ...]]] = []
+    credits: dict[str, None] = {}
+    for layer_id in wanted:
+        names = layer_files(layer_id)
+        rows_path = directory / names[3]
+        if not rows_path.is_file():
+            skipped.append(
+                LayerSkipView(
+                    layer=layer_id,
+                    reason="written before D-074 kept its rows as data; re-import it to include it",
+                )
+            )
+            continue
+        try:
+            layer = read_layer_rows(rows_path)
+        except ValueError as exc:
+            skipped.append(LayerSkipView(layer=layer_id, reason=str(exc)))
+            continue
+        sources = tuple(dict.fromkeys(r.source for r in layer.rows))
+        for row in layer.rows:
+            for source in (row.source, *row.also):
+                credits[source_credit(source)] = None
+        views.append(
+            LayerView(
+                id=layer_id,
+                name=layer.name,
+                description=layer.description,
+                day=layer.day.isoformat(),
+                rows=len(layer.rows),
+                sources=sources,
+                personal_use=any(SOURCE_TRAITS[s][0] for s in sources),
+                unverified=any(SOURCE_TRAITS[s][1] for s in sources),
+                files=tuple(str(directory / n) for n in names if (directory / n).is_file()),
+            )
+        )
+        if layer_id not in HEARD_LAYERS:
+            joinable.append((layer_id, layer.rows))
+    merged_rows, merged, origin = cross_merge_origins(rows for _, rows in joinable)
+    doc = RepeatersListDocument(
+        directory=str(directory),
+        layers=tuple(views),
+        skipped=tuple(skipped),
+        rows=tuple(
+            RowView(
+                callsign=r.callsign,
+                output_hz=r.output_hz,
+                offset_hz=r.offset_hz,
+                tone=r.tone,
+                mode=r.mode,
+                place=r.place,
+                notes=r.notes,
+                use=r.use,
+                status=r.status,
+                updated=r.updated,
+                label=r.label,
+                lat=r.lat,
+                lon=r.lon,
+                source=r.source,
+                also=r.also,
+                layer=joinable[o][0],
+                personal_use=any(SOURCE_TRAITS[s][0] for s in (r.source, *r.also)),
+            )
+            for r, o in zip(merged_rows, origin, strict=True)
+        ),
+        merged=merged,
+        credits=tuple(credits),
+    )
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_repeaters_list(doc):
+        print(line)
+    return EXIT_OK
+
+
+@envelope.json_capable()
 def cmd_maps_repeaters_remove(args: argparse.Namespace) -> int:
     """Delete repeater layers and unregister what is gone.  D-064, D-074.
 
@@ -7528,6 +7656,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="remove only this layer (default: every layer and the all-sources file)",
     )
     p_rep_remove.set_defaults(func=cmd_maps_repeaters_remove)
+    p_rep_list = rep_sub.add_parser(
+        "list",
+        help="the repeater layers as data for a program (read-only; a layer it cannot read is "
+        "listed as left out and the rest is returned, exit 0)",
+    )
+    p_rep_list.add_argument(
+        "--layer",
+        action="append",
+        default=None,
+        metavar="ID",
+        help="read only this layer; repeatable; an id that is not a layer is reported, not an error",
+    )
+    p_rep_list.set_defaults(func=cmd_maps_repeaters_list)
 
     from hammunition import infra as infra_layers
 
