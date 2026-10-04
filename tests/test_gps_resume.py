@@ -101,6 +101,9 @@ def test_the_disclosure_prints_both_files_whole_and_how_to_inspect_and_reverse(
     assert "hammunition hardware unapply" in text
     assert "--no-gps-resume" in text
     assert "parked receiver is never woken" in text
+    assert "power-cycle it once" in text
+    assert "`authorized` switch" in text
+    assert "loses its warm start" in text and "74 s" in text
 
 
 def test_applied_and_verified_then_a_noop(resume_files: Path, tmp_path: Path) -> None:

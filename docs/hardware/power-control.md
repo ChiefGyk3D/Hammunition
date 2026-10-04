@@ -543,14 +543,25 @@ in the plan before anything runs:
      `/dev/gpsN` where gpsd was configured with that name);
   4. `?DEVICES;` to gpsd on `127.0.0.1:2947`, two seconds at most. No
      device or no answer: `systemctl try-restart gpsd.service`, which
-     restarts gpsd only if it is running. Clients then have to reconnect.
-     This catches gpsd losing the device or not answering. It does not
-     catch a receiver that gpsd still lists but that stays silent after
-     the re-add: the script does not check for data, so that case needs
-     the manual steps below.
+     restarts gpsd only if it is running. Clients then have to reconnect;
+  5. a data check: gpsd's socket is watched for up to 20 s for a `SKY` or
+     `TPV` report from the receiver (or any report with `mode` 1 or more).
+     Satellites without a fix are alive; silence is the fault;
+  6. only on silence, **one USB power cycle**. The script walks up from
+     `/sys/class/tty/<tty>/device` to the first directory with
+     `idVendor`/`idProduct` whose child is the tty's own interface (a hub
+     is never taken for the receiver), checks the path lexically as
+     `hammunition hardware park` does, writes `0` to its `authorized`,
+     waits three seconds, writes `1`, waits for the tty to return, runs
+     `gpsdctl add` if gpsd does not list it within 5 s, and repeats the
+     data check once. The receiver loses its warm start: a 3D fix returned
+     74 s after a wake on the bench. With no `authorized` file it restarts
+     gpsd instead. It never loops.
 
-  The unit reports failure (`systemctl status`) when the restart or any
-  `gpsdctl add` failed.
+  The unit succeeds only when data was seen. Otherwise it fails and the last
+  journal line names the manual steps (`systemctl status
+  hammunition-gps-resume`). Read it all with `sudo journalctl -b -u
+  hammunition-gps-resume.service -u gpsd.service --since "-1h"`.
 - `/etc/systemd/system/hammunition-gps-resume.service`, a oneshot ordered
   `After=` and `WantedBy=` `suspend.target`, `hibernate.target`,
   `hybrid-sleep.target` and `suspend-then-hibernate.target`. It is enabled,
@@ -560,12 +571,11 @@ A file at either path that does not start with Hammunition's header refuses
 the plan, and is never overwritten. `hammunition hardware apply
 --no-gps-resume` leaves the step out.
 
-**The rest is yours.** The resume step never restarts a gpsd that still
-lists the receiver, and it never parks or wakes anything. If the fix still
-does not come back after a resume, restart gpsd (session 12's measured
-recovery, a fix within 1 s), and if that does not do it, park and wake the
-receiver, the heaviest recovery (a 3D fix took 74 s from a wake in bench
-session 10):
+**When the step fails.** The step power-cycles a silent receiver once
+itself, through the same `authorized` switch as `park` and `wake`. If it
+still fails, restart gpsd (session 12's measured recovery, a fix within
+1 s), and if that does not do it, park and wake the receiver by hand (a 3D
+fix took 74 s from a wake in bench session 10):
 
 ```
 sudo systemctl restart gpsd.socket gpsd

@@ -213,8 +213,11 @@ def disclose(step: GpsResume) -> list[str]:
         "Will install the GPS receiver's resume step (issue #177). A receiver that is not",
         "  re-enumerated across a suspend can leave gpsd holding a tty that has gone quiet;",
         "  after every suspend or hibernation this gives gpsd a fresh open of it.",
-        "  It does nothing when no /dev/gpsN exists, so a parked receiver is never woken,",
-        "  and it never parks or wakes anything: that stays your third step.",
+        "  It does nothing when no /dev/gpsN exists, so a parked receiver is never woken.",
+        "  It then checks that data flows (up to 20 s). If the receiver stays silent it may",
+        "  power-cycle it once through its USB `authorized` switch, the same switch",
+        "  `hammunition hardware park` and `wake` use; a cycled receiver loses its warm start",
+        "  (a 3D fix returned 74 s after a wake on the bench).",
     ]
     if not step.script_current:
         lines += [

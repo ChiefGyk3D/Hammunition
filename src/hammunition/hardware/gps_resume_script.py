@@ -19,21 +19,33 @@ What it does, one journal line per action:
    reports for it (``?DEVICES;``): the tty, as ``gpsdctl@`` registers it, or
    ``/dev/gpsN`` where gpsd was configured with that name.
 4. ``?DEVICES;`` again, two seconds at most. No device, or no answer:
-   ``systemctl try-restart gpsd.service``, which restarts gpsd only if it is
-   running. This catches gpsd losing the device or hanging. It does **not**
-   catch a receiver gpsd still lists that stays silent after the re-add: no
-   data check is made, so that case needs the operator's manual steps.
+   ``systemctl try-restart gpsd.service``.
+5. **Data check.** gpsd's socket is watched (``?WATCH``) for ``--data-window``
+   seconds (20). A ``SKY`` or ``TPV`` report for the receiver, or any report
+   with ``mode`` of 1 or more, means it is alive. Satellites without a fix are
+   alive (a cold fix takes a minute); silence is the fault.
+6. **Escalation, only on silence, once per receiver.** The receiver's own USB
+   device directory is found by walking up from ``/sys/class/tty/<tty>/device``
+   to the first directory with ``idVendor`` and ``idProduct`` whose child is the
+   tty's interface (``<device>:1.0``), so a hub is never taken for the receiver.
+   Its ``authorized`` is written ``0``, then ``1`` after ``--cycle-pause``
+   seconds: the switch ``hammunition hardware park`` and ``wake`` use, and a
+   power cycle that loses the receiver's warm start. The path passes a lexical
+   guard (under ``<sysfs>/devices/``, no ``..``, a USB address, the one leaf
+   ``authorized``). When the tty is back, gpsd's own hook re-adds it; if gpsd
+   does not list it within ``--relist-window`` seconds, ``gpsdctl add`` does.
+   The data check is then repeated once. With no ``authorized`` or no device
+   found, it falls back to ``systemctl try-restart gpsd.service`` (once).
 
-The exit status is 1 when the restart or any ``gpsdctl add`` failed, so
-``systemctl status`` shows it.
+The exit status is 0 only when data was seen from every receiver. Otherwise it
+is 1 and the last line names the manual steps, so ``systemctl status`` shows
+them.
 
 gpsd's TCP port is read only after the control socket is seen, but a local
 account could still answer on 127.0.0.1:2947 when gpsd's socket is not
-holding it. The reply only chooses between the two paths this script found
-in ``/dev`` and whether to restart gpsd; no path or command is taken from it.
-
-The park and wake cycle is not done here: it is the heaviest recovery, and it
-is the operator's (docs/hardware/power-control.md, "After suspend").
+holding it. The reply only chooses between the paths this script found in
+``/dev`` and ``/sys`` and whether the receiver is alive; no path or command is
+taken from it.
 
 Standard library only. The file is installed whole under
 ``/usr/local/libexec/`` and run by ``/usr/bin/python3 -I``, which gpsd's own
@@ -50,9 +62,15 @@ import re
 import socket
 import subprocess
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 _GPS = re.compile(r"gps([0-9]+)")
+_USB_ADDRESS = re.compile(r"[0-9]+-[0-9]+(\.[0-9]+)*")
+_MANUAL = (
+    "recovery failed: park and wake the receiver from the tray, or run "
+    "`hammunition hardware park gps-receiver` then `hammunition hardware wake gps-receiver`"
+)
 
 
 def log(message: str) -> None:
@@ -128,15 +146,124 @@ def _outcome(ok: bool, detail: str) -> str:
     return "ok" if ok else f"failed: {detail}"
 
 
+def watch(host: str, port: int, names: dict[int, set[str]], window: float) -> dict[int, float]:
+    """Watch gpsd for ``window`` seconds; ``{receiver: seconds until its first report}``.
+
+    ``names`` maps a receiver's index to the device paths gpsd might call it.
+    """
+    alive: dict[int, float] = {}
+    start = time.monotonic()
+    deadline = start + window
+    try:
+        with socket.create_connection((host, port), timeout=min(window, 2.0)) as sock:
+            sock.sendall(b'?WATCH={"enable":true,"json":true};\n')
+            buffer = b""
+            while len(alive) < len(names):
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    break
+                sock.settimeout(left)
+                try:
+                    chunk = sock.recv(4096)
+                except TimeoutError:
+                    break
+                if not chunk:
+                    break
+                buffer += chunk
+                while b"\n" in buffer:
+                    line, buffer = buffer.split(b"\n", 1)
+                    try:
+                        message = json.loads(line)
+                    except ValueError:
+                        continue
+                    if not isinstance(message, dict):
+                        continue
+                    device = message.get("device")
+                    mode = message.get("mode")
+                    live = message.get("class") in ("SKY", "TPV") or (
+                        isinstance(mode, int) and not isinstance(mode, bool) and mode >= 1
+                    )
+                    if not live or not isinstance(device, str):
+                        continue
+                    for index, known in names.items():
+                        if device in known and index not in alive:
+                            alive[index] = time.monotonic() - start
+    except OSError:
+        pass
+    return alive
+
+
+def guard_authorized(path: str, sysfs: str) -> str:
+    """The ``authorized`` file of a USB device under ``<sysfs>/devices/``, or ValueError.
+
+    Lexical, as ``hammunition.hardware.power.guard`` is: ``..`` is refused, the
+    path is not resolved, and the leaf must be exactly ``authorized`` in a
+    directory named like a USB address.
+    """
+    if ".." in path.split("/") or os.path.normpath(path) != path:
+        raise ValueError(f"{path!r} is not a normalised path")
+    root = os.path.normpath(sysfs).rstrip("/") + "/devices/"
+    if not path.startswith(root):
+        raise ValueError(f"{path!r} is not under {root}")
+    parts = path[len(root) :].split("/")
+    if len(parts) < 2 or "" in parts or parts[-1] != "authorized":
+        raise ValueError(f"{path!r} is not a device's authorized file")
+    if _USB_ADDRESS.fullmatch(parts[-2]) is None:
+        raise ValueError(f"{parts[-2]!r} is not a USB device address")
+    return path
+
+
+def usb_authorized(tty: str, sysfs: str) -> str:
+    """The receiver's own ``authorized`` file, found from its tty, or ValueError."""
+    root = os.path.realpath(sysfs)
+    start = os.path.realpath(os.path.join(sysfs, "class", "tty", tty, "device"))
+    if not os.path.isdir(start):
+        raise ValueError(f"/sys/class/tty/{tty}/device is absent")
+    child = start
+    node = start
+    while node.startswith(root + "/devices/"):
+        if os.path.isfile(os.path.join(node, "idVendor")) and os.path.isfile(
+            os.path.join(node, "idProduct")
+        ):
+            if not os.path.basename(child).startswith(os.path.basename(node) + ":"):
+                raise ValueError(f"{node} is not the USB device the tty's interface belongs to")
+            target = os.path.join(node, "authorized")
+            if not os.path.isfile(target):
+                raise ValueError(f"{node} has no authorized file")
+            return guard_authorized(target, root)
+        child, node = node, os.path.dirname(node)
+    raise ValueError("no USB device directory above the tty")
+
+
+def write_value(path: str, value: str) -> None:
+    with open(path, "w", encoding="ascii") as handle:
+        handle.write(value)
+
+
+def wait_for(predicate: Callable[[], bool], window: float) -> bool:
+    deadline = time.monotonic() + window
+    while True:
+        if predicate():
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(min(0.2, max(deadline - time.monotonic(), 0.0)))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="hammunition-gps-resume")
     parser.add_argument("--dev", default="/dev")
+    parser.add_argument("--sysfs", default="/sys")
     parser.add_argument("--gpsdctl", default="/usr/sbin/gpsdctl")
     parser.add_argument("--systemctl", default="/usr/bin/systemctl")
     parser.add_argument("--control-socket", default="/run/gpsd.sock")
     parser.add_argument("--gpsd-host", default="127.0.0.1")
     parser.add_argument("--gpsd-port", type=int, default=2947)
     parser.add_argument("--timeout", type=float, default=2.0)
+    parser.add_argument("--data-window", type=float, default=20.0)
+    parser.add_argument("--cycle-pause", type=float, default=3.0)
+    parser.add_argument("--reenum-window", type=float, default=10.0)
+    parser.add_argument("--relist-window", type=float, default=5.0)
     args = parser.parse_args(argv)
 
     found = receivers(Path(args.dev))
@@ -149,7 +276,6 @@ def main(argv: list[str] | None = None) -> int:
 
     env = {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "GPSD_SOCKET": args.control_socket}
     known = devices(args.gpsd_host, args.gpsd_port, args.timeout)
-    added = True
     for link, node in found:
         path = link if known is not None and link in known else node
         if known is None or path in known:
@@ -157,16 +283,86 @@ def main(argv: list[str] | None = None) -> int:
             log(f"gpsdctl remove {path} ({link}): {_outcome(ok, detail)}")
         ok, detail = run([args.gpsdctl, "add", path], env)
         log(f"gpsdctl add {path} ({link}): {_outcome(ok, detail)}")
-        added = added and ok
 
+    restarted = False
     after = devices(args.gpsd_host, args.gpsd_port, args.timeout)
     if after:
         log(f"gpsd reports {len(after)} device(s): {', '.join(after)}")
-        return 0 if added else 1
-    why = "no answer" if after is None else "no device"
-    ok, detail = run([args.systemctl, "try-restart", "gpsd.service"], env)
-    log(f"gpsd gave {why} to ?DEVICES; systemctl try-restart gpsd.service: {_outcome(ok, detail)}")
-    return 0 if ok and added else 1
+    else:
+        why = "no answer" if after is None else "no device"
+        ok, detail = run([args.systemctl, "try-restart", "gpsd.service"], env)
+        restarted = True
+        log(
+            f"gpsd gave {why} to ?DEVICES; systemctl try-restart gpsd.service: {_outcome(ok, detail)}"
+        )
+
+    def names(link: str, node: str) -> set[str]:
+        return {link, node, os.path.realpath(node), os.path.realpath(link)}
+
+    def check(label: str, subset: dict[int, tuple[str, str]]) -> set[int]:
+        seen = watch(
+            args.gpsd_host,
+            args.gpsd_port,
+            {i: names(*pair) for i, pair in subset.items()},
+            args.data_window,
+        )
+        for i, pair in subset.items():
+            if i in seen:
+                log(f"{label}: data from {pair[1]} within {seen[i]:.0f} s")
+            else:
+                log(f"{label}: {pair[1]} silent after {args.data_window:g} s")
+        return set(seen)
+
+    everyone = dict(enumerate(found))
+    seen_first = check("data check", everyone)
+    silent = {i: p for i, p in everyone.items() if i not in seen_first}
+    for i, (link, node) in list(silent.items()):
+        tty = os.path.basename(node)
+        try:
+            target = usb_authorized(tty, args.sysfs)
+        except ValueError as exc:
+            log(f"{tty}: no USB power cycle possible ({exc})")
+            if not restarted:
+                ok, detail = run([args.systemctl, "try-restart", "gpsd.service"], env)
+                restarted = True
+                log(f"systemctl try-restart gpsd.service: {_outcome(ok, detail)}")
+            continue
+        try:
+            write_value(target, "0")
+            log(f"{tty}: silent; wrote 0 to {target} (USB power cycle, once)")
+            time.sleep(args.cycle_pause)
+            write_value(target, "1")
+            log(f"{tty}: wrote 1 to {target}")
+        except OSError as exc:
+            log(f"{tty}: writing {target} failed: {exc}")
+            continue
+
+        def back(n: str = node) -> bool:
+            return os.path.exists(n)
+
+        def listed(n: str = node) -> bool:
+            return n in (devices(args.gpsd_host, args.gpsd_port, args.timeout) or [])
+
+        if not wait_for(back, args.reenum_window):
+            log(f"{tty}: did not reappear within {args.reenum_window:g} s")
+            continue
+        log(f"{tty}: re-enumerated")
+        if not wait_for(listed, args.relist_window):
+            ok, detail = run([args.gpsdctl, "add", node], env)
+            log(
+                f"gpsd did not list {node} within {args.relist_window:g} s; gpsdctl add: {_outcome(ok, detail)}"
+            )
+        else:
+            log(f"gpsd lists {node}")
+        if i in check("data check after the cycle", {i: (link, node)}):
+            silent.pop(i)
+    # Receivers that came back are those the second check saw.
+    remaining = [node for i, (_, node) in everyone.items() if i in silent]
+    if not remaining:
+        return 0
+    log(f"no data from {', '.join(remaining)}")
+    log(_MANUAL)
+    return 1
 
 
 if __name__ == "__main__":

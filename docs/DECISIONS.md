@@ -5499,7 +5499,7 @@ receiver is attached and gpsd is installed.
 still lists the receiver, and park and wake through the helper, which is the
 heaviest (74 s to a fix from cold, bench session 10). The step never parks
 or wakes anything. The operator does, by hand, and the docs say so
-(`docs/hardware/power-control.md`, "After suspend").
+(`docs/hardware/power-control.md`, "After suspend"). *(Superseded 2026-10-04 below.)*
 
 **Not yet measured:** whether `gpsdctl remove` and `add` bring the fix back
 after a real suspend; whether the unit, which runs as soon as the system is
@@ -5509,6 +5509,38 @@ and the step running at all on the field laptop. The bench steps are on
 issue #177. Until they are recorded in
 `docs/reference/bench-verification-5430.md`, the docs call this the design
 the measurement points to, not a measured recovery.
+
+### Amendment, 2026-10-04: the resume step checks that data flows and power-cycles a silent receiver once (issue #177)
+
+**The gap.** The maintainer reported the GPS still had issues on waking with
+the step installed. The step re-added the device and restarted gpsd only when
+gpsd listed none, so a receiver gpsd still listed that stayed silent was left
+alone, which is the measured fault, and the one recovery known to work in
+every case (the USB power cycle, `authorized` 0 then 1, a 3D fix 74 s after
+the wake on the bench) was the operator's by hand. The paragraph above
+("The heavier recoveries stay manual") is superseded for the power cycle.
+
+**The change.** The script now watches gpsd's socket (`?WATCH`) for up to 20 s
+after the re-add: a `SKY` or `TPV` report for the receiver, or any report with
+`mode` of 1 or more, is alive (satellites without a fix are alive; silence is
+the fault). Only on silence it power-cycles that receiver once: it walks up
+from `/sys/class/tty/<tty>/device` to the first directory with `idVendor` and
+`idProduct` whose child is the tty's own interface (a hub is never taken for
+the receiver), passes the path through a lexical guard of `power.py`'s kind
+(under `/sys/devices/`, no `..`, a USB address, the leaf `authorized`
+exactly), writes `0`, waits 3 s, writes `1`, waits up to 10 s for the tty,
+`gpsdctl add` if gpsd does not list it within 5 s, and checks for data once
+more. With no `authorized` file it falls back to `try-restart`. The unit
+exits 0 only when data was seen; otherwise 1, its last line naming `hammunition
+hardware park gps-receiver` and `wake`. Never a loop.
+
+**Why park/wake is no longer only the operator's.** The disclosed cost is a
+lost warm start, the cost is paid only when the receiver is already silent,
+and the unit that runs unattended after every resume is the only thing in a
+position to do it before the operator sits down to a dead GPS. It writes the
+same file `hardware park`/`wake` write and no other, and the plan discloses
+it. **Not measured on hardware:** the maintainer suspends the field laptop
+and reads the journal.
 
 ### What is refused, and what is out of scope
 

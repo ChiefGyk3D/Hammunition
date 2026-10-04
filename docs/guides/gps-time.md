@@ -104,9 +104,11 @@ measured on the field laptop (issue #177), the receiver is not re-enumerated
 when the machine resumes, and a gpsd holding it open can stay silent until
 something gives it a fresh open. `--no-gps-time` does not remove the resume
 step, which also serves `cgps`, `xgps` and the map tether. To leave it out,
-use `--no-gps-resume`. If the GPS is still silent after a resume, park and
-wake the receiver by hand (`hammunition hardware park gps-receiver`, then
-`wake`).
+use `--no-gps-resume`. The step checks that data flows after the re-open and, if the receiver stays
+silent, power-cycles it once through its USB `authorized` switch (what `park`
+and `wake` use; the receiver then starts cold). If that fails too, the unit
+fails and its last journal line names `hammunition hardware park
+gps-receiver` and `wake`.
 
 *Bench:* that ntpd keeps this capability after it drops to the `ntpsec`
 user, so it can actually read the receiver, is the first thing to be
