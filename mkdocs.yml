@@ -125,6 +125,7 @@ nav:
       - antenna: profiles/antenna.md
       - sdr: profiles/sdr.md
       - listening: profiles/listening.md
+      - mesh: profiles/mesh.md
       - navigation: profiles/navigation.md
       - reference: profiles/reference.md
       - phone-maps: profiles/phone-maps.md

@@ -1,0 +1,98 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: mesh
+summary: "Off-grid mesh messaging: Reticulum with NomadNet and LXMF, and the Meshtastic clients"
+# post-1.0: the 1.0 profile set is the one accepted on 2026-08-29 and asserted by
+# tests/test_schema.py, and adding to it is a decision, not a side effect of a
+# new profile. Track C (issue #105, D-080). SCOPE.md says a `mesh` profile ships
+# when its units have run against a node on the bench; this one is built and its
+# pieces are tested, and no LoRa link has been run through it.
+stage: post-1.0
+
+# The two Meshtastic members are the maintainer's ruling of 2026-10-03. Where the
+# archive lacks one the plan defers it by name and the rest installs (D-039):
+# `python3-meshtastic` is absent on Ubuntu 24.04 and Pop!_OS 24.04 (measured
+# 2026-10-03), and Debian's 2.7.11-1 carries an autoremoval notice dated
+# 2026-11-03 for testing and unstable, not for trixie's 2.6.0-1.
+packages:
+  - rns
+  - lxmf
+  - nomadnet
+  - python3-meshtastic
+  - gtk-meshtastic-client
+
+documentation:
+  what_it_installs: >-
+    Two mesh networks that do not talk to each other, and the programs for each.
+
+    **Reticulum** is a general networking stack: addresses are keys, every packet
+    is encrypted, and one network can run over a LoRa radio, a packet modem, a
+    cable or an ordinary network with no router. `rns` is the stack, its command
+    tools (`rnstatus`, `rnpath`, `rnprobe`, `rncp`, `rnx`, `rnsh`, `rnid`), the
+    RNode flasher `rnodeconf`, and a systemd user service that keeps one shared
+    instance running for your account. `lxmf` is the message layer and `lxmd`, a
+    store-and-forward daemon you run only on purpose. `nomadnet` is the
+    terminal messenger and page browser.
+
+    **Meshtastic** is a ready-made text mesh on LoRa with phone apps: the
+    command-line client (`python3-meshtastic`) and a GTK desktop client
+    (`gtk-meshtastic-client`) from the distribution's archive.
+
+    All of the Reticulum programs come from PyPI, hash-pinned, each in its own
+    per-user virtualenv: no archive carries them. Reticulum's licence is its
+    own (MIT plus two use restrictions) and is printed in the plan before you
+    confirm.
+  why_together: >-
+    They are the two off-grid messaging networks a person with a LoRa board is
+    most likely to meet, and they use the same boards, the same `dialout`
+    group and the same serial tools, so one profile gets a laptop ready for
+    either. They are a choice, not a bridge: a Meshtastic node and a Reticulum
+    node do not exchange messages. Reticulum is the one with no central design
+    and a wider reach (a laptop on one Wi-Fi, a TCP link, a LoRa RNode, a
+    Direwolf modem, all one network); Meshtastic is the one with the ready
+    hardware and the phone app.
+  deliberately_excludes: >-
+    **Sideband**, Reticulum's phone-style client: a 293 MB Kivy environment under
+    a non-commercial Creative Commons licence, with a compiler build on arm64
+    (mesh-inventory.md); its own decision. **Reticulum MeshChat**, which ships
+    only as an AppImage (a post-1.0 backend). **`meshtasticd`**, the Linux
+    Meshtastic node daemon, which no distribution archive carries and which
+    comes from a third-party repository (the next unit of this track), and
+    **MeshCore** and its clients. Any TAK server or client. **Any Reticulum
+    configuration**: the engine writes none, and the file is yours.
+  manual_configuration: >-
+    **Reticulum.** Nothing is required for two machines on one local network:
+    `rnsd` writes `~/.reticulum/config` on first start with the AutoInterface on.
+    Start the service now with `systemctl --user start hammunition-rnsd` (it is
+    enabled and begins at your next login). For the internet add a
+    `TCPClientInterface`; for LoRa flash an RNode with `rnodeconf --autoinstall`
+    and add an `RNodeInterface` with a frequency you are allowed to use. The
+    guide has the stanzas. Reticulum encrypts every packet, which matters on
+    amateur frequencies (Part 97 in the United States): the guide states it as a
+    disclosure and does not rule on it. NomadNet creates your identity in
+    `~/.nomadnetwork` on first run; keep it.
+
+    **Meshtastic.** Set the radio region on the node before it will transmit, and
+    expect the client and the node's firmware to want matching versions. Add
+    yourself to `dialout` for either family and log out and back in.
+  disk_footprint_hint: >-
+    About 70 MB for the three Reticulum virtualenvs (20, 20 and 27 MB, measured
+    2026-10-03 on Python 3.13.5; each carries its own copy of `rns`), plus the two
+    Meshtastic packages and their dependencies from the archive, which were not
+    measured here.
+  who_for: "An operator who wants encrypted off-grid messaging for EMCOMM or experiment, over a local network now and over LoRa when a board arrives."
+  hardware_assumed: "None for Reticulum on a local network. A LoRa board (an RNode for Reticulum, a Meshtastic node) for radio links. No LoRa link has been run through this profile."
+  footprint_short: "about 70 MB of venvs, plus two apt packages"
+  excludes_short: "Sideband, MeshChat, meshtasticd, MeshCore, TAK, any Reticulum configuration"
+  goals:
+    - "Message another laptop with no internet and no server"
+    - "Run Reticulum over LoRa"
+    - "Use Meshtastic from the desktop"
+  first_ten_minutes:
+    - "Read the plan first: `hammunition install mesh --dry-run`. It names the Reticulum licence beside the venv step, the user service it will write, and any Meshtastic package your archive lacks, which it defers rather than refuses."
+    - "Install: `hammunition install mesh`. The Reticulum programs are fetched from PyPI against pinned hashes, so it needs the network and takes a minute or two."
+    - "Start the shared instance now: `systemctl --user start hammunition-rnsd`, then `rnstatus`. It should show a shared instance and the AutoInterface."
+    - "Put `~/.local/bin` on your PATH if the shell says `rnstatus: command not found` (a new shell usually does it), then run `nomadnet` and write down the address it shows."
+    - "On a second machine on the same network, install the profile too and message the first one. [Mesh and Reticulum](../guides/mesh-and-reticulum.md) walks through it, then the internet and LoRa."
+    - "For radio, read the legal note in the guide's section 6 before you transmit, add yourself to `dialout`, and flash an RNode with `rnodeconf --autoinstall`."
