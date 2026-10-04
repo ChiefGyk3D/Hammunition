@@ -63,7 +63,7 @@ class FakeGpsd:
         self.thread.start()
 
     def _serve(self) -> None:
-        while not self._stop:
+        while True:  # accept() raising is how close() ends the loop
             try:
                 conn, _ = self.server.accept()
             except OSError:
