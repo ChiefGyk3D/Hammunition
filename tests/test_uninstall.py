@@ -791,3 +791,114 @@ def test_the_book_unit_plans_its_data_directory_whole(tmp_path: Path) -> None:
     [removal] = plan.artifacts["kiwix-library"]
     assert (removal.kind, removal.basis) == ("tree", "namespaced")
     assert removal.path == paths.prefix / "share" / "hammunition" / "data" / "kiwix-library"
+
+
+# ---------------------------------------------------------------------------
+# Launchers the log recorded (#336)
+# ---------------------------------------------------------------------------
+
+
+def _launcher_unit(**extra: Any) -> PackageManifest:
+    return manifest("zz-launched", launchers=[{"name": "zz-launched", "exec": "true"}], **extra)
+
+
+def _install_launcher(tmp_path: Path, paths: RemovalPaths) -> list[dict[str, Any]]:
+    """Run the real launcher steps into the temp dirs; return their action_end entries."""
+    from hammunition.launchers import launcher_steps
+
+    paths.bin_dir.mkdir(parents=True, exist_ok=True)
+    paths.applications_dir.mkdir(parents=True, exist_ok=True)
+    entries: list[dict[str, Any]] = []
+    for step in launcher_steps(
+        _launcher_unit(),
+        bin_dir=paths.bin_dir,
+        applications_dir=paths.applications_dir,
+        engine=tmp_path / "hammunition",
+        search_path="",
+    ):
+        step.perform()
+        entries.append({"event": "action_end", "kind": step.kind, "detail": step.detail})
+    return entries
+
+
+def _plan_and_remove(
+    tmp_path: Path, paths: RemovalPaths, entries: list[dict[str, Any]], current: PackageManifest
+) -> tuple[Any, Any]:
+    from hammunition.execute import artifact_removal_steps
+
+    log = write_log(tmp_path, entries)
+    plan = plan_removal(
+        [current.name],
+        catalog={current.name: current},
+        profiles={},
+        target=TARGET,
+        attributed=frozenset(),
+        states={},
+        paths=paths,
+        log=log,
+    )
+    report = run_removal(
+        artifact_removal_steps(plan),
+        _NeverRunner(),
+        log=TransactionLog(path=tmp_path / "out.jsonl"),
+        plan=plan,
+        target=TARGET,
+    )
+    return plan, report
+
+
+RETIRED: dict[str, Any] = {
+    "status": "retired",
+    "status_reason": "Replaced by the engine's own entry.",
+    "status_date": "2026-10-04",
+    "status_verdict": "tested",
+    "retire_reason": "world_changed",
+}
+
+
+@pytest.mark.parametrize("change", [{"launchers": []}, RETIRED])
+def test_a_launcher_the_manifest_no_longer_lists_is_still_removed(
+    tmp_path: Path, change: dict[str, Any]
+) -> None:
+    paths = paths_for(tmp_path)
+    entries = _install_launcher(tmp_path, paths)
+    wrapper = paths.bin_dir / "zz-launched"
+    entry = paths.applications_dir / "hammunition-zz-launched.desktop"
+    assert wrapper.is_file() and entry.is_file()
+    current = manifest("zz-launched", **change)
+    assert not current.launchers
+    _, report = _plan_and_remove(tmp_path, paths, entries, current)
+    assert report.ok
+    assert not wrapper.exists(), "the recorded wrapper must go"
+    assert not entry.exists(), "the recorded desktop entry must go"
+
+
+def test_a_recorded_wrapper_that_lost_its_marker_is_kept_and_reported(tmp_path: Path) -> None:
+    paths = paths_for(tmp_path)
+    entries = _install_launcher(tmp_path, paths)
+    wrapper = paths.bin_dir / "zz-launched"
+    wrapper.write_text("#!/bin/sh\nexec my-own-tool\n")
+    plan, report = _plan_and_remove(tmp_path, paths, entries, manifest("zz-launched"))
+    assert report.ok
+    assert wrapper.exists(), "an operator's replacement is never deleted"
+    assert str(wrapper) in plan.left_unattributed["zz-launched"]
+    assert not (paths.applications_dir / "hammunition-zz-launched.desktop").exists()
+
+
+def test_a_log_without_launcher_actions_still_removes_what_the_manifest_lists(
+    tmp_path: Path,
+) -> None:
+    paths = paths_for(tmp_path)
+    _install_launcher(tmp_path, paths)
+    _, report = _plan_and_remove(tmp_path, paths, [], _launcher_unit())
+    assert report.ok
+    assert not (paths.bin_dir / "zz-launched").exists()
+    assert not (paths.applications_dir / "hammunition-zz-launched.desktop").exists()
+
+
+def test_another_units_recorded_launcher_is_not_removed(tmp_path: Path) -> None:
+    paths = paths_for(tmp_path)
+    entries = _install_launcher(tmp_path, paths)
+    _, report = _plan_and_remove(tmp_path, paths, entries, manifest("someone-else"))
+    assert report.ok
+    assert (paths.bin_dir / "zz-launched").exists()
