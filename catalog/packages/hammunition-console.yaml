@@ -19,8 +19,6 @@ categories: [workstation]
 #
 # Pinned to v0.1.0's hammunition-console-0.1.0.tar.gz (229,079 bytes), the digest read from the
 # release's SHA256SUMS on 2026-10-04 (cosign bundle beside it).
-# prints the archive's sha256 in its SHA256SUMS; this pin was filled from v0.1.0's on 2026-10-04.
-# the tag's commit and the archive's size, each measured, and the pin test then goes green.
 install:
   - install:
       method: binary
