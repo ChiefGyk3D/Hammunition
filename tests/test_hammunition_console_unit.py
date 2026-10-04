@@ -16,7 +16,6 @@ def load() -> dict:  # type: ignore[type-arg]
     return yaml.safe_load(MANIFEST.read_text())  # type: ignore[no-any-return]
 
 
-@pytest.mark.xfail(strict=True, reason="Phase B fills the digest")
 def test_the_digest_is_a_real_release_digest_not_the_draft_zeros() -> None:
     block = load()["install"][0]["install"]
     assert block["artifact"]["sha256"] != "0" * 64, (

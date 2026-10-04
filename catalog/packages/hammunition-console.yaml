@@ -17,15 +17,16 @@ categories: [workstation]
 # only `hammunition <verb> --json` (D-059); every change it makes is the real CLI run in a
 # terminal pane, so a consent gate is answered by a person (D-021).
 #
-# DRAFT: the digest below is all zeros until the v0.1.0 tag exists. The release workflow
-# prints the archive's sha256 in the release notes; Phase B of the plan fills it in, with
+# Pinned to v0.1.0's hammunition-console-0.1.0.tar.gz (229,079 bytes), the digest read from the
+# release's SHA256SUMS on 2026-10-04 (cosign bundle beside it).
+# prints the archive's sha256 in its SHA256SUMS; this pin was filled from v0.1.0's on 2026-10-04.
 # the tag's commit and the archive's size, each measured, and the pin test then goes green.
 install:
   - install:
       method: binary
       artifact:
         url: https://github.com/ChiefGyk3D/hammunition-console/releases/download/v0.1.0/hammunition-console-0.1.0.tar.gz
-        sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+        sha256: "78764a19e7225db3f2adfbc3637055c97de73eac170d44c060768462838c3ca2"
       format: tarball
       install_tree: true
       # The asset is the tag's archive: one top directory, which extraction strips.
