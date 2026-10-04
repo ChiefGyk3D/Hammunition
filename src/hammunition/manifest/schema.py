@@ -1894,6 +1894,8 @@ class Launcher(Strict):
 # System modifications and config.  D-012, D-016.
 # ---------------------------------------------------------------------------
 
+LinuxCapability = Literal["CAP_NET_ADMIN", "CAP_NET_RAW", "CAP_NET_BIND_SERVICE"]
+
 
 class SystemModification(Strict):
     kind: Literal[
@@ -1905,6 +1907,7 @@ class SystemModification(Strict):
         "package_purge",
         "apt_pin",
         "file_shadow",
+        "file_capability",
     ]
     description: str
     detail: str
@@ -1915,6 +1918,17 @@ class SystemModification(Strict):
         description=(
             "For `group_membership`: the group to add the operator to. Required "
             "there, and forbidden elsewhere."
+        ),
+    )
+    binary: str | None = Field(
+        default=None,
+        description="For `file_capability`: an installed binary's `install_as` name.",
+    )
+    capabilities: list[LinuxCapability] = Field(
+        default_factory=list,
+        description=(
+            "For `file_capability`: the Linux capabilities set with permitted and "
+            "effective flags, applied only after typed consent; `--yes` cannot satisfy it."
         ),
     )
 
@@ -1941,6 +1955,24 @@ class SystemModification(Strict):
         elif self.group is not None:
             raise ManifestError(
                 f"`group` is only meaningful for group_membership, not {self.kind!r}"
+            )
+        if self.kind == "file_capability":
+            if not self.binary or not _TOOL_FILE.fullmatch(self.binary):
+                raise ManifestError(
+                    "a file_capability modification must name an installed binary in `binary`"
+                )
+            if not self.capabilities:
+                raise ManifestError(
+                    "a file_capability modification must name at least one capability"
+                )
+            if len(set(self.capabilities)) != len(self.capabilities):
+                raise ManifestError("a file_capability modification must not repeat capabilities")
+            if not self.reversible:
+                raise ManifestError("a file_capability modification must be reversible")
+        elif self.binary is not None or self.capabilities:
+            raise ManifestError(
+                f"`binary` and `capabilities` are only meaningful for file_capability, "
+                f"not {self.kind!r}"
             )
         return self
 
@@ -2918,6 +2950,7 @@ class RiskCategory(StrEnum):
     third_party_systems = "third_party_systems"
     spectrum_disruption = "spectrum_disruption"
     credential_recovery = "credential_recovery"
+    privileged_execution = "privileged_execution"
 
 
 RISK_DISCLOSURES: dict[RiskCategory, str] = {
@@ -2944,6 +2977,10 @@ RISK_DISCLOSURES: dict[RiskCategory, str] = {
     RiskCategory.credential_recovery: (
         "Can recover, crack or replay authentication material such as keys, "
         "passphrases or handshakes."
+    ),
+    RiskCategory.privileged_execution: (
+        "Can exercise additional Linux privileges beyond the program owner's ordinary "
+        "permissions, including network administration, raw packets, or privileged ports."
     ),
 }
 
@@ -3005,7 +3042,8 @@ class ConsentGate(Strict):
                         f"do not adjudicate. Offending text: {text[:80]!r}"
                     )
         if (
-            "authoriz" not in self.affirmation.lower()
+            RiskCategory.privileged_execution not in self.risk_categories
+            and "authoriz" not in self.affirmation.lower()
             and "authoris" not in self.affirmation.lower()
         ):
             raise ManifestError(

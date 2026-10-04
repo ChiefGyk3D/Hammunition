@@ -25,6 +25,7 @@ from hammunition.state import (
     RemovalError,
     RemovalPaths,
     TransactionLog,
+    file_capabilities_installed_by_hammunition,
     files_installed_by_hammunition,
     installed_by_hammunition,
     plan_removal,
@@ -51,6 +52,11 @@ def write_log(tmp_path: Path, entries: list[dict[str, Any]]) -> TransactionLog:
 
 def command_end(argv: list[str], returncode: int = 0) -> dict[str, Any]:
     return {"event": "command_end", "version": 1, "argv": argv, "returncode": returncode}
+
+
+def _argv(step: Any) -> tuple[str, ...]:
+    assert isinstance(step, Command)
+    return step.argv
 
 
 def manifest(
@@ -415,6 +421,90 @@ def test_install_D_attributes_and_rm_unattributes(tmp_path: Path) -> None:
         ],
     )
     assert files_installed_by_hammunition(log) == {"/usr/local/bin/x"}
+
+
+def test_file_capability_attribution_is_reversed_by_the_removal_command(
+    tmp_path: Path,
+) -> None:
+    path = "/usr/local/bin/radio-node"
+    log = write_log(
+        tmp_path,
+        [
+            command_end(["install", "-D", "-m", "0755", "/build/radio-node", path]),
+            command_end(["setcap", "CAP_NET_RAW=ep", path]),
+        ],
+    )
+
+    assert file_capabilities_installed_by_hammunition(log) == {path}
+
+    log = write_log(
+        tmp_path,
+        [
+            command_end(["setcap", "CAP_NET_RAW=ep", path]),
+            command_end(["setcap", "-r", path]),
+        ],
+    )
+    assert file_capabilities_installed_by_hammunition(log) == frozenset()
+
+
+def test_removal_clears_logged_capabilities_before_removing_the_binary(tmp_path: Path) -> None:
+    from hammunition.execute import artifact_removal_steps
+
+    paths = paths_for(tmp_path)
+    dest = paths.prefix / "bin" / "radio-node"
+    dest.parent.mkdir(parents=True)
+    dest.write_text("binary")
+    unit = manifest(
+        "radio-node",
+        method="source",
+        install_override={
+            "method": "source",
+            "source": {"url": "https://example.org/radio-node-1.0.tar.gz", "sha256": "0" * 64},
+            "build_system": "make",
+            "provides_install_target": False,
+        },
+        binaries=[{"produced": "radio-node", "install_as": "radio-node"}],
+        system_modifications=[
+            {
+                "kind": "file_capability",
+                "binary": "radio-node",
+                "capabilities": ["CAP_NET_RAW"],
+                "description": "Optional packet ports",
+                "detail": "Only the Ethernet port needs this.",
+                "reversible": True,
+            }
+        ],
+    )
+    log = write_log(
+        tmp_path,
+        [
+            command_end(["install", "-D", "-m", "0755", "/build/radio-node", str(dest)]),
+            command_end(["setcap", "CAP_NET_RAW=ep", str(dest)]),
+        ],
+    )
+    plan = plan_removal(
+        ["radio-node"],
+        catalog={"radio-node": unit},
+        profiles={},
+        target=TARGET,
+        attributed=frozenset(),
+        states={},
+        paths=paths,
+        attributed_files=files_installed_by_hammunition(log),
+        attributed_capabilities=file_capabilities_installed_by_hammunition(log),
+        log=log,
+    )
+
+    commands = artifact_removal_steps(plan)
+
+    assert [removal.kind for removal in plan.artifacts["radio-node"]] == [
+        "capability",
+        "binary",
+    ]
+    assert [_argv(command)[:2] for command in commands] == [
+        ("setcap", "-r"),
+        ("rm", "-f"),
+    ]
 
 
 def test_a_failed_install_attributes_nothing(tmp_path: Path) -> None:

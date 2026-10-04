@@ -257,6 +257,7 @@ nav:
           - udev inventory: reference/udev-inventory.md
           - USB ambiguity: reference/usb-ambiguity.md
           - LoRa inventory: reference/lora-inventory.md
+          - Mesh and Reticulum inventory: reference/mesh-inventory.md
           - brltty: reference/brltty-inventory.md
           - Kernel AX.25: reference/kernel-ax25.md
           - Time daemons: reference/time-daemons.md

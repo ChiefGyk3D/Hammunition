@@ -295,12 +295,18 @@ after checking the file against the maintainer's profile as described in
 [More than one key](#more-than-one-key). A `key has expired` or `No
 principal matched` from a tag *older* than the key's `valid-before` is the
 git 2.34 behaviour, not a bad tag; run it on a machine with git 2.35 or
-later. Until a key exists, `v0.7.0`, `v0.9.0`, `v0.10.0`, `v0.11.0`, `v0.12.0`, `v0.13.0`, `v0.14.0`, `v0.14.1`, `v0.14.2`, `v0.14.3`, `v0.15.0`, `v0.16.0`, `v0.17.0`, `v0.18.0` and `v0.19.0` are what there is, and they
+later. Until a key exists, `v0.7.0`, `v0.9.0`, `v0.10.0`, `v0.11.0`, `v0.12.0`, `v0.13.0`, `v0.14.0`, `v0.14.1`, `v0.14.2`, `v0.14.3`, `v0.15.0`, `v0.16.0`, `v0.17.0`, `v0.18.0`, `v0.19.0` and `v0.20.0` are what there is, and they
 are unsigned; the first signed tag is 1.0.
 
 ## Before the tag
 
-<<<<<<< HEAD
+**The docs sweep is a release step.** Before the changelog assembly, run
+[the docs sweep](docs-sweep.md) over what merged since the last tag and merge
+its pull request first (or fold it into the release pull request as its own
+commit), so the release is cut from documentation that agrees with itself,
+with the code and with `docs/DECISIONS.md`. The first one (after v0.19.0)
+found contradictions and gaps that no single branch's review could have seen.
+
 Every pull request carries its own entry as a fragment under `changelog.d/`
 (`changelog.d/README.md`), already naming the PR and the decision it rests
 on; nobody edits `CHANGELOG.md` between releases. The release commit
@@ -308,7 +314,7 @@ assembles them and moves the version in `pyproject.toml` in the same commit:
 
 ```sh
 python3 scripts/changelog.py preview        # read what the section will say
-python3 scripts/changelog.py assemble --version v0.20.0 --date 2026-10-09 \
+python3 scripts/changelog.py assemble --version v0.21.0 --date 2026-10-09 \
     --summary "what the release is about"   # new section, fragments deleted
 ```
 
@@ -322,20 +328,6 @@ release commit does. Compare the section with
 `gh pr list --state merged` since the last tag: a merged pull request with no
 fragment is a gap to fill by adding the missing fragment before assembling.
 A tag that the changelog does not describe is a tag nobody can review.
-=======
-`CHANGELOG.md` gets the release's entry first, written from the merged pull
-requests since the last tag (`gh pr list --state merged`), each line naming
-the PR and the decision it rests on; the version in `pyproject.toml` moves
-in the same commit. A tag that the changelog does not describe is a tag
-nobody can review.
-
-**The docs sweep is a release step.** Before the changelog entry, run
-[the docs sweep](docs-sweep.md) over what merged since the last tag and merge
-its pull request first, so the release is cut from documentation that agrees
-with itself, with the code and with `docs/DECISIONS.md`. The first one (after v0.19.0)
-found contradictions and gaps that no single branch's review could have seen.
->>>>>>> origin/main
-
 ## What the tag publishes
 
 Pushing the tag runs `.github/workflows/release.yml`, a caller of GYST's

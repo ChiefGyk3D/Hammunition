@@ -1,1 +1,0 @@
-- CI starts again: the GYST `python-ci` caller job grants `id-token: write`, which the called workflow declares; without it GitHub refused the workflow file at startup and no `CI green` check ever appeared (#281 follow-up).

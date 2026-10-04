@@ -61,22 +61,28 @@ class ConsentUnavailable(Exception):
 def render_disclosure(gate: ConsentGate, profile: str) -> str:
     """The exact text an operator sees. One function, so the interactive prompt
     and the recorded text cannot drift apart."""
+    privileged = RiskCategory.privileged_execution in gate.risk_categories
     lines = [
-        f"Profile {profile!r} is consent-gated.",
+        (
+            f"File capability grant {profile.removeprefix('file-capabilities:')!r} "
+            "is consent-gated."
+            if privileged
+            else f"Profile {profile!r} is consent-gated."
+        ),
         "",
         gate.disclosure.strip(),
         "",
         "What this software can do:",
     ]
     lines += [f"  - {line}" for line in gate.risk_lines]
-    lines += [
-        "",
-        "Hammunition cannot know your location, licence class, or the terms of any",
-        "authorization you hold, and does not give legal advice. You are being asked",
-        "to affirm your own authorization, not to be told what applies to you.",
-        "",
-        gate.affirmation.strip(),
-    ]
+    if not privileged:
+        lines += [
+            "",
+            "Hammunition cannot know your location, licence class, or the terms of any",
+            "authorization you hold, and does not give legal advice. You are being asked",
+            "to affirm your own authorization, not to be told what applies to you.",
+        ]
+    lines += ["", gate.affirmation.strip()]
     return "\n".join(lines)
 
 
@@ -119,6 +125,8 @@ def resolve_consent(
     prompt: Callable[[str], bool] | None,
     assume_yes: bool = False,
     actor: str | None = None,
+    expected_value: str = "1",
+    extra: Mapping[str, str] | None = None,
     now: Callable[[], datetime] | None = None,
 ) -> ConsentRecord:
     """Obtain an affirmation, or raise.
@@ -146,15 +154,22 @@ def resolve_consent(
             env_var=gate.env_var,
             timestamp=stamp,
             actor=actor,
+            extra=extra or {},
         )
 
-    if environ.get(gate.env_var) == "1":
-        return record(Decision.environment)
+    given = environ.get(gate.env_var)
+    if given is not None:
+        if given == expected_value:
+            return record(Decision.environment)
+        raise ConsentUnavailable(
+            f"{gate.env_var} is set but does not match the disclosed value. To affirm in a "
+            f"script, set {gate.env_var}={expected_value}; a different value is refused.\n\n{text}"
+        )
 
     if prompt is None:
         raise ConsentUnavailable(
             f"profile {profile!r} requires affirmative consent and there is no "
-            f"interactive terminal. Set {gate.env_var}=1 to affirm in a script. "
+            f"interactive terminal. Set {gate.env_var}={expected_value} to affirm in a script. "
             f"--yes does not satisfy this gate.\n\n{text}"
         )
 

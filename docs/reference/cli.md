@@ -1167,6 +1167,19 @@ has been measured.
 | `--grid-square LOC` | Maidenhead locator, four or six characters |
 | `--node-alias NAME` | Short packet node alias, up to six characters |
 
+**File capabilities (D-079).** When a selected unit declares optional Linux
+capabilities, the plan shows the target binary and exact `CAPABILITY=ep` grant.
+Before the ordinary confirmation, the installer asks you to type `yes` for
+that specific grant. `--yes` does not answer it. Declining (or having no
+interactive terminal) skips only the capability step and installs the rest of
+the transaction without granting it. For scripts, set
+`HAMMUNITION_ACCEPT_CAPABILITIES_<UNIT>` to the exact grant string shown in the
+plan, for LinBPQ `CAP_NET_ADMIN=ep CAP_NET_RAW=ep CAP_NET_BIND_SERVICE=ep`; a
+value of `1` is refused. Successful
+grants are verified with `getcap`, logged, and cleared on uninstall before the
+attributed binary is removed. If LinBPQ cannot open a port afterwards, see
+[troubleshooting](../troubleshooting/running.md#linbpq-capabilities).
+
 **sudo's ticket, for the length of the run (D-062).** Run as a user, the
 engine puts `sudo` in front of each root step and nothing else, and sudo
 caches the password for 15 minutes by default (`timestamp_timeout`). A

@@ -1,1 +1,0 @@
-- A release workflow: a `v*` tag builds the documentation site and a source archive through GYST's `artifact-release`, checks the tag against `pyproject.toml`, takes the notes from that version's changelog section, signs and publishes them; the site tarball is what the coming `hammunition-docs` offline unit pins.

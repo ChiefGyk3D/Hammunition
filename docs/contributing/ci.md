@@ -39,6 +39,24 @@ The pytest command is `scripts/ci-test.sh`: it checks out
 its source, issue #215) and runs `pytest`. `make check` is the local gate and
 runs the same lint, types, tests and link check without the containers.
 
+## The suite cannot touch your files
+
+`tests/conftest.py` runs the whole suite inside a temporary `HOME` and
+temporary `XDG_*` bases, removes `USER`, `SUDO_USER` and `LOGNAME`, and hides
+the passwd database from `hammunition.paths`. It also records the real
+`~/.config/hammunition/station.yml` before the run and fails the run, naming
+the file, if it differs afterwards. `tests/test_isolation.py` holds all of this.
+
+Why the owner variables matter: under `unshare -r` the process has euid 0, and
+`paths.owner_aware_dir` and `user_config_base` then resolve the *owner's*
+passwd home, not `$HOME`, when an owner is set. With `USER` still in the
+environment that is your real home, and tests that run `station set` write
+there. If you run the suite by hand under `unshare -r`, use the safe form:
+
+```
+env -u USER -u SUDO_USER -u LOGNAME HOME=$(mktemp -d) unshare -r .venv/bin/python -m pytest tests -q
+```
+
 ## Required checks on `main`
 
 Branch protection requires a pull request and these status checks (the names
