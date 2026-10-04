@@ -178,7 +178,7 @@ def render(catalog: dict[str, PackageManifest]) -> str:
         "",
         f"**Generated:** {date.today().isoformat()}  ",
         "**Source:** the complete index in `docs/reference/dispositions.md`, "
-        "matched against `catalog/packages/`.",
+        + "matched against `catalog/packages/`.",
         "",
         "`PARITY-POLICY.md` gives every unit one disposition, which says what",
         "*should* happen to it. This says what *has*. The distinction that makes",

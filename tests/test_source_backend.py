@@ -631,7 +631,6 @@ def test_zip_extraction_restores_recorded_unix_modes(tmp_path: Path) -> None:
     unrunnable without this. Only recorded bits are restored — a zip that
     carries none gets no invented executables."""
     import os
-    import zipfile
 
     from hammunition.backends.source import extract
 

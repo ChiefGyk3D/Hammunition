@@ -40,6 +40,7 @@ inventory reads AHRL's.
 # without registering it in ``sys.modules``, and a dataclass whose annotations
 # are strings then cannot resolve them. Python 3.11+ evaluates these directly.
 import argparse
+import contextlib
 import re
 import subprocess
 import sys
@@ -617,12 +618,10 @@ def _clone_head() -> tuple[str, str]:
 
 def _release() -> str:
     """The current release heading from RELEASES.md, e.g. `2026.04.01.R6 (6.0.0)`."""
-    try:
+    with contextlib.suppress(OSError):
         for line in (CLONE / "RELEASES.md").read_text().splitlines():
             if line.startswith("## "):
                 return line[3:].replace(" Release Notes", "").strip()
-    except OSError:
-        pass
     return "unknown"
 
 

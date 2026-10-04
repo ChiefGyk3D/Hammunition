@@ -2061,6 +2061,18 @@ class ConfigFile(Strict):
         return self
 
     @model_validator(mode="after")
+    def _mode_is_a_plain_permission(self) -> ConfigFile:
+        # The mode reaches os.chmod and `install -m` as written, so a manifest
+        # (a community or local one included) must not be able to ask for a
+        # setuid, setgid or sticky bit or a world-writable file.
+        if not re.fullmatch(r"0?[0-7]{3}", self.mode) or int(self.mode, 8) & 0o7002:
+            raise ManifestError(
+                f"{self.path}: mode {self.mode!r} must be three octal digits with no "
+                f"setuid, setgid or sticky bit and no world write (for example 0644)"
+            )
+        return self
+
+    @model_validator(mode="after")
     def _skip_only_when_appending(self) -> ConfigFile:
         if self.skip_if_present and not self.append:
             raise ManifestError(
@@ -2076,13 +2088,6 @@ class ConfigFile(Strict):
                 ) from exc
         return self
 
-
-#: Names the engine derives at plan time from the catalog, not stored on the
-#: station, and so not in `TEMPLATE_VARIABLES`: the hamlib model and kind come
-#: from the selected rig's manifest, the uppercase PTT line from `rig_ptt_line`
-#: (D-073 §5, §6a). A `user_services` block may reference these in its `exec`;
-#: the rig planning layer fills them.
-RIG_DERIVED_AT_PLAN = frozenset({"rig_hamlib_model", "rig_kind", "rig_ptt_line_hamlib"})
 
 #: What may not appear in a `user_services` exec element after station
 #: substitution: shell metacharacters and any whitespace. A unit file's

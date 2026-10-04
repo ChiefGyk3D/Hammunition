@@ -851,7 +851,6 @@ def test_the_lora_issue_form_states_the_generated_numbers() -> None:
     answer we already have three times over. So the numbers are read out of the
     generated document rather than trusted to match it.
     """
-    import re
 
     root = HARDWARE.parent.parent
     inventory = (root / "docs" / "reference" / "lora-inventory.md").read_text()

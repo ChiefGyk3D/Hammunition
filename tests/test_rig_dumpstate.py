@@ -9,6 +9,7 @@ model on an ephemeral loopback port, and only read commands are sent.
 
 from __future__ import annotations
 
+import contextlib
 import shutil
 import socket
 import subprocess
@@ -50,11 +51,9 @@ def test_dump_state_reply_yields_the_dummy_model() -> None:
         time.sleep(0.4)
         conn.settimeout(0.4)
         reply = b""
-        try:
+        with contextlib.suppress(OSError):
             while chunk := conn.recv(4096):
                 reply += chunk
-        except OSError:
-            pass
         conn.close()
         assert parse_dump_state_model(reply.decode(errors="replace")) == 1
     finally:

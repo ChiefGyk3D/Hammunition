@@ -372,15 +372,20 @@ def test_a_symlink_planted_at_the_temporary_is_refused_and_its_target_untouched(
     if method == "sha256":
         artifact = RemoteArtifact(url=url, sha256=hashlib.sha256(body).hexdigest())
         final = fetcher.path_for(artifact)
+
+        def attempt() -> object:
+            return fetcher.fetch(artifact)
+
     else:
         md5 = hashlib.md5(body, usedforsecurity=False).hexdigest()
         final = fetcher.md5_path_for(url, md5)
+
+        def attempt() -> object:
+            return fetcher.fetch_md5(url, md5, expected_size=len(body))
+
     final.with_name(final.name + f".part.{os.getpid()}").symlink_to(victim)
     with pytest.raises(BackendError, match="temporary"):
-        if method == "sha256":
-            fetcher.fetch(artifact)
-        else:
-            fetcher.fetch_md5(url, md5, expected_size=len(body))
+        attempt()
     assert victim.read_text() == "root:secret\n"
     assert not final.exists()
 

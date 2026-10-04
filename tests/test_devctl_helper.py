@@ -476,7 +476,7 @@ def test_the_installed_wrapper_answers_the_contract_line_against_the_pinned_tree
         staging=tmp_path / "stage",
         prefix=prefix,
         policy_dest=policy,
-        probe=lambda path: _run_version(path),
+        probe=_run_version,
         archive=lambda: pinned_tray_archive,
     )
     assert any(isinstance(s, Action) and s.kind == "devctl-source-verify" for s in steps)

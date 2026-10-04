@@ -160,17 +160,17 @@ def render() -> str:
         "# Manifest schema reference",
         "",
         "Generated from `src/hammunition/manifest/schema.py` — the authority. "
-        "This page cannot drift from it, because it is rendered from the model "
-        "definitions themselves: field names, types, whether each is required, "
-        "and the `description=` text the schema carries in place. The prose "
-        "above each table is the model's own docstring, which is where the "
-        "cross-field validators and the reasoning behind a refusal are "
-        "explained — a table cannot render a validator, so those are treated as "
-        "part of the reference and kept current in the source.",
+        + "This page cannot drift from it, because it is rendered from the model "
+        + "definitions themselves: field names, types, whether each is required, "
+        + "and the `description=` text the schema carries in place. The prose "
+        + "above each table is the model's own docstring, which is where the "
+        + "cross-field validators and the reasoning behind a refusal are "
+        + "explained — a table cannot render a validator, so those are treated as "
+        + "part of the reference and kept current in the source.",
         "",
         "A manifest is **strict**: an unknown field is an error, not ignored. "
-        "That is deliberate — a typo'd field name that silently did nothing is "
-        "the bug this catches at load time (D-016).",
+        + "That is deliberate — a typo'd field name that silently did nothing is "
+        + "the bug this catches at load time (D-016).",
         "",
         "---",
         "",

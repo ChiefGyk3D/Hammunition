@@ -197,9 +197,9 @@ def page(profile: ProfileManifest, known: set[str], catalog: dict[str, PackageMa
         "```",
         "",
         "This removes what Hammunition itself installed and nothing else. It does "
-        "not remove dependencies apt pulled in, group memberships or configuration "
-        "files it wrote; the plan says so and the transaction log records them "
-        "(D-004).",
+        + "not remove dependencies apt pulled in, group memberships or configuration "
+        + "files it wrote; the plan says so and the transaction log records them "
+        + "(D-004).",
         "",
     ]
     return "\n".join(lines)
@@ -232,20 +232,20 @@ def index(profiles: dict[str, ProfileManifest], catalog: dict[str, PackageManife
         "",
         "1. Find your goal in [Which profile do I want](#which-profile-do-i-want).",
         "2. Open that profile's page and read what it installs, what it leaves "
-        "out and what you configure by hand.",
+        + "out and what you configure by hand.",
         "3. Run `hammunition install <profile> --dry-run`, read the plan, then "
-        "run it again without `--dry-run`. [Installation](../getting-started/installation.md) "
-        "walks the whole path.",
+        + "run it again without `--dry-run`. [Installation](../getting-started/installation.md) "
+        + "walks the whole path.",
         "",
         "**Install `station` first** on any machine you will operate from. Every "
-        "other profile assumes rig control, a correct clock and a position source "
-        "are there. Then add the mode profile you want.",
+        + "other profile assumes rig control, a correct clock and a position source "
+        + "are there. Then add the mode profile you want.",
         "",
         "## All profiles",
         "",
         "Units is the number of catalog entries the profile names. A target that "
-        "lacks one defers it by name and installs the rest. Footprint figures say "
-        "where they were measured on each profile's own page.",
+        + "lacks one defers it by name and installs the rest. Footprint figures say "
+        + "where they were measured on each profile's own page.",
         "",
         "| Profile | What it is for | Stage | Units | Disk | Assumes | Consent gates | Leaves out |",
         "|---|---|---|---:|---|---|---|---|",
@@ -264,7 +264,7 @@ def index(profiles: dict[str, ProfileManifest], catalog: dict[str, PackageManife
         "## Which profile do I want",
         "",
         "Find what you want to do. The profiles are listed in the order to install "
-        "them, `station` first where it applies.",
+        + "them, `station` first where it applies.",
         "",
         "| I want to | Install |",
         "|---|---|",
@@ -276,16 +276,16 @@ def index(profiles: dict[str, ProfileManifest], catalog: dict[str, PackageManife
         "## What to read next",
         "",
         "- [Installation](../getting-started/installation.md): the whole path from a "
-        "fresh machine, with every command and what it prints.",
+        + "fresh machine, with every command and what it prints.",
         "- [The guides](../guides/index.md): one task each, from rig control to a "
-        "first FT8 contact to offline maps.",
+        + "first FT8 contact to offline maps.",
         "- [Troubleshooting](../troubleshooting/index.md): by symptom.",
         "- [The package reference](../packages/index.md): every program, what it does "
-        "and where to get help with it.",
+        + "and where to get help with it.",
         "",
         "`hammunition list profiles` prints the same list on your own machine, with "
-        "how many of each you have installed, and `hammunition show <profile>` prints "
-        "a profile's documentation.",
+        + "how many of each you have installed, and `hammunition show <profile>` prints "
+        + "a profile's documentation.",
         "",
     ]
     return "\n".join(lines)

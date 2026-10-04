@@ -37,7 +37,6 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from hammunition.backends import (
     IMPLEMENTED_BINARY_FORMATS,
@@ -51,6 +50,7 @@ from hammunition.backends.apt import downgrades_refused
 from hammunition.backends.apt_repo import AptRepoBackend, RepoState
 from hammunition.backends.pmtiles import TILEMAKER_FLOOR
 from hammunition.backends.source import DEFAULT_PREFIX, IMPLEMENTED_BUILD_SYSTEMS
+from hammunition.deferral import Deferral
 from hammunition.desktop import Desktop, SessionScan, describe_set
 from hammunition.distro import Target
 from hammunition.java import JRE_CANDIDATES, JavaProbe, jre_package
@@ -89,9 +89,7 @@ from hammunition.manifest.schema import (
 from hammunition.state.log import TransactionLog
 from hammunition.state.uninstall import deb_attributed
 from hammunition.station import Station
-
-if TYPE_CHECKING:
-    from hammunition.userservice import PlannedUserService
+from hammunition.userservice import PlannedUserService, plan_user_services, service_venv_dir
 
 __all__ = [
     "Blocker",
@@ -125,45 +123,6 @@ class Blocker:
         if self.remedy:
             line += f"\n    → {self.remedy}"
         return line
-
-
-@dataclass(frozen=True)
-class Deferral:
-    """Something the transaction will NOT do, without refusing to proceed.
-
-    The distinction from :class:`Blocker` is the whole of D-035. A blocker means
-    the machine must not be touched. A deferral means most of what was asked for
-    happens and one part does not, named precisely, with what would let it.
-
-    Templated configuration missing a station value is the case this exists for:
-    a `packet` profile of nineteen packages used to refuse entirely because
-    `linbpq` did not know a callsign. Nineteen packages installed and one file
-    not written is a better outcome than nothing installed, and it is only
-    honest if the unwritten file is reported rather than skipped.
-
-    Q-017 extended it to a *profile member the target does not offer*: on
-    Ubuntu 24.04 `listening` withheld nineteen installable units over four the
-    archive does not carry. Same shape, same rule -- most of what was asked
-    for happens, the part that does not is named, and `status` keeps naming it.
-    """
-
-    subject: str
-    what: str
-    """What will not happen."""
-    why: str
-    """What is missing."""
-    remedy: str
-    """What the operator can do about it."""
-    kind: str = "config"
-    """``config`` (D-035: a file not written) or ``package`` (Q-017: a profile
-    member not installed). Recorded in the transaction log so `status` can
-    tell them apart."""
-
-    def render(self) -> str:
-        return f"{self.subject}: {self.what}\n    why: {self.why}\n    → {self.remedy}"
-
-    def to_log_entry(self) -> dict[str, str]:
-        return {"kind": self.kind, "subject": self.subject, "what": self.what, "why": self.why}
 
 
 class PlanError(Exception):
@@ -1483,10 +1442,6 @@ def resolve(
             # Plain services need nothing; the rig's need the hardware
             # catalog and defer by name without it (D-035) -- decided in
             # plan_user_services, which knows which is which.
-            # Imported here, not at module top: userservice imports this module's
-            # Deferral, and CodeQL flags the top-level pair as an unsafe cycle.
-            from hammunition.userservice import plan_user_services, service_venv_dir
-
             svc_planned, svc_deferrals, svc_notes = plan_user_services(
                 manifest, station, devices, venv_dir=service_venv_dir(manifest, user or None)
             )

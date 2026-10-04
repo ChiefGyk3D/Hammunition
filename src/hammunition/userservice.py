@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hammunition.deferral import Deferral
 from hammunition.manifest.schema import STATION_REF, UserService, VenvInstall
 from hammunition.paths import venv_root
 from hammunition.rig import RigError, resolve_rig
@@ -33,7 +34,6 @@ from hammunition.station import Station
 if TYPE_CHECKING:
     from hammunition.manifest.hardware import DeviceClass, DeviceManifest
     from hammunition.manifest.schema import PackageManifest
-    from hammunition.plan import Deferral
 
 __all__ = [
     "HEADER",
@@ -262,8 +262,6 @@ def plan_user_services(
     """
     import sys
 
-    from hammunition.plan import Deferral
-
     if not manifest.user_services:
         return [], [], []
 
@@ -345,7 +343,6 @@ def _plan_rig(
     venv_dir: Path | None = None,
 ) -> tuple[list[PlannedUserService], list[Deferral], list[str]]:
     """The station-driven entries: resolve the rig, defer or skip, render."""
-    from hammunition.plan import Deferral
 
     first = entries[0].name
     if devices is None:

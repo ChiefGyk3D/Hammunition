@@ -123,12 +123,13 @@ def test_the_installed_program_is_really_run_and_its_exit_follows(
             sys.executable,
             "-c",
             "import os, sys; os.geteuid = lambda: 1000  # also true under unshare -r\n"
+            +
             # A tether installed on the host (its tree under /usr/local/share)
             # is found before the PATH; point the lookup at an empty place so
             # the host cannot change the result.
             "import importlib; from pathlib import Path\n"
-            "m = importlib.import_module('hammunition.cli.main')\n"
-            "m.TETHER_TREE = Path(sys.argv[1]); m.main(sys.argv[2:])",
+            + "m = importlib.import_module('hammunition.cli.main')\n"
+            + "m.TETHER_TREE = Path(sys.argv[1]); m.main(sys.argv[2:])",
             str(directory / "no-such-tree"),
             "maps",
             "gps-tether",
