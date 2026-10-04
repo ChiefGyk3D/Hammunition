@@ -358,6 +358,49 @@ and resume cycle with the resume step in place; GPS time taking over once the
 receiver has a fix (reach above 0); the subset install; the US Topo install;
 Firefox and CoMaps reading a position from the tether.
 
+## Session 14 (owed): the resume step across a real suspend, and the GPS takeover with the network off
+
+**Not yet run.** This is the procedure, written before the run so the results
+are comparable; every result cell reads "not yet run" until the operator
+fills it. Issues #177 and #310. Two read-only commands do the looking:
+`hammunition hardware gps-resume-report` and `hammunition time measure`. They
+write nothing, key nothing and change no power state. The root steps are the
+operator's own. No station value or position is recorded here.
+
+**Part A, #177: a suspend with the new resume step.** The installed step on the
+field laptop predates the data check, the power cycle and the log, so it is
+re-applied first.
+
+| Step | Command | Result |
+|---|---|---|
+| 1. Before, read-only | `hammunition hardware gps-resume-report` | not yet run. Expected: the script and the tmpfiles line `differs` or `absent`, and a finding saying to re-run `hardware apply`. |
+| 2. Re-apply (root) | `hammunition hardware apply --dry-run`, read the three files in the plan, then `hammunition hardware apply` | not yet run |
+| 3. After apply | `hammunition hardware gps-resume-report` | not yet run. Expected: three files `current`, unit enabled, receiver listed and delivering data, "no log" (it has not run since boot). |
+| 4. Something watching | `cgps -s` in a terminal, or the tether running | not yet run |
+| 5. Suspend and wake | `systemctl suspend`, wake, wait 60 s | not yet run |
+| 6. Read it | `hammunition hardware gps-resume-report --data-window 20` | not yet run. Record: the unit's Result and ExecMainStatus, each last-run line, whether data came within the first window, whether a power cycle was needed. |
+| 7. The raw log | `cat /run/hammunition/gps-resume.log` | not yet run |
+| 8. Repeat steps 5 to 7 | three more suspends, one with `cgps` closed and one on battery | not yet run |
+
+What to record per suspend: data after the re-add alone (no cycle), data only
+after the power cycle, or neither (the manual steps in
+[GPS dead after the laptop slept](../troubleshooting/running.md#gps-after-suspend)),
+and the seconds to a 3D fix.
+
+**Part B, #310: GPS time with the network off.** The receiver needs a fix first
+(`hammunition time` shows `SHM(0)` with reach above 0).
+
+| Step | Command | Result |
+|---|---|---|
+| 1. Baseline, network on | `hammunition time measure --minutes 2` | not yet run. Expected: the GPS rejected, never selected, by design. |
+| 2. Network off | `nmcli networking off` (unplug Ethernet if it does not take) | not yet run |
+| 3. The takeover | `hammunition time measure --minutes 10 --pps` | not yet run. Record: seconds into the run when the GPS became the system peer, or that it did not, and the offset range. |
+| 4. The PPS device | the same run's PPS section; if it says permission denied, `sudo ppstest /dev/pps0` for a minute by hand | not yet run. Record: whether `/dev/pps0` exists, what `/sys/class/pps` names it, and the pulses counted in 60 s. |
+| 5. Network back | `nmcli networking on` | not yet run |
+
+If the pulses are real, a follow-up adds a PPS refclock behind `hardware apply`
+with the same marked, reversible `ntp.conf` lines (issue #310).
+
 ## Not yet run (this rung's remaining ladder)
 
 In order, and every one needs the operator at the keyboard for `sudo`:

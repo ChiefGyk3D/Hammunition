@@ -37,7 +37,8 @@ def _install(commands: list[Command]) -> None:
             for link in gr.wants_links():
                 Path(link).unlink(missing_ok=True)
         elif argv[:2] == ("rm", "-f"):
-            Path(argv[2]).unlink(missing_ok=True)
+            for path in argv[2:]:
+                Path(path).unlink(missing_ok=True)
 
 
 def _applied(tmp_path: Path) -> None:
@@ -67,12 +68,21 @@ def test_the_script_is_the_module_source_under_a_shebang_and_our_header() -> Non
     assert text.endswith(source)
 
 
-def test_a_fresh_machine_with_gpsd_plans_both_files_and_the_enable(resume_files: Path) -> None:
+def test_a_fresh_machine_with_gpsd_plans_all_three_files_and_the_enable(resume_files: Path) -> None:
     step = gr.plan_gps_resume()
     assert step.gpsd and not step.is_noop
     argv = [c.argv for c in gr.install_commands(step, "<staging>")]
     assert argv == [
         ("install", "-D", "-m", "0755", "<staging>/hammunition-gps-resume", gr.SCRIPT),
+        (
+            "install",
+            "-D",
+            "-m",
+            "0644",
+            "<staging>/tmpfiles-hammunition-gps-resume.conf",
+            gr.TMPFILES,
+        ),
+        ("systemd-tmpfiles", "--create", gr.TMPFILES),
         ("install", "-D", "-m", "0644", "<staging>/hammunition-gps-resume.service", gr.unit_path()),
         ("systemctl", "daemon-reload"),
         ("systemctl", "enable", "hammunition-gps-resume.service"),
@@ -142,9 +152,9 @@ def test_an_older_script_of_ours_is_replaced(resume_files: Path, tmp_path: Path)
     assert [c.argv[-1] for c in gr.install_commands(step, "<staging>")] == [gr.SCRIPT]
 
 
-@pytest.mark.parametrize("which", ["script", "unit"])
+@pytest.mark.parametrize("which", ["script", "unit", "tmpfiles"])
 def test_a_file_hammunition_did_not_write_refuses_the_plan(resume_files: Path, which: str) -> None:
-    path = Path(gr.SCRIPT if which == "script" else gr.unit_path())
+    path = Path({"script": gr.SCRIPT, "unit": gr.unit_path(), "tmpfiles": gr.TMPFILES}[which])
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("#!/bin/sh\n# the operator's own\n")
     with pytest.raises(gr.GpsResumeError, match="--no-gps-resume"):
@@ -161,6 +171,8 @@ def test_removal_takes_back_both_files_and_the_links(resume_files: Path, tmp_pat
         ("systemctl", "disable", "hammunition-gps-resume.service"),
         ("rm", "-f", gr.unit_path()),
         ("rm", "-f", gr.SCRIPT),
+        ("rm", "-f", gr.TMPFILES, gr.LOG),
+        ("rmdir", "--ignore-fail-on-non-empty", gr.RUN_DIR),
         ("systemctl", "daemon-reload"),
     ]
     _install(commands)
@@ -203,4 +215,44 @@ def test_a_binary_file_at_the_path_is_foreign_not_a_crash(resume_files: Path) ->
     Path(gr.SCRIPT).write_bytes(b"\x7fELF\xff\xfe")
     with pytest.raises(gr.GpsResumeError):
         gr.plan_gps_resume()
+    assert gr.plan_gps_resume_removal().is_empty
+
+
+def test_the_tmpfiles_line_makes_the_log_directory_world_readable_and_root_owned() -> None:
+    text = gr.tmpfiles_content()
+    assert text.startswith(gr.UNIT_HEADER)
+    assert f"d {gr.RUN_DIR} 0755 root root -\n" in text
+    assert f"{gr.RUN_DIR}/gps-resume.log" == gr.LOG
+
+
+def test_an_engine_older_than_the_log_reads_stale_and_plans_only_the_tmpfiles_line(
+    resume_files: Path, tmp_path: Path
+) -> None:
+    """A machine applied before the log existed: everything else current, the
+    tmpfiles line absent. `doctor` says re-run apply, and apply adds just that."""
+    _applied(tmp_path)
+    Path(gr.TMPFILES).unlink()
+    assert gr.status() == "stale"
+    step = gr.plan_gps_resume()
+    assert not step.is_noop and not step.tmpfiles_current
+    assert [c.argv[0] for c in gr.install_commands(step, "<staging>")] == [
+        "install",
+        "systemd-tmpfiles",
+    ]
+    assert any(gr.TMPFILES in p for p in gr.verify(step))
+
+
+def test_the_disclosure_names_the_tmpfiles_file_the_log_and_the_report(
+    resume_files: Path,
+) -> None:
+    text = "\n".join(gr.disclose(gr.plan_gps_resume()))
+    for line in gr.tmpfiles_content().splitlines():
+        assert line in text
+    assert gr.LOG in text
+    assert "hammunition hardware gps-resume-report" in text
+
+
+def test_removal_leaves_a_tmpfiles_file_someone_else_wrote(resume_files: Path) -> None:
+    Path(gr.TMPFILES).parent.mkdir(parents=True)
+    Path(gr.TMPFILES).write_text("d /run/hammunition 0700 root root -\n")
     assert gr.plan_gps_resume_removal().is_empty

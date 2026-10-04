@@ -6488,6 +6488,27 @@ def cmd_hardware_state(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+@envelope.json_capable()
+def cmd_hardware_gps_resume_report(args: argparse.Namespace) -> int:
+    """Is the GPS resume step current, what did its last run do, does the receiver
+    deliver data. Reads only: no write, no keying, no power change (issue #177)."""
+    from hammunition.hardware.gps_resume_report import gather
+    from hammunition.interface.gps_resume import (
+        build_gps_resume_report,
+        render_gps_resume_report,
+    )
+
+    if not envelope.wanted(args):
+        print(f"Watching gpsd for {args.data_window:g} s ...", file=sys.stderr)
+    doc = build_gps_resume_report(gather(data_window=args.data_window))
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_gps_resume_report(doc):
+        print(line)
+    return EXIT_OK
+
+
 def _helper_ready() -> int | None:
     """An exit code when the privileged helper cannot be reached, else None."""
     if not Path(HELPER_PATH).is_file():
@@ -6626,6 +6647,51 @@ def cmd_time(args: argparse.Namespace) -> int:
     for line in time_state.describe(time_state.gather(gps=time_state.gps_from(found))):
         print(line)
     return EXIT_OK
+
+
+def cmd_time_measure(args: argparse.Namespace) -> int:
+    """Sample ntpd for N minutes and say whether the GPS took over (issue #310). Reads only."""
+    from hammunition.gpstime import measure as time_measure
+    from hammunition.gpstime.state import ntpsec_installed, run_ntpq
+
+    if args.minutes <= 0 or args.interval <= 0:
+        print("error: --minutes and --interval must be positive", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    if not ntpsec_installed():
+        print(
+            "error: ntpsec is not installed, so there is no `ntpq` to sample and nothing "
+            "follows a GPS here (D-058).",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+    print(
+        f"Sampling `ntpq -pn` every {args.interval:g} s for {args.minutes:g} min "
+        "(Ctrl-C ends it early). Read-only."
+    )
+    samples = time_measure.measure(
+        lambda: run_ntpq(("-pn",)), minutes=args.minutes, interval=args.interval
+    )
+    code = EXIT_OK
+    if samples is None:
+        print("ntpq never answered: is ntpd running? (`systemctl status ntpsec`)")
+        code = EXIT_FAILED
+    else:
+        print("")
+        for line in time_measure.verdict(time_measure.summarise(samples)):
+            print(line)
+    if args.pps:
+        print(f"\nPPS: `ppstest /dev/pps0` for {args.pps_seconds:g} s ...")
+        pps = time_measure.run_ppstest(args.pps_seconds)
+        print(f"  /dev/pps0 {'exists' if pps.device_present else 'does not exist'}")
+        for entry in pps.devices:
+            print(f"  /sys/class/pps: {entry}")
+        if pps.error is not None:
+            print(f"  {pps.error}")
+        else:
+            print(f"  {pps.pulses} pulse(s) in {pps.seconds:g} s: the PPS source is real.")
+        for line in pps.lines:
+            print(f"    {line}")
+    return code
 
 
 def cmd_time_mode(args: argparse.Namespace) -> int:
@@ -7956,6 +8022,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_hw_state.set_defaults(func=cmd_hardware_state)
 
+    p_hw_resume = hardware_sub.add_parser(
+        "gps-resume-report",
+        help="read-only: is the GPS resume step current, what did it do, is data flowing",
+    )
+    p_hw_resume.add_argument(
+        "--data-window",
+        type=float,
+        default=10.0,
+        metavar="SECONDS",
+        help="how long to watch gpsd for data from each receiver (default 10)",
+    )
+    p_hw_resume.set_defaults(func=cmd_hardware_gps_resume_report)
+
     for verb, helptext in (
         ("park", "detach a device and let its port suspend (D-056)"),
         ("wake", "bring a parked device back"),
@@ -7996,6 +8075,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="print every write, the restart and the privileged call, then stop",
     )
     p_time_mode.set_defaults(func=cmd_time_mode)
+    p_time_measure = time_sub.add_parser(
+        "measure",
+        help="read-only: sample ntpq and say whether the GPS took over (issue #310)",
+    )
+    p_time_measure.add_argument(
+        "--minutes", type=float, default=10.0, help="how long to sample (default 10)"
+    )
+    p_time_measure.add_argument(
+        "--interval", type=float, default=30.0, help="seconds between samples (default 30)"
+    )
+    p_time_measure.add_argument(
+        "--pps",
+        action="store_true",
+        help="then run `ppstest /dev/pps0` and say whether the pulses are real",
+    )
+    p_time_measure.add_argument(
+        "--pps-seconds", type=float, default=60.0, help="how long ppstest runs (default 60)"
+    )
+    p_time_measure.set_defaults(func=cmd_time_measure)
 
     p_services = sub.add_parser(
         "services",
