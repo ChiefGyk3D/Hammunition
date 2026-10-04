@@ -97,7 +97,8 @@ def write(tmp_path: Path, data: bytes) -> Path:
 @pytest.mark.parametrize("compress", [True, False], ids=["zlib", "raw"])
 def test_the_header_bbox_is_read_in_degrees(tmp_path: Path, compress: bool) -> None:
     got = header_bbox(write(tmp_path, pbf(compress=compress)))
-    assert got == pytest.approx((-73.5, -71.4, 45.1, 42.7))
+    expected = pytest.approx((-73.5, -71.4, 45.1, 42.7))
+    assert got == expected
 
 
 def test_a_header_without_a_bbox_is_none(tmp_path: Path) -> None:

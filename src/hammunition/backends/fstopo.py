@@ -35,7 +35,7 @@ from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
 from .regions import MIB, data_root, prefix_writer, removal_steps
 from .terrain import TerrainLedger
-from .topo import QUADS, TIF, quad_key, replaced_steps
+from .topo_common import QUADS, TIF, quad_key, replaced_steps
 from .verified import PrefixWriter
 
 _HEADER = "# FSTopo quads: "
