@@ -1,0 +1,88 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: hammunition-console
+version: "0.1.0"
+summary: A terminal front end for the engine -- install, station, logs and updates in one full-screen program
+categories: [workstation]
+
+# ADD. Like hammunition-tray and gps-tether, a unit whose upstream is this project's own
+# maintainer, disclosed here: a separate repository (GPL-3.0-or-later), its own releases and
+# tests, carried on the same terms as everything else: a published, digest-pinned artifact.
+#
+# The pin is the release's asset, the verified tag archive the release workflow attaches as
+# hammunition-console-<ver>.tar.gz beside a SHA256SUMS (the D-024 reasoning, as for the tray). It is a pure
+# Python tree run in place with the archive's python3 and python3-urwid: no build, no pip,
+# no venv, no network after the fetch (D-014). The console imports no engine code and reads
+# only `hammunition <verb> --json` (D-059); every change it makes is the real CLI run in a
+# terminal pane, so a consent gate is answered by a person (D-021).
+#
+# Pinned to v0.1.0's hammunition-console-0.1.0.tar.gz (229,079 bytes), the digest read from the
+# release's SHA256SUMS on 2026-10-04 (cosign bundle beside it).
+install:
+  - install:
+      method: binary
+      artifact:
+        url: https://github.com/ChiefGyk3D/hammunition-console/releases/download/v0.1.0/hammunition-console-0.1.0.tar.gz
+        sha256: "78764a19e7225db3f2adfbc3637055c97de73eac170d44c060768462838c3ca2"
+      format: tarball
+      install_tree: true
+      # The asset is the tag's archive: one top directory, which extraction strips.
+      tree_marker: hammunition_console/__main__.py
+    note: >-
+      The tag's source tree, installed to /usr/local/share/hammunition/hammunition-console
+      and handed to the operator, with a launcher named hammunition-console in ~/.local/bin
+      and a terminal menu entry. Nothing is built and nothing runs as root but the copy.
+      The console's own configuration, ~/.config/hammunition-console/, is created by the
+      program when it first runs and is left in place on uninstall.
+
+depends: [python3, python3-urwid]
+
+launchers:
+  - name: hammunition-console
+    exec: /usr/local/share/hammunition/hammunition-console/bin/hammunition-console
+    title: Install and manage the station from a terminal (hammunition-console)
+    terminal: true
+
+update:
+  probe:
+    method: github_release
+    repo: ChiefGyk3D/hammunition-console
+  strategy: reinstall
+  cadence_hint: >-
+    Tagged releases; each is a new source-archive digest. Re-pin the URL and the digest
+    together at every tag, never from a branch.
+
+documentation:
+  what_it_does: >-
+    A full-screen terminal program that shows what Hammunition has installed on this
+    machine, what is wrong, and what to do next, and runs the engine's own commands for you.
+    Home shows the health check, whether your station is set, the last run and how many
+    units are behind the catalog's pin, with a four-step first-run checklist. Install lists
+    the profiles and units, shows the engine's own plan, then runs the real command in a
+    terminal pane. Station, Logs, Update and Help round it out. It works over SSH and on a Pi.
+  why_you_want_it: >-
+    You would rather pick from a list than remember the CLI's verbs, or you are walking a
+    fresh machine to a working station for the first time. It is a front end for the
+    commands in docs/reference/cli.md and does exactly what they do and nothing else; it is
+    the alternative to typing them. Because it runs each change in a real terminal, sudo and
+    every consent prompt are the engine's and are answered by you, never by the console.
+  prerequisites: >-
+    The engine itself, 0.19.0 or later, on PATH (this unit does not install it), and a
+    terminal of at least 80x24. Nothing is configured first; the Station screen sets the
+    values the engine needs. Python 3.11 or later, which every target but Ubuntu 22.04 and
+    Pop!_OS 22.04 ships.
+  known_problems: >-
+    **First release; not yet run through a real install on any target.** It was tested
+    against recorded engine documents and a fake engine on a real pseudo-terminal, not
+    against a real install through its terminal pane on the field laptop; that is a bench
+    item. The engine's per-profile installed state and its update report for retired units
+    are used when the engine sends them and shown as "unknown" when it does not. Hardware
+    and maps screens are not in this release: use the CLI and hammunition-tray. A per-user
+    copy placed by the console repository's own install.sh (~/.local/bin/hammunition-console)
+    shadows or conflicts with this unit's launcher; run that repository's uninstall.sh once
+    before installing the unit. It refuses to start without a terminal, with TERM=dumb, or as root.
+  upstream_url: https://github.com/ChiefGyk3D/hammunition-console
+  upstream_support: >-
+    Issues on the hammunition-console repository for the console itself; the engine's own
+    docs and `hammunition doctor` for anything the engine reports.

@@ -169,6 +169,7 @@ nav:
       - How much disk you need: getting-started/disk-space.md
       - Your first profile: getting-started/first-profile.md
       - First contact: getting-started/first-contact.md
+      - The console: getting-started/console.md
       - What works on which desktop: desktops.md
   - Packages:
       - packages/index.md

@@ -322,6 +322,7 @@ def test_every_catalog_tree_names_its_marker() -> None:
         "radiosonde-auto-rx",
         "supersdr",
         "skid-finder",
+        "hammunition-console",
     }, "a unit started or stopped installing a tree; update this pin and check its marker"
     for name in tree_units:
         for block in catalog[name].install:
@@ -374,6 +375,7 @@ def test_every_catalog_launcher_working_directory_is_under_the_shared_prefix() -
         "qmapshack": ("qmapshack-offline", "gps-tether"),
         "radiosonde-auto-rx": ("radiosonde-auto-rx",),
         "rtl-sdr": ("rtl_test-tuner",),
+        "hammunition-console": ("hammunition-console",),
         "skid-finder": ("skid-finder",),
         "stlink-tools": ("st-info-probe",),
         "supersdr": ("supersdr",),
