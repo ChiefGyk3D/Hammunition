@@ -41,7 +41,8 @@ def test_every_json_capable_verb_says_so_in_the_cli_reference() -> None:
     assert capable, "no JSON-capable command found; the check below would pass empty"
     for func in capable:
         verb = func.__name__.removeprefix("cmd_").replace("_", " ")
-        assert f"`hammunition {verb}" in text, f"{verb} is undocumented"
+        # A verb spelled `gps-resume-report` is the function `..._gps_resume_report`.
+        assert f"`hammunition {verb}" in text.replace("-", " "), f"{verb} is undocumented"
     assert text.count("--json") >= len(capable), (
         "each verb with a JSON form names --json in its section"
     )
@@ -62,7 +63,9 @@ def test_each_json_capable_section_names_its_document_kind() -> None:
     capable = [f for f in envelope._CAPABLE if f.__module__ == "hammunition.cli.main"]
     for func in capable:
         verb = func.__name__.removeprefix("cmd_").replace("_", " ")
-        heading = next((h for h in sections if h.startswith(f"`hammunition {verb}")), None)
+        heading = next(
+            (h for h in sections if h.replace("-", " ").startswith(f"`hammunition {verb}")), None
+        )
         assert heading is not None, f"no section for {verb}"
         body = sections[heading]
         assert "--json" in body, f"the {verb} section does not mention --json"

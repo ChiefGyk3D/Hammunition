@@ -272,6 +272,12 @@ fix can take a minute or more. Read what it did with:
 sudo journalctl -b -u hammunition-gps-resume.service -u gpsd.service --since "-1h"
 ```
 
+Without the journal: `hammunition hardware gps-resume-report` prints whether
+the installed step is what this engine writes now, the unit's last result,
+whether gpsd lists the receiver and delivers data, the USB facts the step
+relies on, and the last run's lines, which the step also keeps in
+`/run/hammunition/gps-resume.log`. It is read-only and needs no `sudo`.
+
 The lines you can see, in order: `data check: data from <tty> within N s` (all
 well, nothing more happens); `data check: <tty> silent after 20 s`, then
 `<tty>: silent; wrote 0 to .../authorized (USB power cycle, once)`, `wrote 1

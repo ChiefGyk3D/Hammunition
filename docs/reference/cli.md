@@ -2140,6 +2140,23 @@ With `--json`, prints a `hardware` document
 ([json-interface.md](json-interface.md)): one object per row with the same
 keys the helper prints, plus any error reading the kept-off rules.
 
+### `hammunition hardware gps-resume-report [--data-window SECONDS] [--json]`
+
+Read-only report on the GPS resume step (issue #177), for an operator who is not
+in `systemd-journal`. Prints: each of the three installed files (the script, the
+unit and its tmpfiles line) compared byte for byte with what this engine would
+write now (`current`, `differs`, `wrong-mode`, `absent`, `unreadable`) and a
+finding saying to re-run `hammunition hardware apply` when one is not; the
+unit's `systemctl show` state (LoadState, ActiveState, Result, ExecMainStatus,
+ActiveEnterTimestamp); gpsd's `?DEVICES;` answer and a `?WATCH` data check of
+each `/dev/gpsN` for `--data-window` seconds (default 10), by the resume
+script's own functions; the USB device the step would cycle (`idVendor`,
+`idProduct`, `authorized`) found the way the step finds it; and the last run's
+lines from `/run/hammunition/gps-resume.log`. It never writes, never keys a
+receiver and never changes a power state. Always exits `0`; the findings say what
+is wrong. With `--json`, prints a `gps-resume-report` document
+([json-interface.md](json-interface.md)).
+
 ### `hammunition time`
 
 What the clock follows now (the network, the GPS, or nothing, with how long it
@@ -2147,6 +2164,19 @@ has been in holdover), the time mode and whether it was ever set, whether a GPS
 receiver is attached and awake, and whether ntpd can read it. Reads only:
 `ntpq -pn` and `ntpq -c rv` answer any local user, so there is no prompt. On a
 target whose time daemon is not ntpsec it says so and names the gap (D-058).
+
+### `hammunition time measure [--minutes N] [--interval SECONDS] [--pps] [--pps-seconds N]`
+
+Read-only GPS-takeover measurement (issue #310). Samples `ntpq -pn` every
+`--interval` seconds (30) for `--minutes` (10) and prints, per sample, what
+ntpd follows, the GPS refclock's reach and offset and the best network peer's;
+then says whether and when the GPS became the system peer and over what offset
+range. With the network up ntpd rejects the GPS by design, so measure with the
+network off. `--pps` then runs `ppstest /dev/pps0` for `--pps-seconds` (60) and
+says whether pulses arrived, naming `/sys/class/pps`; if `ppstest` is not
+installed (package `pps-tools`) or the device is root-only, it says so. Exit `2`
+when ntpsec is not installed, `1` when `ntpq` never answered. It has no `--json`
+form and leaves no run log.
 
 ### `hammunition time mode MODE [--dry-run]`
 

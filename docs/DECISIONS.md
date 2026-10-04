@@ -5542,6 +5542,30 @@ same file `hardware park`/`wake` write and no other, and the plan discloses
 it. **Not measured on hardware:** the maintainer suspends the field laptop
 and reads the journal.
 
+### Amendment, 2026-10-04 (later): the step keeps its last run's lines in `/run`, and two read-only commands read them (issues #177, #310)
+
+The maintainer's account is not in `systemd-journal`, so the step's journal
+lines were out of reach of the person who needed them. The script now also
+writes every line to `/run/hammunition/gps-resume.log` (0644, replaced at the
+start of each run, a symlink never followed, a log that cannot be written
+never stops the run). `hardware apply` adds a **third** root file for it,
+`/etc/tmpfiles.d/hammunition-gps-resume.conf` (one `d /run/hammunition 0755
+root root -` line, made now by `systemd-tmpfiles --create`), disclosed whole
+in the plan like the other two, written by the same mechanism D-069 uses for
+`/run/hammunition-gps`, and taken back by `hardware unapply` together with the
+log and the directory when it is empty. A machine applied before this shows
+the step as `stale` in `doctor` until `hardware apply` is re-run.
+
+`hammunition hardware gps-resume-report` (a `gps-resume-report` document,
+D-059) compares the three installed files byte for byte with what this engine
+would write, reads `systemctl show` of the unit, asks gpsd `?DEVICES;` and
+watches `?WATCH` with the script's own functions (imported, not copied), reads
+the receiver's USB facts as the step finds them, and prints the log. `hammunition time
+measure --minutes N [--pps]` samples `ntpq -pn` and optionally runs `ppstest`
+(#310). Both are read-only: **no write, no keying, no power change**; tests
+hold that. Neither is a bench result: the maintainer runs them
+(`docs/reference/bench-verification-5430.md`, session 14).
+
 ### What is refused, and what is out of scope
 
 A target whose time daemon is not ntpsec (Debian 13, Ubuntu and Kali

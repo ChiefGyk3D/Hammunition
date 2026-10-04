@@ -178,6 +178,14 @@ its `reach` column counts up from 0 to 377 as ntpd hears it. Always use
 `-n`: without it ntpq looks up every address in DNS, and with the network
 down that hangs.
 
+To measure whether the GPS takes over when the network is gone, run
+`hammunition time measure --minutes 10` with the network off (add `--pps` to
+test `/dev/pps0`). It samples `ntpq -pn` every 30 s, prints the GPS and best
+network peer's reach and offset, and says whether and when the GPS became the
+system peer. It is read-only; with the network on, ntpd rejects the GPS by
+design, so that is not the run that measures takeover. Not yet measured on the
+field laptop (issue #310).
+
 The `hammunition-tray` applet shows the same in its Time section and lets
 you pick the mode, from its 0.4.0 (corrected 2026-10-01; the section shipped
 one release later than first written here).

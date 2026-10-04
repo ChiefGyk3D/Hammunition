@@ -528,7 +528,7 @@ present and nothing writes `power/control` for this device.
 
 **What `hardware apply` installs for it.** The `gps-receiver` class asks for
 a resume step (`resume: {step: gpsd_reopen}`), and where gpsd is installed
-`hammunition hardware apply` adds two root-owned files, each printed whole
+`hammunition hardware apply` adds three root-owned files, each printed whole
 in the plan before anything runs:
 
 - `/usr/local/libexec/hammunition-gps-resume`, mode `0755`, a short Python
@@ -566,8 +566,17 @@ in the plan before anything runs:
   `After=` and `WantedBy=` `suspend.target`, `hibernate.target`,
   `hybrid-sleep.target` and `suspend-then-hibernate.target`. It is enabled,
   never started: it runs after each resume and at no other time.
+- `/etc/tmpfiles.d/hammunition-gps-resume.conf`, mode `0644`, one line making
+  `/run/hammunition` (`0755`, root); `systemd-tmpfiles --create` makes it at
+  apply time. The script writes the lines of its last run to
+  `/run/hammunition/gps-resume.log` (`0644`, replaced each run, gone at boot),
+  so you can read them without `systemd-journal`:
+  `cat /run/hammunition/gps-resume.log`, or
+  `hammunition hardware gps-resume-report`, which also checks the installed
+  files, the unit's last result and whether gpsd delivers data now. Both are
+  read-only.
 
-A file at either path that does not start with Hammunition's header refuses
+A file at any of the three paths that does not start with Hammunition's header refuses
 the plan, and is never overwritten. `hammunition hardware apply
 --no-gps-resume` leaves the step out.
 
@@ -591,7 +600,7 @@ system journal may need `sudo` or membership of `systemd-journal`).
 receiver is attached and gpsd is installed.
 
 **Reverse it.** `hammunition hardware unapply` runs `systemctl disable` on
-the unit and removes both files, each only when it starts with Hammunition's
+the unit and removes the files (and the log and its directory when empty), each only when it starts with Hammunition's
 header, then reloads systemd and checks that the files and the four
 `.wants` links are gone.
 

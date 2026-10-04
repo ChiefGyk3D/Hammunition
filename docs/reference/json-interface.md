@@ -47,6 +47,7 @@ their text follows.
 
 - `hammunition artifacts`
 - `hammunition doctor`
+- `hammunition hardware gps resume report`
 - `hammunition hardware state`
 - `hammunition install` (with `--dry-run` only)
 - `hammunition list`
@@ -79,6 +80,7 @@ their text follows.
 | `catalog` | [`CatalogDocument`](#catalog) |
 | `doctor` | [`DoctorDocument`](#doctor) |
 | `error` | [`ErrorDocument`](#error) |
+| `gps-resume-report` | [`GpsResumeReportDocument`](#gps-resume-report) |
 | `hardware` | [`HardwareDocument`](#hardware) |
 | `infra` | [`InfraDocument`](#infra) |
 | `infra-removed` | [`InfraRemovedDocument`](#infra-removed) |
@@ -911,6 +913,418 @@ an unreadable target). The exit code is the one the text run returns.
     "message"
   ],
   "title": "ErrorDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### gps-resume-report
+
+Whether the GPS resume step is installed as this engine writes it, what its
+last run did, and whether the receiver is delivering data now.
+
+| field | type | meaning |
+|---|---|---|
+| `files` | list of [`FileView`](#fileview) | the script, the unit and the tmpfiles line |
+| `enabled` | boolean | the unit is wanted by all four sleep targets |
+| `unit` | [`UnitView`](#unitview) | the unit's state |
+| `gpsd_answered` | boolean | gpsd answered ?DEVICES; |
+| `gpsd_devices` | list of string | the paths gpsd lists |
+| `receivers` | list of [`ReceiverView`](#receiverview) | each /dev/gpsN; empty when none is attached |
+| `data_window` | <class 'float'> | seconds the data check watched for |
+| `log_path` | string | where the step writes its last run's lines |
+| `log_present` | boolean | the log exists; /run is cleared at boot |
+| `log_modified` | string or null | the log's modification time, UTC; null when absent |
+| `log_lines` | list of string | the last run's lines, newest last, at most 40 |
+| `findings` | list of string | what is wrong and what to run; empty when nothing is |
+
+#### `FileView`
+
+One file the resume step installs, compared with what this engine would write now.
+
+| field | type | meaning |
+|---|---|---|
+| `path` | string | where it is installed |
+| `state` | string | `current` (byte for byte what this engine writes), `differs`, `wrong-mode` (the script is not 0755), `absent` or `unreadable` |
+
+#### `UnitView`
+
+``systemctl show`` of the resume unit; no privilege needed.
+
+| field | type | meaning |
+|---|---|---|
+| `load_state` | string or null | `loaded` or `not-found`; null when systemctl did not answer |
+| `unit_file_state` | string or null | `enabled`, `disabled`, ...; null when unknown |
+| `active_state` | string or null | `inactive` between runs is normal for a oneshot |
+| `result` | string or null | `success` or what failed |
+| `exec_main_status` | string or null | the script's last exit status; 0 when data was seen |
+| `active_enter` | string or null | when the unit last became active, as systemd prints it |
+| `exec_main_exit` | string or null | when the script last exited, as systemd prints it |
+| `error` | string or null | why systemctl could not be asked, when it could not |
+
+#### `ReceiverView`
+
+One /dev/gpsN and what gpsd and the bus say about it.
+
+| field | type | meaning |
+|---|---|---|
+| `link` | string | the /dev/gpsN link |
+| `node` | string | the device node it names |
+| `listed_by_gpsd` | boolean or null | gpsd's ?DEVICES; lists it; null when gpsd did not answer |
+| `data_seconds` | <class 'float'> or null | seconds until the first SKY or TPV report in the data window; null when silent |
+| `usb` | [`UsbView`](#usbview) | the USB facts the step relies on |
+
+#### `UsbView`
+
+The receiver's own USB device, found as the resume step finds it.
+
+| field | type | meaning |
+|---|---|---|
+| `device` | string or null | the sysfs device directory; null when it was not found |
+| `vendor` | string or null | idVendor |
+| `product` | string or null | idProduct |
+| `authorized` | string or null | the `authorized` file's content (1 is on) |
+| `error` | string or null | why the step could not find it, when it could not |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "FileView": {
+      "additionalProperties": false,
+      "description": "One file the resume step installs, compared with what this engine would write now.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "state"
+      ],
+      "title": "FileView",
+      "type": "object"
+    },
+    "ReceiverView": {
+      "additionalProperties": false,
+      "description": "One /dev/gpsN and what gpsd and the bus say about it.",
+      "properties": {
+        "link": {
+          "title": "Link",
+          "type": "string"
+        },
+        "node": {
+          "title": "Node",
+          "type": "string"
+        },
+        "listed_by_gpsd": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Listed By Gpsd"
+        },
+        "data_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Data Seconds"
+        },
+        "usb": {
+          "$ref": "#/$defs/UsbView"
+        }
+      },
+      "required": [
+        "link",
+        "node",
+        "listed_by_gpsd",
+        "data_seconds",
+        "usb"
+      ],
+      "title": "ReceiverView",
+      "type": "object"
+    },
+    "UnitView": {
+      "additionalProperties": false,
+      "description": "``systemctl show`` of the resume unit; no privilege needed.",
+      "properties": {
+        "load_state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Load State"
+        },
+        "unit_file_state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unit File State"
+        },
+        "active_state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Active State"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Result"
+        },
+        "exec_main_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Exec Main Status"
+        },
+        "active_enter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Active Enter"
+        },
+        "exec_main_exit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Exec Main Exit"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        }
+      },
+      "required": [
+        "load_state",
+        "unit_file_state",
+        "active_state",
+        "result",
+        "exec_main_status",
+        "active_enter",
+        "exec_main_exit",
+        "error"
+      ],
+      "title": "UnitView",
+      "type": "object"
+    },
+    "UsbView": {
+      "additionalProperties": false,
+      "description": "The receiver's own USB device, found as the resume step finds it.",
+      "properties": {
+        "device": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Device"
+        },
+        "vendor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Vendor"
+        },
+        "product": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Product"
+        },
+        "authorized": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Authorized"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        }
+      },
+      "required": [
+        "device",
+        "vendor",
+        "product",
+        "authorized",
+        "error"
+      ],
+      "title": "UsbView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Whether the GPS resume step is installed as this engine writes it, what its\nlast run did, and whether the receiver is delivering data now.",
+  "properties": {
+    "files": {
+      "items": {
+        "$ref": "#/$defs/FileView"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "enabled": {
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "unit": {
+      "$ref": "#/$defs/UnitView"
+    },
+    "gpsd_answered": {
+      "title": "Gpsd Answered",
+      "type": "boolean"
+    },
+    "gpsd_devices": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Gpsd Devices",
+      "type": "array"
+    },
+    "receivers": {
+      "items": {
+        "$ref": "#/$defs/ReceiverView"
+      },
+      "title": "Receivers",
+      "type": "array"
+    },
+    "data_window": {
+      "title": "Data Window",
+      "type": "number"
+    },
+    "log_path": {
+      "title": "Log Path",
+      "type": "string"
+    },
+    "log_present": {
+      "title": "Log Present",
+      "type": "boolean"
+    },
+    "log_modified": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Log Modified"
+    },
+    "log_lines": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Log Lines",
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Findings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "files",
+    "enabled",
+    "unit",
+    "gpsd_answered",
+    "gpsd_devices",
+    "receivers",
+    "data_window",
+    "log_path",
+    "log_present",
+    "log_modified",
+    "log_lines",
+    "findings"
+  ],
+  "title": "GpsResumeReportDocument",
   "type": "object"
 }
 ```

@@ -37,6 +37,12 @@ What it does, one journal line per action:
    The data check is then repeated once. With no ``authorized`` or no device
    found, it falls back to ``systemctl try-restart gpsd.service`` (once).
 
+Every line is also written to ``/run/hammunition/gps-resume.log`` (0644,
+replaced at the start of each run, ``--log-file``): the journal of a system
+unit needs ``systemd-journal`` membership, and ``hammunition hardware
+gps-resume-report`` reads this file instead. A log that cannot be written
+never stops the run.
+
 The exit status is 0 only when data was seen from every receiver. Otherwise it
 is 1 and the last line names the manual steps, so ``systemctl status`` shows
 them.
@@ -56,6 +62,7 @@ for the test suite; the unit passes none.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -63,6 +70,7 @@ import socket
 import subprocess
 import time
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 
 _GPS = re.compile(r"gps([0-9]+)")
@@ -73,8 +81,36 @@ _MANUAL = (
 )
 
 
-def log(message: str) -> None:
-    print(message, flush=True)
+_LOG: list[int] = []
+"""The open log file's descriptor, when there is one (a list, not a global)."""
+
+
+def open_log(path: str) -> None:
+    """Replace the log with a new one, 0644. Never raises: no log is not a fault."""
+    close_log()
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o644)
+    except OSError:
+        return
+    with contextlib.suppress(OSError):
+        os.fchmod(fd, 0o644)
+    _LOG.append(fd)
+
+
+def close_log() -> None:
+    while _LOG:
+        with contextlib.suppress(OSError):
+            os.close(_LOG.pop())
+
+
+def log(message: str, *, echo: bool = True) -> None:
+    """One line to stdout (the journal) and to the log file; ``echo=False`` is the
+    file alone, for the lines the journal already stamps itself."""
+    if echo:
+        print(message, flush=True)
+    if _LOG:
+        with contextlib.suppress(OSError):
+            os.write(_LOG[0], (message + "\n").encode("utf-8", "replace"))
 
 
 def receivers(dev: Path) -> list[tuple[str, str]]:
@@ -264,8 +300,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cycle-pause", type=float, default=3.0)
     parser.add_argument("--reenum-window", type=float, default=10.0)
     parser.add_argument("--relist-window", type=float, default=5.0)
+    parser.add_argument("--log-file", default="/run/hammunition/gps-resume.log")
     args = parser.parse_args(argv)
+    open_log(args.log_file)
+    try:
+        log(
+            f"gps-resume run started {datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}",
+            echo=False,
+        )
+        code = _run(args)
+        log(f"gps-resume run finished: exit {code}", echo=False)
+        return code
+    finally:
+        close_log()
 
+
+def _run(args: argparse.Namespace) -> int:
     found = receivers(Path(args.dev))
     if not found:
         log("no /dev/gpsN: no receiver attached, or it is parked; nothing to do")

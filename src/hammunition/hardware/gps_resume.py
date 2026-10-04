@@ -7,15 +7,19 @@
 Measured on the field laptop: across 19 suspends the USB receiver was never
 re-enumerated, so no ``gpsdctl`` remove or add followed a resume, and gpsd can
 keep a tty that has gone quiet. Every recovery that worked gave gpsd a fresh
-open. Two root-owned files do that after each resume:
+open. Three root-owned files do that after each resume:
 
 - ``/usr/local/libexec/hammunition-gps-resume``, the script in
   :mod:`hammunition.hardware.gps_resume_script`, installed whole with our
   header, 0755;
 - ``/etc/systemd/system/hammunition-gps-resume.service``, a oneshot ordered
-  after the four sleep targets and wanted by them, enabled (never started).
+  after the four sleep targets and wanted by them, enabled (never started);
+- ``/etc/tmpfiles.d/hammunition-gps-resume.conf``, one ``d`` line making
+  ``/run/hammunition`` (0755, root), where the script writes its last run's
+  lines to ``gps-resume.log`` (0644) so an operator who is not in
+  ``systemd-journal`` can read them: ``hammunition hardware gps-resume-report``.
 
-Both are staged and installed by ``install -D``, the route the helper takes
+All are staged and installed by ``install -D``, the route the helper takes
 (D-056), disclosed in full in the plan, read back afterwards (D-031), and
 removed by content: a file is removed only when it starts with the header
 Hammunition writes. A file at either path without that header refuses the
@@ -37,10 +41,13 @@ from hammunition.backends.base import Command
 
 __all__ = [
     "GPSD",
+    "LOG",
     "PATHS",
+    "RUN_DIR",
     "SCRIPT",
     "SLEEP_TARGETS",
     "SYSTEMD_DIR",
+    "TMPFILES",
     "UNIT_HEADER",
     "UNIT_NAME",
     "GpsResume",
@@ -55,6 +62,7 @@ __all__ = [
     "script_content",
     "stage",
     "status",
+    "tmpfiles_content",
     "unit_content",
     "unit_path",
     "verify",
@@ -67,6 +75,10 @@ GPSD = "/usr/sbin/gpsd"
 
 SCRIPT = "/usr/local/libexec/hammunition-gps-resume"
 SYSTEMD_DIR = "/etc/systemd/system"
+TMPFILES = "/etc/tmpfiles.d/hammunition-gps-resume.conf"
+RUN_DIR = "/run/hammunition"
+LOG = "/run/hammunition/gps-resume.log"
+"""Where the script writes the lines of its last run (0644), beside the journal."""
 UNIT_NAME = "hammunition-gps-resume.service"
 SLEEP_TARGETS = (
     "suspend.target",
@@ -75,7 +87,14 @@ SLEEP_TARGETS = (
     "suspend-then-hibernate.target",
 )
 
-PATHS: dict[str, str] = {"GPSD": GPSD, "SCRIPT": SCRIPT, "SYSTEMD_DIR": SYSTEMD_DIR}
+PATHS: dict[str, str] = {
+    "GPSD": GPSD,
+    "SCRIPT": SCRIPT,
+    "SYSTEMD_DIR": SYSTEMD_DIR,
+    "TMPFILES": TMPFILES,
+    "RUN_DIR": RUN_DIR,
+    "LOG": LOG,
+}
 """Each path attribute and its real default, for the fixtures that repoint them.
 Read as module globals at call time, so a test's ``monkeypatch.setattr`` holds."""
 
@@ -87,6 +106,7 @@ _SCRIPT_HEADER = (
 )
 _STAGED_SCRIPT = "hammunition-gps-resume"
 _STAGED_UNIT = "hammunition-gps-resume.service"
+_STAGED_TMPFILES = "tmpfiles-hammunition-gps-resume.conf"
 
 
 class GpsResumeError(Exception):
@@ -106,6 +126,16 @@ def script_content() -> str:
     """The installed script: a shebang, our header, then the module's own source."""
     source = Path(__file__).with_name("gps_resume_script.py").read_text(encoding="utf-8")
     return f"#!/usr/bin/python3 -I\n{_SCRIPT_HEADER}{source}"
+
+
+def tmpfiles_content() -> str:
+    """The one ``d`` line, under our header: the directory the log lives in."""
+    return (
+        f"{UNIT_HEADER} The directory the resume step writes its\n"
+        "# last run's lines to, for an operator who cannot read the journal.\n"
+        "# `hammunition hardware unapply` removes this file.\n"
+        f"d {RUN_DIR} 0755 root root -\n"
+    )
 
 
 def unit_content() -> str:
@@ -161,10 +191,14 @@ class GpsResume:
     unit_current: bool
     enabled: bool
     """Every sleep target's ``.wants`` link is present."""
+    tmpfiles_current: bool = True
+    """The tmpfiles line for the log's directory is as this engine writes it."""
 
     @property
     def is_noop(self) -> bool:
-        return not self.gpsd or (self.script_current and self.unit_current and self.enabled)
+        return not self.gpsd or (
+            self.script_current and self.unit_current and self.enabled and self.tmpfiles_current
+        )
 
 
 def _ours(text: str | None) -> bool:
@@ -191,13 +225,16 @@ def plan_gps_resume() -> GpsResume:
         return GpsResume(gpsd=False, script_current=False, unit_current=False, enabled=False)
     script = _read(SCRIPT)
     unit = _read(unit_path())
+    tmpfiles = _read(TMPFILES)
     _refuse_foreign(SCRIPT, script)
     _refuse_foreign(unit_path(), unit)
+    _refuse_foreign(TMPFILES, tmpfiles)
     return GpsResume(
         gpsd=True,
         script_current=script == script_content() and _script_executable(),
         unit_current=unit == unit_content(),
         enabled=_enabled(),
+        tmpfiles_current=tmpfiles == tmpfiles_content(),
     )
 
 
@@ -224,6 +261,13 @@ def disclose(step: GpsResume) -> list[str]:
             f"  {SCRIPT} (root-owned 0755, run as root by the unit):",
             *(f"    {line}" for line in script_content().splitlines()),
         ]
+    if not step.tmpfiles_current:
+        lines += [
+            f"  {TMPFILES} (root-owned 0644; `systemd-tmpfiles --create` makes {RUN_DIR} now):",
+            *(f"    {line}" for line in tmpfiles_content().splitlines()),
+            f"  The script writes its last run's lines to {LOG} (0644), so an operator who",
+            "  cannot read the journal can see them with `hammunition hardware gps-resume-report`.",
+        ]
     if not step.unit_current:
         lines += [
             f"  {unit_path()}:",
@@ -236,7 +280,8 @@ def disclose(step: GpsResume) -> list[str]:
         )
     lines += [
         f"  Inspect: `systemctl cat {UNIT_NAME}`, `systemctl status {UNIT_NAME}`,",
-        f"  and each run's lines with `journalctl -u {UNIT_NAME}`.",
+        f"  each run's lines with `journalctl -u {UNIT_NAME}` or, without the journal,",
+        f"  `cat {LOG}`; `hammunition hardware gps-resume-report` shows all of it.",
         "  Reverse: `hammunition hardware unapply`. `--no-gps-resume` leaves it out of this run.",
     ]
     return lines
@@ -254,6 +299,26 @@ def install_commands(step: GpsResume, staging_root: str) -> list[Command]:
                 requires_root=True,
             )
         )
+    if not step.tmpfiles_current:
+        out += [
+            Command(
+                argv=(
+                    "install",
+                    "-D",
+                    "-m",
+                    "0644",
+                    f"{staging_root}/{_STAGED_TMPFILES}",
+                    TMPFILES,
+                ),
+                description=f"Install the GPS resume log's tmpfiles line to {TMPFILES}",
+                requires_root=True,
+            ),
+            Command(
+                argv=("systemd-tmpfiles", "--create", TMPFILES),
+                description=f"Make {RUN_DIR} now, as the tmpfiles line says",
+                requires_root=True,
+            ),
+        ]
     if not step.unit_current:
         out += [
             Command(
@@ -286,6 +351,9 @@ def stage(step: GpsResume, staging_dir: Path) -> None:
         # Semgrep: a deliberate mode (0755/0644 on installed files and launchers, 0700 private); nothing group- or world-writable.
         # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
         os.chmod(staging_dir / _STAGED_SCRIPT, 0o755)
+    if not step.tmpfiles_current:
+        (staging_dir / _STAGED_TMPFILES).write_text(tmpfiles_content())
+        os.chmod(staging_dir / _STAGED_TMPFILES, 0o644)
     if not step.unit_current:
         (staging_dir / _STAGED_UNIT).write_text(unit_content())
         os.chmod(staging_dir / _STAGED_UNIT, 0o644)
@@ -302,6 +370,8 @@ def verify(step: GpsResume) -> list[str]:
         problems.append(f"{SCRIPT} is not mode 0755")
     if _read(unit_path()) != unit_content():
         problems.append(f"{unit_path()} on disk does not match what we wrote")
+    if _read(TMPFILES) != tmpfiles_content():
+        problems.append(f"{TMPFILES} on disk does not match what we wrote")
     missing = [link for link in wants_links() if not Path(link).is_symlink()]
     if missing:
         problems.append(f"{UNIT_NAME} is not enabled: {', '.join(missing)} missing")
@@ -318,7 +388,12 @@ def status() -> ResumeStatus:
     unit = _read(unit_path())
     if script is None and unit is None:
         return "absent"
-    if script == script_content() and unit == unit_content() and _enabled():
+    if (
+        script == script_content()
+        and unit == unit_content()
+        and _read(TMPFILES) == tmpfiles_content()
+        and _enabled()
+    ):
         return "installed"
     return "stale"
 
@@ -327,10 +402,11 @@ def status() -> ResumeStatus:
 class GpsResumeRemoval:
     unit_ours: bool
     script_ours: bool
+    tmpfiles_ours: bool = False
 
     @property
     def is_empty(self) -> bool:
-        return not (self.unit_ours or self.script_ours)
+        return not (self.unit_ours or self.script_ours or self.tmpfiles_ours)
 
 
 def plan_gps_resume_removal() -> GpsResumeRemoval:
@@ -340,6 +416,7 @@ def plan_gps_resume_removal() -> GpsResumeRemoval:
     return GpsResumeRemoval(
         unit_ours=_ours(unit),
         script_ours=_ours(script),
+        tmpfiles_ours=_ours(_read(TMPFILES)),
     )
 
 
@@ -366,6 +443,19 @@ def removal_commands(removal: GpsResumeRemoval) -> list[Command]:
                 requires_root=True,
             )
         )
+    if removal.tmpfiles_ours:
+        out += [
+            Command(
+                argv=("rm", "-f", TMPFILES, LOG),
+                description=f"Remove {TMPFILES} and the last run's log, written by Hammunition",
+                requires_root=True,
+            ),
+            Command(
+                argv=("rmdir", "--ignore-fail-on-non-empty", RUN_DIR),
+                description=f"Remove {RUN_DIR} if nothing else is in it",
+                requires_root=True,
+            ),
+        ]
     if removal.unit_ours:
         out.append(
             Command(
@@ -387,4 +477,6 @@ def verify_removal(removal: GpsResumeRemoval) -> list[str]:
         ]
     if removal.script_ours and Path(SCRIPT).exists():
         problems.append(f"{SCRIPT} is still present")
+    if removal.tmpfiles_ours and Path(TMPFILES).exists():
+        problems.append(f"{TMPFILES} is still present")
     return problems

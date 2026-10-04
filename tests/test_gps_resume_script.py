@@ -122,7 +122,16 @@ def machine(tmp_path: Path) -> dict[str, Path]:
         tools[name] = tool
     control = tmp_path / "gpsd.sock"
     control.write_text("")
-    return {"dev": dev, "log": log, "control": control, "sysfs": tmp_path / "sys", **tools}
+    runlog = tmp_path / "run" / "gps-resume.log"
+    runlog.parent.mkdir()
+    return {
+        "dev": dev,
+        "log": log,
+        "runlog": runlog,
+        "control": control,
+        "sysfs": tmp_path / "sys",
+        **tools,
+    }
 
 
 def _receiver(dev: Path, number: int = 0, tty: str = "ttyACM0") -> None:
@@ -177,6 +186,8 @@ def _argv(
         str(port),
         "--timeout",
         str(timeout),
+        "--log-file",
+        str(m["runlog"]),
     ]
 
 
@@ -634,3 +645,56 @@ def test_the_real_write_goes_to_a_real_file(machine: dict[str, Path], tmp_path: 
     target = tmp_path / "authorized"
     script.write_value(str(target), "0")
     assert target.read_text() == "0"
+
+
+# ---- the log file beside the journal (issue #177) -------------------------
+
+
+def test_a_run_writes_its_lines_to_a_0644_log_and_the_next_run_replaces_it(
+    machine: dict[str, Path],
+) -> None:
+    runlog = machine["runlog"]
+    runlog.write_text("a previous run\n")
+    runlog.chmod(0o600)
+    assert script.main(_argv(machine, None)) == 0
+    text = runlog.read_text()
+    assert "a previous run" not in text
+    lines = text.splitlines()
+    assert lines[0].startswith("gps-resume run started 20")
+    assert "nothing to do" in lines[1]
+    assert lines[-1] == "gps-resume run finished: exit 0"
+    assert runlog.stat().st_mode & 0o777 == 0o644
+
+
+def test_the_log_carries_what_the_journal_does(
+    machine: dict[str, Path], gpsd: list[FakeGpsd], capsys: pytest.CaptureFixture[str]
+) -> None:
+    _receiver(machine["dev"])
+    tty = str(machine["dev"] / "ttyACM0")
+    server = FakeGpsd([[tty], [tty], alive(tty)])
+    gpsd.append(server)
+    assert script.main(_argv(machine, server, data_window=5.0)) == 0
+    printed = capsys.readouterr().out.splitlines()
+    logged = machine["runlog"].read_text().splitlines()
+    assert logged[1:-1] == printed
+    assert "gpsdctl remove" in logged[1]
+
+
+def test_a_log_that_cannot_be_written_never_stops_the_run(
+    machine: dict[str, Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv = _argv(machine, None)
+    argv[argv.index("--log-file") + 1] = str(machine["runlog"].parent / "absent" / "x.log")
+    assert script.main(argv) == 0
+    assert "nothing to do" in capsys.readouterr().out
+    assert script._LOG == []
+
+
+def test_a_log_path_that_is_a_symlink_is_not_followed(
+    machine: dict[str, Path], tmp_path: Path
+) -> None:
+    victim = tmp_path / "victim"
+    victim.write_text("keep")
+    machine["runlog"].symlink_to(victim)
+    assert script.main(_argv(machine, None)) == 0
+    assert victim.read_text() == "keep"

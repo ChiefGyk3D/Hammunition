@@ -4221,11 +4221,14 @@ def test_hardware_apply_discloses_installs_and_logs_the_gps_resume_step(
     assert [c.argv[:2] for c in runner.ran] == [
         ("install", "-D"),
         ("install", "-D"),
+        ("systemd-tmpfiles", "--create"),
+        ("install", "-D"),
         ("systemctl", "daemon-reload"),
         ("systemctl", "enable"),
     ]
+    assert Path(gr.TMPFILES).read_text() == gr.tmpfiles_content()
     events = [e for e in logged if e.get("event") == "gps_resume"]
-    assert len(events) == 4 and all(e["version"] == 1 and e["argv"] for e in events)
+    assert len(events) == 6 and all(e["version"] == 1 and e["argv"] for e in events)
     assert "Done and verified" in out
 
 
