@@ -78,6 +78,7 @@ from .repeaters import (
     _Skips,
     _tone,
     _updated,
+    csv_records,
     format_mhz,
 )
 
@@ -742,7 +743,7 @@ def parse_etcc(raw: bytes, url: str) -> ParsedInput:
     rows: list[Repeater] = []
     skips = _Skips()
     read = 0
-    for record in reader:
+    for record in csv_records(reader):
         if not any(cell.strip() for cell in record):
             continue
         read += 1
@@ -915,7 +916,7 @@ def read_direwolf_logs(paths: Sequence[Path]) -> ParsedInput:
                 f"{path}: not a Direwolf log (Direwolf's -l or -L CSV, whose header starts "
                 f"{','.join(DIREWOLF_HEAD)})"
             )
-        for record in reader:
+        for record in csv_records(reader):
             if not any(cell.strip() for cell in record):
                 continue
             read += 1
