@@ -1,0 +1,88 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: rnode
+summary: RNode, Reticulum's LoRa transceiver firmware, on the LilyGO, Heltec and RAK boards it supports
+vendor: various (LilyGO, Heltec Automation, RAK Wireless, unsigned.io, Liberated Embedded Systems)
+device_class: badgelife
+status: untested
+
+# Recorded from upstream data, not from hardware, as `meshtastic` is, and for the
+# same reason: RNode is not one board, it is firmware (and an open design) that
+# runs on a family of them. `untested`, not `supported`: `supported` is earned by
+# a confirmed identifier of the entry's own (D-018, D-027; the catalog's own test
+# refuses it otherwise), and there is none to confirm. No RNode has been run here.
+#
+# What was read, 2026-10-03, and what it does NOT contain:
+#   * Reticulum's manual (1.5.5), "Communications Hardware", lists the boards
+#     the auto-installer supports: fifteen, from the LilyGO T-Beam, T-Beam
+#     Supreme, T3S3, LoRa32 v1.0/2.0/2.1, T-Deck and T-Echo, through the RAK4631
+#     boards, Heltec LoRa32 v2/v3/v4 and T114, to the OpenCom XL and unsigned.io's
+#     RNode v2.x.
+#   * markqvist/RNode_Firmware (GPL-3.0, last pushed 2026-09-27) `Boards.h`
+#     defines 21 board identifiers and the model codes for their 433 MHz, 868 MHz
+#     and (Heltec v4) 850-950 MHz variants. It names no USB vendor or product id:
+#     a flasher addresses a serial port, so the file has no reason to.
+# So there is no identifier to carry, and none is invented. A board enumerates as
+# its base board does (ESP32-S3 native USB, CP210x or CH34x bridge, nRF52840), the
+# same silicon the `badgelife` class and `meshtastic` already carry, each already
+# marked ambiguous by measurement. No udev symlink (D-028): the chips are the ones
+# the rig cable uses.
+identification_gap: >-
+  RNode is firmware, so it has no USB identifier of its own, and upstream's board
+  list (Boards.h in RNode_Firmware, and Reticulum's manual) names boards but no
+  VID:PID, so no identifier can be taken from it without a capture. A board
+  presents the identifiers of its base module, which the badgelife class and the
+  meshtastic entry already carry as ambiguous. What no source records is what a
+  *provisioned RNode* reports in its manufacturer and product strings, which is
+  the only thing that could make a per-board rule safe.
+gap_closure: unverified_by_maintainer
+
+packages: [rns]
+firmware:
+  - kind: vendor_tool
+    packages: [rns]
+    note: >-
+      `rnodeconf` (installed by the `rns` unit) identifies, flashes, provisions and
+      configures an RNode; `rnodeconf --autoinstall` walks through it. It fetches
+      firmware from upstream itself unless told otherwise. Where it fetches from
+      and whether it verifies the download were not measured. Firmware that runs
+      on the board is upstream's, not something this project installs (D-026).
+
+documentation:
+  what_it_is: >-
+    A LoRa radio modem for Reticulum: an open design and firmware (upstream's
+    RNode_Firmware, GPL-3.0) that turns a common LoRa development board into a
+    serial or Bluetooth device Reticulum can use as a network interface. It is not
+    one product from one vendor. Reticulum's manual lists fifteen supported boards
+    (LilyGO T-Beam, T-Beam Supreme, T3S3, LoRa32, T-Deck and T-Echo, the RAK4631
+    boards, Heltec LoRa32 and T114, the OpenCom XL, unsigned.io's RNode v2) and says
+    RNode uses raw LoRa modulation and has nothing to do with LoRaWAN.
+  what_you_can_do_with_it: >-
+    Carry Reticulum over kilometres of radio with no infrastructure: attach the
+    board, add an `RNodeInterface` to `~/.reticulum/config` with a frequency,
+    bandwidth, spreading factor and transmit power, and every Reticulum program
+    (NomadNet, `rnsh`, `rncp`) reaches whoever else is on that channel. An RNode
+    is a different network from Meshtastic's and the two do not talk.
+  setup_steps: >-
+    Install the `mesh` profile (`hammunition install mesh`), which brings `rnodeconf`
+    with `rns`; add yourself to `dialout` and log out and back in. Attach the
+    board and run `rnodeconf --autoinstall` as Reticulum's manual describes, then
+    add the interface; docs/guides/mesh-and-reticulum.md section 6 has the stanza and
+    the options. Nothing here has been run against a board.
+  known_problems: >-
+    **Frequency and power are yours to get right.** Radio spectrum is regulated and
+    varies by country; upstream's manual says so beside every radio interface. Two
+    things to know before you transmit on an amateur band, stated as disclosure and
+    not as a ruling: Reticulum encrypts every packet, and in the United States
+    Part 97 forbids messages encoded to obscure their meaning on amateur
+    frequencies, so whether a given link is lawful is for you to establish, not for
+    this catalog to say; and upstream's manual says RNodes most commonly use LoRa in
+    the common ISM bands, which have their own power and duty-cycle rules (upstream's
+    RNodeInterface has `airtime_limit_long` and `airtime_limit_short`, and
+    `id_callsign` and `id_interval` for identification). A serial port that is
+    parked or that you cannot open is the same `dialout` and parked-device story as
+    any other board. The board lists above are upstream's as read on 2026-10-03,
+    not a claim about which boards work.
+  upstream_url: https://github.com/markqvist/RNode_Firmware

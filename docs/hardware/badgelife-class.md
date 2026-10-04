@@ -12,6 +12,7 @@ A device class rather than a single device: conference badges, SAOs and the deve
 - [clip-boy](clip-boy.md)
 - [meshtastic](meshtastic.md)
 - [minino](minino.md)
+- [rnode](rnode.md)
 
 ## Shared setup
 

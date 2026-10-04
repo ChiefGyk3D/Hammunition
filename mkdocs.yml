@@ -195,6 +195,7 @@ nav:
           - DMR radios: hardware/dmr-radio-class.md
           - GPS receivers: hardware/gps-receiver-class.md
           - Meshtastic nodes: hardware/meshtastic.md
+          - RNode, Reticulum's LoRa radio: hardware/rnode.md
           - ClockworkPi uConsole: hardware/uconsole.md
       - Security and research hardware:
           - Proxmark3: hardware/proxmark3.md
