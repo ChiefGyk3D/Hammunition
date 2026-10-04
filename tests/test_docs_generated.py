@@ -694,6 +694,7 @@ CHECKED_GENERATORS: list[tuple[str, list[str], list[Path]]] = [
     ("gen_json_reference.py", ["docs/reference/json-interface.md"], []),
     ("gen_station_settings.py", ["docs/guides/station-settings.md"], []),
     ("gen_projects_page.py", ["docs/projects.md"], []),
+    ("gen_application_directory.py", ["docs/applications.md"], []),
     (
         "gen_geofabrik_countries.py",
         ["catalog/data/geofabrik-countries.yaml"],

@@ -33,6 +33,12 @@ finish it without asking anyone a question.
 4. **[Troubleshooting](troubleshooting/index.md).** By symptom, when something
    does not do what a page said it would.
 
+Also: **[The Hammunition suite](suite.md)** (the engine, Tray, Hill, Bunker,
+Console and GPS Tether, and how they fit), **[Applications by
+activity](applications.md)**, **[EMCOMM preparation and field
+use](guides/emcomm-field.md)** and **[what to download before a
+deployment](getting-started/before-deployment.md)**.
+
 ## Five minutes to a plan
 
 The short form of step 1, for someone who has done this before:

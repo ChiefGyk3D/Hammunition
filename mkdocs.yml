@@ -56,6 +56,10 @@ validation:
 theme:
   name: material
   language: en
+  # No web fonts: Material fetches Google Fonts unless this is false, and the
+  # documentation tarball (release.yml) must read with no network. The system's
+  # own fonts are used; tests/test_site.py holds this.
+  font: false
   icon:
     logo: material/radio-tower
     repo: fontawesome/brands/github
@@ -110,6 +114,8 @@ plugins:
 nav:
   - Home:
       - index.md
+      - The Hammunition suite: suite.md
+      - Applications by activity: applications.md
       - The projects we install: projects.md
       - Credits: credits.md
   - Installation: getting-started/installation.md
@@ -154,6 +160,7 @@ nav:
           - Satellites: guides/satellite.md
           - Propagation: guides/propagation.md
       - In the field:
+          - EMCOMM preparation and field use: guides/emcomm-field.md
           - Offline navigation: guides/offline-navigation.md
           - Offline reference: guides/offline-reference.md
           - A LAN mirror for map and reference data: guides/lan-mirror.md
@@ -167,6 +174,7 @@ nav:
       - getting-started/index.md
       - Installing the engine, short form: getting-started/install.md
       - How much disk you need: getting-started/disk-space.md
+      - Before a deployment, what to download: getting-started/before-deployment.md
       - Your first profile: getting-started/first-profile.md
       - First contact: getting-started/first-contact.md
       - The console: getting-started/console.md

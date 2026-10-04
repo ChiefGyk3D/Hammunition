@@ -127,9 +127,10 @@ documentation:
     (a taken port, root, a bad option); a crash, exit 1, is retried every 5
     seconds. There is no `hammunition-gps-tether` command on your
     PATH: the program is the installed tree run by the service, and
-    `hammunition maps gps-tether` runs the same tree in a terminal. Not yet
-    measured: the service started on a machine from this unit, and a reboot
-    with it enabled. A change to the tether's options means editing the unit by hand
+    `hammunition maps gps-tether` runs the same tree in a terminal. Measured on
+    the field laptop (bench session 13): the service started from this unit,
+    active on both ports, and still active at login after a reboot
+    (2026-10-03); a suspend and resume with it running is not yet measured. A change to the tether's options means editing the unit by hand
     or running it yourself — the engine renders the unit with no arguments
     and replaces it whole on a reinstall.
   upstream_url: https://github.com/ChiefGyk3D/hammunition-gps-tether
