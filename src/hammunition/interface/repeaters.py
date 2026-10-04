@@ -123,7 +123,8 @@ class RepeatersDocument(Strict):
 
     layer_id: str = described(
         "`export` (D-064's layer), `open-repeater`, `osm`, `etcc`, `brandmeister` or "
-        "`aprs-heard` (D-074), `acma` (D-074, amended 2026-10-01)"
+        "`aprs-heard` (D-074), `acma` (D-074, amended 2026-10-01), `repeaterbook-<AREA>` "
+        "(one per state, #325)"
     )
     layer: str = described("the layer's name, as QMapShack's project and POI file show it")
     exported: str = described(
@@ -171,7 +172,12 @@ class LayerView(Strict):
 
     id: str = described(
         "the layer's id: `export`, `acma`, `open-repeater`, `osm`, `etcc`, `brandmeister`, "
-        "`repeaterbook` or `aprs-heard`"
+        "`aprs-heard`, `repeaterbook` (the earlier merged layer) or `repeaterbook-<AREA>`, one "
+        "per state (`repeaterbook-OH`; RepeaterBook's `state_id` outside the US)"
+    )
+    area: str | None = described(
+        "the `<AREA>` of a per-state layer (`OH`, `CA01`), null for every other layer, so a "
+        "front end can group by it"
     )
     name: str = described("the layer's name, as QMapShack's project shows it")
     description: str = described("the layer's description, which carries each source's licence")

@@ -9545,6 +9545,34 @@ matches (`CSearch.cpp`, `CGisItemWpt.cpp`), so the waypoint name now carries
 label all carry it. A GUI run is the maintainer's: this is measured from the
 source, not observed.
 
+**Amended 2026-10-04 (#325, epic #326): RepeaterBook is one layer per state.**
+The maintainer, after fetching several states: "it's taking a long time to
+load a few states." Every `fetch-repeaterbook --state` had merged into the one
+`repeaterbook` layer, one `.poi` for every state fetched, and QMapShack's POI
+dock has one tick box per file. The layer id is now `repeaterbook-<AREA>`:
+the US postal code upper-cased (`repeaterbook-OH`), or RepeaterBook's
+`state_id` outside the US (`repeaterbook-CA01`), each with its own four files
+(`repeaters-repeaterbook-OH.*`) and title `Repeaters (RepeaterBook OH, personal
+use, YYYY-MM-DD, unverified)`. The id is validated (two letters and up to four
+digits, or digits alone, after upper-casing), so a state's name cannot pass for
+a code and nothing but letters and digits reaches a file name. `LAYERS` keeps
+its fixed ids and a pattern covers the areas (`is_layer_id`, `layer_stem`,
+`known_layers`); `present_layers`, `remove --layer`, `list --layer`, the
+all-sources rebuild and both registrations take them. A re-fetch of a state
+replaces that state's layer whole: the newer fetch is the truth, and the
+merge across runs is gone (the merge inside one run, over counties, stays).
+`--county NAME` (repeatable, with exactly one `--state`) uses the client's own
+`ExportQuery.counties`, read in 0.13.0's source, one request per county; an
+answer near the 3,500-row cut prints the way to ask by county. The earlier
+merged `repeaterbook` layer stays registered until the operator removes it;
+the fetch says so once. `LayerView` gains `area`. Measured from QMapShack
+1.17.1's source, not run: drawing is viewport-bound, not load-everything (see
+the guide), so the split buys smaller files, one tick box per state, and a
+state outside the view costing one bounds test per cell; it does not make a
+big state faster to draw. On-screen timing is the maintainer's. The
+per-region option for the other POI layers (`--per-region`) is a separate
+change.
+
 ## D-075 — Infrastructure and EMCOMM layers: eight OpenStreetMap layers from the extracts already here, FAA NASR, EIA-860M and WRI as pinned data, FCC ASR and NOAA Weather Radio on request, an `infra` tile layer and GeoJSON overlays on the browser map
 
 **Date:** 2026-10-01. **Status:** proposed (the spike's recommendation,

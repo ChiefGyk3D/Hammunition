@@ -17,6 +17,7 @@ import os
 import re
 import stat
 import sys
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -173,10 +174,11 @@ def test_the_token_reaches_the_runner_by_environment_only_and_one_unverified_lay
     assert out.index("Data courtesy of RepeaterBook.com") < out.index("Written:")
     flat = out.replace("\n", " ")
     assert "your own personal use on this machine" in flat and "never offered to a Bunker" in flat
-    assert "Repeaters (RepeaterBook, personal use, " in out and ", unverified)" in out
+    assert "Repeaters (RepeaterBook DE, personal use, " in out and ", unverified)" in out
     assert "Written: 2 repeaters" in out and "off the air (Operational Status): 1" in out
-    for name in repeaters.layer_files("repeaterbook"):
+    for name in repeaters.layer_files("repeaterbook-DE"):
         assert (home.layer / name).is_file()
+    assert not (home.layer / repeaters.layer_files("repeaterbook")[0]).exists()
     assert "not verified against the live API" in flat
     for leaked in PRIVATE:
         assert leaked not in out
@@ -190,20 +192,190 @@ def test_the_token_reaches_the_runner_by_environment_only_and_one_unverified_lay
     assert any(_run_logs_in_tmp.glob("*.log")), "the run was logged"
 
 
-def test_a_second_state_in_a_later_run_merges_into_the_same_layer(
+def _other_state(home: Home, call: str) -> None:
+    other = json.loads(FIXTURE.read_text())
+    other["results"] = [dict(other["results"][0], Callsign=call, Frequency="145.23000")]
+    home.answer({"ok": True, **other})
+
+
+def test_a_second_state_in_a_later_run_is_its_own_layer(
     home: Home, capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert cli.main(["maps", "repeaters", "fetch-repeaterbook", "--state", "DE"]) == 0
     capsys.readouterr()
-    other = json.loads(FIXTURE.read_text())
-    other["results"] = [dict(other["results"][0], Callsign="N0NEW", Frequency="145.23000")]
-    home.answer({"ok": True, **other})
+    _other_state(home, "N0NEW")
     code, out, _ = _run(["maps", "repeaters", "fetch-repeaterbook", "--state", "Vermont"], capsys)
     assert code == 0, out
     assert home.runs()[-1]["argv"][-1] == "50"  # type: ignore[index]
-    layer = repeaters.read_layer_rows(home.layer / repeaters.layer_files("repeaterbook")[3])
-    assert sorted(r.callsign for r in layer.rows) == ["N0CALL", "N0NEW", "N0TST"]
-    assert repeaters.present_layers(home.layer) == ("repeaterbook",)
+    de = repeaters.read_layer_rows(home.layer / repeaters.layer_files("repeaterbook-DE")[3])
+    vt = repeaters.read_layer_rows(home.layer / repeaters.layer_files("repeaterbook-VT")[3])
+    assert sorted(r.callsign for r in de.rows) == ["N0CALL", "N0TST"]
+    assert [r.callsign for r in vt.rows] == ["N0NEW"]
+    assert "RepeaterBook VT" in vt.name and "RepeaterBook DE" in de.name
+    assert repeaters.present_layers(home.layer) == ("repeaterbook-DE", "repeaterbook-VT")
+
+
+def test_two_states_in_one_run_write_two_layers_with_their_own_files(
+    home: Home, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out, _ = _run(
+        ["maps", "repeaters", "fetch-repeaterbook", "--state", "DE", "--state", "vt"], capsys
+    )
+    assert code == 0, out
+    for area in ("DE", "VT"):
+        for name in repeaters.layer_files(f"repeaterbook-{area}"):
+            assert (home.layer / name).is_file(), name
+    assert out.count("Written: 2 repeaters") == 2
+
+
+def test_a_refetch_replaces_that_states_layer_whole_and_only_that_state(
+    home: Home, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert (
+        cli.main(["maps", "repeaters", "fetch-repeaterbook", "--state", "DE", "--state", "VT"]) == 0
+    )
+    capsys.readouterr()
+    vt_before = (home.layer / repeaters.layer_files("repeaterbook-VT")[3]).read_text()
+    _other_state(home, "N0NEW")
+    code, out, _ = _run(["maps", "repeaters", "fetch-repeaterbook", "--state", "DE"], capsys)
+    assert code == 0, out
+    de = repeaters.read_layer_rows(home.layer / repeaters.layer_files("repeaterbook-DE")[3])
+    assert [r.callsign for r in de.rows] == ["N0NEW"], "the newer fetch is the truth, no merge"
+    assert (home.layer / repeaters.layer_files("repeaterbook-VT")[3]).read_text() == vt_before
+
+
+def test_a_non_us_state_id_is_the_area(home: Home, capsys: pytest.CaptureFixture[str]) -> None:
+    code, out, _ = _run(
+        ["maps", "repeaters", "fetch-repeaterbook", "--country", "Canada", "--state", "ca01"],
+        capsys,
+    )
+    assert code == 0, out
+    assert repeaters.present_layers(home.layer) == ("repeaterbook-CA01",)
+
+
+def test_the_old_merged_layer_is_mentioned_once_and_only_when_present(
+    home: Home, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out, _ = _run(
+        ["maps", "repeaters", "fetch-repeaterbook", "--state", "DE", "--state", "VT"], capsys
+    )
+    assert code == 0 and "earlier merged layer" not in out
+    old = home.layer / repeaters.layer_files("repeaterbook")[0]
+    repeaters.write_layer(
+        home.layer,
+        repeaters.Layer(
+            "old",
+            "d",
+            date(2026, 9, 1),
+            (
+                repeaters.Repeater(
+                    callsign="N0OLD",
+                    output_hz=146_940_000,
+                    lat=39.8,
+                    lon=-89.6,
+                    source=repeaters.REPEATERBOOK_API,
+                ),
+            ),
+        ),
+        "repeaterbook",
+    )
+    assert old.is_file()
+    code, out, _ = _run(
+        ["maps", "repeaters", "fetch-repeaterbook", "--state", "DE", "--state", "VT"], capsys
+    )
+    assert code == 0, out
+    assert out.count("the earlier merged layer `repeaterbook` is still registered") == 1
+    assert "hammunition maps repeaters remove --layer repeaterbook`" in out.replace("\n", " ")
+    # the old layer is untouched
+    assert old.is_file()
+
+
+def test_remove_one_state_through_the_cli(home: Home, capsys: pytest.CaptureFixture[str]) -> None:
+    assert (
+        cli.main(["maps", "repeaters", "fetch-repeaterbook", "--state", "DE", "--state", "VT"]) == 0
+    )
+    capsys.readouterr()
+    code, out, err = _run(["maps", "repeaters", "remove", "--layer", "repeaterbook-DE"], capsys)
+    assert code == 0, out + err
+    assert repeaters.present_layers(home.layer) == ("repeaterbook-VT",)
+    with pytest.raises(SystemExit):
+        cli.main(["maps", "repeaters", "remove", "--layer", "repeaterbook-O"])
+    assert "not a repeater layer" in capsys.readouterr().err
+
+
+def test_list_narrows_to_one_state_and_carries_its_area(
+    home: Home, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert (
+        cli.main(["maps", "repeaters", "fetch-repeaterbook", "--state", "DE", "--state", "VT"]) == 0
+    )
+    capsys.readouterr()
+    code, out, err = _run(
+        ["maps", "repeaters", "list", "--json", "--layer", "repeaterbook-VT"], capsys
+    )
+    assert code == 0, err
+    doc = json.loads(out)
+    layers = {x["id"]: x for x in doc["layers"]}
+    assert list(layers) == ["repeaterbook-VT"] and layers["repeaterbook-VT"]["area"] == "VT"
+    assert layers["repeaterbook-VT"]["personal_use"] is True
+
+
+def test_every_states_poi_is_in_what_qmapshack_is_told(
+    home: Home, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert (
+        cli.main(["maps", "repeaters", "fetch-repeaterbook", "--state", "DE", "--state", "VT"]) == 0
+    )
+    capsys.readouterr()
+    names = [p.name for p in cli._repeater_files(home.layer, 1)]
+    assert names == ["repeaters-repeaterbook-DE.poi", "repeaters-repeaterbook-VT.poi"]
+    text, any_ = cli._repeater_poi_paths("[Canvas]\n")
+    assert any_ and str(home.layer) in text
+
+
+def test_county_fetches_one_request_each_into_the_state_layer(
+    home: Home, capsys: pytest.CaptureFixture[str], _no_pause: list[float]
+) -> None:
+    code, out, err = _run(
+        [
+            "maps", "repeaters", "fetch-repeaterbook", "--state", "DE",
+            "--county", "Kent", "--county", "Sussex",
+        ],
+        capsys,
+    )  # fmt: skip
+    assert code == 0, out + err
+    argvs = [r["argv"] for r in home.runs()]
+    assert [a[-2:] for a in argvs] == [["--county", "Kent"], ["--county", "Sussex"]]  # type: ignore[index]
+    assert _no_pause == [rb.INTERVAL_SECONDS]
+    de = repeaters.read_layer_rows(home.layer / repeaters.layer_files("repeaterbook-DE")[3])
+    assert sorted(r.callsign for r in de.rows) == ["N0CALL", "N0TST"], "merged within the run"
+    assert repeaters.present_layers(home.layer) == ("repeaterbook-DE",)
+
+
+def test_county_needs_exactly_one_state(home: Home, capsys: pytest.CaptureFixture[str]) -> None:
+    code, _, err = _run(
+        [
+            "maps", "repeaters", "fetch-repeaterbook", "--state", "DE", "--state", "VT",
+            "--county", "Kent",
+        ],
+        capsys,
+    )  # fmt: skip
+    assert code == cli.EXIT_FAILED and "exactly one --state" in err and home.runs() == []
+
+
+def test_an_answer_at_the_cut_suggests_county(
+    home: Home, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(rb, "TRUNCATION_NOTE_AT", 6)
+    code, out, _ = _run(["maps", "repeaters", "fetch-repeaterbook", "--state", "DE"], capsys)
+    assert code == 0 and "--county" in out and "cut short" in out
+
+
+def test_the_area_of_a_us_state_is_its_postal_code() -> None:
+    assert rb.resolve_area("United States", "delaware") == ("10", "DE")
+    assert rb.resolve_area("United States", "10") == ("10", "DE")
+    assert rb.resolve_area("Canada", "ca01") == ("CA01", "CA01")
+    assert rb.resolve_area("Canada", "7") == ("07", "07")
 
 
 def test_two_states_in_one_run_pause_between_requests(
@@ -367,12 +539,12 @@ def test_every_rendering_credits_repeaterbook_with_a_link_and_is_private(
 
     assert cli.main(["maps", "repeaters", "fetch-repeaterbook", "--state", "DE"]) == 0
     capsys.readouterr()
-    gpx, poi, navit, rows = (home.layer / n for n in repeaters.layer_files("repeaterbook"))
+    gpx, poi, navit, rows = (home.layer / n for n in repeaters.layer_files("repeaterbook-DE"))
     for path in (gpx, poi, navit, rows):
         assert path.stat().st_mode & 0o777 == 0o600, path.name
     assert "repeaterbook" in navit.name  # Navit's textfile has no place for a title or a link
     text = gpx.read_text()
-    assert "<metadata><name>Repeaters (RepeaterBook, personal use, " in text
+    assert "<metadata><name>Repeaters (RepeaterBook DE, personal use, " in text
     assert text.count("<src>RepeaterBook (https://www.repeaterbook.com)") == 2
     assert "not be shared, re-served, mirrored" in text and "App #114" in text
     db = sqlite3.connect(poi)

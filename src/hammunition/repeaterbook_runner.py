@@ -5,7 +5,7 @@
 
 **Run by the ``repeaterbook-client`` unit's own venv python, never imported by
 the engine**: ``<venv>/bin/python -I /path/to/repeaterbook_runner.py --country
-NAME --state-id ID``. ``-I`` keeps this directory off ``sys.path`` (a
+NAME --state-id ID [--county NAME]``. ``-I`` keeps this directory off ``sys.path`` (a
 ``secrets.py`` beside it would shadow the standard library's). It uses only
 the standard library and that client (``repeaterbook``, ``pycountry``,
 ``anyio``, ``loguru``, all in the unit's pinned closure).
@@ -52,8 +52,9 @@ def _failure(kind: str, message: str, **extra: Any) -> dict[str, Any]:
     return document
 
 
-def fetch(country: str, state_id: str, token: str) -> dict[str, Any]:
-    """The export for one state as a document, or a failure document."""
+def fetch(country: str, state_id: str, token: str, county: str | None = None) -> dict[str, Any]:
+    """The export for one state (or one county of it) as a document, or a
+    failure document."""
     try:
         import anyio
         import pycountry
@@ -72,7 +73,11 @@ def fetch(country: str, state_id: str, token: str) -> dict[str, Any]:
             working_dir=anyio.Path(work),
             max_cache_age=timedelta(0),
         )
-        query = ExportQuery(countries=frozenset({found}), state_ids=frozenset({state_id}))
+        query = ExportQuery(
+            countries=frozenset({found}),
+            state_ids=frozenset({state_id}),
+            counties=frozenset({county}) if county else frozenset(),
+        )
         try:
             exports = asyncio.run(api.export_multi_json(api.urls_export(query)))
         except exceptions.RepeaterBookRateLimitError as exc:
@@ -121,13 +126,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else "")
     parser.add_argument("--country", required=True)
     parser.add_argument("--state-id", required=True)
+    parser.add_argument(
+        "--county", default=None, help="narrow to one county (the client's own parameter)"
+    )
     args = parser.parse_args(argv)
     token = os.environ.get(TOKEN_VARIABLE, "")
     if not token:
         document = _failure("no_token", f"{TOKEN_VARIABLE} is not set in this process")
     else:
         _quiet_client_logging()
-        document = fetch(args.country, args.state_id, token)
+        document = fetch(args.country, args.state_id, token, args.county)
     sys.stdout.write(json.dumps(document) + "\n")
     return 0 if document["ok"] else 1
 

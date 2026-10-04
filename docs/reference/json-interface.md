@@ -5141,7 +5141,7 @@ only: no repeater's callsign or position, and no region, is carried.
 
 | field | type | meaning |
 |---|---|---|
-| `layer_id` | string | `export` (D-064's layer), `open-repeater`, `osm`, `etcc`, `brandmeister` or `aprs-heard` (D-074), `acma` (D-074, amended 2026-10-01) |
+| `layer_id` | string | `export` (D-064's layer), `open-repeater`, `osm`, `etcc`, `brandmeister` or `aprs-heard` (D-074), `acma` (D-074, amended 2026-10-01), `repeaterbook-<AREA>` (one per state, #325) |
 | `layer` | string | the layer's name, as QMapShack's project and POI file show it |
 | `exported` | string | YYYY-MM-DD: `--exported`, else the oldest input's modification date; a fetch's own date |
 | `licences` | list of string | each source's licence text, printed before anything |
@@ -5497,7 +5497,8 @@ One layer read from the overlay directory.
 
 | field | type | meaning |
 |---|---|---|
-| `id` | string | the layer's id: `export`, `acma`, `open-repeater`, `osm`, `etcc`, `brandmeister`, `repeaterbook` or `aprs-heard` |
+| `id` | string | the layer's id: `export`, `acma`, `open-repeater`, `osm`, `etcc`, `brandmeister`, `aprs-heard`, `repeaterbook` (the earlier merged layer) or `repeaterbook-<AREA>`, one per state (`repeaterbook-OH`; RepeaterBook's `state_id` outside the US) |
+| `area` | string or null | the `<AREA>` of a per-state layer (`OH`, `CA01`), null for every other layer, so a front end can group by it |
 | `name` | string | the layer's name, as QMapShack's project shows it |
 | `description` | string | the layer's description, which carries each source's licence |
 | `day` | string | YYYY-MM-DD: the layer's date |
@@ -5604,6 +5605,17 @@ The point distances and bearings are measured from.
           "title": "Id",
           "type": "string"
         },
+        "area": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Area"
+        },
         "name": {
           "title": "Name",
           "type": "string"
@@ -5645,6 +5657,7 @@ The point distances and bearings are measured from.
       },
       "required": [
         "id",
+        "area",
         "name",
         "description",
         "day",
