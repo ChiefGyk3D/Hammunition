@@ -144,9 +144,16 @@ def version_line() -> str:
 
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "LC_ALL": "C"}
-    return subprocess.run(
-        ["git", "-C", str(root), *args], capture_output=True, text=True, env=env, check=False
-    )
+    try:
+        return subprocess.run(
+            ["git", "-C", str(root), *args], capture_output=True, text=True, env=env, check=False
+        )
+    except FileNotFoundError:
+        # A container image or a minimal install without git: say so, never a traceback.
+        raise Refused(
+            "git is not installed, so the checkout cannot be updated; "
+            "install it (`sudo apt install git`) and run this again. Nothing was changed."
+        ) from None
 
 
 def preflight(root: Path, *, release: bool) -> None:

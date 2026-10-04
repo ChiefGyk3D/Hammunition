@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -85,8 +86,23 @@ class Repo:
         return git(self.work, "rev-parse", "HEAD")
 
 
+def test_without_a_git_binary_it_refuses_with_a_sentence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def no_git(*_a: object, **_k: object) -> None:
+        raise FileNotFoundError(2, "No such file or directory", "git")
+
+    monkeypatch.setattr(subprocess, "run", no_git)
+    with pytest.raises(selfupdate.Refused, match="git is not installed"):
+        selfupdate.preflight(tmp_path, release=False)
+
+
 @pytest.fixture
 def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Repo:
+    # The scratch repositories need a git binary; the distro containers run the suite
+    # without one, so these tests skip there (the no-git refusal test above still runs).
+    if shutil.which("git") is None:
+        pytest.skip("git is not installed")
     for key, value in GIT_ENV.items():
         monkeypatch.setenv(key, value)
     monkeypatch.setenv("BOOTSTRAP_MARK", str(tmp_path / "bootstrap.ran"))
