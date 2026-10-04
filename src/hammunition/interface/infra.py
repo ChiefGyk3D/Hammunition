@@ -61,6 +61,10 @@ class InfraLayerView(Strict):
     removed: tuple[str, ...] = described(
         "an earlier version's files, deleted because this import found no point for it"
     )
+    active: bool = described(
+        "whether the layer's area is active (D-082): true for every layer today, each theme "
+        "being one file across every region, and while the station's `active_areas` is unset"
+    )
 
 
 @dataclass(frozen=True)

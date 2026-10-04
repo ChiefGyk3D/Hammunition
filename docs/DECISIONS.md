@@ -10471,3 +10471,98 @@ A Bunker, a mirror or `artifacts` holding or listing the layer. `exportROW.php`.
 `docs/reference/cli.md`, `docs/reference/json-interface.md`. Tests:
 `tests/test_secrets.py`, `tests/test_repeaterbook.py`,
 `tests/test_repeaterbook_runner.py`, `tests/test_repeaterbook_client_catalog.py`.
+
+---
+
+## D-082 — The area of operations: what is loaded is kept per area, and `active_areas` says which areas QMapShack, Navit, the browser map and the JSON documents show; deactivating deletes nothing
+
+**Date:** 2026-10-04. **Status:** accepted (the maintainer's principle of
+2026-10-04, epic #326; this is its switch, issue #328, implemented on branch
+`maps-activate`; **built and tested against synthetic layers, never run in a
+QMapShack, Navit or browser, and not yet used on the field laptop**).
+**Depends on:** D-064 and D-074 (the repeater layers), #325 (one layer per
+state), D-075 (the infrastructure layers), D-057 and D-071 (the region maps and
+the browser map), D-059 (one document per command), D-035 (a missing value
+defers).
+
+**The principle** (maintainer, 2026-10-04). "People will want to load data as
+much as possible before an emergency, then be able to select the data they
+need, because there is so much. You are in Ohio one day, Michigan the next, then
+fly down to Florida." An EMCOMM operator with ARES, RACES or a FEMA task force
+prepares the laptop at home with every state or region on the possible roster,
+and on arrival one action makes *that* area the active one, without deleting
+anything, and the next day another. Until this decision the engine conflated
+the two: what was downloaded was what was drawn.
+
+**The value.** `active_areas` in the station file, a list of *areas*: a US state
+code (`OH`; a RepeaterBook `state_id` such as `CA01` elsewhere) or a map region
+name (`north-america/us/ohio`, or its last word, `ohio`). **Unset, the default,
+means everything loaded is active**, which is what the engine did before, so
+nothing changes for anyone until they use it. An **empty list means none**, and
+is kept apart from unset, because `--none` and "never used this" are different
+(`active_areas: []` in the file). `station set --active-areas OH MI <region>`,
+`--clear-active-areas`. A code or region that is not loaded is **accepted with a
+note**, since the operator may fetch it next (D-035: a missing thing defers, it
+does not refuse). `station show` prints a count, as it does for map regions: the
+areas say where the operator may be sent.
+
+**One ground, two names.** `OH` and `north-america/us/ohio` are the same ground,
+tied through the postal-code table the RepeaterBook fetch already carries, so
+`maps activate OH` draws Ohio's repeaters *and* Ohio's map. Nothing else is
+inferred: a region that merely contains a state (a Geofabrik `midwest`) is
+activated by its own name, and `west-virginia` is not `virginia`.
+
+**The switch.** `hammunition maps activate CODE|REGION ... | --all | --none
+[--dry-run] [--json]` writes the value and re-registers:
+
+- **QMapShack** reads a *directory* of `.poi` files, so a subset is a directory
+  of symbolic links, `overlays/active-poi`, to the active areas' files. `[Canvas]
+  poiPaths` names that directory instead of the layer directories while a subset
+  is active, through the same writer `maps qmapshack` uses, so the launcher and
+  every import keep it in step. Everything active is the layer directories
+  again, and the links are removed. The links are derived state; only links are
+  ever removed, and never the files they point at.
+- **Navit**'s own copy of its configuration (the one `maps navit` opens) lists
+  the active areas' textfile layers and only the active regions' converted
+  maps; root's generated file is untouched.
+- **The browser map** (`reference serve`) lists and serves only the active
+  regions' vector tiles and layers, read when it starts.
+- **The documents** carry `active: bool` per layer in `maps repeaters list
+  --json` and the infrastructure import documents.
+- **`maps areas [--json]`** lists every area with files on disk, its layers,
+  sizes as the engine measures them, dates and whether it is active, and the
+  layers that belong to no area: the console's and Hammunition Hill's source of
+  truth.
+
+**Layers that belong to no area stay registered always**: the operator's own
+import, ACMA, the OpenStreetMap and other source layers of D-074, and every
+infrastructure theme today. They are not Ohio's or Michigan's, so no area can
+switch them off; the guides say so.
+
+**Infrastructure per region.** Each infrastructure theme is one file across
+every region today (D-075), so none is an area's. Issue #327 splits them per
+region. `infra.layer_area()` is the hook: it returns None for every layer now,
+and when it names a region the same rule, in `hammunition.areas`, takes only
+the active regions' files into QMapShack, Navit and the browser map with no
+other change.
+
+**Rejected.** Deleting on deactivation (the principle is the opposite).
+Moving files between directories (breaks the layer commands and a Bunker's
+copy). One QMapShack project per area (the operator would manage them by hand).
+Inferring a state from a region by geometry (an unmeasured guess; the name table
+is exact). Treating an empty list as unset.
+
+**Not established.** That QMapShack lists a `.poi` through a symbolic link in a
+`poiPaths` directory as it does a plain file (every test here reads the
+configuration, not QMapShack; the first bench run settles it, and the route if it
+does not is copying the active files, 0600, into that directory); that a running
+QMapShack, which writes its list back when it exits, keeps the list this wrote.
+
+**Consequences.** `src/hammunition/areas.py`,
+`src/hammunition/interface/areas.py`, `Station.active_areas`,
+`navit_config.select_regions`, `map_page.find_map(active=...)`, a fix to
+`qmapshack_config.ensure_paths` (a path swapped for another under one key),
+`docs/guides/offline-navigation.md` section 19, `docs/guides/emcomm-field.md`,
+`docs/reference/cli.md`, `docs/reference/json-interface.md`. Tests:
+`tests/test_areas.py`, `tests/test_qmapshack_config.py`. Siblings: #327 (per-region
+infrastructure), #329, hammunition-hill#87 (the area selector).

@@ -50,6 +50,7 @@ In short:
 - [ ] Choose map regions covering the whole route, then `install navigation`.
 - [ ] Choose reference books; `install kiwix-library ics-forms`.
 - [ ] Build the infrastructure and repeater layers (after the regions).
+- [ ] **Fetch every state and region on the possible roster, here, at home**: you will not have the network where you are sent. A state or region is loaded once and drawn only when it is the active one ([Offline navigation](offline-navigation.md#19-load-every-area-ahead-activate-where-you-are)). `hammunition maps areas` lists what is loaded.
 - [ ] Register Pat over the internet and fetch the gateway list.
 - [ ] Download these documents ([section 7](../getting-started/before-deployment.md#7-this-documentation)) and keep a copy on a second device and on paper.
 - [ ] If you run a Bunker, point the laptop at it and keep a verified copy: [LAN mirror](lan-mirror.md).
@@ -81,6 +82,7 @@ rehearsal. The pieces are in the guides linked below.
 
 ### On arrival
 
+- [ ] Make where you are the active area: `hammunition maps activate OH`. The next day, `hammunition maps activate MI`. Nothing is deleted; `maps activate --all` brings everything back.
 - [ ] `hammunition hardware list` shows what is attached; `hammunition hardware wake NAME` for a parked device ([Tray controls](tray-controls.md)).
 - [ ] The GPS has a fix; the clock is right (FT8 stops decoding at about a second off).
 - [ ] Rig control up ([Rig control](rig-control.md)); audio levels set ([Radio audio](audio-routing.md)).
@@ -187,6 +189,7 @@ hammunition doctor                    hammunition status
 hammunition update                    hammunition hardware list
 hammunition hardware state            hammunition hardware wake NAME
 hammunition reference serve           hammunition maps navit
+hammunition maps activate OH          hammunition maps areas
 hammunition maps gps-tether           pat-winlink http
 hammunition logs --last               hammunition transactions --last 10
 ```

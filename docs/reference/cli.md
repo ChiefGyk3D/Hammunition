@@ -581,6 +581,39 @@ be written (a symbolic link in its place, a generated file with other than
 one enabled mapset). A missing `navit` is a named error, exit 1. There is no
 `--json` form, because it replaces itself with a GUI (D-059).
 
+### `hammunition maps areas [--json]`
+
+Every state and map region with files on this machine, what is loaded for each
+(a state's repeater layers; a region's OpenStreetMap extract, converted Navit
+map and browser tiles), the layers' sizes as measured on disk, their dates, and
+whether each is **active** (**D-082**). Also the layers that belong to no area,
+which are always active, and any `active_areas` entry that matches nothing
+loaded. Read-only: nothing is written, fetched or registered. Exit 0; exit 1
+only when the station file cannot be read. With `--json`, an `areas` document
+([json-interface.md](json-interface.md)).
+
+### `hammunition maps activate (CODE|REGION ... | --all | --none) [--dry-run] [--json]`
+
+Makes the named areas the active ones (**D-082**): US state codes (`OH`) and map
+region names (`north-america/us/ohio`, or `ohio`), several at once. `--all`
+makes everything loaded active (the default when nothing was ever chosen);
+`--none` makes none active, though a layer that belongs to no area stays. It
+writes the station's `active_areas`, then re-registers QMapShack's `[Canvas]
+poiPaths` (a directory of links to the active areas' `.poi` files,
+`overlays/active-poi`, written by the same editor as `maps qmapshack`), your
+Navit copy's map set (only the active regions' converted maps and layers) and
+the list `reference serve` reads at its next start. A state and the region that
+are the same ground (`OH`, `north-america/us/ohio`) switch together. It prints
+what changed, is idempotent, and deletes nothing: only the derived links are
+ever removed, never a layer or map. An area that is not loaded is accepted, with
+a note. `--dry-run` computes everything and writes nothing.
+
+Refused, exit 1: no area and neither `--all` nor `--none`, or more than one of
+the three; an entry that is neither a state code nor a region name; under root
+(the configuration is per user); a QMapShack settings file it cannot edit (named,
+as `maps qmapshack` names it). With `--json`, an `areas-activate` document
+([json-interface.md](json-interface.md)).
+
 ### `hammunition maps repeaters import [FILE...] [--exported YYYY-MM-DD] [--from-open-repeater [FILE] | --from-acma [FILE] | --from-osm | --from-direwolf-log FILE...]`
 
 Converts your own repeater export into overlays for QMapShack and Navit, on
@@ -2382,6 +2415,8 @@ hammunition station show
 | `--dem-source SOURCE` | `copernicus` (the default when unset) or `3dep`: the elevation QMapShack's hillshade, slope and contours are drawn from (**D-068**, amended 2026-10-01). `3dep` makes `dem-3dep` fetch USGS 3DEP 1/3-arc-second bare-earth tiles for the US regions, about ten times Copernicus's size, and `dem-qmapshack` redraw from them; Copernicus stays installed for BRouter and for regions outside the US. Setting it back to `copernicus` removes the 3DEP tiles and redraws from Copernicus on the next install. `station show` prints it |
 | `--topo-radius-km N` | How far from your grid square's centre US Topo sheets, FSTopo sheets and 3DEP tiles are selected (**D-068**, amended 2026-10-02, issue #232): 100 when unset, `0` for none, at most 20000. The grid square's centre is derived, never stored. Copernicus terrain is not bounded. `station show` prints it |
 | `--topo-regions R[,R…]` | Narrow the topographic selection to these map regions, which must be a subset of `--map-regions` (refused otherwise, naming them). With no `--topo-radius-km` they are taken whole; with one, the circle is cut to them. `station show` prints a count, never the names |
+| `--active-areas CODE\|REGION …` | The areas drawn and registered (**D-082**): US state codes (`OH`) and map region names, several at once. Not checked against what is loaded: one that is not is accepted with a note. `station show` prints a count, never the names. `maps activate` sets this and re-registers the programs |
+| `--clear-active-areas` | Remove `--active-areas`: everything loaded is active again (the default) |
 | `--clear-topo-regions` | Remove `--topo-regions`. Narrowing `--map-regions` alone drops any `--topo-regions` entry no longer among them, and says so |
 | `--topo-all`, `--no-topo-all` | Select every sheet of every region, as before the bound. The install then prints the count, download and disk in one sentence and asks you to type `yes`, which `--yes` does not answer; so does any selection over 10 GB (set `HAMMUNITION_ACCEPT_TOPO_SIZE` to the sheet count to affirm it in a script). Exit 3 when it is not given |
 | `--rig DEVICE\|hamlib:MODEL` | The station's radio (**D-073**): a catalog device id (`yaesu-ft-991a`), or `hamlib:<model>` for one with no manifest. Checked against the catalog and this machine's `rigctl -l` when you set it |

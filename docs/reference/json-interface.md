@@ -52,6 +52,8 @@ their text follows.
 - `hammunition install` (with `--dry-run` only)
 - `hammunition list`
 - `hammunition logs`
+- `hammunition maps activate`
+- `hammunition maps areas`
 - `hammunition maps infra import`
 - `hammunition maps infra remove`
 - `hammunition maps phone`
@@ -76,6 +78,8 @@ their text follows.
 
 | kind | document |
 |---|---|
+| `areas` | [`AreasDocument`](#areas) |
+| `areas-activate` | [`ActivateDocument`](#areas-activate) |
 | `artifacts` | [`ArtifactsDocument`](#artifacts) |
 | `books` | [`BooksDocument`](#books) |
 | `catalog` | [`CatalogDocument`](#catalog) |
@@ -101,6 +105,451 @@ their text follows.
 | `transactions` | [`TransactionsDocument`](#transactions) |
 | `unit` | [`UnitDocument`](#unit) |
 | `update` | [`UpdateDocument`](#update) |
+
+### areas
+
+Every area with files on disk, whether it is active, and what is
+always active. Read-only: nothing is written or fetched.
+
+| field | type | meaning |
+|---|---|---|
+| `active_areas` | list of string or null | the station's `active_areas`: null (unset) means everything loaded is active; an empty list means none is |
+| `areas` | list of [`AreaView`](#areaview) | states first, then regions, each by name |
+| `always_active` | list of string | the layers that belong to no area (the operator's own import, ACMA, OpenStreetMap's repeaters, every infrastructure theme today), by layer id: they are registered whichever areas are active |
+| `unloaded` | list of string | entries of `active_areas` that match nothing loaded: accepted, since the operator may fetch them next |
+
+#### `AreaView`
+
+One state or region with files on disk.
+
+| field | type | meaning |
+|---|---|---|
+| `area` | string | a state code (`OH`, or RepeaterBook's `state_id` outside the US) or a map region (`north-america/us/ohio`; the file slug when the station no longer names it) |
+| `kind` | string | `state` or `region` |
+| `active` | boolean | whether it is drawn and registered: everything is while `active_areas` is unset. A state and the region that is the same ground (`OH`, `north-america/us/ohio`) are active together |
+| `layers` | list of [`AreaLayerView`](#arealayerview) | what is loaded for it |
+| `size_bytes` | integer | every layer's files together |
+| `day` | string or null | the newest layer's date; null when none is known |
+
+#### `AreaLayerView`
+
+One thing loaded for an area.
+
+| field | type | meaning |
+|---|---|---|
+| `id` | string | for a state, the repeater layer's id (`repeaterbook-OH`); for a region, `extract` (the OpenStreetMap extract), `navit` (the converted Navit map) or `tiles` (the browser map's vector tiles) |
+| `kind` | string | `repeaters`, `extract`, `navit` or `tiles` |
+| `rows` | integer or null | repeaters in the layer; null for a region's files |
+| `size_bytes` | integer | the layer's files on disk, as the engine measures them |
+| `day` | string or null | YYYY-MM-DD: a repeater layer's date; a region's snapshot or file date; null when unknown |
+| `files` | list of string | the files that make it up, as they are on disk |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "AreaLayerView": {
+      "additionalProperties": false,
+      "description": "One thing loaded for an area.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Rows"
+        },
+        "size_bytes": {
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "day": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Day"
+        },
+        "files": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Files",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "rows",
+        "size_bytes",
+        "day",
+        "files"
+      ],
+      "title": "AreaLayerView",
+      "type": "object"
+    },
+    "AreaView": {
+      "additionalProperties": false,
+      "description": "One state or region with files on disk.",
+      "properties": {
+        "area": {
+          "title": "Area",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "active": {
+          "title": "Active",
+          "type": "boolean"
+        },
+        "layers": {
+          "items": {
+            "$ref": "#/$defs/AreaLayerView"
+          },
+          "title": "Layers",
+          "type": "array"
+        },
+        "size_bytes": {
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "day": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Day"
+        }
+      },
+      "required": [
+        "area",
+        "kind",
+        "active",
+        "layers",
+        "size_bytes",
+        "day"
+      ],
+      "title": "AreaView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Every area with files on disk, whether it is active, and what is\nalways active. Read-only: nothing is written or fetched.",
+  "properties": {
+    "active_areas": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Active Areas"
+    },
+    "areas": {
+      "items": {
+        "$ref": "#/$defs/AreaView"
+      },
+      "title": "Areas",
+      "type": "array"
+    },
+    "always_active": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Always Active",
+      "type": "array"
+    },
+    "unloaded": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unloaded",
+      "type": "array"
+    }
+  },
+  "required": [
+    "active_areas",
+    "areas",
+    "always_active",
+    "unloaded"
+  ],
+  "title": "AreasDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### areas-activate
+
+``maps activate``: the station value written, and what each program was
+told. Nothing is deleted, whichever areas are deactivated.
+
+| field | type | meaning |
+|---|---|---|
+| `dry_run` | boolean | true when nothing was written |
+| `before` | list of string or null | `active_areas` before; null was unset |
+| `after` | list of string or null | `active_areas` after: null for `--all` (everything loaded), an empty list for `--none` |
+| `changed` | boolean | whether the station value differs |
+| `unloaded` | list of string | areas named that match nothing loaded; accepted all the same |
+| `poi_files` | list of string | the `.poi` files QMapShack's POI collections will list: the active areas' and every layer that belongs to no area |
+| `poi_paths` | list of string | what QMapShack's `[Canvas] poiPaths` names for them: the layer directories while everything is active, else `overlays/active-poi`, a directory of links to the files |
+| `links_added` | list of string | links made in that directory |
+| `links_dropped` | list of string | links taken out of it (only links: no layer file is touched) |
+| `navit_overlays` | list of string | the layers' Navit textfiles in Navit's map set |
+| `navit_regions` | list of string | the converted region maps left in Navit's map set, by file slug; empty when Navit has none installed |
+| `navit_left_out` | list of string | the converted region maps left out of it |
+| `browser` | [`BrowserView`](#browserview) | the browser map's list |
+| `registered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order; empty for a dry run |
+| `notes` | list of string | sentences the text prints |
+
+#### `BrowserView`
+
+What the browser map (`reference serve`) will list.
+
+| field | type | meaning |
+|---|---|---|
+| `regions` | list of string | the vector-tile files served, by file slug: the active regions' only |
+| `overlays` | list of string | the infrastructure layers drawn, by layer id |
+
+#### `RegistrationView`
+
+What a program was told about the layer.
+
+| field | type | meaning |
+|---|---|---|
+| `program` | string | `qmapshack` or `navit` |
+| `config` | string | the file edited or written |
+| `outcome` | string | `added`, `already there`, `written`, `removed`, `not there`, `not written` or `refused` |
+| `detail` | string | the sentence the text prints after the outcome |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "BrowserView": {
+      "additionalProperties": false,
+      "description": "What the browser map (`reference serve`) will list.",
+      "properties": {
+        "regions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "overlays": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Overlays",
+          "type": "array"
+        }
+      },
+      "required": [
+        "regions",
+        "overlays"
+      ],
+      "title": "BrowserView",
+      "type": "object"
+    },
+    "RegistrationView": {
+      "additionalProperties": false,
+      "description": "What a program was told about the layer.",
+      "properties": {
+        "program": {
+          "title": "Program",
+          "type": "string"
+        },
+        "config": {
+          "title": "Config",
+          "type": "string"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "program",
+        "config",
+        "outcome",
+        "detail"
+      ],
+      "title": "RegistrationView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``maps activate``: the station value written, and what each program was\ntold. Nothing is deleted, whichever areas are deactivated.",
+  "properties": {
+    "dry_run": {
+      "title": "Dry Run",
+      "type": "boolean"
+    },
+    "before": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Before"
+    },
+    "after": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "After"
+    },
+    "changed": {
+      "title": "Changed",
+      "type": "boolean"
+    },
+    "unloaded": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unloaded",
+      "type": "array"
+    },
+    "poi_files": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Poi Files",
+      "type": "array"
+    },
+    "poi_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Poi Paths",
+      "type": "array"
+    },
+    "links_added": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Links Added",
+      "type": "array"
+    },
+    "links_dropped": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Links Dropped",
+      "type": "array"
+    },
+    "navit_overlays": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Navit Overlays",
+      "type": "array"
+    },
+    "navit_regions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Navit Regions",
+      "type": "array"
+    },
+    "navit_left_out": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Navit Left Out",
+      "type": "array"
+    },
+    "browser": {
+      "$ref": "#/$defs/BrowserView"
+    },
+    "registered": {
+      "items": {
+        "$ref": "#/$defs/RegistrationView"
+      },
+      "title": "Registered",
+      "type": "array"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "dry_run",
+    "before",
+    "after",
+    "changed",
+    "unloaded",
+    "poi_files",
+    "poi_paths",
+    "links_added",
+    "links_dropped",
+    "navit_overlays",
+    "navit_regions",
+    "navit_left_out",
+    "browser",
+    "registered",
+    "notes"
+  ],
+  "title": "ActivateDocument",
+  "type": "object"
+}
+```
+
+</details>
 
 ### artifacts
 
@@ -1545,17 +1994,7 @@ One layer this import wrote, or found empty.
 | `written` | integer | points in the layer; 0 when this import found none |
 | `files` | list of string | the files written, mode 0600: GPX, POI, Navit textfile, GeoJSON; empty when none |
 | `removed` | list of string | an earlier version's files, deleted because this import found no point for it |
-
-#### `RegistrationView`
-
-What a program was told about the layer.
-
-| field | type | meaning |
-|---|---|---|
-| `program` | string | `qmapshack` or `navit` |
-| `config` | string | the file edited or written |
-| `outcome` | string | `added`, `already there`, `written`, `removed`, `not there`, `not written` or `refused` |
-| `detail` | string | the sentence the text prints after the outcome |
+| `active` | boolean | whether the layer's area is active (D-082): true for every layer today, each theme being one file across every region, and while the station's `active_areas` is unset |
 
 <details><summary>JSON Schema</summary>
 
@@ -1616,6 +2055,10 @@ What a program was told about the layer.
           },
           "title": "Removed",
           "type": "array"
+        },
+        "active": {
+          "title": "Active",
+          "type": "boolean"
         }
       },
       "required": [
@@ -1623,7 +2066,8 @@ What a program was told about the layer.
         "name",
         "written",
         "files",
-        "removed"
+        "removed",
+        "active"
       ],
       "title": "InfraLayerView",
       "type": "object"
@@ -5501,6 +5945,7 @@ One layer read from the overlay directory.
 |---|---|---|
 | `id` | string | the layer's id: `export`, `acma`, `open-repeater`, `osm`, `etcc`, `brandmeister`, `aprs-heard`, `repeaterbook` (the earlier merged layer) or `repeaterbook-<AREA>`, one per state (`repeaterbook-OH`; RepeaterBook's `state_id` outside the US) |
 | `area` | string or null | the `<AREA>` of a per-state layer (`OH`, `CA01`), null for every other layer, so a front end can group by it |
+| `active` | boolean | whether the layer's area is active (D-082): true for a layer that belongs to no area, and for every layer while the station's `active_areas` is unset. A front end draws only active layers by default |
 | `name` | string | the layer's name, as QMapShack's project shows it |
 | `description` | string | the layer's description, which carries each source's licence |
 | `day` | string | YYYY-MM-DD: the layer's date |
@@ -5618,6 +6063,10 @@ The point distances and bearings are measured from.
           ],
           "title": "Area"
         },
+        "active": {
+          "title": "Active",
+          "type": "boolean"
+        },
         "name": {
           "title": "Name",
           "type": "string"
@@ -5660,6 +6109,7 @@ The point distances and bearings are measured from.
       "required": [
         "id",
         "area",
+        "active",
         "name",
         "description",
         "day",
@@ -6387,6 +6837,7 @@ and a grid square or a map region says where the station is.
 | `topo_radius_km` | integer | how far from the grid square's centre US Topo sheets, FSTopo sheets and 3DEP tiles are selected, in km: 100 when unset, 0 for none (D-068, amended 2026-10-02) |
 | `topo_regions` | list of string | the map regions the topographic selection is narrowed to, a subset of map_regions; empty when it is not narrowed |
 | `topo_all` | boolean | whether every sheet of every region is selected, as before the bound; false when unset |
+| `active_areas` | list of string or null | the areas drawn and registered (D-082): US state codes and map region names; null when unset, which means everything loaded is active; an empty list means none is |
 | `secrets_doppler_project` | string or null | the Doppler project a keyed download's key is read from when its environment variable is not set (D-081); a name, never a token; null when not set |
 | `secrets_doppler_config` | string or null | the Doppler config within that project (D-081); null when not set |
 
@@ -6548,6 +6999,20 @@ and a grid square or a map region says where the station is.
       "title": "Topo All",
       "type": "boolean"
     },
+    "active_areas": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Active Areas"
+    },
     "secrets_doppler_project": {
       "anyOf": [
         {
@@ -6590,6 +7055,7 @@ and a grid square or a map region says where the station is.
     "topo_radius_km",
     "topo_regions",
     "topo_all",
+    "active_areas",
     "secrets_doppler_project",
     "secrets_doppler_config"
   ],

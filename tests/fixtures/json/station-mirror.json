@@ -20,6 +20,7 @@
   "topo_radius_km": 100,
   "topo_regions": [],
   "topo_all": false,
+  "active_areas": null,
   "secrets_doppler_project": null,
   "secrets_doppler_config": null
 }
