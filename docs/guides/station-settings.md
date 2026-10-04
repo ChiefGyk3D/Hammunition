@@ -149,8 +149,8 @@ this order:
 What is stored is the two *names*, in the station file, mode 0600. A token is
 never written to the repository, the station file, a command line or a log:
 the run log (**D-077**) redacts the resolved value wherever it appears and any
-`Authorization` or `X-RB-App-Token` header line, and `station show` prints
-the names, not a token. A new keyed download calls the helper rather than
+`Authorization` or `X-RB-App-Token` header line, and `station show` says only
+that the two names are set (its `--json` document carries them, never a token). A new keyed download calls the helper rather than
 reading the environment itself, so this page stays true of all of them.
 
 ## The radio is a station value too

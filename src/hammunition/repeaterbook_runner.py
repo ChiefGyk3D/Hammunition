@@ -106,6 +106,17 @@ def fetch(country: str, state_id: str, token: str) -> dict[str, Any]:
     return {"ok": True, "count": len(results), "results": results}
 
 
+def _quiet_client_logging() -> None:
+    """The client logs at INFO to stderr through loguru; keep only warnings.
+    Without loguru there is nothing to quiet."""
+    try:
+        from loguru import logger
+    except ImportError:
+        return
+    logger.remove()
+    logger.add(sys.stderr, level="WARNING")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else "")
     parser.add_argument("--country", required=True)
@@ -115,13 +126,7 @@ def main(argv: list[str] | None = None) -> int:
     if not token:
         document = _failure("no_token", f"{TOKEN_VARIABLE} is not set in this process")
     else:
-        try:
-            from loguru import logger
-
-            logger.remove()
-            logger.add(sys.stderr, level="WARNING")
-        except ImportError:
-            pass
+        _quiet_client_logging()
         document = fetch(args.country, args.state_id, token)
     sys.stdout.write(json.dumps(document) + "\n")
     return 0 if document["ok"] else 1

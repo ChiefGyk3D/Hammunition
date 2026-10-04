@@ -14,6 +14,7 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import re
 import stat
 import sys
 from pathlib import Path
@@ -380,5 +381,6 @@ def test_every_rendering_credits_repeaterbook_with_a_link_and_is_private(
         points = [r[0] for r in db.execute("SELECT data FROM poi_data")]
     finally:
         db.close()
-    assert "RepeaterBook" in comment and "https://www.repeaterbook.com" in comment
-    assert all("https://www.repeaterbook.com" in p for p in points)
+    link = re.compile(r"\(https://www\.repeaterbook\.com\)")
+    assert "RepeaterBook" in comment and link.search(comment)
+    assert all(link.search(p) for p in points)

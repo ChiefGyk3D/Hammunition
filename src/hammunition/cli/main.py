@@ -2774,7 +2774,7 @@ def cmd_maps_repeaters_fetch_repeaterbook(args: argparse.Namespace) -> int:
             print(f"error: {exc}. Nothing was written.", file=sys.stderr)
             return EXIT_FAILED
     for read in reads:
-        if read.parsed.read >= rb.TRUNCATION_NOTE_AT:
+        if rb.maybe_cut_short(read):
             print(
                 f"note: RepeaterBook returned {read.parsed.read} rows, near the most it sends "
                 f"in one answer; a state this size may have been cut short."

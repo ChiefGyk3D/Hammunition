@@ -82,6 +82,7 @@ __all__ = [
     "client_python",
     "explain",
     "layer_name",
+    "maybe_cut_short",
     "parse_export",
     "provenance",
     "resolve_state",
@@ -405,6 +406,11 @@ def run_runner(
     return StateRead(
         parsed, hashlib.sha256(raw).hexdigest(), datetime.now(UTC).replace(microsecond=0), where
     )
+
+
+def maybe_cut_short(read: StateRead) -> bool:
+    """Whether an answer is long enough that RepeaterBook may have cut it."""
+    return read.parsed.read >= TRUNCATION_NOTE_AT
 
 
 def explain(exc: RunnerError) -> str:
