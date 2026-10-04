@@ -139,7 +139,10 @@ under `hold_unverified`, the same switch as the ACMA zip; `fetch-etcc`,
 first and the publisher if it is not there, and the layer says which. Nothing
 a mirror serves there can be verified, so the layer is *unverified* either
 way. The project never hosts these files: you bring them, or your Bunker
-takes them from the publisher at your request.
+takes them from the publisher at your request. **RepeaterBook's API layer
+(`fetch-repeaterbook`, D-081) is not among them**: it is fetched with your own
+key for your own personal use, RepeaterBook's policy rules out caching and
+re-serving it, so it is never mirrored and `artifacts` never lists it.
 
 The ACMA's register (`acma-register`, **D-074**, amended 2026-10-01) is in
 the list as `acma-register/spectra_rrl.zip` with check `unverified-zip`, the

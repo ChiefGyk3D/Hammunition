@@ -966,9 +966,9 @@ work, not what has been seen to.
 ## 13. Repeaters on the map
 
 Your own repeater list, converted on this machine into a layer QMapShack and
-Navit both show (**D-064**). Hammunition fetches nothing from RepeaterBook
-and ships no repeater data: you export it with your own account, and the
-conversion happens here, offline. Five more sources each make a layer of
+Navit both show (**D-064**). Hammunition ships no repeater data. RepeaterBook
+comes in two ways, both yours: an export you make with your own account,
+converted here offline, or its API with your own key (**D-081**, below). Five more sources each make a layer of
 their own beside it (**D-074**): Open Repeater's open list, the repeaters
 tagged in your OpenStreetMap regions, the UK's ETCC list, Brandmeister's
 DMR repeaters, and the repeater objects your own station heard on APRS.
@@ -1054,6 +1054,101 @@ export, save hearham's JSON yourself and give both files to one
 --mirror`), the three `fetch-*` commands read `repeater-snapshots/<name>` from
 it first, and `--no-mirror` skips it; what a mirror sends is still
 unverified (**D-078**).
+
+### RepeaterBook through its API, with your own key
+
+**Built against RepeaterBook's documentation and a third-party client's
+source; not yet run against the live API.** The maintainer had no token on
+2026-10-04, so nothing below has met RepeaterBook's server. The tests use a
+hand-written fixture and a fake client (`tests/fixtures/repeaters/repeaterbook-api.README.md`).
+
+Why: the open sources above are thin where RepeaterBook is not. Open bulk
+US data barely exists, and many W-prefixed repeaters are in none of them.
+
+**Whose application this is.** Since 2026-03-03 RepeaterBook's API answers
+only an approved application with a per-user token, and a request whose
+User-Agent is not the approved one is denied. Hammunition has no application
+of its own. It uses the unofficial `repeaterbook` Python client (version
+0.13.0, MIT, by Micael Jarniac, `github.com/MicaelJarniac/repeaterbook`),
+which RepeaterBook approved as **"RepeaterBook Python Client", App #114**:
+you generate a token for that application on your own account, and the
+client sends it with its own User-Agent, which must not be changed. The
+client is carried as the `repeaterbook-client` unit (a hash-pinned venv,
+about 76 MB, in no profile, nothing on your PATH); it is a third party's,
+not ours or RepeaterBook's, and RepeaterBook can revoke the application or
+your token. Its closure is recorded in
+`docs/reference/repeaterbook-client-closure.txt`.
+
+**The policy, read 2026-10-04.** RepeaterBook's page says personal or
+internal use limits the data to approved purposes, a public application must
+credit RepeaterBook with a link, and approval is "less likely" for a public
+repeater search page, map or directory, a mirror, an app that "caches and
+re-serves repeater data to multiple users", or one that uses RepeaterBook "as
+just one data source inside a broader mapping ... platform". So this layer is
+**for your own personal use, on your own machine, and may not be shared,
+re-served or bundled**. Hammunition never mirrors it and never lists it for
+a Bunker (not even on your LAN), writes its files readable only by you, and
+credits RepeaterBook with a link in the layer's GPX description and every
+waypoint, and in the POI collection's comment. Navit's textfile has no place
+for a title or a link, so that file is only named for RepeaterBook
+(`repeaters-repeaterbook.navit.txt`); the browser map draws no repeater layer.
+The client caches API responses on disk; Hammunition points it at a private
+temporary directory with a zero cache age and deletes it when the fetch ends,
+so nothing of RepeaterBook's is left but the layer you asked for.
+
+**Get a token.** With a free RepeaterBook account, open
+<https://www.repeaterbook.com/user/api_apps.php>, find App #114 ("RepeaterBook
+Python Client"), and generate your token (it begins `rbuapp_`). Then install
+the unit:
+
+```
+hammunition install repeaterbook-client
+```
+
+**Give the token to Hammunition.** Two ways, tried in this order
+([Secrets for downloads](station-settings.md#secrets-for-downloads)). The
+variable is called `REPEATERBOOK`, the client's own name for it, so it may
+already be set if you use that client:
+
+```
+export REPEATERBOOK=rbuapp_...                  # this shell only
+```
+
+or keep it in Doppler and tell the station where, once (names only, never
+the token):
+
+```
+hammunition station set --doppler-project PROJECT --doppler-config CONFIG
+```
+
+**Fetch a state.**
+
+```
+hammunition maps repeaters fetch-repeaterbook --state DE
+hammunition maps repeaters fetch-repeaterbook --state Vermont --state NH
+```
+
+`--state` takes a US state's name or two-letter code (more than once is
+fine); the number sent is RepeaterBook's `state_id`, the US FIPS code
+(`06`, never `6`). `--country` defaults to `United States`; for Canada or
+Mexico give the `state_id` itself (`CA01`, `MX14`). The rest-of-world
+endpoint is not carried. One request goes out per state, run by the unit's
+own python on a small script of ours, with the token in that process's
+environment only and never on a command line; there is a pause between states
+of ours (the limits are unpublished). A `401`, `403` or `429` stops the run
+at once, is never retried, and writes nothing. Rows off the air, without a
+position, without a callsign or without a frequency are skipped and counted.
+
+It writes the `repeaterbook` layer, *Repeaters (RepeaterBook, personal use,
+YYYY-MM-DD, unverified)*. A second state, in this run or a later one, merges
+into the same layer the way D-074's merge works (the newer *Last Update*
+wins). `remove --layer repeaterbook` deletes it.
+
+**Not established** (2026-10-04): that the client behaves against the live
+API as its source reads; RepeaterBook's rate limit (unpublished); that an
+answer is cut at about 3,500 rows (from the client; Hammunition prints a note
+near it). The row field names and the `state_id` form were read from the
+client's own models, not from RepeaterBook's wiki, which prints neither.
 
 ### More sources, one layer each
 
@@ -1206,16 +1301,18 @@ hammunition maps repeaters remove --layer osm
 The first deletes every layer and the all-sources file and takes the
 directory out of QMapShack's settings; Navit goes back to the generated
 configuration at its next start. The second deletes one layer
-(`export`, `acma`, `open-repeater`, `osm`, `etcc`, `brandmeister` or
-`aprs-heard`)
+(`export`, `acma`, `open-repeater`, `osm`, `etcc`, `brandmeister`,
+`repeaterbook` or `aprs-heard`)
 and rebuilds the rest.
 
 ### Not carried
 
-- Anything fetched from RepeaterBook. Its API needs approval, and its
-  data-use terms forbid bulk extraction and offline bundling without written
-  permission. The ARRL's directory is RepeaterBook's data under the same
-  terms.
+- Any fetch from RepeaterBook *by the project*. What is carried is the
+  operator's own export and the operator's own token (**D-081**, above): its
+  terms forbid bulk extraction, mirroring and offline bundling without
+  written permission, so the project ships no RepeaterBook data, a Bunker
+  never publishes it, and no key is carried in the repository. The ARRL's
+  directory is RepeaterBook's data under the same terms.
 - Xastir, whose point layers live in a root-owned map directory, and YAAC,
   whose importer makes APRS objects it can transmit (a D-021 matter, not a
   map).

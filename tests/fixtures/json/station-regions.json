@@ -22,5 +22,7 @@
   "dem_source": "copernicus",
   "topo_radius_km": 100,
   "topo_regions": [],
-  "topo_all": false
+  "topo_all": false,
+  "secrets_doppler_project": null,
+  "secrets_doppler_config": null
 }

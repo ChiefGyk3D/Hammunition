@@ -73,6 +73,12 @@ MAX_BYTES = 200 * 1024 * 1024
 
 _NAME = re.compile(r"^(\d{8}T\d{6}Z)-([a-z0-9-]+)-(\d+)\.log$")
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+#: A credential header, whatever its value: nothing after the colon is logged
+#: (D-081). The resolved secret is scrubbed by value as well.
+_CREDENTIAL_HEADER = re.compile(
+    r"(\b(?:authorization|x-rb-app-token|proxy-authorization):\s*|\bREPEATERBOOK(?:_API_KEY)?=)\S.*",
+    re.IGNORECASE,
+)
 _RESULT = re.compile(r"^\S+ result\s+exit=(\d+)\s+(\S.*)$")
 
 #: Flags whose value is a station value or a place on the operator's network:
@@ -173,7 +179,13 @@ class RunLog:
         with self._lock:
             self._scrub = sorted(unique, key=len, reverse=True)
 
+    def add_scrub(self, values: Sequence[str]) -> None:
+        """More values to redact, learned mid-run: a secret resolved by
+        :mod:`hammunition.secrets` (D-081). Same three-character floor."""
+        self.set_scrub([*self._scrub, *values])
+
     def _scrubbed(self, line: str) -> str:
+        line = _CREDENTIAL_HEADER.sub(r"\1<redacted>", line)
         for value in self._scrub:
             line = re.sub(re.escape(value), "<redacted>", line, flags=re.IGNORECASE)
         return line

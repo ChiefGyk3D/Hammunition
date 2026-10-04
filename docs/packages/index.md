@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**325 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**326 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -327,7 +327,7 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 36
+### `navigation-maps` — 37
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
@@ -360,6 +360,7 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [osm-regions](osm-regions.md) — OpenStreetMap region extracts from Geofabrik, the regions you choose, verified
 - [osm-routino](osm-routino.md) — One Routino routing database over all your regions, for routes on foot
 - [qmapshack](qmapshack.md) — Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot
+- [repeaterbook-client](repeaterbook-client.md) — The unofficial repeaterbook Python client, App
 - [routino](routino.md) — Offline routing over OpenStreetMap data, on foot, by bike or by car
 - [socat](socat.md) — A relay between two data channels, sockets, files or programs
 - [usfs-fstopo](usfs-fstopo.md) — Forest Service FSTopo 7.5-minute sheets for your US map regions, with trail numbers
@@ -976,6 +977,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [rayhunter](rayhunter.md) | EFF's IMSI-catcher detector — the installer for a supported hotspot, and the offline capture analyser | binary |
 | [readsb](readsb.md) | Efficient Mode S and ADS-B decoder — the maintained dump1090 successor | apt |
 | [remotetrx](remotetrx.md) | Puts an SvxLink receiver or transceiver at the end of a network link | apt |
+| [repeaterbook-client](repeaterbook-client.md) | The unofficial repeaterbook Python client, App | venv |
 | [rig-service](rig-service.md) | One shared rigctld for the station's rig, as a systemd user service | apt |
 | [rns](rns.md) | Reticulum, encrypted networking over any medium, with its shared instance and the RNode flasher | venv |
 | [routino](routino.md) | Offline routing over OpenStreetMap data, on foot, by bike or by car | apt |
