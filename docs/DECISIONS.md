@@ -9443,6 +9443,53 @@ data off a Bunker, and a program that repeats the rows over a network breaks
 that as surely as a mirror would. The position of the station is not in this
 document; a front end reads it from `station show --json`.
 
+**Amendment, 2026-10-04 (#313): a mode vocabulary, a band, digital details, and
+a lookup by place.** The maintainer asked for resources to "look up and key in
+on in an emergency": a repeater near a place, by what it speaks. `mode` was
+free text filled differently by each source, so nothing could filter on it.
+`Repeater.modes` is now a tuple from a fixed vocabulary (`FM`, `DMR`, `D-STAR`,
+`YSF`, `P25`, `NXDN`, `M17`, `TETRA`, `ATV`), each source's spelling mapped
+onto it by `normalise_modes` (RepeaterBook's `FM Analog` and `System Fusion`,
+hearham's `D-star`, ETCC's `C4FM`, ACMA's emission words); a word outside the
+list stays in `mode` and never reaches `modes`, and a test asserts every
+spelling the fixtures carry maps somewhere, so a new source cannot add one
+silently. `mode` stays and the document renders it from `modes` unless the
+source said more than the vocabulary holds (`FM voice (F3E)`). `digital` holds
+only what a source supplies, under eight fixed keys: RepeaterBook's API gives
+`DMR Color Code`, `DMR ID` and `P-25 NAC` (measured from the client's
+`RepeaterJSON`, no D-STAR module, YSF DG-ID or NXDN RAN key exists there),
+Brandmeister gives its colour code, id and the network, and hearham, OSM, ETCC,
+ACMA and the hand CSV give none; nothing is inferred. `band` comes from the
+output frequency by the ITU/US amateur table in `BANDS`. `.rows.json` gains
+`modes` and `digital`; a file written before them still reads, `modes` derived
+from `mode`. Cross-source joins keep the union of `modes` and the first
+non-empty `digital`.
+
+`maps repeaters list` gains `--near GRID|LAT,LON`, `--within KM`, `--band` and
+`--mode`. With a centre (the argument, else the station's grid square when one
+is set; neither is not an error, there are simply no distances) every row
+carries `distance_km` and `bearing_deg` (haversine on the 6371.0088 km sphere,
+initial bearing) and rows are nearest first. This **supersedes the last
+sentence of the amendment above**: the document now carries `centre`, which
+for the station's square is the centre of that square, so the `repeaters-list`
+document is a document for local programs and not for pasting, like `station`.
+The text lists the matching repeaters only when a place, band or mode is named;
+a bare `list` is still the layers' summary.
+
+QMapShack: the `.poi` has one child category per mode present under *Amateur
+radio repeaters*, plus *Unknown mode*, and a repeater is in every category it
+speaks (`poi_category_map` is many to many), so ticking a category in the POI
+dock is the mode filter. QMapShack 1.17.1 (source at `V_1.17.1`, read, not run)
+builds the tree from `poi_categories` in descending id order and attaches a
+child only to a parent already seen, so a parent's id must exceed its
+children's: the writer numbers children 1..n and the layer category n+1.
+The POI dock has no text search; the Workspace dock's filter does, and its
+default full-text mode and its name-only mode are case-insensitive substring
+matches (`CSearch.cpp`, `CGisItemWpt.cpp`), so the waypoint name now carries
+`N0CALL 146.940 2m FM DMR` and the GPX `<name>`, the POI name and the Navit
+label all carry it. A GUI run is the maintainer's: this is measured from the
+source, not observed.
+
 ## D-075 — Infrastructure and EMCOMM layers: eight OpenStreetMap layers from the extracts already here, FAA NASR, EIA-860M and WRI as pinned data, FCC ASR and NOAA Weather Radio on request, an `infra` tile layer and GeoJSON overlays on the browser map
 
 **Date:** 2026-10-01. **Status:** proposed (the spike's recommendation,

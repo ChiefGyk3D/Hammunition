@@ -113,7 +113,7 @@ def test_the_all_sources_file_joins_the_directory_layers_and_leaves_aprs_out(
     assert stat.S_IMODE(result.path.stat().st_mode) == 0o600
     root = ET.parse(result.path).getroot()
     names = [w.findtext(f"{GPX}name") for w in root.iter(f"{GPX}wpt")]
-    assert names == ["N0CALL 146.940", "N0TST 147.000"]
+    assert names == ["N0CALL 146.940 2m", "N0TST 147.000 2m"]
     desc = root.find(f"{GPX}metadata/{GPX}desc")
     assert desc is not None and "licence of own" in (desc.text or "")
     assert "licence of osm" in (desc.text or "") and "licence of heard" not in (desc.text or "")

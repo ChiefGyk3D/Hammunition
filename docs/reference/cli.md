@@ -815,16 +815,40 @@ first. A later state merges into the layer already there. The layer is **never
 mirrored and never listed by `artifacts`**: it is the operator's own, 0600, and may
 not be shared. No `--json` form, no `--no-mirror`.
 
-### `hammunition maps repeaters list [--layer ID]... [--json]`
+### `hammunition maps repeaters list [--layer ID]... [--near GRID|LAT,LON] [--within KM] [--band BAND]... [--mode MODE]... [--json]`
 
 Reads back the layers in your repeater directory. Read-only: it writes
 nothing, fetches nothing and never rebuilds `repeaters-all.gpx`. The text
 lists each layer (id, repeaters, date, name, with `personal use` and
 `unverified` where they apply), what it left out and why, how many repeaters
 the layers make once joined across sources, and each source's credit; it does
-not list the repeaters. `--layer` (repeatable) reads only those layers; an id
-that is not a layer, or is not there, is reported as left out, not as an
-error.
+not list the repeaters, unless you name a place, a band or a mode (below).
+`--layer` (repeatable) reads only those layers; an id that is not a layer, or
+is not there, is reported as left out, not as an error.
+
+To look a repeater up by place and by what it speaks:
+
+```
+hammunition maps repeaters list --near FN31pr --within 60 --mode DMR
+```
+
+- `--near GRID|LAT,LON`: a Maidenhead locator of four, six or eight characters
+  (the centre of the square) or `LAT,LON` in decimal degrees. Default: the
+  station's grid square when `station set` has one; with neither, there are no
+  distances and that is not an error. A value that is neither is exit 1.
+- `--within KM`: only repeaters this far or nearer. Needs a position, from
+  `--near` or the station; without one it is exit 1 and says so.
+- `--band BAND` (repeatable): `10m`, `6m`, `2m`, `1.25m`, `70cm`, `33cm`,
+  `23cm`, `13cm` or `other`, from the output frequency.
+- `--mode MODE` (repeatable, any matches): `FM`, `DMR`, `D-STAR`, `YSF`, `P25`,
+  `NXDN`, `M17`, `TETRA`, `ATV`; a source's spelling such as `dstar` or
+  `fusion` is accepted. Anything else is a usage error, exit 2.
+
+With a position the rows are nearest first, each with its distance and
+compass bearing; each line shows the band, the modes, offset, tone, any
+digital detail the source gave (`dmr_color_code 1`) and the place. Naming a
+place, a band or a mode prints that list in the text; a bare `list` stays the
+layers' summary.
 
 A layer it cannot read (written before D-074 kept its rows as data, or a
 damaged rows file) is left out with the reason and the rest is returned:
@@ -835,7 +859,10 @@ itself cannot be read.
 With `--json`, prints a `repeaters-list` document
 ([json-interface.md](json-interface.md)): the layers, those left out, every
 joined repeater with the layer it came from and `personal_use`, and the
-credits to print. The grid square and distances are not in it.
+credits to print. Every row carries `modes`, `band`, `digital`, `distance_km`
+and `bearing_deg`; the document carries `centre` (`argument` or `station`: for
+the station's square, the centre of that square) and `within_km`. It is for
+local programs, not for pasting.
 
 ### `hammunition maps repeaters remove [--layer ID]`
 

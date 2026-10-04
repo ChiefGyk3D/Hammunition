@@ -54,7 +54,9 @@ from xml.sax.saxutils import escape
 __all__ = [
     "ACMA",
     "ALL_SOURCES",
+    "BANDS",
     "BRANDMEISTER",
+    "DIGITAL_KEYS",
     "DIREWOLF",
     "ETCC",
     "FILES",
@@ -64,6 +66,7 @@ __all__ = [
     "HEARHAM",
     "HEARHAM_URL",
     "LAYERS",
+    "MODES",
     "OPEN_REPEATER",
     "OSM",
     "REPEATERBOOK_API",
@@ -80,6 +83,10 @@ __all__ = [
     "RepeaterInputError",
     "Skip",
     "all_sources_name",
+    "band_of",
+    "bearing_deg",
+    "compass",
+    "distance_km",
     "export_date",
     "fetch_hearham",
     "fetch_list",
@@ -91,10 +98,12 @@ __all__ = [
     "licence_text",
     "merge",
     "navit_text",
+    "normalise_modes",
     "nudge",
     "overlay_dir",
     "overlays_root",
     "parse_exported",
+    "parse_position",
     "present_layers",
     "read_input",
     "read_inputs",
@@ -195,6 +204,7 @@ GPX_SYMBOL = "Tall Tower"
 NAVIT_ICON = "/usr/share/navit/icons/tower.png"
 #: Has a label in the stock layout's "POI Labels" layer; poi_communication has none.
 NAVIT_TYPE = "poi_custom0"
+UNKNOWN_MODE = "Unknown mode"
 POI_CATEGORY = "Amateur radio repeaters"
 
 SOURCE_NAMES = {
@@ -280,6 +290,157 @@ class RepeaterFetchError(Exception):
     """hearham's list could not be fetched, or was not what it serves."""
 
 
+# --- modes, bands and distance (#313) ----------------------------------------------
+
+#: What a repeater speaks, in the order a list prints it. A source's own
+#: spelling is mapped onto this by :func:`normalise_modes`; a word that maps to
+#: nothing stays in ``Repeater.mode`` and never reaches ``modes``.
+MODES = ("FM", "DMR", "D-STAR", "YSF", "P25", "NXDN", "M17", "TETRA", "ATV")
+
+#: Lower-case spellings the six sources use for each mode, measured from the
+#: fixtures and RepeaterBook's documented keys.
+_SPELLINGS: dict[str, str] = {
+    "fm": "FM",
+    "fm analog": "FM",
+    "fm (analog)": "FM",
+    "analog": "FM",
+    "nfm": "FM",
+    "wfm": "FM",
+    "dmr": "DMR",
+    "d-star": "D-STAR",
+    "dstar": "D-STAR",
+    "d star": "D-STAR",
+    "ysf": "YSF",
+    "system fusion": "YSF",
+    "fusion": "YSF",
+    "c4fm": "YSF",
+    "yaesu": "YSF",
+    "p25": "P25",
+    "p-25": "P25",
+    "apco": "P25",
+    "apco p25": "P25",
+    "apco p-25": "P25",
+    "nxdn": "NXDN",
+    "m17": "M17",
+    "tetra": "TETRA",
+    "atv": "ATV",
+}
+_MODE_SEPARATORS = re.compile(r"[,;/|+]")
+_WORDS = re.compile(r"[^\s()]+")
+
+
+def _split_modes(text: str) -> tuple[tuple[str, ...], bool]:
+    """The vocabulary modes *text* names, and whether every word of it was
+    understood. A piece is tried whole (``FM Analog``) and then word by word
+    (``FM voice (F3E)`` finds ``FM`` and does not understand ``voice``)."""
+    found: set[str] = set()
+    understood = True
+    for piece in _MODE_SEPARATORS.split(text.lower()):
+        piece = " ".join(piece.split())
+        if not piece:
+            continue
+        if piece in _SPELLINGS:
+            found.add(_SPELLINGS[piece])
+            continue
+        for word in _WORDS.findall(piece):
+            if word in _SPELLINGS:
+                found.add(_SPELLINGS[word])
+            else:
+                understood = False
+    return tuple(m for m in MODES if m in found), understood
+
+
+def normalise_modes(text: str) -> tuple[str, ...]:
+    """*text*, in whatever spelling a source uses, as vocabulary modes: in the
+    order of :data:`MODES`, deduplicated; words it does not know are dropped."""
+    return _split_modes(text)[0]
+
+
+#: Digital details a source may supply. Closed: a key is set only where the
+#: source gives the value, and nothing is invented.
+DIGITAL_KEYS = (
+    "dmr_color_code",
+    "dmr_network",
+    "dmr_id",
+    "dstar_module",
+    "dstar_gateway",
+    "ysf_dgid",
+    "p25_nac",
+    "nxdn_ran",
+)
+
+#: ITU/US amateur allocations a repeater output falls in: name, low and high Hz
+#: inclusive.
+BANDS: tuple[tuple[str, int, int], ...] = (
+    ("10m", 28_000_000, 29_700_000),
+    ("6m", 50_000_000, 54_000_000),
+    ("2m", 144_000_000, 148_000_000),
+    ("1.25m", 222_000_000, 225_000_000),
+    ("70cm", 420_000_000, 450_000_000),
+    ("33cm", 902_000_000, 928_000_000),
+    ("23cm", 1_240_000_000, 1_300_000_000),
+    ("13cm", 2_300_000_000, 2_450_000_000),
+)
+
+
+def band_of(hz: int) -> str:
+    """The amateur band *hz* is in (``2m``, ``70cm``...), else ``other``."""
+    for name, low, high in BANDS:
+        if low <= hz <= high:
+            return name
+    return "other"
+
+
+EARTH_RADIUS_KM = 6371.0088
+
+
+def parse_position(text: str) -> tuple[float, float]:
+    """``--near``'s value: a Maidenhead locator of four, six or eight characters
+    (the centre of its square) or ``LAT,LON`` in decimal degrees. ValueError
+    names what was wrong."""
+    from .maidenhead import LocatorError, centre
+
+    cleaned = text.strip()
+    if "," in cleaned:
+        parts = [p.strip() for p in cleaned.split(",")]
+        try:
+            if len(parts) != 2:
+                raise ValueError
+            lat, lon = float(parts[0]), float(parts[1])
+        except ValueError:
+            raise ValueError(f"{text!r} is not LAT,LON in decimal degrees") from None
+        if _position(lat, lon) is None and (lat, lon) != (0.0, 0.0):
+            raise ValueError(f"{text!r} is outside latitude -90..90, longitude -180..180")
+        return lat, lon
+    try:
+        return centre(cleaned)
+    except LocatorError as exc:
+        raise ValueError(f"{exc}; or LAT,LON in decimal degrees") from None
+
+
+def distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance, haversine on a sphere of the mean radius."""
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp, dl = p2 - p1, math.radians(lon2 - lon1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * EARTH_RADIUS_KM * math.asin(min(1.0, math.sqrt(a)))
+
+
+def bearing_deg(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """The initial bearing from the first point to the second, 0 to 360."""
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dl = math.radians(lon2 - lon1)
+    y = math.sin(dl) * math.cos(p2)
+    x = math.cos(p1) * math.sin(p2) - math.sin(p1) * math.cos(p2) * math.cos(dl)
+    return (math.degrees(math.atan2(y, x)) + 360.0) % 360.0
+
+
+def compass(bearing: float) -> str:
+    """The eight-point name of *bearing* (``NE``)."""
+    points = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+    return points[int(((bearing % 360.0) + 22.5) // 45) % 8]
+
+
 @dataclass(frozen=True)
 class Repeater:
     """One repeater, as read. ``output_hz`` 0 and ``callsign`` empty only for
@@ -302,11 +463,39 @@ class Repeater:
     #: Other sources that list the same machine, best first: set only in the
     #: all-sources file (D-074), where rows from several layers are joined.
     also: tuple[str, ...] = ()
+    #: What it speaks, from :data:`MODES`. Derived from ``mode`` when a source
+    #: gave only text; ``mode`` keeps the source's words.
+    modes: tuple[str, ...] = ()
+    #: Digital details the source supplied (:data:`DIGITAL_KEYS`); empty when
+    #: it supplied none.
+    digital: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.modes and self.mode:
+            object.__setattr__(self, "modes", normalise_modes(self.mode))
+
+    def mode_text(self) -> str:
+        """``FM, DMR``: the modes joined, or the source's own words when they
+        say something the vocabulary does not (``FM voice (F3E)``)."""
+        if self.modes and (not self.mode or _split_modes(self.mode)[1]):
+            return ", ".join(self.modes)
+        return self.mode
+
+    def band(self) -> str:
+        return band_of(self.output_hz)
 
     def label_text(self) -> str:
-        """``N0CALL 146.940``: what the map draws beside the icon."""
+        """``N0CALL 146.940 2m FM DMR``: what the map draws beside the icon,
+        and the tokens a text search in QMapShack or Navit finds."""
         if self.callsign and self.output_hz:
-            return f"{self.callsign} {format_mhz(self.output_hz)}"
+            return " ".join(
+                (
+                    self.callsign,
+                    format_mhz(self.output_hz),
+                    self.band(),
+                    *self.modes,
+                )
+            )
         return self.label or self.callsign
 
     def key(self) -> tuple[str, int, float, float]:
@@ -323,9 +512,10 @@ class Repeater:
         if self.offset_hz is not None:
             parts.append(f"offset {self.offset_hz / 1e6:+.3f} MHz")
         parts.append(f"tone {self.tone}" if self.tone else "no tone")
-        for value in (self.mode, self.use and f"use {self.use}", self.status, self.place):
+        for value in (self.mode_text(), self.use and f"use {self.use}", self.status, self.place):
             if value:
                 parts.append(value)
+        parts.extend(f"{key} {value}" for key, value in self.digital.items())
         if self.notes:
             parts.append(self.notes)
         parts.append(f"Source: {SOURCE_NAMES[self.source]}")
@@ -992,13 +1182,16 @@ def _poi_value(text: str) -> str:
 @dataclass(frozen=True)
 class PoiPoint:
     """One point of a Mapsforge POI file: where, what it is called, its
-    description, and the one ``key=value`` tag it is filed under."""
+    description, and the one ``key=value`` tag it is filed under. A point is
+    also mapped to each of ``subcategories``, the children of the layer's
+    category in QMapShack's POI tree."""
 
     lat: float
     lon: float
     name: str
     description: str
     tag: str
+    subcategories: tuple[str, ...] = ()
 
 
 def write_poi(
@@ -1011,7 +1204,10 @@ def write_poi(
     nudge: bool = True,
 ) -> None:
     """A Mapsforge POI database (version 2) QMapShack's ``CPoiFilePOI`` reads:
-    one category, every repeater in it. *path* must not exist."""
+    one category, every repeater in it, and a child category per mode (``FM``,
+    ``DMR``...) holding the repeaters that speak it, ``Unknown mode`` for those
+    that say nothing, so ticking a category in the POI dock is the mode
+    filter. *path* must not exist."""
     points = [
         PoiPoint(
             r.lat,
@@ -1019,10 +1215,20 @@ def write_poi(
             r.label_text(),
             r.description(),
             "communication:amateur_radio:repeater=yes",
+            r.modes or (UNKNOWN_MODE,),
         )
         for r in rows
     ]
-    write_poi_points(path, layer, comment, day, points, category=POI_CATEGORY, nudge=nudge)
+    write_poi_points(
+        path,
+        layer,
+        comment,
+        day,
+        points,
+        category=POI_CATEGORY,
+        subcategory_order=(*MODES, UNKNOWN_MODE),
+        nudge=nudge,
+    )
 
 
 def write_poi_points(
@@ -1033,12 +1239,26 @@ def write_poi_points(
     points: Sequence[PoiPoint],
     *,
     category: str,
+    subcategory_order: Sequence[str] = (),
     nudge: bool = True,
 ) -> None:
     """A Mapsforge POI database (version 2) QMapShack's ``CPoiFilePOI`` reads:
-    one *category*, every point in it. *path* must not exist. The repeater
-    layers (D-064) and the infrastructure layers (D-075) both write through
-    this, so there is one float32 nudge."""
+    one *category*, every point in it, and a child category for each of the
+    points' ``subcategories`` (those in *subcategory_order* first, in that
+    order), a point being in every child it names as well as in the parent.
+    *path* must not exist. The repeater layers (D-064) and the infrastructure
+    layers (D-075) both write through this, so there is one float32 nudge.
+
+    QMapShack builds its category tree from ``poi_categories`` ordered by id
+    *descending* and attaches a child only to a parent already seen
+    (``CPoiFilePOI::addTreeWidgetItems``, V_1.17.1), so a parent's id is
+    higher than its children's: the children are 1..n and the layer's
+    category n+1. With no children it is 1, as it always was."""
+    used = {name for p in points for name in p.subcategories}
+    children = [n for n in subcategory_order if n in used]
+    children += sorted(used - set(children))
+    child_id = {name: number for number, name in enumerate(children, start=1)}
+    layer_id = len(children) + 1
     move = _nudge if nudge else (lambda value, limit: value)
     placed = [(move(p.lat, 90.0), move(p.lon, 180.0)) for p in points]
     # Padded, so one point still makes a box with an area: QMapShack skips
@@ -1071,7 +1291,11 @@ def write_poi_points(
             )
             db.executemany(
                 "INSERT INTO poi_categories VALUES (?, ?, ?)",
-                [(0, "root", None), (1, category, 0)],
+                [
+                    (0, "root", None),
+                    *((i, n, layer_id) for n, i in child_id.items()),
+                    (layer_id, category, 0),
+                ],
             )
             for number, (point, (lat, lon)) in enumerate(zip(points, placed, strict=True), start=1):
                 data = "\r".join(
@@ -1082,7 +1306,11 @@ def write_poi_points(
                     )
                 )
                 db.execute("INSERT INTO poi_data VALUES (?, ?)", (number, data))
-                db.execute("INSERT INTO poi_category_map VALUES (?, 1)", (number,))
+                for target in (
+                    layer_id,
+                    *(child_id[n] for n in dict.fromkeys(point.subcategories)),
+                ):
+                    db.execute("INSERT INTO poi_category_map VALUES (?, ?)", (number, target))
                 db.execute(
                     "INSERT INTO poi_index VALUES (?, ?, ?, ?, ?)", (number, lat, lat, lon, lon)
                 )
@@ -1149,7 +1377,15 @@ def _rows_text(layer: Layer) -> str:
                 "layer": layer.name,
                 "description": layer.description,
                 "day": layer.day.isoformat(),
-                "rows": [{**dataclasses.asdict(row), "also": list(row.also)} for row in layer.rows],
+                "rows": [
+                    {
+                        **dataclasses.asdict(row),
+                        "also": list(row.also),
+                        "modes": list(row.modes),
+                        "digital": dict(row.digital),
+                    }
+                    for row in layer.rows
+                ],
             },
             ensure_ascii=False,
             indent=1,
@@ -1251,6 +1487,12 @@ def _check_row_types(item: Mapping[str, Any]) -> None:
             ok = _is_int(value) or isinstance(value, float)
         elif name == "also":
             ok = isinstance(value, list) and all(isinstance(s, str) for s in value)
+        elif name == "modes":
+            ok = isinstance(value, list) and all(s in MODES for s in value)
+        elif name == "digital":
+            ok = isinstance(value, dict) and all(
+                k in DIGITAL_KEYS and isinstance(v, str) for k, v in value.items()
+            )
         else:
             ok = isinstance(value, str)
         if not ok:
@@ -1268,7 +1510,15 @@ def read_layer_rows(path: Path) -> Layer:
                 raise ValueError("a row with fields this does not write")
             _check_row_types(item)
             also = tuple(item.get("also") or ())
-            row = Repeater(**{**item, "also": also})
+            # A file written before #313 has neither: ``modes`` is then derived
+            # from ``mode`` by Repeater itself.
+            fields = {
+                **item,
+                "also": also,
+                "modes": tuple(item.get("modes") or ()),
+                "digital": dict(item.get("digital") or {}),
+            }
+            row = Repeater(**fields)
             for source in (row.source, *also):
                 if source not in SOURCE_NAMES:
                     raise ValueError(f"an unknown source {source!r}")

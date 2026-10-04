@@ -19,6 +19,7 @@ from hammunition.interface.text import wrap
 
 __all__ = [
     "AllSourcesView",
+    "CentreView",
     "InputView",
     "LayerSkipView",
     "LayerView",
@@ -190,6 +191,18 @@ class LayerView(Strict):
 
 
 @dataclass(frozen=True)
+class CentreView(Strict):
+    """The point distances and bearings are measured from."""
+
+    lat: float = described("degrees north")
+    lon: float = described("degrees east")
+    source: str = described(
+        "`argument` (`--near`) or `station` (the station's grid square: the centre of its "
+        "square, so a program that shows this is showing the operator's area)"
+    )
+
+
+@dataclass(frozen=True)
 class RowView(Strict):
     """One repeater, after the layers were joined."""
 
@@ -197,7 +210,31 @@ class RowView(Strict):
     output_hz: int = described("output frequency in Hz; 0 only when a waypoint gave none")
     offset_hz: int | None = described("transmit minus receive in Hz, signed; null when unknown")
     tone: str = described("CTCSS in Hz as text; empty for none")
-    mode: str = described("`FM`, `DMR` and the like; empty when unknown")
+    mode: str = described(
+        "`FM`, `FM, DMR` and the like: `modes` joined, or the source's own words when they "
+        "say more than the vocabulary does; empty when unknown"
+    )
+    modes: tuple[str, ...] = described(
+        "what it speaks, from `FM`, `DMR`, `D-STAR`, `YSF`, `P25`, `NXDN`, `M17`, `TETRA`, "
+        "`ATV`, in that order; empty when the source says nothing or says a word outside "
+        "the list (which stays in `mode`)"
+    )
+    band: str = described(
+        "`10m`, `6m`, `2m`, `1.25m`, `70cm`, `33cm`, `23cm`, `13cm` from the output "
+        "frequency, else `other`"
+    )
+    digital: dict[str, str] = described(
+        "digital details the source supplied, never invented: `dmr_color_code`, "
+        "`dmr_network`, `dmr_id`, `dstar_module`, `dstar_gateway`, `ysf_dgid`, `p25_nac`, "
+        "`nxdn_ran`; empty when it supplied none"
+    )
+    distance_km: float | None = described(
+        "great-circle kilometres from `centre` (haversine, 6371.0088 km sphere); null "
+        "when there is no centre"
+    )
+    bearing_deg: float | None = described(
+        "initial bearing from `centre` in degrees, 0 to 360, 0 north; null when there is no centre"
+    )
     place: str = described("where it is, as the source says")
     notes: str = described("the source's notes")
     use: str = described("`OPEN`, `CLOSED` and the like; empty when unknown")
@@ -239,6 +276,13 @@ class RepeatersListDocument(Strict):
     merged: int = described("rows joined to another layer's")
     credits: tuple[str, ...] = described(
         "one attribution or licence text per distinct source present, to print beside the map"
+    )
+    centre: CentreView | None = described(
+        "where distances are measured from: `--near`, else the station's grid square when "
+        "one is set; null when neither, and every row's `distance_km` is then null"
+    )
+    within_km: float | None = described(
+        "`--within`: rows farther than this from `centre` were left out; null when not asked"
     )
 
 
@@ -318,8 +362,33 @@ def render_removed(doc: RepeatersRemovedDocument) -> list[str]:
     return lines
 
 
-def render_repeaters_list(doc: RepeatersListDocument) -> list[str]:
-    """``maps repeaters list`` as the terminal shows it: the layers, not the rows."""
+def _row_line(row: RowView) -> str:
+    where = ""
+    if row.distance_km is not None and row.bearing_deg is not None:
+        where = f"{row.distance_km:6.1f} km {_compass(row.bearing_deg):<2}  "
+    name = row.callsign or row.label
+    freq = f"{row.output_hz / 1e6:.4f}".rstrip("0").ljust(len("000.000"), "0")
+    parts = [f"{where}{name:<8} {freq} MHz {row.band:<5}", row.mode]
+    if row.offset_hz is not None:
+        parts.append(f"offset {row.offset_hz / 1e6:+.3f}")
+    if row.tone:
+        parts.append(f"tone {row.tone}")
+    parts += [f"{k} {v}" for k, v in row.digital.items()]
+    if row.place:
+        parts.append(row.place)
+    return "  " + "  ".join(p for p in parts if p)
+
+
+def _compass(bearing: float) -> str:
+    from hammunition.repeaters import compass
+
+    return compass(bearing)
+
+
+def render_repeaters_list(doc: RepeatersListDocument, rows: bool = False) -> list[str]:
+    """``maps repeaters list`` as the terminal shows it: the layers, not the
+    rows, unless the operator asked for a place, a band or a mode (*rows*), when
+    the repeaters that match are listed, nearest first."""
     lines = [f"Repeater layers in {doc.directory}:"]
     if not doc.layers and not doc.skipped:
         return [f"No repeater layers in {doc.directory}."]
@@ -331,6 +400,19 @@ def render_repeaters_list(doc: RepeatersListDocument) -> list[str]:
             line += "  unverified"
         lines.append(line)
     lines += [f"  left out {s.layer}: {s.reason}" for s in doc.skipped]
+    if rows:
+        lines.append("")
+        if doc.centre is not None:
+            lines.append(
+                f"Repeaters, nearest first from {doc.centre.lat:.4f}, {doc.centre.lon:.4f} "
+                f"({'--near' if doc.centre.source == 'argument' else 'the station grid square'})"
+                + (f", within {doc.within_km:g} km" if doc.within_km is not None else "")
+                + ":"
+            )
+        else:
+            lines.append("Repeaters (no position given, so no distances):")
+        lines += [_row_line(r) for r in doc.rows] or ["  none match"]
+        lines.append("")
     lines.append(
         f"{len(doc.rows)} repeaters across {len(doc.layers)} layers "
         f"({doc.merged} merged across sources)"
