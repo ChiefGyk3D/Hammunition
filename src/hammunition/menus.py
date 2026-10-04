@@ -916,6 +916,52 @@ def device_entry_steps(
     return steps
 
 
+ENGINE_ENTRY_ID = "hammunition-engine-console.desktop"
+"""Its own desktop-id family, not ``hammunition-cli-*`` or ``hammunition-device-*``:
+each of those prunes whatever its run did not produce, and this entry is neither a
+unit's nor a device's."""
+
+ENGINE_ENTRY_TITLE = "Install and manage the station from a terminal (hammunition console)"
+ENGINE_ENTRY_COMMENT = (
+    "The engine's full-screen terminal front end: install, station, logs and updates"
+)
+ENGINE_ENTRY_CATEGORIES = ("HamRadio", "X-Hammunition-workstation")
+"""What the standalone unit's launcher carried (its ``workstation`` category, whose group is
+``menu: false``, with the default ``HamRadio``): the desktop keeps the entry where it already
+puts such tools and the curated tree draws no submenu for it."""
+
+
+def render_engine_entry(*, engine: Path) -> str:
+    """The desktop entry for ``hammunition console``. ``Exec=`` names the engine by
+    absolute path (issue #145); the title keeps the bare command an operator types (D-054)."""
+    return (
+        "[Desktop Entry]\n"
+        "Type=Application\n"
+        "Icon=utilities-terminal\n"
+        f"Name={ENGINE_ENTRY_TITLE}\n"
+        f"Comment={ENGINE_ENTRY_COMMENT}\n"
+        f"Exec={engine} console\n"
+        "Terminal=true\n"
+        f"Categories={';'.join(ENGINE_ENTRY_CATEGORIES)};\n"
+        "Keywords=hammunition;console;tui;install;station;\n"
+        "X-Hammunition-Generated=engine\n"
+    )
+
+
+def engine_entry_steps(applications_dir: Path, *, engine: Path) -> list[Action]:
+    """Write the engine's own entry (``hammunition console``, #302). The console is the
+    engine's, so no catalog unit generates this: the menu does, every apply."""
+    target = applications_dir / ENGINE_ENTRY_ID
+    return [
+        Action(
+            kind="menu",
+            description="Write the menu entry for hammunition console",
+            detail=f"{target}, runs {engine} console",
+            perform=partial(_write, target, render_engine_entry(engine=engine)),
+        )
+    ]
+
+
 _MARKER = re.compile(r"X-Hammunition-([a-z0-9-]+)")
 
 

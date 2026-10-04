@@ -1685,7 +1685,10 @@ second list. Per-user and unprivileged throughout.
   print, the removal as `[wrapper] <path> (shadows <binary>; removed)`. A
   manifest that still declares a launcher by such a name is refused with
   the clash named, and nothing is written. The park and
-  wake entries run the engine by the same absolute path. Each
+  wake entries run the engine by the same absolute path, and so does the engine's own entry for
+  `hammunition console` (#302), written on every apply as
+  `hammunition-engine-console.desktop` in the desktop's HamRadio category, since the
+  `workstation` group draws no submenu. Each
   submenu includes the `X-Hammunition-<category>` markers every generated
   desktop entry carries **and, by `<Filename>`, the desktop entries the
   installed catalog packages ship themselves** — mapped at apply time from
@@ -2279,6 +2282,25 @@ transactions without a recorded run-log path show `—` in text and `null` in
 JSON. `--last N` limits the rows to the newest N while keeping them in
 chronological order. `--json` prints the `transactions` document
 ([json-interface.md](json-interface.md)).
+
+### `hammunition console [--help] [--version]`
+
+The full-screen terminal front end (#302, **D-059** amended 2026-10-04): the same release and
+version as the engine, started with one subcommand. It reads the engine's `--json` documents and
+runs the engine's own commands, for a write inside a terminal pane where **you** type any consent;
+it never passes the assume-yes flag and never runs as root. Walkthrough:
+[The console](../getting-started/console.md); keys, screens and what it reads:
+[the console reference](../console/index.md).
+
+- `--help` prints its keys and exit codes; `--version` prints the engine's version (there is no second one).
+- It refuses to start, exit 2, with no terminal on stdin and stdout, with `TERM=dumb` or unset,
+  as root, or with an argument it does not know.
+- **urwid** is its one dependency and is optional for the engine: when it cannot be imported,
+  `console` prints one line naming `sudo apt install python3-urwid` (outside a virtualenv on the
+  Debian family) or `pip install 'hammunition[console]'` (anywhere else, including the bootstrap
+  virtualenv, which `./bootstrap.sh` already fills), and exits 2.
+- It has **no `--json` form**: `hammunition console --json` is refused like any verb with no document.
+- It launches the engine as `<its own interpreter> -m hammunition`, never a `hammunition` found on `PATH`.
 
 ### `hammunition station show`
 

@@ -1,5 +1,12 @@
 # Design: the Hammunition console
 
+> **Amended 2026-10-04 (#302, D-059 amendment):** the console is no longer a separate
+> repository. It is `hammunition console`, in `src/hammunition/console/`, with its tests
+> in `tests/console/`: one release, one version, no `ENGINE_FLOOR` and no `engine`
+> field comparison, urwid an optional extra. Section 12.4's subcommand is this, done
+> the other way round: the console is in the engine and the engine does not exec a
+> separate program. The text below is the 2026-10-03 design, otherwise unchanged.
+
 Status: draft for the maintainer, 2026-10-03. Nothing is built. This is a spec
 for a new repository in the Hammunition suite, a terminal UI that installs and
 manages a station. It rests on the spike

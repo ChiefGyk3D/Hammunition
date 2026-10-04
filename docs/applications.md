@@ -764,7 +764,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 - [geary](packages/geary.md) — The minimal, conversation-view mail client (by name only)
 - [git](packages/git.md) — Distributed version control — the tool this project is distributed with (in [`workstation`](profiles/workstation.md))
 - [gpa](packages/gpa.md) — GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic (by name only)
-- [hammunition-console](packages/hammunition-console.md) — A terminal front end for the engine -- install, station, logs and updates in one full-screen program (by name only)
+- [hammunition-console](packages/hammunition-console.md) *(retired)* — A terminal front end for the engine -- install, station, logs and updates in one full-screen program (by name only)
 - [pciutils](packages/pciutils.md) — lspci — for the SDRs and capture cards that are not on USB (in [`workstation`](profiles/workstation.md))
 - [picocom](packages/picocom.md) — The minimal terminal-native serial console (by name only)
 - [pipx](packages/pipx.md) — Installs Python applications in their own environments, on the PATH (in [`station`](profiles/station.md))
