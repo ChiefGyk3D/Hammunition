@@ -35,6 +35,7 @@ machine trusts.
 
 from __future__ import annotations
 
+import contextlib
 import os
 from dataclasses import dataclass
 from enum import StrEnum
@@ -209,11 +210,9 @@ class AptRepoBackend:
     def _fetch_key(self, repo: AptRepo, destination: Path) -> str:
         expected = normalize_fingerprint(repo.key_fingerprint)
         if destination.exists():
-            try:
+            with contextlib.suppress(KeyFileError):
                 if primary_fingerprints(destination.read_bytes()) == (expected,):
                     return f"cached key at {destination} still carries {expected}"
-            except KeyFileError:
-                pass
             destination.unlink()
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         temporary = destination.with_name(destination.name + f".part.{os.getpid()}")

@@ -1971,7 +1971,7 @@ def _tether_call_through(installed: tuple[list[str], str], args: argparse.Namesp
         os.execv(argv[0], argv)  # replaces this process; returns only by raising
     except OSError as exc:
         print(f"error: cannot run {argv[0]}: {exc.strerror or exc}.", file=sys.stderr)
-        return EXIT_FAILED
+    return EXIT_FAILED
 
 
 def cmd_maps_splat(args: argparse.Namespace) -> int:

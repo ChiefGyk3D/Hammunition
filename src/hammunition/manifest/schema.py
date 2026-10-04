@@ -2064,13 +2064,6 @@ class ConfigFile(Strict):
         return self
 
 
-#: Names the engine derives at plan time from the catalog, not stored on the
-#: station, and so not in `TEMPLATE_VARIABLES`: the hamlib model and kind come
-#: from the selected rig's manifest, the uppercase PTT line from `rig_ptt_line`
-#: (D-073 §5, §6a). A `user_services` block may reference these in its `exec`;
-#: the rig planning layer fills them.
-RIG_DERIVED_AT_PLAN = frozenset({"rig_hamlib_model", "rig_kind", "rig_ptt_line_hamlib"})
-
 #: What may not appear in a `user_services` exec element after station
 #: substitution: shell metacharacters and any whitespace. A unit file's
 #: `ExecStart=` is split on whitespace by systemd, so an element carrying a

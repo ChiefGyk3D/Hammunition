@@ -43,6 +43,7 @@ D-036 names the three mechanisms and what is still unknown about each.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 import shlex
@@ -216,11 +217,9 @@ def engine_path(bin_dir: Path) -> Path:
             "start hammunition as .venv/bin/hammunition or through ~/.local/bin/hammunition"
         )
     link = bin_dir / ENGINE
-    try:
+    with contextlib.suppress(OSError):
         if link.is_symlink() and link.resolve() == running.resolve():
             return link
-    except OSError:
-        pass
     return running
 
 

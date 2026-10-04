@@ -10,6 +10,7 @@ echo-ish upstream (no rigctld needed for these). The gate test
 
 from __future__ import annotations
 
+import contextlib
 import socket
 import threading
 import time
@@ -84,12 +85,10 @@ def test_an_http_request_is_dropped_and_never_reaches_upstream() -> None:
         srv.listen(4)
         srv.settimeout(1.5)
         ready.set()
-        try:
+        with contextlib.suppress(OSError):
             conn, _ = srv.accept()
             reached.append(conn.recv(65536))
             conn.close()
-        except OSError:
-            pass
         srv.close()
 
     up_ready = threading.Event()

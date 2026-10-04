@@ -53,7 +53,7 @@ def _package() -> Path:
         pytest.fail(
             message + " (CI must check it out: see scripts/ci-test.sh, run by the ci job in ci.yml)"
         )
-    pytest.skip(message)
+    raise pytest.skip.Exception(message)
 
 
 def _constants(path: Path) -> dict[str, object]:

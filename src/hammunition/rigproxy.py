@@ -54,13 +54,12 @@ def looks_like_http(first_bytes: bytes) -> bool:
 
 def _pump(src: socket.socket, dst: socket.socket) -> None:
     try:
-        while True:
-            chunk = src.recv(65536)
-            if not chunk:
-                break
-            dst.sendall(chunk)
-    except OSError:
-        pass
+        with contextlib.suppress(OSError):  # a reset or closed peer just ends the pump
+            while True:
+                chunk = src.recv(65536)
+                if not chunk:
+                    break
+                dst.sendall(chunk)
     finally:
         for sock in (src, dst):
             with contextlib.suppress(OSError):
