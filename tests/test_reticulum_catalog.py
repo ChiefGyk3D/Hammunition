@@ -234,7 +234,7 @@ def inventory_rns() -> str:
     return match.group(1)
 
 
-@pytest.mark.parametrize("unit", ["lxmf"])
+@pytest.mark.parametrize("unit", ["lxmf", "nomadnet"])
 def test_every_reticulum_venv_pins_the_same_rns(unit: str) -> None:
     """Each unit is its own venv with its own copy of `rns`, and the one that runs
     the shared instance must be the version every client was built against.
@@ -244,3 +244,57 @@ def test_every_reticulum_venv_pins_the_same_rns(unit: str) -> None:
         f"{unit} pins rns {pinned(unit, 'rns')} but the inventory pins "
         f"{inventory_rns()}: resolve the three closures again together"
     )
+
+
+# -- nomadnet ----------------------------------------------------------------
+
+
+def test_nomadnet_is_a_complete_hash_pinned_venv_exposing_nomadnet() -> None:
+    block = _venv("nomadnet")
+    assert block.python == ">=3.11" and block.expose == ["nomadnet"]
+    assert pinned_projects("nomadnet") == {
+        "cffi",
+        "cryptography",
+        "lxmf",
+        "nomadnet",
+        "pycparser",
+        "pyserial",
+        "qrcode",
+        "rns",
+        "typing-extensions",
+        "urwid",
+        "wcwidth",
+    }
+    assert pinned("nomadnet", "nomadnet") == "1.4.4" and _unit("nomadnet").version == "1.4.4"
+    assert hash_count("nomadnet") == 196
+    assert pinned("nomadnet", "lxmf") == pinned("lxmf", "lxmf")
+
+
+def test_nomadnet_is_gpl_by_its_shipped_text_and_the_page_says_the_classifier_disagrees() -> None:
+    """The wheel's classifier says MIT and the licence text it ships is the GPL v3;
+    the shipped text governs (maintainer's ruling, 2026-10-03)."""
+    block = _venv("nomadnet")
+    assert block.licence is not None and block.licence.startswith("GPL-3.0-only")
+    assert block.licence_url == "https://github.com/markqvist/NomadNet/blob/master/LICENSE"
+    problems = _unit("nomadnet").documentation.known_problems
+    assert problems is not None
+    assert "The licence statements disagree" in problems and "MIT" in problems
+    assert "Reticulum License" not in (block.licence or "")
+
+
+def test_the_menu_entry_is_a_terminal_launcher_that_does_not_shadow_the_wrapper() -> None:
+    unit = _unit("nomadnet")
+    (launcher,) = unit.launchers
+    assert launcher.terminal and launcher.exec == "{venv}/bin/nomadnet"
+    assert launcher.title == "NomadNet (Reticulum messaging and pages)"
+    # Both land in ~/.local/bin; one name would have one overwrite the other.
+    assert launcher.name == "nomadnet-terminal" and launcher.name not in _venv("nomadnet").expose
+    assert unit.user_services == []
+
+
+def test_nomadnet_leaves_the_operators_identity_and_messages() -> None:
+    unit = _unit("nomadnet")
+    assert unit.config_files == [] and unit.system_modifications == []
+    problems = unit.documentation.known_problems
+    assert problems is not None
+    assert "~/.nomadnetwork" in problems and "leaves in place" in problems

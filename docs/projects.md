@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**323 programs and packages** from the catalog, laid out the way the
+**324 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -275,6 +275,7 @@ AX.25 packet, soundcard modems, nodes and BBS, Winlink, APRS, LoRa mesh and the 
 |---|---|---|
 | [gtk-meshtastic-client](packages/gtk-meshtastic-client.md) | Desktop GUI for Meshtastic nodes | [gitlab.com/kop316/gtk-meshtastic-client](https://gitlab.com/kop316/gtk-meshtastic-client) |
 | [lxmf](packages/lxmf.md) | LXMF, Reticulum's message layer, and lxmd, its store-and-forward propagation daemon | [github.com/markqvist/LXMF](https://github.com/markqvist/LXMF) |
+| [nomadnet](packages/nomadnet.md) | Nomad Network, an encrypted messenger and page browser for the terminal, over Reticulum | [github.com/markqvist/NomadNet](https://github.com/markqvist/NomadNet) |
 | [python3-meshtastic](packages/python3-meshtastic.md) | Meshtastic command-line client and Python API | [github.com/meshtastic/python](https://github.com/meshtastic/python) |
 | [rns](packages/rns.md) | Reticulum, encrypted networking over any medium, with its shared instance and the RNode flasher | [github.com/markqvist/Reticulum](https://github.com/markqvist/Reticulum) |
 

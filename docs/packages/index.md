@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**323 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**324 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -301,12 +301,13 @@ Contact logging, awards tracking, Logbook of the World and the lookups a log nee
 - [tucnak](tucnak.md) — VHF and above contest logger, built around locator scoring and networking
 - [xlog](xlog.md) — Small GTK station log that opens instantly and does the basics well
 
-### `mesh` — 4
+### `mesh` — 5
 
 Meshtastic, MeshCore and Reticulum: off-grid text over LoRa.
 
 - [gtk-meshtastic-client](gtk-meshtastic-client.md) — Desktop GUI for Meshtastic nodes
 - [lxmf](lxmf.md) — LXMF, Reticulum's message layer, and lxmd, its store-and-forward propagation daemon
+- [nomadnet](nomadnet.md) — Nomad Network, an encrypted messenger and page browser for the terminal, over Reticulum
 - [python3-meshtastic](python3-meshtastic.md) — Meshtastic command-line client and Python API
 - [rns](rns.md) — Reticulum, encrypted networking over any medium, with its shared instance and the RNode flasher
 
@@ -919,6 +920,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [navit](navit.md) | Offline turn-by-turn navigation that follows the GPS, with spoken directions | apt |
 | [nec2c](nec2c.md) | The NEC2 antenna modelling engine as a C program, for scripting | apt |
 | [noaa-apt](noaa-apt.md) | Decoder for NOAA weather-satellite APT imagery | binary |
+| [nomadnet](nomadnet.md) | Nomad Network, an encrypted messenger and page browser for the terminal, over Reticulum | venv |
 | [not1mm](not1mm.md) | A contest logger that speaks to your rig, keyer and cluster | venv |
 | [nrsc5](nrsc5.md) | HD Radio (NRSC-5) receiver for an RTL-SDR -- the digital side of North American FM and AM | git |
 | [odr-audioenc](odr-audioenc.md) | Encodes audio into the DAB and DAB+ formats a multiplexer expects | apt |
