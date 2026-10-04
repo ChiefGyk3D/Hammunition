@@ -1,0 +1,1 @@
+- `hammunition maps repeaters list [--layer ID] [--json]` reads the repeater layers back as a `repeaters-list` document for front ends: layers with `personal_use` and `unverified`, the joined rows with their layer, the credits to print, and the layers it could not read, exit 0 on a partial list; read-only (branch `repeaters-list-json`; D-074 amended 2026-10-04, D-059, D-081).

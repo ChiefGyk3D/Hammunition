@@ -102,6 +102,7 @@ __all__ = [
     "brandmeister_layer_name",
     "brandmeister_licence",
     "cross_merge",
+    "cross_merge_origins",
     "direwolf_date",
     "direwolf_layer_name",
     "direwolf_licence",
@@ -1250,6 +1251,15 @@ def cross_merge(layers: Iterable[Iterable[Repeater]]) -> tuple[tuple[Repeater, .
     row, and names the joining source in ``also``. A row without a frequency
     is never joined. An APRS object is refused: it is what the station
     heard, not a directory entry."""
+    rows, joined, _ = cross_merge_origins(layers)
+    return rows, joined
+
+
+def cross_merge_origins(
+    layers: Iterable[Iterable[Repeater]],
+) -> tuple[tuple[Repeater, ...], int, tuple[int, ...]]:
+    """:func:`cross_merge`, and for each kept row the index (in *layers*) of
+    the layer it came from, so a program can say which layer a row is."""
     tagged = [(n, row) for n, layer in enumerate(layers) for row in layer]
     if any(r.source == DIREWOLF for _, r in tagged):
         raise ValueError("an APRS object heard off the air is never merged into the directories")
@@ -1257,6 +1267,7 @@ def cross_merge(layers: Iterable[Iterable[Repeater]]) -> tuple[tuple[Repeater, .
     tagged.sort(key=lambda item: rank[item[1].source])
     kept: list[Repeater] = []
     kept_layers: list[set[int]] = []
+    origin: list[int] = []
     by_hz: dict[int, list[int]] = {}
     joined = 0
     for layer, row in tagged:
@@ -1277,8 +1288,9 @@ def cross_merge(layers: Iterable[Iterable[Repeater]]) -> tuple[tuple[Repeater, .
                 by_hz.setdefault(row.output_hz, []).append(len(kept))
             kept.append(row)
             kept_layers.append({layer})
+            origin.append(layer)
             continue
         joined += 1
         kept[match] = _fill(kept[match], row)
         kept_layers[match].add(layer)
-    return tuple(kept), joined
+    return tuple(kept), joined, tuple(origin)

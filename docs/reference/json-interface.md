@@ -56,6 +56,7 @@ their text follows.
 - `hammunition maps phone`
 - `hammunition maps regions`
 - `hammunition maps repeaters import`
+- `hammunition maps repeaters list`
 - `hammunition maps repeaters remove`
 - `hammunition reference books`
 - `hammunition services`
@@ -87,6 +88,7 @@ their text follows.
 | `profile` | [`ProfileDocument`](#profile) |
 | `regions` | [`RegionsDocument`](#regions) |
 | `repeaters` | [`RepeatersDocument`](#repeaters) |
+| `repeaters-list` | [`RepeatersListDocument`](#repeaters-list) |
 | `repeaters-removed` | [`RepeatersRemovedDocument`](#repeaters-removed) |
 | `services` | [`ServicesDocument`](#services) |
 | `station` | [`StationDocument`](#station) |
@@ -5050,6 +5052,310 @@ A layer the all-sources file could not read.
     "all_sources"
   ],
   "title": "RepeatersDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### repeaters-list
+
+The repeater layers on this machine, read back, for a program. Read-only:
+nothing is written, fetched or rebuilt. A layer that cannot be read is in
+`skipped` and the rest is returned, with exit 0; an empty directory is an
+empty document. Carries every row, so it is for local programs, not for
+pasting. D-074 (amended 2026-10-04).
+
+| field | type | meaning |
+|---|---|---|
+| `directory` | string | where the layers are |
+| `layers` | list of [`LayerView`](#layerview) | every layer read, in layer order, the heard layer (`aprs-heard`) included |
+| `skipped` | list of [`LayerSkipView`](#layerskipview) | layers asked for or present that were not read, and why: no rows file, an unreadable one, an id that is not a layer, a layer not present |
+| `rows` | list of [`RowView`](#rowview) | the layers joined as `repeaters-all.gpx` is (D-074), in memory, without the heard layer |
+| `merged` | integer | rows joined to another layer's |
+| `credits` | list of string | one attribution or licence text per distinct source present, to print beside the map |
+
+#### `LayerView`
+
+One layer read from the overlay directory.
+
+| field | type | meaning |
+|---|---|---|
+| `id` | string | the layer's id: `export`, `acma`, `open-repeater`, `osm`, `etcc`, `brandmeister`, `repeaterbook` or `aprs-heard` |
+| `name` | string | the layer's name, as QMapShack's project shows it |
+| `description` | string | the layer's description, which carries each source's licence |
+| `day` | string | YYYY-MM-DD: the layer's date |
+| `rows` | integer | repeaters in the layer |
+| `sources` | list of string | the distinct sources of its rows, as `repeaterbook-api`, `open-repeater-json` and the like |
+| `personal_use` | boolean | true when any source is RepeaterBook's: its terms keep the rows on this machine (D-081) |
+| `unverified` | boolean | true when any source is one the engine records as unverified: hearham, ETCC, Brandmeister, the ACMA register, RepeaterBook's API |
+| `files` | list of string | the layer's files that exist: GPX, POI, Navit, rows |
+
+#### `RowView`
+
+One repeater, after the layers were joined.
+
+| field | type | meaning |
+|---|---|---|
+| `callsign` | string | empty only for a waypoint whose name gave none |
+| `output_hz` | integer | output frequency in Hz; 0 only when a waypoint gave none |
+| `offset_hz` | integer or null | transmit minus receive in Hz, signed; null when unknown |
+| `tone` | string | CTCSS in Hz as text; empty for none |
+| `mode` | string | `FM`, `DMR` and the like; empty when unknown |
+| `place` | string | where it is, as the source says |
+| `notes` | string | the source's notes |
+| `use` | string | `OPEN`, `CLOSED` and the like; empty when unknown |
+| `status` | string | the source's status; empty when unknown |
+| `updated` | string | when the source last updated it; empty when unknown |
+| `label` | string | a waypoint's name, when it gave no callsign or frequency |
+| `lat` | <class 'float'> | degrees north |
+| `lon` | <class 'float'> | degrees east |
+| `source` | string | the source of the row kept, best first (D-074's precedence) |
+| `also` | list of string | other sources that list the same machine, best first |
+| `layer` | string | the id of the layer the kept row came from |
+| `personal_use` | boolean | true when the source or any of `also` is RepeaterBook's: do not serve this row beyond the machine (D-081) |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "LayerSkipView": {
+      "additionalProperties": false,
+      "description": "A layer the all-sources file could not read.",
+      "properties": {
+        "layer": {
+          "title": "Layer",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "layer",
+        "reason"
+      ],
+      "title": "LayerSkipView",
+      "type": "object"
+    },
+    "LayerView": {
+      "additionalProperties": false,
+      "description": "One layer read from the overlay directory.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "day": {
+          "title": "Day",
+          "type": "string"
+        },
+        "rows": {
+          "title": "Rows",
+          "type": "integer"
+        },
+        "sources": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "personal_use": {
+          "title": "Personal Use",
+          "type": "boolean"
+        },
+        "unverified": {
+          "title": "Unverified",
+          "type": "boolean"
+        },
+        "files": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Files",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "day",
+        "rows",
+        "sources",
+        "personal_use",
+        "unverified",
+        "files"
+      ],
+      "title": "LayerView",
+      "type": "object"
+    },
+    "RowView": {
+      "additionalProperties": false,
+      "description": "One repeater, after the layers were joined.",
+      "properties": {
+        "callsign": {
+          "title": "Callsign",
+          "type": "string"
+        },
+        "output_hz": {
+          "title": "Output Hz",
+          "type": "integer"
+        },
+        "offset_hz": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Offset Hz"
+        },
+        "tone": {
+          "title": "Tone",
+          "type": "string"
+        },
+        "mode": {
+          "title": "Mode",
+          "type": "string"
+        },
+        "place": {
+          "title": "Place",
+          "type": "string"
+        },
+        "notes": {
+          "title": "Notes",
+          "type": "string"
+        },
+        "use": {
+          "title": "Use",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "updated": {
+          "title": "Updated",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "lat": {
+          "title": "Lat",
+          "type": "number"
+        },
+        "lon": {
+          "title": "Lon",
+          "type": "number"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "also": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Also",
+          "type": "array"
+        },
+        "layer": {
+          "title": "Layer",
+          "type": "string"
+        },
+        "personal_use": {
+          "title": "Personal Use",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "callsign",
+        "output_hz",
+        "offset_hz",
+        "tone",
+        "mode",
+        "place",
+        "notes",
+        "use",
+        "status",
+        "updated",
+        "label",
+        "lat",
+        "lon",
+        "source",
+        "also",
+        "layer",
+        "personal_use"
+      ],
+      "title": "RowView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The repeater layers on this machine, read back, for a program. Read-only:\nnothing is written, fetched or rebuilt. A layer that cannot be read is in\n`skipped` and the rest is returned, with exit 0; an empty directory is an\nempty document. Carries every row, so it is for local programs, not for\npasting. D-074 (amended 2026-10-04).",
+  "properties": {
+    "directory": {
+      "title": "Directory",
+      "type": "string"
+    },
+    "layers": {
+      "items": {
+        "$ref": "#/$defs/LayerView"
+      },
+      "title": "Layers",
+      "type": "array"
+    },
+    "skipped": {
+      "items": {
+        "$ref": "#/$defs/LayerSkipView"
+      },
+      "title": "Skipped",
+      "type": "array"
+    },
+    "rows": {
+      "items": {
+        "$ref": "#/$defs/RowView"
+      },
+      "title": "Rows",
+      "type": "array"
+    },
+    "merged": {
+      "title": "Merged",
+      "type": "integer"
+    },
+    "credits": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Credits",
+      "type": "array"
+    }
+  },
+  "required": [
+    "directory",
+    "layers",
+    "skipped",
+    "rows",
+    "merged",
+    "credits"
+  ],
+  "title": "RepeatersListDocument",
   "type": "object"
 }
 ```

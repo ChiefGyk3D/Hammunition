@@ -1305,6 +1305,23 @@ configuration at its next start. The second deletes one layer
 `repeaterbook` or `aprs-heard`)
 and rebuilds the rest.
 
+### For programs: `maps repeaters list --json`
+
+```
+hammunition maps repeaters list
+hammunition maps repeaters list --json
+```
+
+A front end reads the layers through this command, never the files. The text
+says what layers there are; the `repeaters-list` document carries the layers
+(date, sources, files), every repeater after the layers are joined as the
+all-sources file joins them (with the layer each came from), the layers it
+could not read and why, and `credits`, one attribution per source present:
+print those beside the map. It is read-only and a layer it cannot read is
+listed as left out while the rest is returned, exit 0. RepeaterBook rows are
+for your personal use (**D-081**): `personal_use` marks the layers and the
+rows that carry them, and a program must not serve those beyond this machine.
+
 ### Not carried
 
 - Any fetch from RepeaterBook *by the project*. What is carried is the

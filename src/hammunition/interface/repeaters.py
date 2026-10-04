@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""``maps repeaters import`` and ``maps repeaters remove`` as data.  D-064, D-059.
+"""``maps repeaters import``, ``remove`` and ``list`` as data.  D-064, D-059.
 
 Counts, paths and the layer's name only. Neither document carries a
 repeater's callsign or position: the operator's export says where they
-operate, and these are the kind of output that gets pasted into an issue."""
+operate, and these are the kind of output that gets pasted into an issue.
+``list`` is the exception, for programs: it carries every row, and its text
+does not."""
 
 from __future__ import annotations
 
@@ -19,13 +21,17 @@ __all__ = [
     "AllSourcesView",
     "InputView",
     "LayerSkipView",
+    "LayerView",
     "RegistrationView",
     "RepeatersDocument",
+    "RepeatersListDocument",
     "RepeatersRemovedDocument",
+    "RowView",
     "SkipView",
     "render_all_sources",
     "render_removed",
     "render_repeaters",
+    "render_repeaters_list",
 ]
 
 
@@ -158,6 +164,84 @@ class RepeatersRemovedDocument(Strict):
     all_sources: AllSourcesView = described("the all-sources file, rebuilt from what is left")
 
 
+@dataclass(frozen=True)
+class LayerView(Strict):
+    """One layer read from the overlay directory."""
+
+    id: str = described(
+        "the layer's id: `export`, `acma`, `open-repeater`, `osm`, `etcc`, `brandmeister`, "
+        "`repeaterbook` or `aprs-heard`"
+    )
+    name: str = described("the layer's name, as QMapShack's project shows it")
+    description: str = described("the layer's description, which carries each source's licence")
+    day: str = described("YYYY-MM-DD: the layer's date")
+    rows: int = described("repeaters in the layer")
+    sources: tuple[str, ...] = described(
+        "the distinct sources of its rows, as `repeaterbook-api`, `open-repeater-json` and the like"
+    )
+    personal_use: bool = described(
+        "true when any source is RepeaterBook's: its terms keep the rows on this machine (D-081)"
+    )
+    unverified: bool = described(
+        "true when any source is one the engine records as unverified: hearham, ETCC, "
+        "Brandmeister, the ACMA register, RepeaterBook's API"
+    )
+    files: tuple[str, ...] = described("the layer's files that exist: GPX, POI, Navit, rows")
+
+
+@dataclass(frozen=True)
+class RowView(Strict):
+    """One repeater, after the layers were joined."""
+
+    callsign: str = described("empty only for a waypoint whose name gave none")
+    output_hz: int = described("output frequency in Hz; 0 only when a waypoint gave none")
+    offset_hz: int | None = described("transmit minus receive in Hz, signed; null when unknown")
+    tone: str = described("CTCSS in Hz as text; empty for none")
+    mode: str = described("`FM`, `DMR` and the like; empty when unknown")
+    place: str = described("where it is, as the source says")
+    notes: str = described("the source's notes")
+    use: str = described("`OPEN`, `CLOSED` and the like; empty when unknown")
+    status: str = described("the source's status; empty when unknown")
+    updated: str = described("when the source last updated it; empty when unknown")
+    label: str = described("a waypoint's name, when it gave no callsign or frequency")
+    lat: float = described("degrees north")
+    lon: float = described("degrees east")
+    source: str = described("the source of the row kept, best first (D-074's precedence)")
+    also: tuple[str, ...] = described("other sources that list the same machine, best first")
+    layer: str = described("the id of the layer the kept row came from")
+    personal_use: bool = described(
+        "true when the source or any of `also` is RepeaterBook's: do not serve this row "
+        "beyond the machine (D-081)"
+    )
+
+
+@dataclass(frozen=True)
+class RepeatersListDocument(Strict):
+    """The repeater layers on this machine, read back, for a program. Read-only:
+    nothing is written, fetched or rebuilt. A layer that cannot be read is in
+    `skipped` and the rest is returned, with exit 0; an empty directory is an
+    empty document. Carries every row, so it is for local programs, not for
+    pasting. D-074 (amended 2026-10-04)."""
+
+    KIND: ClassVar[str] = "repeaters-list"
+
+    directory: str = described("where the layers are")
+    layers: tuple[LayerView, ...] = described(
+        "every layer read, in layer order, the heard layer (`aprs-heard`) included"
+    )
+    skipped: tuple[LayerSkipView, ...] = described(
+        "layers asked for or present that were not read, and why: no rows file, an unreadable "
+        "one, an id that is not a layer, a layer not present"
+    )
+    rows: tuple[RowView, ...] = described(
+        "the layers joined as `repeaters-all.gpx` is (D-074), in memory, without the heard layer"
+    )
+    merged: int = described("rows joined to another layer's")
+    credits: tuple[str, ...] = described(
+        "one attribution or licence text per distinct source present, to print beside the map"
+    )
+
+
 _NUMBERED = {
     "hand-csv": "lines",
     "repeaterbook-csv": "lines",
@@ -231,4 +315,26 @@ def render_removed(doc: RepeatersRemovedDocument) -> list[str]:
     lines = ["Removed:"] + [f"  {path}" for path in doc.removed]
     lines += render_all_sources(doc.all_sources)
     lines += [_registration(view) for view in doc.unregistered]
+    return lines
+
+
+def render_repeaters_list(doc: RepeatersListDocument) -> list[str]:
+    """``maps repeaters list`` as the terminal shows it: the layers, not the rows."""
+    lines = [f"Repeater layers in {doc.directory}:"]
+    if not doc.layers and not doc.skipped:
+        return [f"No repeater layers in {doc.directory}."]
+    for layer in doc.layers:
+        line = f"  {layer.id}  {layer.rows}  {layer.day}  {layer.name}"
+        if layer.personal_use:
+            line += "  personal use"
+        if layer.unverified:
+            line += "  unverified"
+        lines.append(line)
+    lines += [f"  left out {s.layer}: {s.reason}" for s in doc.skipped]
+    lines.append(
+        f"{len(doc.rows)} repeaters across {len(doc.layers)} layers "
+        f"({doc.merged} merged across sources)"
+    )
+    for text in doc.credits:
+        lines += ["", *wrap(text, indent="")]
     return lines

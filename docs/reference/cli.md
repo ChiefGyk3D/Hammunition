@@ -815,6 +815,28 @@ first. A later state merges into the layer already there. The layer is **never
 mirrored and never listed by `artifacts`**: it is the operator's own, 0600, and may
 not be shared. No `--json` form, no `--no-mirror`.
 
+### `hammunition maps repeaters list [--layer ID]... [--json]`
+
+Reads back the layers in your repeater directory. Read-only: it writes
+nothing, fetches nothing and never rebuilds `repeaters-all.gpx`. The text
+lists each layer (id, repeaters, date, name, with `personal use` and
+`unverified` where they apply), what it left out and why, how many repeaters
+the layers make once joined across sources, and each source's credit; it does
+not list the repeaters. `--layer` (repeatable) reads only those layers; an id
+that is not a layer, or is not there, is reported as left out, not as an
+error.
+
+A layer it cannot read (written before D-074 kept its rows as data, or a
+damaged rows file) is left out with the reason and the rest is returned:
+**a partial list is exit 0**, so a program can draw what there is. No
+directory, or no layer, is exit 0 and says so. Exit 1 only when the directory
+itself cannot be read.
+
+With `--json`, prints a `repeaters-list` document
+([json-interface.md](json-interface.md)): the layers, those left out, every
+joined repeater with the layer it came from and `personal_use`, and the
+credits to print. The grid square and distances are not in it.
+
 ### `hammunition maps repeaters remove [--layer ID]`
 
 Deletes every layer's files, the all-sources file, your Navit copy, and the
