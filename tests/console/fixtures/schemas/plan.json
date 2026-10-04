@@ -1,0 +1,2005 @@
+{
+  "$defs": {
+    "AptLine": {
+      "additionalProperties": false,
+      "description": "One apt package a unit resolves to.",
+      "properties": {
+        "package": {
+          "title": "Package",
+          "type": "string"
+        },
+        "outstanding": {
+          "title": "Outstanding",
+          "type": "boolean"
+        },
+        "build_only": {
+          "title": "Build Only",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "package",
+        "outstanding",
+        "build_only"
+      ],
+      "title": "AptLine",
+      "type": "object"
+    },
+    "ArtifactLine": {
+      "additionalProperties": false,
+      "description": "A file or tree the removal deletes, and why it is this engine's to delete.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "basis": {
+          "title": "Basis",
+          "type": "string"
+        }
+      },
+      "required": [
+        "unit",
+        "kind",
+        "path",
+        "basis"
+      ],
+      "title": "ArtifactLine",
+      "type": "object"
+    },
+    "BareEarthSectionView": {
+      "additionalProperties": false,
+      "description": "USGS 3DEP bare-earth elevation (D-068, amended 2026-10-01). Local only.",
+      "properties": {
+        "chosen": {
+          "title": "Chosen",
+          "type": "boolean"
+        },
+        "regions": {
+          "items": {
+            "$ref": "#/$defs/TerrainRegionLine"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "fetch": {
+          "items": {
+            "$ref": "#/$defs/TileLine"
+          },
+          "title": "Fetch",
+          "type": "array"
+        },
+        "current": {
+          "title": "Current",
+          "type": "integer"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "download_total": {
+          "title": "Download Total",
+          "type": "integer"
+        },
+        "download_total_human": {
+          "title": "Download Total Human",
+          "type": "string"
+        }
+      },
+      "required": [
+        "chosen",
+        "regions",
+        "fetch",
+        "current",
+        "licence",
+        "licence_url",
+        "download_total",
+        "download_total_human"
+      ],
+      "title": "BareEarthSectionView",
+      "type": "object"
+    },
+    "BlockerLine": {
+      "additionalProperties": false,
+      "description": "One reason the transaction cannot be planned.",
+      "properties": {
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "remedy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Remedy"
+        }
+      },
+      "required": [
+        "subject",
+        "reason",
+        "remedy"
+      ],
+      "title": "BlockerLine",
+      "type": "object"
+    },
+    "BoundaryLine": {
+      "additionalProperties": false,
+      "description": "The country-border file merged into each region before conversion.",
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "size_human": {
+          "title": "Size Human",
+          "type": "string"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "verified_by": {
+          "title": "Verified By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "url",
+        "size",
+        "size_human",
+        "licence",
+        "verified_by"
+      ],
+      "title": "BoundaryLine",
+      "type": "object"
+    },
+    "ConfigLine": {
+      "additionalProperties": false,
+      "description": "A configuration file the transaction writes.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "mode": {
+          "title": "Mode",
+          "type": "string"
+        },
+        "append": {
+          "title": "Append",
+          "type": "boolean"
+        },
+        "backup_existing": {
+          "title": "Backup Existing",
+          "type": "boolean"
+        },
+        "fills": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fills",
+          "type": "array"
+        }
+      },
+      "required": [
+        "unit",
+        "path",
+        "mode",
+        "append",
+        "backup_existing",
+        "fills"
+      ],
+      "title": "ConfigLine",
+      "type": "object"
+    },
+    "ConvertLine": {
+      "additionalProperties": false,
+      "description": "A region converted for Navit this run.",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "snapshot": {
+          "title": "Snapshot",
+          "type": "string"
+        },
+        "estimate": {
+          "title": "Estimate",
+          "type": "integer"
+        },
+        "estimate_human": {
+          "title": "Estimate Human",
+          "type": "string"
+        },
+        "countries": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Countries",
+          "type": "array"
+        },
+        "converter_changed": {
+          "title": "Converter Changed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "region",
+        "snapshot",
+        "estimate",
+        "estimate_human",
+        "countries",
+        "converter_changed"
+      ],
+      "title": "ConvertLine",
+      "type": "object"
+    },
+    "DataArtifactLine": {
+      "additionalProperties": false,
+      "description": "One file of an offline dataset.",
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "size_human": {
+          "title": "Size Human",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "size",
+        "size_human"
+      ],
+      "title": "DataArtifactLine",
+      "type": "object"
+    },
+    "DataLine": {
+      "additionalProperties": false,
+      "description": "An offline-data unit: sizes and licence, before anything downloads (D-049).",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "total_size": {
+          "title": "Total Size",
+          "type": "integer"
+        },
+        "total_human": {
+          "title": "Total Human",
+          "type": "string"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/DataArtifactLine"
+          },
+          "title": "Artifacts",
+          "type": "array"
+        },
+        "installs_under": {
+          "title": "Installs Under",
+          "type": "string"
+        },
+        "verified_by": {
+          "title": "Verified By",
+          "type": "string"
+        },
+        "approximate": {
+          "title": "Approximate",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "unit",
+        "total_size",
+        "total_human",
+        "licence",
+        "licence_url",
+        "artifacts",
+        "installs_under",
+        "verified_by",
+        "approximate"
+      ],
+      "title": "DataLine",
+      "type": "object"
+    },
+    "DeferralLine": {
+      "additionalProperties": false,
+      "description": "Part of the request that will not happen; the rest still does (D-035, D-039, D-060).",
+      "properties": {
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "what": {
+          "title": "What",
+          "type": "string"
+        },
+        "why": {
+          "title": "Why",
+          "type": "string"
+        },
+        "remedy": {
+          "title": "Remedy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "subject",
+        "what",
+        "why",
+        "remedy"
+      ],
+      "title": "DeferralLine",
+      "type": "object"
+    },
+    "DesktopsReadView": {
+      "additionalProperties": false,
+      "description": "What the session files said, when a unit in the request is for particular desktops (D-060).",
+      "properties": {
+        "desktops": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Desktops",
+          "type": "array"
+        },
+        "unrecognised": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unrecognised",
+          "type": "array"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "desktops",
+        "unrecognised",
+        "summary"
+      ],
+      "title": "DesktopsReadView",
+      "type": "object"
+    },
+    "DisplacedLine": {
+      "additionalProperties": false,
+      "description": "An installed distribution package a unit displaces or shadows (D-022).",
+      "properties": {
+        "package": {
+          "title": "Package",
+          "type": "string"
+        },
+        "declared_by": {
+          "title": "Declared By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "package",
+        "declared_by"
+      ],
+      "title": "DisplacedLine",
+      "type": "object"
+    },
+    "FsTopoSectionView": {
+      "additionalProperties": false,
+      "description": "Forest Service FSTopo sheets and QMapShack's FSTopo map (D-068,\namended 2026-10-01). Local only.",
+      "properties": {
+        "regions": {
+          "items": {
+            "$ref": "#/$defs/SheetRegionLine"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "no_quads": {
+          "items": {
+            "type": "string"
+          },
+          "title": "No Quads",
+          "type": "array"
+        },
+        "fetch": {
+          "items": {
+            "$ref": "#/$defs/QuadLine"
+          },
+          "title": "Fetch",
+          "type": "array"
+        },
+        "unverified": {
+          "title": "Unverified",
+          "type": "integer"
+        },
+        "current": {
+          "title": "Current",
+          "type": "integer"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "download_total": {
+          "title": "Download Total",
+          "type": "integer"
+        },
+        "download_total_human": {
+          "title": "Download Total Human",
+          "type": "string"
+        },
+        "convert": {
+          "title": "Convert",
+          "type": "integer"
+        },
+        "convert_estimate": {
+          "title": "Convert Estimate",
+          "type": "integer"
+        },
+        "convert_estimate_human": {
+          "title": "Convert Estimate Human",
+          "type": "string"
+        },
+        "disk_total": {
+          "title": "Disk Total",
+          "type": "integer"
+        },
+        "disk_total_human": {
+          "title": "Disk Total Human",
+          "type": "string"
+        },
+        "estimate_note": {
+          "title": "Estimate Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "regions",
+        "no_quads",
+        "fetch",
+        "unverified",
+        "current",
+        "licence",
+        "licence_url",
+        "download_total",
+        "download_total_human",
+        "convert",
+        "convert_estimate",
+        "convert_estimate_human",
+        "disk_total",
+        "disk_total_human",
+        "estimate_note"
+      ],
+      "title": "FsTopoSectionView",
+      "type": "object"
+    },
+    "GarminLine": {
+      "additionalProperties": false,
+      "description": "A region mkgmap builds a Garmin map from this run.",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "snapshot": {
+          "title": "Snapshot",
+          "type": "string"
+        },
+        "estimate": {
+          "title": "Estimate",
+          "type": "integer"
+        },
+        "estimate_human": {
+          "title": "Estimate Human",
+          "type": "string"
+        }
+      },
+      "required": [
+        "region",
+        "snapshot",
+        "estimate",
+        "estimate_human"
+      ],
+      "title": "GarminLine",
+      "type": "object"
+    },
+    "GateLine": {
+      "additionalProperties": false,
+      "description": "A consent gate the real run will present (D-021). Never answered through JSON.",
+      "properties": {
+        "profile": {
+          "title": "Profile",
+          "type": "string"
+        },
+        "env_var": {
+          "title": "Env Var",
+          "type": "string"
+        },
+        "risk_lines": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Risk Lines",
+          "type": "array"
+        }
+      },
+      "required": [
+        "profile",
+        "env_var",
+        "risk_lines"
+      ],
+      "title": "GateLine",
+      "type": "object"
+    },
+    "InstallPlanView": {
+      "additionalProperties": false,
+      "description": "Everything an install will do, section by section as the text prints it.",
+      "properties": {
+        "packages": {
+          "items": {
+            "$ref": "#/$defs/PackageLine"
+          },
+          "title": "Packages",
+          "type": "array"
+        },
+        "displaced": {
+          "items": {
+            "$ref": "#/$defs/DisplacedLine"
+          },
+          "title": "Displaced",
+          "type": "array"
+        },
+        "apt_release": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReleaseSection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "no_recommends": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NoRecommendsSection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "repos": {
+          "items": {
+            "$ref": "#/$defs/RepoLine"
+          },
+          "title": "Repos",
+          "type": "array"
+        },
+        "mirror": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MirrorSection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "data": {
+          "items": {
+            "$ref": "#/$defs/DataLine"
+          },
+          "title": "Data",
+          "type": "array"
+        },
+        "maps": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MapSectionView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "memberships": {
+          "items": {
+            "$ref": "#/$defs/MembershipLine"
+          },
+          "title": "Memberships",
+          "type": "array"
+        },
+        "consent_gates": {
+          "items": {
+            "$ref": "#/$defs/GateLine"
+          },
+          "title": "Consent Gates",
+          "type": "array"
+        },
+        "config_files": {
+          "items": {
+            "$ref": "#/$defs/ConfigLine"
+          },
+          "title": "Config Files",
+          "type": "array"
+        },
+        "user_services": {
+          "items": {
+            "$ref": "#/$defs/UserServiceLine"
+          },
+          "title": "User Services",
+          "type": "array"
+        },
+        "desktops_read": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DesktopsReadView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deferrals": {
+          "items": {
+            "$ref": "#/$defs/DeferralLine"
+          },
+          "title": "Deferrals",
+          "type": "array"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "records": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RecordsLine"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sudo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SudoLine"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "commands": {
+          "items": {
+            "$ref": "#/$defs/StepView"
+          },
+          "title": "Commands",
+          "type": "array"
+        },
+        "suggestion_notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Suggestion Notes",
+          "type": "array"
+        },
+        "region_notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Region Notes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "packages",
+        "displaced",
+        "apt_release",
+        "no_recommends",
+        "repos",
+        "mirror",
+        "data",
+        "maps",
+        "memberships",
+        "consent_gates",
+        "config_files",
+        "user_services",
+        "desktops_read",
+        "deferrals",
+        "notes",
+        "records",
+        "sudo",
+        "commands",
+        "suggestion_notes",
+        "region_notes"
+      ],
+      "title": "InstallPlanView",
+      "type": "object"
+    },
+    "KeptLine": {
+      "additionalProperties": false,
+      "description": "An installed region that could not be checked for a newer map; kept.",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Snapshot"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "region",
+        "snapshot",
+        "reason"
+      ],
+      "title": "KeptLine",
+      "type": "object"
+    },
+    "MapSectionView": {
+      "additionalProperties": false,
+      "description": "The station's map regions (D-057). Names where the operator is: local only.",
+      "properties": {
+        "fetch": {
+          "items": {
+            "$ref": "#/$defs/RegionLine"
+          },
+          "title": "Fetch",
+          "type": "array"
+        },
+        "current": {
+          "items": {
+            "$ref": "#/$defs/RegionLine"
+          },
+          "title": "Current",
+          "type": "array"
+        },
+        "convert": {
+          "items": {
+            "$ref": "#/$defs/ConvertLine"
+          },
+          "title": "Convert",
+          "type": "array"
+        },
+        "kept": {
+          "items": {
+            "$ref": "#/$defs/KeptLine"
+          },
+          "title": "Kept",
+          "type": "array"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "download_total": {
+          "title": "Download Total",
+          "type": "integer"
+        },
+        "download_total_human": {
+          "title": "Download Total Human",
+          "type": "string"
+        },
+        "disk_total": {
+          "title": "Disk Total",
+          "type": "integer"
+        },
+        "disk_total_human": {
+          "title": "Disk Total Human",
+          "type": "string"
+        },
+        "estimate_note": {
+          "title": "Estimate Note",
+          "type": "string"
+        },
+        "terrain": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TerrainSectionView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "boundaries": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoundaryLine"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unknown_country": {
+          "title": "Unknown Country",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "fetch",
+        "current",
+        "convert",
+        "kept",
+        "licence",
+        "licence_url",
+        "download_total",
+        "download_total_human",
+        "disk_total",
+        "disk_total_human",
+        "estimate_note",
+        "terrain",
+        "boundaries",
+        "unknown_country"
+      ],
+      "title": "MapSectionView",
+      "type": "object"
+    },
+    "MembershipLine": {
+      "additionalProperties": false,
+      "description": "A group the operator is added to, and what it grants.",
+      "properties": {
+        "user": {
+          "title": "User",
+          "type": "string"
+        },
+        "group": {
+          "title": "Group",
+          "type": "string"
+        },
+        "package": {
+          "title": "Package",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "reverse_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reverse Hint"
+        }
+      },
+      "required": [
+        "user",
+        "group",
+        "package",
+        "detail",
+        "reverse_hint"
+      ],
+      "title": "MembershipLine",
+      "type": "object"
+    },
+    "MirrorSection": {
+      "additionalProperties": false,
+      "description": "The LAN mirror a data download is asked for first (D-070).",
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "ignored": {
+          "title": "Ignored",
+          "type": "boolean"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "ignored",
+        "text"
+      ],
+      "title": "MirrorSection",
+      "type": "object"
+    },
+    "NoRecommendsSection": {
+      "additionalProperties": false,
+      "description": "apt packages installed by a second command without Recommends (D-052).",
+      "properties": {
+        "units": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Units",
+          "type": "array"
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Packages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "units",
+        "packages"
+      ],
+      "title": "NoRecommendsSection",
+      "type": "object"
+    },
+    "PackageLine": {
+      "additionalProperties": false,
+      "description": "One catalog unit in the plan.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        },
+        "requested_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Requested By",
+          "type": "array"
+        },
+        "apt": {
+          "items": {
+            "$ref": "#/$defs/AptLine"
+          },
+          "title": "Apt",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "method",
+        "state",
+        "requested_by",
+        "apt"
+      ],
+      "title": "PackageLine",
+      "type": "object"
+    },
+    "QuadLine": {
+      "additionalProperties": false,
+      "description": "One US Topo quad downloaded this run.",
+      "properties": {
+        "quad": {
+          "title": "Quad",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "size_human": {
+          "title": "Size Human",
+          "type": "string"
+        },
+        "verified_by": {
+          "title": "Verified By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "quad",
+        "size",
+        "size_human",
+        "verified_by"
+      ],
+      "title": "QuadLine",
+      "type": "object"
+    },
+    "RecordsLine": {
+      "additionalProperties": false,
+      "description": "Where the transaction log is written.",
+      "properties": {
+        "log": {
+          "title": "Log",
+          "type": "string"
+        },
+        "handed_to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Handed To"
+        }
+      },
+      "required": [
+        "log",
+        "handed_to"
+      ],
+      "title": "RecordsLine",
+      "type": "object"
+    },
+    "RegionLine": {
+      "additionalProperties": false,
+      "description": "One map region file.",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "snapshot": {
+          "title": "Snapshot",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "size_human": {
+          "title": "Size Human",
+          "type": "string"
+        },
+        "verified_by": {
+          "title": "Verified By",
+          "type": "string"
+        },
+        "nothing_to_do": {
+          "title": "Nothing To Do",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "region",
+        "snapshot",
+        "size",
+        "size_human",
+        "verified_by",
+        "nothing_to_do"
+      ],
+      "title": "RegionLine",
+      "type": "object"
+    },
+    "ReleaseSection": {
+      "additionalProperties": false,
+      "description": "apt packages taken from another release this machine installs from (D-038).",
+      "properties": {
+        "release": {
+          "title": "Release",
+          "type": "string"
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Packages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "release",
+        "packages"
+      ],
+      "title": "ReleaseSection",
+      "type": "object"
+    },
+    "RemovalPlanView": {
+      "additionalProperties": false,
+      "description": "Everything an uninstall will do, section by section as the text prints it.",
+      "properties": {
+        "to_remove": {
+          "items": {
+            "$ref": "#/$defs/UnitPackages"
+          },
+          "title": "To Remove",
+          "type": "array"
+        },
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/ArtifactLine"
+          },
+          "title": "Artifacts",
+          "type": "array"
+        },
+        "left_unattributed": {
+          "items": {
+            "$ref": "#/$defs/UnitFiles"
+          },
+          "title": "Left Unattributed",
+          "type": "array"
+        },
+        "left_foreign": {
+          "items": {
+            "$ref": "#/$defs/UnitPackages"
+          },
+          "title": "Left Foreign",
+          "type": "array"
+        },
+        "already_absent": {
+          "items": {
+            "$ref": "#/$defs/UnitPackages"
+          },
+          "title": "Already Absent",
+          "type": "array"
+        },
+        "not_reversed": {
+          "title": "Not Reversed",
+          "type": "string"
+        },
+        "commands": {
+          "items": {
+            "$ref": "#/$defs/StepView"
+          },
+          "title": "Commands",
+          "type": "array"
+        }
+      },
+      "required": [
+        "to_remove",
+        "artifacts",
+        "left_unattributed",
+        "left_foreign",
+        "already_absent",
+        "not_reversed",
+        "commands"
+      ],
+      "title": "RemovalPlanView",
+      "type": "object"
+    },
+    "RepoLine": {
+      "additionalProperties": false,
+      "description": "A third-party apt repository the transaction adds, behind its own gate (D-040).",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Packages",
+          "type": "array"
+        },
+        "uri": {
+          "title": "Uri",
+          "type": "string"
+        },
+        "suites": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Suites",
+          "type": "array"
+        },
+        "components": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Components",
+          "type": "array"
+        },
+        "key_fingerprint": {
+          "title": "Key Fingerprint",
+          "type": "string"
+        },
+        "sources": {
+          "title": "Sources",
+          "type": "string"
+        },
+        "keyring": {
+          "title": "Keyring",
+          "type": "string"
+        },
+        "consent_env_var": {
+          "title": "Consent Env Var",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "unit",
+        "packages",
+        "uri",
+        "suites",
+        "components",
+        "key_fingerprint",
+        "sources",
+        "keyring",
+        "consent_env_var"
+      ],
+      "title": "RepoLine",
+      "type": "object"
+    },
+    "SheetRegionLine": {
+      "additionalProperties": false,
+      "description": "The FSTopo quads one region needs (D-068, amended 2026-10-01).",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "quads": {
+          "title": "Quads",
+          "type": "integer"
+        },
+        "download": {
+          "title": "Download",
+          "type": "integer"
+        },
+        "download_human": {
+          "title": "Download Human",
+          "type": "string"
+        },
+        "all_pinned": {
+          "title": "All Pinned",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "region",
+        "quads",
+        "download",
+        "download_human",
+        "all_pinned"
+      ],
+      "title": "SheetRegionLine",
+      "type": "object"
+    },
+    "StepView": {
+      "additionalProperties": false,
+      "description": "One step, exactly as the real run performs it.",
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "display": {
+          "title": "Display",
+          "type": "string"
+        },
+        "argv": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Argv",
+          "type": "array"
+        },
+        "action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Action"
+        },
+        "requires_root": {
+          "title": "Requires Root",
+          "type": "boolean"
+        },
+        "sources": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "description",
+        "display",
+        "argv",
+        "action",
+        "requires_root",
+        "sources"
+      ],
+      "title": "StepView",
+      "type": "object"
+    },
+    "SudoLine": {
+      "additionalProperties": false,
+      "description": "How a run as a user keeps sudo from asking twice (D-062).",
+      "properties": {
+        "keepalive": {
+          "title": "Keepalive",
+          "type": "boolean"
+        },
+        "interval_seconds": {
+          "title": "Interval Seconds",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "keepalive",
+        "interval_seconds",
+        "text"
+      ],
+      "title": "SudoLine",
+      "type": "object"
+    },
+    "TargetView": {
+      "additionalProperties": false,
+      "description": "What `/etc/os-release` said, verbatim, with the one line the text prints.",
+      "properties": {
+        "distro": {
+          "title": "Distro",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "arch": {
+          "title": "Arch",
+          "type": "string"
+        },
+        "id_like": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Id Like",
+          "type": "array"
+        },
+        "pretty_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pretty Name"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "debian_family": {
+          "title": "Debian Family",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "distro",
+        "version",
+        "arch",
+        "id_like",
+        "pretty_name",
+        "description",
+        "debian_family"
+      ],
+      "title": "TargetView",
+      "type": "object"
+    },
+    "TerrainRegionLine": {
+      "additionalProperties": false,
+      "description": "The terrain tiles one region needs (D-061).",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "tiles": {
+          "title": "Tiles",
+          "type": "integer"
+        },
+        "unpublished": {
+          "title": "Unpublished",
+          "type": "integer"
+        },
+        "no_terrain": {
+          "title": "No Terrain",
+          "type": "boolean"
+        },
+        "download": {
+          "title": "Download",
+          "type": "integer"
+        },
+        "download_human": {
+          "title": "Download Human",
+          "type": "string"
+        }
+      },
+      "required": [
+        "region",
+        "tiles",
+        "unpublished",
+        "no_terrain",
+        "download",
+        "download_human"
+      ],
+      "title": "TerrainRegionLine",
+      "type": "object"
+    },
+    "TerrainSectionView": {
+      "additionalProperties": false,
+      "description": "Terrain, and what is built for QMapShack (D-061). Names where the operator is: local only.",
+      "properties": {
+        "regions": {
+          "items": {
+            "$ref": "#/$defs/TerrainRegionLine"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "fetch": {
+          "items": {
+            "$ref": "#/$defs/TileLine"
+          },
+          "title": "Fetch",
+          "type": "array"
+        },
+        "current": {
+          "title": "Current",
+          "type": "integer"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "download_total": {
+          "title": "Download Total",
+          "type": "integer"
+        },
+        "download_total_human": {
+          "title": "Download Total Human",
+          "type": "string"
+        },
+        "garmin": {
+          "items": {
+            "$ref": "#/$defs/GarminLine"
+          },
+          "title": "Garmin",
+          "type": "array"
+        },
+        "routino_regions": {
+          "title": "Routino Regions",
+          "type": "integer"
+        },
+        "routino_estimate": {
+          "title": "Routino Estimate",
+          "type": "integer"
+        },
+        "routino_estimate_human": {
+          "title": "Routino Estimate Human",
+          "type": "string"
+        },
+        "contours": {
+          "title": "Contours",
+          "type": "integer"
+        },
+        "contours_estimate": {
+          "title": "Contours Estimate",
+          "type": "integer"
+        },
+        "contours_estimate_human": {
+          "title": "Contours Estimate Human",
+          "type": "string"
+        },
+        "brouter_regions": {
+          "title": "Brouter Regions",
+          "type": "integer"
+        },
+        "brouter_tiles": {
+          "title": "Brouter Tiles",
+          "type": "integer"
+        },
+        "brouter_estimate": {
+          "title": "Brouter Estimate",
+          "type": "integer"
+        },
+        "brouter_estimate_human": {
+          "title": "Brouter Estimate Human",
+          "type": "string"
+        },
+        "disk_total": {
+          "title": "Disk Total",
+          "type": "integer"
+        },
+        "disk_total_human": {
+          "title": "Disk Total Human",
+          "type": "string"
+        },
+        "estimate_note": {
+          "title": "Estimate Note",
+          "type": "string"
+        },
+        "topo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TopoSectionView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "contours_from": {
+          "title": "Contours From",
+          "type": "string"
+        },
+        "bare_earth": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BareEarthSectionView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fstopo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FsTopoSectionView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "splat_tiles": {
+          "title": "Splat Tiles",
+          "type": "integer"
+        },
+        "splat_estimate": {
+          "title": "Splat Estimate",
+          "type": "integer"
+        },
+        "splat_estimate_human": {
+          "title": "Splat Estimate Human",
+          "type": "string"
+        }
+      },
+      "required": [
+        "regions",
+        "fetch",
+        "current",
+        "licence",
+        "licence_url",
+        "download_total",
+        "download_total_human",
+        "garmin",
+        "routino_regions",
+        "routino_estimate",
+        "routino_estimate_human",
+        "contours",
+        "contours_estimate",
+        "contours_estimate_human",
+        "brouter_regions",
+        "brouter_tiles",
+        "brouter_estimate",
+        "brouter_estimate_human",
+        "disk_total",
+        "disk_total_human",
+        "estimate_note",
+        "topo",
+        "contours_from",
+        "bare_earth",
+        "fstopo",
+        "splat_tiles",
+        "splat_estimate",
+        "splat_estimate_human"
+      ],
+      "title": "TerrainSectionView",
+      "type": "object"
+    },
+    "TileLine": {
+      "additionalProperties": false,
+      "description": "One terrain tile downloaded this run.",
+      "properties": {
+        "tile": {
+          "title": "Tile",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "size_human": {
+          "title": "Size Human",
+          "type": "string"
+        },
+        "verified_by": {
+          "title": "Verified By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tile",
+        "size",
+        "size_human",
+        "verified_by"
+      ],
+      "title": "TileLine",
+      "type": "object"
+    },
+    "TopoRegionLine": {
+      "additionalProperties": false,
+      "description": "The US Topo quads one region needs (D-068).",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "quads": {
+          "title": "Quads",
+          "type": "integer"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "size_human": {
+          "title": "Size Human",
+          "type": "string"
+        },
+        "download": {
+          "title": "Download",
+          "type": "integer"
+        },
+        "download_human": {
+          "title": "Download Human",
+          "type": "string"
+        }
+      },
+      "required": [
+        "region",
+        "quads",
+        "size",
+        "size_human",
+        "download",
+        "download_human"
+      ],
+      "title": "TopoRegionLine",
+      "type": "object"
+    },
+    "TopoSectionView": {
+      "additionalProperties": false,
+      "description": "USGS US Topo sheets and QMapShack's mosaic of them (D-068). Local only.",
+      "properties": {
+        "regions": {
+          "items": {
+            "$ref": "#/$defs/TopoRegionLine"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "no_quads": {
+          "items": {
+            "type": "string"
+          },
+          "title": "No Quads",
+          "type": "array"
+        },
+        "fetch": {
+          "items": {
+            "$ref": "#/$defs/QuadLine"
+          },
+          "title": "Fetch",
+          "type": "array"
+        },
+        "current": {
+          "title": "Current",
+          "type": "integer"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "download_total": {
+          "title": "Download Total",
+          "type": "integer"
+        },
+        "download_total_human": {
+          "title": "Download Total Human",
+          "type": "string"
+        },
+        "warp": {
+          "title": "Warp",
+          "type": "integer"
+        },
+        "warp_estimate": {
+          "title": "Warp Estimate",
+          "type": "integer"
+        },
+        "warp_estimate_human": {
+          "title": "Warp Estimate Human",
+          "type": "string"
+        },
+        "disk_total": {
+          "title": "Disk Total",
+          "type": "integer"
+        },
+        "disk_total_human": {
+          "title": "Disk Total Human",
+          "type": "string"
+        },
+        "estimate_note": {
+          "title": "Estimate Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "regions",
+        "no_quads",
+        "fetch",
+        "current",
+        "licence",
+        "licence_url",
+        "download_total",
+        "download_total_human",
+        "warp",
+        "warp_estimate",
+        "warp_estimate_human",
+        "disk_total",
+        "disk_total_human",
+        "estimate_note"
+      ],
+      "title": "TopoSectionView",
+      "type": "object"
+    },
+    "UnitFiles": {
+      "additionalProperties": false,
+      "description": "A unit and files.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Paths",
+          "type": "array"
+        }
+      },
+      "required": [
+        "unit",
+        "paths"
+      ],
+      "title": "UnitFiles",
+      "type": "object"
+    },
+    "UnitPackages": {
+      "additionalProperties": false,
+      "description": "A unit and apt packages.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Packages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "unit",
+        "packages"
+      ],
+      "title": "UnitPackages",
+      "type": "object"
+    },
+    "UserServiceLine": {
+      "additionalProperties": false,
+      "description": "A systemd user service the transaction writes and enables (D-073 \u00a76b).\n\nThe command line is rendered with the device serial elided, and the\nstation values are named, never quoted \u2014 the same privacy split as the\nrest of the plan.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "exec": {
+          "title": "Exec",
+          "type": "string"
+        },
+        "fills": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fills",
+          "type": "array"
+        },
+        "listen": {
+          "title": "Listen",
+          "type": "string"
+        },
+        "starts_now": {
+          "title": "Starts Now",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "unit",
+        "name",
+        "path",
+        "exec",
+        "fills",
+        "listen",
+        "starts_now"
+      ],
+      "title": "UserServiceLine",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The plan `install --dry-run` or `uninstall --dry-run` prints, as data.\n\nA refused transaction is still a `plan`, with `outcome: \"refused\"`, every\nblocker, and exit code 2. Includes the paths of files written for the\noperator; for local programs, not for pasting.",
+  "properties": {
+    "action": {
+      "title": "Action",
+      "type": "string"
+    },
+    "requested": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Requested",
+      "type": "array"
+    },
+    "outcome": {
+      "title": "Outcome",
+      "type": "string"
+    },
+    "target": {
+      "$ref": "#/$defs/TargetView"
+    },
+    "blockers": {
+      "items": {
+        "$ref": "#/$defs/BlockerLine"
+      },
+      "title": "Blockers",
+      "type": "array"
+    },
+    "install": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/InstallPlanView"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "removal": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RemovalPlanView"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "action",
+    "requested",
+    "outcome",
+    "target",
+    "blockers",
+    "install",
+    "removal"
+  ],
+  "title": "PlanDocument",
+  "type": "object"
+}

@@ -93,14 +93,15 @@ else
   "$PYTHON" -m venv .venv
 fi
 
-say "Installing the engine into .venv"
+say "Installing the engine, and urwid for \`hammunition console\`, into .venv"
 if .venv/bin/python -m pip --version >/dev/null 2>&1; then
-  # Hash-pinned (requirements/runtime.txt): pip refuses any package whose hash
+  # Hash-pinned (requirements/console.txt: the runtime set plus the `console` extra's
+  # urwid): pip refuses any package whose hash
   # is not in the lock. The venv's own pip is not upgraded for the same reason.
-  .venv/bin/python -m pip install --quiet --require-hashes -r requirements/runtime.txt
+  .venv/bin/python -m pip install --quiet --require-hashes -r requirements/console.txt
   .venv/bin/python -m pip install --quiet --no-deps -e .
 elif command -v uv >/dev/null 2>&1; then
-  VIRTUAL_ENV="$here/.venv" uv pip install --quiet --require-hashes -r requirements/runtime.txt
+  VIRTUAL_ENV="$here/.venv" uv pip install --quiet --require-hashes -r requirements/console.txt
   VIRTUAL_ENV="$here/.venv" uv pip install --quiet --no-deps -e .
 else
   die "neither pip nor uv is available in the venv. 'sudo apt-get install python3-pip' and re-run."

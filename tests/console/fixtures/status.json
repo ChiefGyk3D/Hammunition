@@ -1,0 +1,26 @@
+{
+  "schema": "hammunition/1",
+  "kind": "status",
+  "engine": "0.20.0",
+  "target": {
+    "distro": "parrot",
+    "version": "7.4",
+    "arch": "x86_64",
+    "id_like": [
+      "debian"
+    ],
+    "pretty_name": "Parrot Security 7.4 (echo)",
+    "description": "Parrot Security 7.4 (echo) (ID=parrot, version=7.4, arch=x86_64)",
+    "debian_family": true
+  },
+  "catalog": {
+    "path": "/home/user/src/Hammunition-profile-state/catalog",
+    "packages": 321,
+    "resolvable": 319,
+    "profiles": 19
+  },
+  "log_path": "/home/user/.local/state/hammunition/transactions.jsonl",
+  "log_entries": 0,
+  "latest": null,
+  "recorded_units": []
+}

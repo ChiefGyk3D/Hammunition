@@ -1,0 +1,270 @@
+{
+  "$defs": {
+    "TargetView": {
+      "additionalProperties": false,
+      "description": "What `/etc/os-release` said, verbatim, with the one line the text prints.",
+      "properties": {
+        "distro": {
+          "title": "Distro",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "arch": {
+          "title": "Arch",
+          "type": "string"
+        },
+        "id_like": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Id Like",
+          "type": "array"
+        },
+        "pretty_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pretty Name"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "debian_family": {
+          "title": "Debian Family",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "distro",
+        "version",
+        "arch",
+        "id_like",
+        "pretty_name",
+        "description",
+        "debian_family"
+      ],
+      "title": "TargetView",
+      "type": "object"
+    },
+    "UpdateCounts": {
+      "additionalProperties": false,
+      "description": "How many rows are in each state.",
+      "properties": {
+        "up_to_date": {
+          "title": "Up To Date",
+          "type": "integer"
+        },
+        "candidate_differs": {
+          "title": "Candidate Differs",
+          "type": "integer"
+        },
+        "behind_pin": {
+          "title": "Behind Pin",
+          "type": "integer"
+        },
+        "not_installed": {
+          "title": "Not Installed",
+          "type": "integer"
+        },
+        "unknown": {
+          "title": "Unknown",
+          "type": "integer"
+        },
+        "on_install": {
+          "title": "On Install",
+          "type": "integer"
+        },
+        "manual": {
+          "title": "Manual",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "up_to_date",
+        "candidate_differs",
+        "behind_pin",
+        "not_installed",
+        "unknown",
+        "on_install",
+        "manual"
+      ],
+      "title": "UpdateCounts",
+      "type": "object"
+    },
+    "UpdateRowView": {
+      "additionalProperties": false,
+      "description": "One unit: installed versus the catalog.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "strategy": {
+          "title": "Strategy",
+          "type": "string"
+        },
+        "upgradable": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Upgradable",
+          "type": "array"
+        }
+      },
+      "required": [
+        "unit",
+        "state",
+        "detail",
+        "strategy",
+        "upgradable"
+      ],
+      "title": "UpdateRowView",
+      "type": "object"
+    },
+    "UpstreamRowView": {
+      "additionalProperties": false,
+      "description": "The catalog's pin against what upstream publishes (`--upstream` only).",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "catalog": {
+          "title": "Catalog",
+          "type": "string"
+        },
+        "upstream": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Upstream"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "unit",
+        "method",
+        "catalog",
+        "upstream",
+        "state",
+        "detail"
+      ],
+      "title": "UpstreamRowView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Installed versus the catalog, as a report. Nothing runs (D-053).",
+  "properties": {
+    "target": {
+      "$ref": "#/$defs/TargetView"
+    },
+    "from_log": {
+      "title": "From Log",
+      "type": "boolean"
+    },
+    "rows": {
+      "items": {
+        "$ref": "#/$defs/UpdateRowView"
+      },
+      "title": "Rows",
+      "type": "array"
+    },
+    "counts": {
+      "$ref": "#/$defs/UpdateCounts"
+    },
+    "lists_note": {
+      "title": "Lists Note",
+      "type": "string"
+    },
+    "upgrade_command": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Upgrade Command"
+    },
+    "rebuild_command": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Rebuild Command"
+    },
+    "upstream_declared": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Upstream Declared",
+      "type": "array"
+    },
+    "upstream": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/UpstreamRowView"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Upstream"
+    }
+  },
+  "required": [
+    "target",
+    "from_log",
+    "rows",
+    "counts",
+    "lists_note",
+    "upgrade_command",
+    "rebuild_command",
+    "upstream_declared",
+    "upstream"
+  ],
+  "title": "UpdateDocument",
+  "type": "object"
+}

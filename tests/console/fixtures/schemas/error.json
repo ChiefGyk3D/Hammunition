@@ -1,0 +1,25 @@
+{
+  "additionalProperties": false,
+  "description": "Printed when a command ends without a document of its own: its\narguments did not parse, it has no JSON form, a real install was asked\nfor under `--json`, or it refused before resolving anything (no catalog,\nan unreadable target). The exit code is the one the text run returns.",
+  "properties": {
+    "command": {
+      "title": "Command",
+      "type": "string"
+    },
+    "exit_code": {
+      "title": "Exit Code",
+      "type": "integer"
+    },
+    "message": {
+      "title": "Message",
+      "type": "string"
+    }
+  },
+  "required": [
+    "command",
+    "exit_code",
+    "message"
+  ],
+  "title": "ErrorDocument",
+  "type": "object"
+}

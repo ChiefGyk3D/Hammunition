@@ -1,0 +1,118 @@
+{
+  "schema": "hammunition/1",
+  "kind": "doctor",
+  "engine": "0.20.0",
+  "checks": [
+    {
+      "name": "system",
+      "status": "ok",
+      "detail": "Parrot Security 7.4 (echo) (ID=parrot, version=7.4, arch=x86_64)",
+      "fix": null
+    },
+    {
+      "name": "catalog",
+      "status": "ok",
+      "detail": "321 packages, 19 profiles loaded",
+      "fix": null
+    },
+    {
+      "name": "python venv",
+      "status": "ok",
+      "detail": "python3 -m venv is available",
+      "fix": null
+    },
+    {
+      "name": "PATH",
+      "status": "warn",
+      "detail": "~/.local/bin is not on PATH — venv-installed programs will look missing",
+      "fix": "log out and back in, or add ~/.local/bin to PATH; it is added when the dir first appears"
+    },
+    {
+      "name": "hammunition",
+      "status": "ok",
+      "detail": "on PATH: /home/user/src/Hammunition/.venv/bin/hammunition",
+      "fix": null
+    },
+    {
+      "name": "compiler",
+      "status": "ok",
+      "detail": "a C toolchain is present for source builds",
+      "fix": null
+    },
+    {
+      "name": "git",
+      "status": "ok",
+      "detail": "git is present for git-source builds",
+      "fix": null
+    },
+    {
+      "name": "station",
+      "status": "ok",
+      "detail": "callsign and grid are set",
+      "fix": null
+    },
+    {
+      "name": "device groups",
+      "status": "ok",
+      "detail": "in every device-access group",
+      "fix": null
+    },
+    {
+      "name": "udev rules",
+      "status": "ok",
+      "detail": "the catalog's udev rules are installed",
+      "fix": null
+    },
+    {
+      "name": "hardware",
+      "status": "ok",
+      "detail": "8 catalogued device(s) attached — see `hardware list`",
+      "fix": null
+    },
+    {
+      "name": "desktops",
+      "status": "info",
+      "detail": "session files offer KDE Plasma; also lightdm-xsession.desktop, which names no desktop the catalog knows; this session is KDE Plasma",
+      "fix": null
+    },
+    {
+      "name": "time",
+      "status": "ok",
+      "detail": "the clock follows the GPS (mode auto, offset +0.2 ms)",
+      "fix": null
+    },
+    {
+      "name": "geoclue",
+      "status": "ok",
+      "detail": "GeoClue reads the tether's socket at /run/hammunition-gps/nmea.sock while `hammunition maps gps-tether` runs",
+      "fix": null
+    },
+    {
+      "name": "geoclue agent",
+      "status": "ok",
+      "detail": "Debian's GeoClue demo agent is running",
+      "fix": null
+    },
+    {
+      "name": "gps-resume",
+      "status": "ok",
+      "detail": "the resume step is installed: gpsd gets a fresh open of the receiver after a suspend",
+      "fix": null
+    },
+    {
+      "name": "state dir",
+      "status": "ok",
+      "detail": "the transaction log directory is writable",
+      "fix": null
+    },
+    {
+      "name": "rig",
+      "status": "info",
+      "detail": "no station rig is set; the shared rigctld is not configured",
+      "fix": "hammunition station set --rig <device> --rig-device <path> …"
+    }
+  ],
+  "fails": 0,
+  "warns": 1,
+  "healthy": 17
+}

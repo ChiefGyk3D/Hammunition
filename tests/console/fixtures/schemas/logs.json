@@ -1,0 +1,92 @@
+{
+  "$defs": {
+    "RunEntry": {
+      "additionalProperties": false,
+      "description": "One run's log file.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "started": {
+          "title": "Started",
+          "type": "string"
+        },
+        "command": {
+          "title": "Command",
+          "type": "string"
+        },
+        "pid": {
+          "title": "Pid",
+          "type": "integer"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "result": {
+          "title": "Result",
+          "type": "string"
+        },
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Exit Code"
+        }
+      },
+      "required": [
+        "path",
+        "started",
+        "command",
+        "pid",
+        "size",
+        "result",
+        "exit_code"
+      ],
+      "title": "RunEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The run logs on this machine for this operator, newest first, and the\nlimits rotation holds them to (D-077).",
+  "properties": {
+    "directory": {
+      "title": "Directory",
+      "type": "string"
+    },
+    "total_bytes": {
+      "title": "Total Bytes",
+      "type": "integer"
+    },
+    "max_files": {
+      "title": "Max Files",
+      "type": "integer"
+    },
+    "max_bytes": {
+      "title": "Max Bytes",
+      "type": "integer"
+    },
+    "runs": {
+      "items": {
+        "$ref": "#/$defs/RunEntry"
+      },
+      "title": "Runs",
+      "type": "array"
+    }
+  },
+  "required": [
+    "directory",
+    "total_bytes",
+    "max_files",
+    "max_bytes",
+    "runs"
+  ],
+  "title": "LogsDocument",
+  "type": "object"
+}

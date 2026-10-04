@@ -1,0 +1,24 @@
+Install by name (separate several with spaces):
+Profiles   (Tab switches; Enter plans the install; U plans an uninstall; G =
+asks you to type yes first)
+antenna            1.0       12 units, state unknown       Antenna modelling, tr
+digital-modes      1.0       22 units, state unknown       FT8, JS8, PSK31, SSTV
+editors            post-1.0  2 units, state unknown        VS Code and VSCodium,
+electronics        1.0       14 units, state unknown       Bench electronics, in
+listening          1.0       27 units, state unknown       Shortwave, utility an
+logging            1.0       11 units, state unknown       Station logs, contest
+morse              1.0       17 units, state unknown       Morse code — sending,
+navigation         post-1.0  27 units, state unknown       Offline maps and turn
+packet             1.0       24 units, state unknown       AX.25, APRS, Winlink
+phone-maps         post-1.0  3 units, state unknown        Offline maps and poin
+propagation        1.0       12 units, state unknown       Band conditions, grey
+reference          post-1.0  6 units, state unknown        An offline library --
+rf-research        post-1.0  2 units, state unknown     G  Transmit-capable and
+rf-security        1.0       13 units, state unknown       Spectrum analysis, wi
+rfid               post-1.0  6 units, state unknown        RFID and NFC — card p
+satellite          1.0       4 units, state unknown        Tracking, working and
+sdr                1.0       16 units, state unknown       Software-defined radi
+station            1.0       14 units, state unknown       The floor every stati
+workstation        post-1.0  7 units, state unknown        Terminal and bench to
+--------------------------------------------------------------------------------
+

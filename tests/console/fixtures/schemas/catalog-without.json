@@ -1,0 +1,241 @@
+{
+  "$defs": {
+    "PackageEntry": {
+      "additionalProperties": false,
+      "description": "One unit in the catalog.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "categories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Categories",
+          "type": "array"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "methods": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Methods",
+          "type": "array"
+        },
+        "resolves_here": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resolves Here"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "summary",
+        "categories",
+        "status",
+        "methods",
+        "resolves_here"
+      ],
+      "title": "PackageEntry",
+      "type": "object"
+    },
+    "ProfileDocs": {
+      "additionalProperties": false,
+      "description": "The documentation every profile carries (CLAUDE.md).",
+      "properties": {
+        "what_it_installs": {
+          "title": "What It Installs",
+          "type": "string"
+        },
+        "why_together": {
+          "title": "Why Together",
+          "type": "string"
+        },
+        "deliberately_excludes": {
+          "title": "Deliberately Excludes",
+          "type": "string"
+        },
+        "manual_configuration": {
+          "title": "Manual Configuration",
+          "type": "string"
+        },
+        "disk_footprint_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Disk Footprint Hint"
+        }
+      },
+      "required": [
+        "what_it_installs",
+        "why_together",
+        "deliberately_excludes",
+        "manual_configuration",
+        "disk_footprint_hint"
+      ],
+      "title": "ProfileDocs",
+      "type": "object"
+    },
+    "ProfileEntry": {
+      "additionalProperties": false,
+      "description": "One profile in the catalog.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Packages",
+          "type": "array"
+        },
+        "consent_gated": {
+          "title": "Consent Gated",
+          "type": "boolean"
+        },
+        "documentation": {
+          "$ref": "#/$defs/ProfileDocs"
+        }
+      },
+      "required": [
+        "name",
+        "summary",
+        "stage",
+        "packages",
+        "consent_gated",
+        "documentation"
+      ],
+      "title": "ProfileEntry",
+      "type": "object"
+    },
+    "TargetView": {
+      "additionalProperties": false,
+      "description": "What `/etc/os-release` said, verbatim, with the one line the text prints.",
+      "properties": {
+        "distro": {
+          "title": "Distro",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "arch": {
+          "title": "Arch",
+          "type": "string"
+        },
+        "id_like": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Id Like",
+          "type": "array"
+        },
+        "pretty_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pretty Name"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "debian_family": {
+          "title": "Debian Family",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "distro",
+        "version",
+        "arch",
+        "id_like",
+        "pretty_name",
+        "description",
+        "debian_family"
+      ],
+      "title": "TargetView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Every profile and unit the catalog offers, and what resolves here.",
+  "properties": {
+    "what": {
+      "title": "What",
+      "type": "string"
+    },
+    "target": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TargetView"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "profiles": {
+      "items": {
+        "$ref": "#/$defs/ProfileEntry"
+      },
+      "title": "Profiles",
+      "type": "array"
+    },
+    "packages": {
+      "items": {
+        "$ref": "#/$defs/PackageEntry"
+      },
+      "title": "Packages",
+      "type": "array"
+    }
+  },
+  "required": [
+    "what",
+    "target",
+    "profiles",
+    "packages"
+  ],
+  "title": "CatalogDocument",
+  "type": "object"
+}

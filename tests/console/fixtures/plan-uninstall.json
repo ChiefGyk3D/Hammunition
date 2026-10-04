@@ -1,0 +1,139 @@
+{
+  "schema": "hammunition/1",
+  "kind": "plan",
+  "engine": "0.20.0",
+  "action": "uninstall",
+  "requested": [
+    "station"
+  ],
+  "outcome": "planned",
+  "target": {
+    "distro": "parrot",
+    "version": "7.4",
+    "arch": "x86_64",
+    "id_like": [
+      "debian"
+    ],
+    "pretty_name": "Parrot Security 7.4 (echo)",
+    "description": "Parrot Security 7.4 (echo) (ID=parrot, version=7.4, arch=x86_64)",
+    "debian_family": true
+  },
+  "blockers": [],
+  "install": null,
+  "removal": {
+    "to_remove": [],
+    "artifacts": [],
+    "left_unattributed": [
+      {
+        "unit": "hammunition-tray",
+        "paths": [
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/config/config.qml",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/config/main.xml",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/icons/hammunition-devices-awake.svg",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/icons/hammunition-devices-parked.svg",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/CompactRepresentation.qml",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/FullRepresentation.qml",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/configGeneral.qml",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/controlslogic.js",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/main.qml",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/timelogic.js",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/metadata.json",
+          "/usr/share/icons/hicolor/scalable/apps/hammunition-devices.svg",
+          "/usr/local/libexec/hammunition-devctl"
+        ]
+      },
+      {
+        "unit": "hammunition-tray-qt",
+        "paths": [
+          "/usr/local/libexec/hammunition-devctl"
+        ]
+      }
+    ],
+    "left_foreign": [
+      {
+        "unit": "libhamlib-utils",
+        "packages": [
+          "libhamlib-utils"
+        ]
+      },
+      {
+        "unit": "flrig",
+        "packages": [
+          "flrig"
+        ]
+      },
+      {
+        "unit": "rig-service",
+        "packages": [
+          "libhamlib-utils"
+        ]
+      },
+      {
+        "unit": "chirp",
+        "packages": [
+          "chirp"
+        ]
+      },
+      {
+        "unit": "gpsd",
+        "packages": [
+          "gpsd"
+        ]
+      },
+      {
+        "unit": "gpsd-clients",
+        "packages": [
+          "gpsd-clients"
+        ]
+      },
+      {
+        "unit": "gpsd-tools",
+        "packages": [
+          "gpsd-tools"
+        ]
+      },
+      {
+        "unit": "gpsbabel",
+        "packages": [
+          "gpsbabel"
+        ]
+      },
+      {
+        "unit": "twclock",
+        "packages": [
+          "twclock"
+        ]
+      },
+      {
+        "unit": "tzwatch",
+        "packages": [
+          "tzwatch"
+        ]
+      },
+      {
+        "unit": "pipx",
+        "packages": [
+          "pipx"
+        ]
+      },
+      {
+        "unit": "hammunition-hill",
+        "packages": [
+          "hammunition-hill"
+        ]
+      }
+    ],
+    "already_absent": [],
+    "not_reversed": "Not reversed, by design: dependencies apt pulled in (run `sudo apt autoremove` to clear orphans), group memberships, and any config files written — all recorded in the transaction log (D-004).",
+    "commands": [
+      {
+        "description": "Take rig out of the tray's Services group",
+        "display": "[devctl_row] /home/user/.config/hammunition/devctl-services.yaml, its row only; the file goes when no row is left",
+        "argv": [],
+        "action": "devctl_row",
+        "requires_root": false,
+        "sources": []
+      }
+    ]
+  }
+}

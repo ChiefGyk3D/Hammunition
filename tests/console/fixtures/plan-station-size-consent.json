@@ -1,0 +1,681 @@
+{
+  "schema": "hammunition/1",
+  "kind": "plan",
+  "engine": "0.20.0",
+  "action": "install",
+  "requested": [
+    "station"
+  ],
+  "outcome": "planned",
+  "target": {
+    "distro": "parrot",
+    "version": "7.4",
+    "arch": "x86_64",
+    "id_like": [
+      "debian"
+    ],
+    "pretty_name": "Parrot Security 7.4 (echo)",
+    "description": "Parrot Security 7.4 (echo) (ID=parrot, version=7.4, arch=x86_64)",
+    "debian_family": true
+  },
+  "blockers": [],
+  "install": {
+    "packages": [
+      {
+        "name": "chirp",
+        "method": "apt",
+        "state": "already installed",
+        "requested_by": [
+          "profile station"
+        ],
+        "apt": [
+          {
+            "package": "chirp",
+            "outstanding": false,
+            "build_only": false
+          }
+        ]
+      },
+      {
+        "name": "flrig",
+        "method": "apt",
+        "state": "already installed",
+        "requested_by": [
+          "profile station"
+        ],
+        "apt": [
+          {
+            "package": "flrig",
+            "outstanding": false,
+            "build_only": false
+          }
+        ]
+      },
+      {
+        "name": "gpsbabel",
+        "method": "apt",
+        "state": "already installed",
+        "requested_by": [
+          "profile station"
+        ],
+        "apt": [
+          {
+            "package": "gpsbabel",
+            "outstanding": false,
+            "build_only": false
+          }
+        ]
+      },
+      {
+        "name": "gpsd",
+        "method": "apt",
+        "state": "already installed",
+        "requested_by": [
+          "profile station"
+        ],
+        "apt": [
+          {
+            "package": "gpsd",
+            "outstanding": false,
+            "build_only": false
+          }
+        ]
+      },
+      {
+        "name": "gpsd-clients",
+        "method": "apt",
+        "state": "already installed",
+        "requested_by": [
+          "profile station"
+        ],
+        "apt": [
+          {
+            "package": "gpsd-clients",
+            "outstanding": false,
+            "build_only": false
+          }
+        ]
+      },
+      {
+        "name": "gpsd-tools",
+        "method": "apt",
+        "state": "already installed",
+        "requested_by": [
+          "profile station"
+        ],
+        "apt": [
+          {
+            "package": "gpsd-tools",
+            "outstanding": false,
+            "build_only": false
+          }
+        ]
+      },
+      {
+        "name": "hammunition-hill",
+        "method": "binary",
+        "state": "will fetch+install",
+        "requested_by": [
+          "profile station"
+        ],
+        "apt": []
+      },
+      {
+        "name": "hammunition-tray",
+        "method": "binary",
+        "state": "will fetch+install",
+        "requested_by": [
+          "profile station"
+        ],
+        "apt": [
+          {
+            "package": "plasma-workspace",
+            "outstanding": false,
+            "build_only": false
+          },
+          {
+            "package": "qml6-module-org-kde-plasma-plasma5support",
+            "outstanding": false,
+            "build_only": false
+          },
+          {
+            "package": "qml6-module-org-kde-kirigami",
+            "outstanding": false,
+            "build_only": false
+          },
+          {
+            "package": "qml6-module-org-kde-notifications",
+            "outstanding": false,
+            "build_only": false
+          },
+          {
+            "package": "pkexec",
+            "outstanding": false,
+            "build_only": false
+          }
+        ]
+      },
+      {
+        "name": "libhamlib-utils",
+        "method": "apt",
+        "state": "already installed",
+        "requested_by": [
+          "profile station"
+        ],
+        "apt": [
+          {
+            "package": "libhamlib-utils",
+            "outstanding": false,
+            "build_only": false
+          }
+        ]
+      },
+      {
+        "name": "pipx",
+        "method": "apt",
+        "state": "already installed",
+        "requested_by": [
+          "profile station"
+        ],
+        "apt": [
+          {
+            "package": "pipx",
+            "outstanding": false,
+            "build_only": false
+          }
+        ]
+      },
+      {
+        "name": "rig-service",
+        "method": "apt",
+        "state": "already installed",
+        "requested_by": [
+          "profile station"
+        ],
+        "apt": [
+          {
+            "package": "libhamlib-utils",
+            "outstanding": false,
+            "build_only": false
+          }
+        ]
+      },
+      {
+        "name": "twclock",
+        "method": "apt",
+        "state": "already installed",
+        "requested_by": [
+          "profile station"
+        ],
+        "apt": [
+          {
+            "package": "twclock",
+            "outstanding": false,
+            "build_only": false
+          }
+        ]
+      },
+      {
+        "name": "tzwatch",
+        "method": "apt",
+        "state": "already installed",
+        "requested_by": [
+          "profile station"
+        ],
+        "apt": [
+          {
+            "package": "tzwatch",
+            "outstanding": false,
+            "build_only": false
+          }
+        ]
+      }
+    ],
+    "displaced": [],
+    "apt_release": null,
+    "no_recommends": null,
+    "repos": [],
+    "mirror": null,
+    "data": [],
+    "maps": {
+      "fetch": [],
+      "current": [],
+      "convert": [],
+      "kept": [],
+      "licence": "ODbL",
+      "licence_url": "https://www.openstreetmap.org/copyright",
+      "download_total": 0,
+      "download_total_human": "0 B",
+      "disk_total": 0,
+      "disk_total_human": "0 B",
+      "estimate_note": "hand-authored",
+      "terrain": {
+        "regions": [],
+        "fetch": [],
+        "current": 0,
+        "licence": "Public domain",
+        "licence_url": "",
+        "download_total": 0,
+        "download_total_human": "0 B",
+        "topo": {
+          "regions": [],
+          "no_quads": [],
+          "fetch": [],
+          "current": 0,
+          "licence": "Public domain",
+          "licence_url": "",
+          "download_total": 11000000000,
+          "download_total_human": "10.2 GiB",
+          "warp": 0,
+          "warp_estimate": 0,
+          "warp_estimate_human": "0 B",
+          "disk_total": 11000000000,
+          "disk_total_human": "10.2 GiB",
+          "estimate_note": "hand-authored",
+          "selection": "",
+          "size_consent": "The US Topo download and warped copies exceed 10 GB; the install asks you to type yes."
+        },
+        "garmin": [],
+        "routino_regions": 0,
+        "routino_estimate": 0,
+        "routino_estimate_human": "0 B",
+        "contours": 0,
+        "contours_estimate": 0,
+        "contours_estimate_human": "0 B",
+        "brouter_regions": 0,
+        "brouter_tiles": 0,
+        "brouter_estimate": 0,
+        "brouter_estimate_human": "0 B",
+        "disk_total": 0,
+        "disk_total_human": "0 B",
+        "estimate_note": "hand-authored",
+        "contours_from": "copernicus",
+        "bare_earth": null,
+        "fstopo": null,
+        "splat_tiles": 0,
+        "splat_estimate": 0,
+        "splat_estimate_human": "0 B"
+      },
+      "boundaries": null,
+      "unknown_country": false
+    },
+    "memberships": [],
+    "consent_gates": [],
+    "config_files": [],
+    "user_services": [],
+    "desktops_read": {
+      "desktops": [
+        "kde"
+      ],
+      "unrecognised": [
+        "lightdm-xsession.desktop"
+      ],
+      "summary": "KDE Plasma; also lightdm-xsession.desktop, which names no desktop the catalog knows"
+    },
+    "deferrals": [
+      {
+        "kind": "config",
+        "subject": "rig-service",
+        "what": "will not run hammunition-rigctld",
+        "why": "station values not set: rig, rig_device",
+        "remedy": "run `hammunition station set --rig <device> --rig-device <path>` (and --rig-baud or --rig-ptt-line for the rig's kind)"
+      },
+      {
+        "kind": "package",
+        "subject": "hammunition-tray-qt",
+        "what": "will not be installed (profile station)",
+        "why": "for Xfce, LXQt, LXDE, MATE, Cinnamon; this machine has no Xfce or LXQt or LXDE or MATE or Cinnamon session (it has: KDE Plasma)",
+        "remedy": "the rest installs without it; on a machine that gains a Xfce or LXQt or LXDE or MATE or Cinnamon session, `hammunition install station` again picks it up. For KDE Plasma, `hammunition install hammunition-tray`"
+      }
+    ],
+    "notes": [],
+    "records": {
+      "log": "/home/user/.local/state/hammunition/transactions.jsonl",
+      "handed_to": null
+    },
+    "sudo": {
+      "keepalive": true,
+      "interval_seconds": 240,
+      "text": "sudo's ticket is kept valid for the length of this transaction; it is not extended beyond it. The password is asked once, by `sudo -v`, before the first step; then `sudo -n -v`, which cannot prompt, refreshes the ticket every 4 minutes from this process until the run ends. If a refresh fails it is reported once and not retried, and the next root step asks as it would have. --no-sudo-keepalive turns this off."
+    },
+    "commands": [
+      {
+        "description": "Fetch hammunition-hill",
+        "display": "[fetch] https://github.com/user/hammunition-hill/releases/download/v1.0.0/hammunition-hill_1.0.0_all.deb (sha256 4b26abaa6571\u2026)",
+        "argv": [],
+        "action": "fetch",
+        "requires_root": false,
+        "sources": []
+      },
+      {
+        "description": "Fetch hammunition-tray",
+        "display": "[fetch] https://github.com/user/hammunition-tray/archive/refs/tags/v0.5.0.tar.gz (sha256 614148fb4241\u2026)",
+        "argv": [],
+        "action": "fetch",
+        "requires_root": false,
+        "sources": []
+      },
+      {
+        "description": "Refresh apt package lists",
+        "display": "sudo env DEBIAN_FRONTEND=noninteractive apt-get update",
+        "argv": [
+          "sudo",
+          "env",
+          "DEBIAN_FRONTEND=noninteractive",
+          "apt-get",
+          "update"
+        ],
+        "action": null,
+        "requires_root": true,
+        "sources": []
+      },
+      {
+        "description": "Ask apt whether the 1 downloaded .deb file(s) resolve together with the apt step, before anything is installed",
+        "display": "DEBIAN_FRONTEND=noninteractive apt-get install --simulate --yes --no-remove -- /home/user/.cache/hammunition/artifacts/4b26abaa6571960669be53ef4f03ac67eaf6c69d106828f6113f5840efe9a3fd-hammunition-hill_1.0.0_all.deb",
+        "argv": [
+          "apt-get",
+          "install",
+          "--simulate",
+          "--yes",
+          "--no-remove",
+          "--",
+          "/home/user/.cache/hammunition/artifacts/4b26abaa6571960669be53ef4f03ac67eaf6c69d106828f6113f5840efe9a3fd-hammunition-hill_1.0.0_all.deb"
+        ],
+        "action": null,
+        "requires_root": false,
+        "sources": []
+      },
+      {
+        "description": "Install hammunition-hill from the downloaded .deb",
+        "display": "[install-deb] apt-get install on the file, so its dependencies resolve",
+        "argv": [],
+        "action": "install-deb",
+        "requires_root": true,
+        "sources": []
+      },
+      {
+        "description": "Clear any previous hammunition-tray unpack",
+        "display": "[prepare] /home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src (removed if present, then recreated)",
+        "argv": [],
+        "action": "prepare",
+        "requires_root": false,
+        "sources": []
+      },
+      {
+        "description": "Unpack hammunition-tray",
+        "display": "[extract] into /home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src",
+        "argv": [],
+        "action": "extract",
+        "requires_root": false,
+        "sources": []
+      },
+      {
+        "description": "Install hammunition-tray's plasmoid/package/contents/config/config.qml at /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/config/config.qml",
+        "display": "sudo install -D -m 0644 /home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/config/config.qml /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/config/config.qml",
+        "argv": [
+          "sudo",
+          "install",
+          "-D",
+          "-m",
+          "0644",
+          "/home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/config/config.qml",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/config/config.qml"
+        ],
+        "action": null,
+        "requires_root": true,
+        "sources": []
+      },
+      {
+        "description": "Install hammunition-tray's plasmoid/package/contents/config/main.xml at /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/config/main.xml",
+        "display": "sudo install -D -m 0644 /home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/config/main.xml /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/config/main.xml",
+        "argv": [
+          "sudo",
+          "install",
+          "-D",
+          "-m",
+          "0644",
+          "/home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/config/main.xml",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/config/main.xml"
+        ],
+        "action": null,
+        "requires_root": true,
+        "sources": []
+      },
+      {
+        "description": "Install hammunition-tray's plasmoid/package/contents/icons/hammunition-devices-awake.svg at /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/icons/hammunition-devices-awake.svg",
+        "display": "sudo install -D -m 0644 /home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/icons/hammunition-devices-awake.svg /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/icons/hammunition-devices-awake.svg",
+        "argv": [
+          "sudo",
+          "install",
+          "-D",
+          "-m",
+          "0644",
+          "/home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/icons/hammunition-devices-awake.svg",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/icons/hammunition-devices-awake.svg"
+        ],
+        "action": null,
+        "requires_root": true,
+        "sources": []
+      },
+      {
+        "description": "Install hammunition-tray's plasmoid/package/contents/icons/hammunition-devices-parked.svg at /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/icons/hammunition-devices-parked.svg",
+        "display": "sudo install -D -m 0644 /home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/icons/hammunition-devices-parked.svg /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/icons/hammunition-devices-parked.svg",
+        "argv": [
+          "sudo",
+          "install",
+          "-D",
+          "-m",
+          "0644",
+          "/home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/icons/hammunition-devices-parked.svg",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/icons/hammunition-devices-parked.svg"
+        ],
+        "action": null,
+        "requires_root": true,
+        "sources": []
+      },
+      {
+        "description": "Install hammunition-tray's plasmoid/package/contents/ui/CompactRepresentation.qml at /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/CompactRepresentation.qml",
+        "display": "sudo install -D -m 0644 /home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/ui/CompactRepresentation.qml /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/CompactRepresentation.qml",
+        "argv": [
+          "sudo",
+          "install",
+          "-D",
+          "-m",
+          "0644",
+          "/home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/ui/CompactRepresentation.qml",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/CompactRepresentation.qml"
+        ],
+        "action": null,
+        "requires_root": true,
+        "sources": []
+      },
+      {
+        "description": "Install hammunition-tray's plasmoid/package/contents/ui/FullRepresentation.qml at /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/FullRepresentation.qml",
+        "display": "sudo install -D -m 0644 /home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/ui/FullRepresentation.qml /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/FullRepresentation.qml",
+        "argv": [
+          "sudo",
+          "install",
+          "-D",
+          "-m",
+          "0644",
+          "/home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/ui/FullRepresentation.qml",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/FullRepresentation.qml"
+        ],
+        "action": null,
+        "requires_root": true,
+        "sources": []
+      },
+      {
+        "description": "Install hammunition-tray's plasmoid/package/contents/ui/configGeneral.qml at /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/configGeneral.qml",
+        "display": "sudo install -D -m 0644 /home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/ui/configGeneral.qml /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/configGeneral.qml",
+        "argv": [
+          "sudo",
+          "install",
+          "-D",
+          "-m",
+          "0644",
+          "/home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/ui/configGeneral.qml",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/configGeneral.qml"
+        ],
+        "action": null,
+        "requires_root": true,
+        "sources": []
+      },
+      {
+        "description": "Install hammunition-tray's plasmoid/package/contents/ui/controlslogic.js at /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/controlslogic.js",
+        "display": "sudo install -D -m 0644 /home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/ui/controlslogic.js /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/controlslogic.js",
+        "argv": [
+          "sudo",
+          "install",
+          "-D",
+          "-m",
+          "0644",
+          "/home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/ui/controlslogic.js",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/controlslogic.js"
+        ],
+        "action": null,
+        "requires_root": true,
+        "sources": []
+      },
+      {
+        "description": "Install hammunition-tray's plasmoid/package/contents/ui/main.qml at /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/main.qml",
+        "display": "sudo install -D -m 0644 /home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/ui/main.qml /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/main.qml",
+        "argv": [
+          "sudo",
+          "install",
+          "-D",
+          "-m",
+          "0644",
+          "/home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/ui/main.qml",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/main.qml"
+        ],
+        "action": null,
+        "requires_root": true,
+        "sources": []
+      },
+      {
+        "description": "Install hammunition-tray's plasmoid/package/contents/ui/timelogic.js at /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/timelogic.js",
+        "display": "sudo install -D -m 0644 /home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/ui/timelogic.js /usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/timelogic.js",
+        "argv": [
+          "sudo",
+          "install",
+          "-D",
+          "-m",
+          "0644",
+          "/home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/ui/timelogic.js",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/contents/ui/timelogic.js"
+        ],
+        "action": null,
+        "requires_root": true,
+        "sources": []
+      },
+      {
+        "description": "Install hammunition-tray's plasmoid/package/metadata.json at /usr/share/plasma/plasmoids/com.user.hammunition.devices/metadata.json",
+        "display": "sudo install -D -m 0644 /home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/metadata.json /usr/share/plasma/plasmoids/com.user.hammunition.devices/metadata.json",
+        "argv": [
+          "sudo",
+          "install",
+          "-D",
+          "-m",
+          "0644",
+          "/home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/metadata.json",
+          "/usr/share/plasma/plasmoids/com.user.hammunition.devices/metadata.json"
+        ],
+        "action": null,
+        "requires_root": true,
+        "sources": []
+      },
+      {
+        "description": "Install hammunition-tray's plasmoid/package/contents/icons/hammunition-devices-awake.svg at /usr/share/icons/hicolor/scalable/apps/hammunition-devices.svg",
+        "display": "sudo install -D -m 0644 /home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/icons/hammunition-devices-awake.svg /usr/share/icons/hicolor/scalable/apps/hammunition-devices.svg",
+        "argv": [
+          "sudo",
+          "install",
+          "-D",
+          "-m",
+          "0644",
+          "/home/user/.cache/hammunition/build/hammunition-tray-614148fb4241/src/plasmoid/package/contents/icons/hammunition-devices-awake.svg",
+          "/usr/share/icons/hicolor/scalable/apps/hammunition-devices.svg"
+        ],
+        "action": null,
+        "requires_root": true,
+        "sources": []
+      },
+      {
+        "description": "Leave the device helper where it is (hammunition-tray)",
+        "display": "[devctl-helper-kept] left alone: the helper at /usr/local/libexec/hammunition-devctl is owned by hammunition-tray's own installer (its install.sh), which marks the wrapper it writes and answers 'hammunition-devctl contract 1'; this unit installs nothing of it",
+        "argv": [],
+        "action": "devctl-helper-kept",
+        "requires_root": false,
+        "sources": []
+      },
+      {
+        "description": "Generate the gpsctl-device launcher for gpsd",
+        "display": "[wrapper] /home/user/.local/bin/gpsctl-device",
+        "argv": [],
+        "action": "wrapper",
+        "requires_root": false,
+        "sources": []
+      },
+      {
+        "description": "Add gpsctl-device to the desktop menus",
+        "display": "[desktop-entry] /home/user/.local/share/applications/hammunition-gpsctl-device.desktop",
+        "argv": [],
+        "action": "desktop-entry",
+        "requires_root": false,
+        "sources": []
+      },
+      {
+        "description": "Generate the cgps-fix launcher for gpsd-tools",
+        "display": "[wrapper] /home/user/.local/bin/cgps-fix",
+        "argv": [],
+        "action": "wrapper",
+        "requires_root": false,
+        "sources": []
+      },
+      {
+        "description": "Add cgps-fix to the desktop menus",
+        "display": "[desktop-entry] /home/user/.local/share/applications/hammunition-cgps-fix.desktop",
+        "argv": [],
+        "action": "desktop-entry",
+        "requires_root": false,
+        "sources": []
+      },
+      {
+        "description": "Generate the hammunition-hill launcher for hammunition-hill",
+        "display": "[wrapper] /home/user/.local/bin/hammunition-hill",
+        "argv": [],
+        "action": "wrapper",
+        "requires_root": false,
+        "sources": []
+      },
+      {
+        "description": "Add hammunition-hill to the desktop menus",
+        "display": "[desktop-entry] /home/user/.local/share/applications/hammunition-hammunition-hill.desktop",
+        "argv": [],
+        "action": "desktop-entry",
+        "requires_root": false,
+        "sources": []
+      },
+      {
+        "description": "Generate the rigctl-dummy launcher for libhamlib-utils",
+        "display": "[wrapper] /home/user/.local/bin/rigctl-dummy",
+        "argv": [],
+        "action": "wrapper",
+        "requires_root": false,
+        "sources": []
+      },
+      {
+        "description": "Add rigctl-dummy to the desktop menus",
+        "display": "[desktop-entry] /home/user/.local/share/applications/hammunition-rigctl-dummy.desktop",
+        "argv": [],
+        "action": "desktop-entry",
+        "requires_root": false,
+        "sources": []
+      }
+    ],
+    "suggestion_notes": [],
+    "region_notes": []
+  },
+  "removal": null
+}

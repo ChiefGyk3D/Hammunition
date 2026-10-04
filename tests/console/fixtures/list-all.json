@@ -1,0 +1,4915 @@
+{
+  "schema": "hammunition/1",
+  "kind": "catalog",
+  "engine": "0.20.0",
+  "what": "all",
+  "target": {
+    "distro": "parrot",
+    "version": "7.4",
+    "arch": "x86_64",
+    "id_like": [
+      "debian"
+    ],
+    "pretty_name": "Parrot Security 7.4 (echo)",
+    "description": "Parrot Security 7.4 (echo) (ID=parrot, version=7.4, arch=x86_64)",
+    "debian_family": true
+  },
+  "profiles": [
+    {
+      "name": "antenna",
+      "summary": "Antenna modelling, transmission lines and coverage prediction",
+      "stage": "1.0",
+      "packages": [
+        "xnec2c",
+        "nec2c",
+        "yagiuda",
+        "fl-moxgen",
+        "cassbeam",
+        "atlc",
+        "splat",
+        "splat-sdf",
+        "signal-server",
+        "wwl",
+        "nanovna-saver",
+        "flaa"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "NEC2 in two forms — interactive with a live pattern display, and as a scriptable engine — plus three specialised modellers for the geometries NEC handles awkwardly: Yagi arrays, Moxon rectangles and Cassegrain dishes. Then the things that connect an antenna to reality: an arbitrary transmission-line solver, terrain-aware path analysis and coverage maps (SPLAT! and Signal-Server, with their terrain made from your map regions' elevation), a locator distance and bearing tool, and desktop front ends for the two analysers people actually measure with.",
+        "why_together": "Antenna work is a loop — model it, build it, measure it, find out the model was optimistic, change something. Splitting the modellers from the analysers would break that loop across two installs. `wwl`, `splat` and `signal-server` are here because a beam heading, a path profile and a coverage map are questions you ask about an antenna, not about propagation in general.",
+        "deliberately_excludes": "General propagation prediction, which is `propagation` — VOACAP answers \"will this band be open\", and this profile answers \"what does my antenna do\". They are different questions and both are optional. Rotator control lives in `station` with the rest of hamlib. LibreVNA-GUI is in `electronics` rather than here: it is a 14-minute source build of a bench instrument's program, and an antenna analyser is not the only thing it measures.",
+        "manual_configuration": "**SPLAT! and Signal-Server need terrain data and will run without it**, assuming a flat earth at sea level and producing plausible output that is worthless. `splat-sdf` makes that terrain from the elevation of your map regions, so set them first (`hammunition station set --map-regions ...`); with none set it is deferred by name and the rest of the profile installs. Then run `hammunition maps splat` once as yourself, which points SPLAT! at the files through `~/.splat_path` and prints Signal-Server's `-sdf` argument. With regions set, this profile also downloads their elevation tiles and their map extracts, both listed with their sizes in the plan. NanoVNA-Saver and flaa need access to their instrument's serial port, which means the `dialout` group and a session started after you were added to it. NEC2 has real modelling rules about segment length and wire diameter, and breaking them produces confident, wrong answers rather than errors.",
+        "disk_footprint_hint": "Around 150 MB of software, plus the terrain when map regions are set: about 39 MB of Copernicus elevation and 7 MB of SPLAT files for each one degree square the regions touch (measured on one tile), and the regions' map extracts, which `dem-copernicus` brings with it. A US state is tens of squares."
+      },
+      "members": 12,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "digital-modes",
+      "summary": "FT8, JS8, PSK31, SSTV, digital voice and the rest of the keyboard modes",
+      "stage": "1.0",
+      "packages": [
+        "fldigi",
+        "flmsg",
+        "flamp",
+        "flwrap",
+        "comptext",
+        "comptty",
+        "wsjtx",
+        "jtdx",
+        "mshv",
+        "js8call",
+        "qsstv",
+        "freedv",
+        "psk31lx",
+        "twpsk",
+        "minimodem",
+        "glfer",
+        "xwefax",
+        "multimon-ng",
+        "qpwgraph",
+        "qtel",
+        "droidstar",
+        "flrig"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "fldigi and the NBEMS stack that surrounds it, the whole FT8 family, JS8Call, SSTV and radiofax, open digital voice, DroidStar for the digital-voice reflector networks (M17, DMR, D-STAR, Fusion, P25, NXDN) with no radio, two small PSK31 clients, a general-purpose FSK modem, a QRSS receiver, the measuring tools that let you compare two of them honestly, and `qpwgraph`, a PipeWire patchbay that shows which sound card each program is wired to.",
+        "why_together": "This is the reason most people install something like this. It is the widest profile in the set and it is still coherent: everything here turns sound-card audio into text, pictures or speech through a transceiver, and everything here has the same three prerequisites — audio in, audio out, and a way to key the radio.\n**`wsjtx` is the recommended default of the FT8 family.** `jtdx` and `mshv` also decode FT8 and both declare themselves not the default; they are carried because each has a real constituency — a better decoder in crowded conditions, multi-stream decoding for a pileup — and because PARITY-POLICY requires the choice be visible rather than made silently.",
+        "deliberately_excludes": "**`wsjtx-improved`, the third FT8 alternative, is carried but not here.** Its vendor .deb cannot coexist with the distribution's `wsjtx-data`, and `jtdx` depends on that package — so a profile listing both can never install as a whole. Measured on a clean Kali VM on 2026-09-02: the plan passed, forty-four commands ran, fldigi and WSJT-X built, and the .deb failed. The plan now refuses that pairing by name, and the profile no longer asks for it. Install `wsjtx-improved` by name on a machine without `jtdx`, or remove `jtdx` first; the package page says what to expect.\nPacket and Winlink, which are `packet`. Morse, which is `morse` — fldigi decodes CW too, and the dedicated tools do it better. `ardopcf` is an HF data modem and sits in `packet` with the Winlink client it exists to serve. Also excludes the FT8 family's own configuration: no frequency lists, no station details, nothing that would need your callsign.\n**The SvxLink infrastructure is deliberately not here.** `svxlink-server`, `svxreflector`, `remotetrx` and the calibration and GPIO helpers run a repeater or a linked network — that is operating infrastructure other people depend on, not a mode you work, and it wants a considered install rather than arriving inside a bundle. `qtel` IS here, because using EchoLink from a desktop is an operating activity like any other, and `droidstar` is here for the same reason: it is a reflector client you talk through, the digital-voice networks' counterpart of `qtel`. It is not in `listening`, which D-046 keeps for receive-only decoders: pressing TX sends your voice to every repeater and hotspot linked to the reflector, and that needs a licence. **It is not offered on Ubuntu 24.04 or Linux Mint 22.3**, whose Qt 6.4 is below its 6.5 floor; there the profile installs without it (D-039).",
+        "manual_configuration": "**An accurate clock is not optional for FT8.** It transmits in 15-second windows and a clock more than about a second out decodes nothing while appearing to work — run NTP or chrony before anything else. **Audio routing is the other thing nothing here does for you**: sound card in and out to the radio, at levels that do not overdrive it, and PTT through hamlib, flrig, CAT or VOX. Transmit audio level is the single biggest cause of a station that hears everyone and is heard by nobody. The radio-audio guide (docs/guides/audio-routing.md) walks through it, and `qpwgraph` shows the result.\n**Running several of the FT8 family at once contends for the same sound device and the same radio** — pick one per session. SSTV needs the sound card's sample rate calibrated once per machine or every picture slants, which people blame on the band.\n**Two guides walk the whole of this.** `docs/guides/digital-modes.md` goes from installed to a first FT8 contact — rig control, the clock, your callsign in each program, WSJT-X, fldigi's PSK31 and RTTY, JS8Call, and which file each program writes. `docs/guides/audio-routing.md` is the sound path on PipeWire, finding which device is the radio, levels and the ALC trap, with its own symptom list.",
+        "disk_footprint_hint": "Around 1.2 GB installed — 1.28 GB measured on Kali rolling, 2026-09-02, as `df` before minus after with the build trees and apt cache subtracted. The build trees are another 0.9 GB in `~/.cache/hammunition/build` until you clear them, and **six of these are source builds** — fldigi, WSJT-X, MSHV, glfer, xwefax and DroidStar — so expect a long install. DroidStar (added 2026-10-01) needs Qt 6's development packages; on a bare debian:13 image its build dependencies came to about 1.1 GB, and what they add to this profile's measured total has not been measured. fldigi purges the repository package first, because the source build installs to the same prefix."
+      },
+      "members": 22,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "editors",
+      "summary": "VS Code and VSCodium, opt-in, each behind its publisher's apt repository",
+      "stage": "post-1.0",
+      "packages": [
+        "codium",
+        "code"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "Two builds of the same editor. `codium` is the telemetry-free community build of VS Code's open-source tree, and it is what Parrot ships in its own archive; `code` is Microsoft's branded build with its marketplace and telemetry. Each manifest declares its publisher's apt repository and the fingerprint of the key that signs it; the engine adds the repository only when the target's archive offers no candidate of its own (D-022), and only after you have affirmed that key by fingerprint (D-040).",
+        "why_together": "They are alternatives to each other, and neither belongs in `workstation`. A serial console, `git` and `lsusb` come from every target's own archive; an editor from a publisher's repository does not, and under D-039 a member the archive cannot supply is deferred while the rest of the profile installs. Keeping both editors here means an operator who wants the bench tooling never sees a repository disclosure they did not ask for, and one who wants an editor sees exactly the one for the build they picked.",
+        "deliberately_excludes": "Every other editor. Vim, Emacs, nano, Kate, gedit and their relatives are in every target's archive already and need no manifest, no repository and no consent gate; the only reason these two are catalogued at all is that they are the ones AHRL and 73Linux users ask for and the ones that need a third-party repository to get. Extensions, settings sync and the marketplace are the editor's business, not the catalog's. Installing both is supported but pointless: they coexist without conflict and there is no reason to hold both unless you are comparing them.",
+        "manual_configuration": "Affirm the repository before installing. The plan names the environment variable and the fingerprint it must equal, and prints both the file it will write under /etc/apt/sources.list.d/ and the keyring under /etc/apt/keyrings/ that Signed-By will point at. Check the fingerprint against the publisher's own page before exporting it — that check is the whole point of the gate, and the engine cannot do it for you. On Parrot, `codium` comes from the distribution and no repository is added; `code` is Microsoft's everywhere. `hammunition uninstall <unit>` removes the package and, where this engine wrote them, both repository files, then refreshes apt.",
+        "disk_footprint_hint": "Around 400 MB per editor after the package unpacks; roughly 800 MB with both. Each repository's metadata adds a few megabytes under /var/lib/apt/lists/ and a refresh on every `apt update` from then on."
+      },
+      "members": 2,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "electronics",
+      "summary": "Bench electronics, instruments and device programmers",
+      "stage": "1.0",
+      "packages": [
+        "avrdude",
+        "flashrom",
+        "openocd",
+        "openfpgaloader",
+        "stlink-tools",
+        "stm32flash",
+        "m2kcli",
+        "libiio-utils",
+        "qttinysa",
+        "nanovna-saver",
+        "librevna",
+        "gsmc",
+        "coil64",
+        "atlc"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "Six device programmers covering AVR, SPI flash, ARM debug probes, FPGAs, ST-LINK and the STM32 serial bootloader; command-line control of the ADALM2000 lab instrument, and libiio's tools, which find and talk to it and to a PlutoSDR; desktop front ends for the two instruments most likely to be on a ham's bench, the tinySA spectrum analyser and the NanoVNA, and the program for the open-hardware LibreVNA, built from source; and three calculators — a Smith chart, a coil designer and an arbitrary transmission-line solver.",
+        "why_together": "This is the half of the hobby that happens at a bench rather than at an operating position. It is deliberately opt-in: a station that only operates needs none of it, and a person building or repairing equipment wants all of it. The instrument front ends are here rather than in `antenna` because you reach for them for anything you have built, not only for antennas.",
+        "deliberately_excludes": "The EDA cluster — KiCad, Fritzing, ngspice, gspiceui. Those are reserved to the maintainer in `docs/PARITY-POLICY.md` and are not a decision this profile makes. Also excludes the `programmer` hardware class's udev rules, which are hardware catalog entries rather than packages and are applied by device detection rather than by installing a profile.",
+        "manual_configuration": "**Programmers and instruments need device permissions and this profile does not grant them.** Most need membership of `plugdev` or `dialout` and a udev rule; the hardware catalog carries the rules and `hammunition hardware apply` writes them and adds you to the groups. A device that works under `sudo` and not otherwise is a permissions problem, not a broken cable. Know your tinySA's input power limit before connecting it to anything transmitting — it is the instrument most often destroyed on its first day. **LibreVNA-GUI starts a SCPI server on TCP port 19542 on every network address, with no password**, by its own default; turn it off in its Preferences unless another program drives it.",
+        "disk_footprint_hint": "Around 250 MB, before LibreVNA: its source build adds Qt 6's development packages (218 packages and about 780 MB on a bare Debian 13 image, measured 2026-10-01) and took 14 minutes at the lowest priority. The Qt front ends for the tinySA and NanoVNA are most of the rest; the programmers themselves are small."
+      },
+      "members": 14,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "listening",
+      "summary": "Shortwave, utility and aeronautical listening — no licence, no transmitter",
+      "stage": "1.0",
+      "packages": [
+        "libacars",
+        "acarsdec",
+        "acarsserv",
+        "dumpvdl2",
+        "dumphfdl",
+        "rtlsdr-airband",
+        "multimon-ng",
+        "multimon",
+        "dsdcc",
+        "readsb",
+        "tar1090",
+        "dump978-fa",
+        "mlat-client-adsbfi",
+        "gr-air-modes",
+        "rtl-ais",
+        "ais-catcher",
+        "gnuais",
+        "gnuaisgui",
+        "welle-io",
+        "dablin",
+        "nrsc5",
+        "satdump",
+        "kalibrate-rtl",
+        "morse2ascii",
+        "xdemorse",
+        "gqrx-sdr",
+        "artemis"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "The aeronautical decoder cluster — ACARS, VDL Mode 2 and HFDL, with the shared library that turns their raw text into structured messages and a database to keep what was heard. Aircraft transponder decoding on both ADS-B links, 1090 MHz and the US-only 978 MHz UAT, with a multilateration feeder. Marine AIS three ways. DAB in a window and in a pipe, and HD Radio, the digital side of North American FM and AM. A multi-channel airband scanner, digital voice protocol decoding, paging and classic mode decoding, weather satellite imaging, two Morse decoders, and an offline signal-identification reference (Artemis, the sigidwiki database in a window) for the moment you see something on the waterfall and do not know what it is.",
+        "why_together": "**This is the profile that needs no licence and no transmitter**, which makes it the best on-ramp this project has. Someone with a twenty-pound dongle and a wire can have aircraft on a map within an hour, and that is usually what turns an interest into a hobby.\nIt is also where the Skywave delta lands. The aeronautical cluster in particular is a genuine hole in Debian — libacars, acarsdec, dumpvdl2 and dumphfdl are absent from stable *and* unstable, measured in containers — so it is the clearest case of the thing this project exists to do: install what a person cannot easily install themselves.",
+        "deliberately_excludes": "**`supersdr`, the headline remote-KiwiSDR client**, which Q-007 decided to carry and which now installs: a hash-pinned venv beside the app tree, with a generated launcher (the venv-and-payload route; D-033 has the licence position). It is not a member of this profile, or of any, so `hammunition install supersdr` installs it by name. Also excludes anything that transmits, and anything aimed at protected communications — those are `rf-security` and the consent-gated `rf-research`.",
+        "manual_configuration": "**An antenna for the band matters more than the receiver.** A quarter wave for 1090 MHz is about 7 cm and for marine VHF about 46 cm; either, outside, will multiply what a stub on a desk achieves, and 1090 MHz is line of sight so height is everything. **Determine the dongle's PPM correction** — the two AIS channels are 50 kHz apart and an uncorrected offset silently puts one outside the filter, which reads as poor propagation. **One dongle hears one band at a time**: readsb on 1090 MHz and dump978-fa on 978 MHz together need two, and readsb can take dump978-fa's raw port as a second input so both links land in one set of JSON.\nEach decoder is configured separately and none is configured here; the aeronautical tools in particular want frequencies for your region. **Feeding an aggregator publishes what your receiver hears and where it is, continuously**, and every feeder here is off unless you configure it — that is a decision with a privacy dimension for the vessels and aircraft as well as for you.",
+        "disk_footprint_hint": "Around 400 MB. Six of these are source or pinned-git builds — the whole aeronautical cluster plus kalibrate-rtl — and dump978-fa and nrsc5 are two more, so the install takes longer than the size suggests."
+      },
+      "members": 27,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "logging",
+      "summary": "Station logs, contest logging and award tracking",
+      "stage": "1.0",
+      "packages": [
+        "qlog",
+        "cqrlog",
+        "klog",
+        "xlog",
+        "pyqso",
+        "tlf",
+        "tucnak",
+        "trustedqsl",
+        "fllog",
+        "flnet",
+        "python3-pyhamtools"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "Five general-purpose logs with different centres of gravity, two contest loggers — one for HF in a terminal, one for VHF and above with distance scoring — TQSL for signing uploads to Logbook of the World, the W1HKJ suite's log server and net-control roster, and a Python library for callsign and locator work.",
+        "why_together": "Most operators want one logger, not five. They are grouped rather than chosen for you because the right one depends on how you operate, and the difference is real: **QLog** is the most actively developed and the one whose online-service integrations keep working, and it is the recommended default; **CQRLOG** wants a database server and gives award tracking that is actually correct; **xlog** opens in under a second and does the basics; **KLog** sits between them and runs on Windows too; **PyQSO** is the one whose source you can read. TQSL is not a choice — LoTW accepts nothing it has not signed.",
+        "deliberately_excludes": "`not1mm`, which is in the Debian Hamradio Blend's logging task and is not in Debian: only Kali packages it among our six targets. Including it would make this profile half-install everywhere else. `kel-agent` is also held back — it bridges browser-based logging to the radio by running a local WebSocket server that any web page you visit can attempt to reach, and that is an opt-in decision rather than something to install as part of a bundle.",
+        "manual_configuration": "**Your callsign, grid square and station location go into each logger separately** — there is no shared station configuration yet, which is the open design question this catalog is waiting on. Every award computation depends on getting the location right. **Request a LoTW callsign certificate early**: it requires proof of licence and takes days rather than minutes, and TQSL is useless without it. Back that certificate up — it is a private key in your home directory and losing it means starting over. CQRLOG needs MariaDB running, which apt installs because this engine does not suppress Recommends; with them suppressed it starts and then fails to reach a database, which reads as a configuration problem rather than a missing package.",
+        "disk_footprint_hint": "Around 700 MB installed, and **QLog is a source build with roughly twenty Qt6 development packages and a long compile** — expect that step to dominate the install time. CQRLOG's MariaDB server is most of the disk."
+      },
+      "members": 11,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "morse",
+      "summary": "Morse code — sending, decoding, learning, and licence exam practice",
+      "stage": "1.0",
+      "packages": [
+        "aldo",
+        "cw",
+        "cwcp",
+        "xcwcp",
+        "qrq",
+        "morse-classic",
+        "ebook2cw",
+        "ebook2cwgui",
+        "cwwav",
+        "cwdaemon",
+        "flwkey",
+        "morse2ascii",
+        "xdemorse",
+        "ibp",
+        "hamexam",
+        "canadian-ham-exam",
+        "fccexam"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "Five ways to learn — Koch method training, high-speed callsign drilling, the three unixcw front ends, the long-lived Unix `morse` sounder that drills you on random groups, and a converter that turns any text you were going to read into Morse audio at a speed you choose. Two decoders, one live from a receiver and one offline from a recording. Two ways to send: a daemon that keys a transmitter for a logging program, and a control panel for a Winkeyer. A beacon monitor. And practice tests for the US and Canadian licence exams.",
+        "why_together": "Morse is a skill before it is a mode, and everything here is either practice, sending or copying. The licence exam tools are here because the Debian Hamradio Blend groups its `morse` and `training` tasks together and the same person wants both at the same stage — this is the profile someone installs while they are still learning. If the exam tools look out of place in something called `morse`, that is a fair reading and they are three packages you can remove.",
+        "deliberately_excludes": "fldigi, which decodes CW among twenty other modes and belongs in `digital-modes`. Contest loggers, which key CW through `cwdaemon` and live in `logging`. `morse-runner`, the CW contest simulator, is carried and installs by name (`hammunition install morse-runner`) rather than with this profile: it is a source build whose Free Pascal and Lazarus build dependencies came to 1.8 GB on a bare Debian 13 image, against a profile that is otherwise under 100 MB, and it is not offered on Kali. Nothing here needs a radio: every trainer generates its own audio, which is the point.",
+        "manual_configuration": "**`cwdaemon` needs a keying interface and a group you are not in.** Serial keying needs `dialout`, parallel needs `lp`, and this profile adds neither because which one depends on hardware the catalog cannot see. USB-to-serial adapters vary widely in how fast they toggle a control line, and a slow one keys cleanly at 15 wpm and falls apart at 30 — that is the adapter, not the software. `flwkey` needs a Winkeyer on `dialout` too. **Check the exam question pools against the current ones** before trusting a score: the pools are revised on a rolling cycle and a packaged version can be asking questions that are no longer on the exam.",
+        "disk_footprint_hint": "Under 100 MB. Everything here is small; the largest single item is the wxWidgets front end for ebook2cw."
+      },
+      "members": 17,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "navigation",
+      "summary": "Offline maps and turn-by-turn navigation from your own GPS, with no network",
+      "stage": "post-1.0",
+      "packages": [
+        "gpsd",
+        "gpsd-clients",
+        "gps-tether",
+        "navit",
+        "osm-regions",
+        "country-boundaries",
+        "osm-navit",
+        "qmapshack",
+        "routino",
+        "gdal-bin",
+        "mkgmap",
+        "mkgmap-splitter",
+        "osm-garmin",
+        "osm-routino",
+        "dem-copernicus",
+        "dem-3dep",
+        "dem-qmapshack",
+        "brouter",
+        "brouter-mapcreator-profiles",
+        "brouter-segments",
+        "usgs-ustopo",
+        "ustopo-qmapshack",
+        "comaps",
+        "comaps-maps",
+        "vector-map-kit",
+        "osm-pmtiles",
+        "opencpn"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "gpsd and its clients to read the GPS receiver; Navit, an offline turn-by-turn navigator with spoken directions through espeak-ng; the OpenStreetMap regions you choose, downloaded from Geofabrik and verified (`osm-regions`); Natural Earth's country borders (`country-boundaries`), which let address search find towns on a part-of-a-country map; and those regions converted into Navit's format with a Navit configuration that loads all of them and follows the GPS (`osm-navit`, opened by the `navit-offline` launcher). For trails and terrain: QMapShack, with Garmin maps built from the same regions (`osm-garmin`), one Routino database over all of them for routes on foot (`osm-routino`), Copernicus elevation tiles for the regions (`dem-copernicus`) and the hillshade, slope and contours drawn from them (`dem-qmapshack`), and for US regions the official USGS US Topo map sheets (`usgs-ustopo`) made into one seamless QMapShack map (`ustopo-qmapshack`, which also maps the Forest Service's FSTopo sheets when you have installed `usfs-fstopo` by name), and USGS 3DEP bare-earth elevation (`dem-3dep`) for when you choose it over Copernicus with `--dem-source 3dep`, opened by the `qmapshack-offline` launcher; BRouter (`brouter`), QMapShack's second offline router, which weighs trail difficulty and climbs, over routing files built on the machine from the same regions and elevation (`brouter-segments`, with the two map-creator filters in `brouter-mapcreator-profiles`); vector-tile maps of the same regions (`osm-pmtiles`, built with the archive's tilemaker and the fixed files in `vector-map-kit`), which `hammunition reference serve` draws in a browser at http://127.0.0.1:8480/map/ (D-071); and `gps-tether`, which serves gpsd's position to QMapShack as NMEA, and to that browser map, on this machine only, as a systemd user service from your next login. And CoMaps (`comaps`), a phone-style map with offline address search and car, bike and foot routing, built from source, over CoMaps' own map files for the same regions (`comaps-maps`), opened by the `comaps-offline` launcher; it reads its position from GeoClue only, which the tether feeds once `hammunition hardware apply` has set GeoClue up (D-069). For the water, OpenCPN (`opencpn`), a marine chart plotter that shows the position and the AIS ships an SDR decodes on nautical charts downloaded while online.",
+        "why_together": "A navigator is only useful with a position and a map, and offline it needs both already on the machine. Navit without gpsd does not know where you are, and gpsd alone is a position with nothing to show it on. The same install serves daily driving and an EMCOMM deployment with the phone network down: the maps are on the laptop before anything goes wrong, and `hammunition update` says when newer map data is pinned.",
+        "deliberately_excludes": "Maps for phones are their own profile, `phone-maps` (D-067), because each is built for every region and a team's phones are not every operator's. Kiwix and the rest of the offline reference are the `reference` profile (D-066). No tile server program is carried (martin, go-pmtiles, mbtileserver, tileserver-gl, D-071): the browser map is served by the engine's own loopback page. Raster tiles for Xastir and QMapShack's tile layers need PostGIS, osm2pgsql, renderd and a style; that stack is documented and not built. Official trail lines from the Park Service, the Forest Service and the states are not carried as a second layer, because OpenStreetMap already has nearly all of them and a duplicate draws every trail twice; US Topo shows their official names. The Forest Service's FSTopo sheets (`usfs-fstopo`, trail numbers over National Forest land) are left out of the profile and installed only by name: the Forest Service publishes no checksum, so until the maintainer pins every sheet a region needs, a sheet is fetched unverified, and the plan says so sheet by sheet (D-068). USGS 1 m lidar, the PDF editions of the sheets and the historical topographic maps are not carried. Viking, Marble, GPSPrune and JOSM were measured and left out: Debian's Viking renders nothing offline, Marble's offline place index has no packaged builder, and GPSPrune and JOSM use online tiles. BRouter's published routing files (brouter.de) are left out because they are regenerated weekly with no checksum; BRouter itself is carried, over files built here (D-063). GraphHopper is carried for routes on the browser map, but installed by name only (`hammunition install graphhopper-graph`, D-076): its graph is about 3.7 times the downloads and took 1.2 GB of memory to build on Delaware, and this profile already carries three offline routers. OSRM, Valhalla and OpenRouteService were measured and are not carried: none has an offline desktop consumer, and Valhalla has no archive package or clean binary. Navit's GTK interface (`navit-gui-gtk`) is left out in favour of the internal one, which suits a touch screen and a small panel. Grid-square readouts belong to the station and dashboard tools. Organic Maps is left out: it is the same program family as CoMaps, built the same way, and one of the two is enough; Flathub's builds of either are not used, because Flatpak is not a backend here.",
+        "manual_configuration": "Choose your map regions first, with Geofabrik's region paths, for example `hammunition station set --map-regions north-america/us/vermont,north-america/us/new-hampshire`; without them the map units are deferred and only Navit and gpsd install. Optionally `hammunition station set --map-freshness yearly|monthly|latest` (yearly is the default and, for the 50 US states and DC, is checked against a sha256 Hammunition measured; other regions and modes are checked against Geofabrik's MD5, and the plan says which for every region). A GPS receiver must be attached and seen by gpsd; `xgps`, from gpsd-clients, shows whether it has a fix. For QMapShack: start it from the `qmapshack-offline` launcher, which writes the map, elevation and Routino directories into QMapShack's configuration; its Routino router is then expected to offer the `hammunition` database, used with the `foot` profile; for your position, `gps-tether` runs as a user service from your next login (start it now with `systemctl --user start hammunition-gps-tether.service`), making NMEA from gpsd's position and serving it on 127.0.0.1 port 10110, the host and port QMapShack's GPS Tether dialog is expected to take. For BRouter, choose it in QMapShack's Routing dock (Routino stays the default); the launcher has already pointed it at Hammunition's BRouter on 127.0.0.1, and QMapShack's own BRouter setup wizard, which downloads from brouter.de, is not needed. QMapShack's first run on the field laptop (2026-09-29) found the settings group wrong and the first tether silent, and both are rewritten (D-061's amendment); the new versions have not yet been run on a desktop, and bench session 12 (docs/reference/bench-verification-5430.md) is that check. For CoMaps: start it from the `comaps-offline` launcher, which records the licence answer CoMaps asks for and links your maps where it looks; for \"you are here\", run `hammunition hardware apply` once (it tells GeoClue, the only position source CoMaps reads, to take the tether's NMEA from a socket), log out and back in so GeoClue's demo agent is running, and keep `gps-tether` running while CoMaps is open. That route was measured with Debian's GeoClue in a private namespace, not yet on a desktop. For OpenCPN: download charts with its chart downloader while online, and add a network connection for the position (gpsd, or `gps-tether` on 127.0.0.1 port 10110) and one for AIS from `rtl-ais` or `ais-catcher`; none of these has been set up and tried by this project (2026-09-30). Optional layers, each its own command and none of them installed by this profile: repeaters on the maps from your own export or an open list (`hammunition maps repeaters import`, D-064 and D-074), infrastructure and EMCOMM points such as airfields, hospitals and the grid (`hammunition maps infra import`, D-075), and routes in the browser map (`hammunition install graphhopper-graph`, D-076); docs/guides/offline-navigation.md sections 13, 18 and 16. None of them has been drawn on a desktop yet. The tray's Services group can start and stop `gps-tether` once it is installed (docs/guides/tray-controls.md).",
+        "disk_footprint_hint": "Navit, espeak-ng, osmium-tool and gpsd from the archive (size not yet measured), the 13.3 MB country-border file once, and the browser map's kit once (about 79 MB downloaded, 45 MB installed). Per region: the download, plus Navit's converted map at about 0.9 times the download, plus about twice the download of temporary space while it converts (the map factor measured on three regions: a 6.1 GB country-sized region converted to 4.7 GB, about 0.77 times, in 75 minutes on an i7-1185G7, and two US-state-sized regions at 0.874 and 0.856 times; the scratch on the country-sized region only). A single US state's download ranges from about 20 MB (District of Columbia) to 1.3 GB (California). QMapShack's maps, measured on one US-state-sized region: the Garmin map at 0.85 times the download with up to three times it of scratch, and the Routino database over every region at 0.67 times all the downloads together with up to six times of scratch. Terrain: about 39 MB per elevation tile, tens to hundreds of tiles a region (over 90, about 3.6 GB, for the largest contiguous US states; 449, about 17.5 GB, for Alaska), and about 5.5 MB of contours per tile. BRouter: about 8.5 MB for the zip's tree, and routing files at about 0.2 times all the downloads together (Delaware: 3.3 MB from 22.1 MB), with up to three times the downloads of scratch allowed while they build (not measured) and about 650 MB of elevation scratch for one 5-degree square at a time. US Topo, for US regions: about 8 MB a sheet, twice over once warped for QMapShack (Delaware about 220 MB of sheets, Vermont about 1.6 GB, Virginia about 6 GB, measured from the index on 2026-09-29). 3DEP, only when chosen: about 480 MB a tile, ten times Copernicus (Delaware about 0.9 GB, Vermont about 4.4 GB), and about 8.4 MB of contours a tile with 212 MB of scratch. Vector-tile maps for the browser: about 0.91 times each download (measured on Delaware), with up to three times the download of scratch allowed while one builds (not measured). CoMaps: a source build, measured by hand at about 11 GB of build tree with full git history (the shallow submodule fetch the engine uses is smaller and not measured) and 123 MB installed with its World maps; its own maps are tens to a few hundred megabytes a US state (Vermont 61 MB) and 15.7 GB for all of the US."
+      },
+      "members": 27,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "packet",
+      "summary": "AX.25, APRS, Winlink and the EMCOMM stack",
+      "stage": "1.0",
+      "packages": [
+        "direwolf",
+        "qtsoundmodem",
+        "qttermtcp",
+        "paracon",
+        "ax25-tools",
+        "ax25-apps",
+        "ax25-xtools",
+        "linpac",
+        "uronode",
+        "linbpq",
+        "pat",
+        "ardopcf",
+        "mercury",
+        "freedata",
+        "xastir",
+        "aprsdigi",
+        "aprx",
+        "a2d",
+        "axmail",
+        "ax25mail-utils",
+        "ampr-ripd",
+        "minimodem",
+        "xygrib",
+        "tmd710-tncsetup"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "Two soundcard TNCs — one headless and one with a scope — three packet terminals (one of them, Paracon, speaking AGWPE to Direwolf and needing no kernel stack at all), a node front end, a BBS and Winlink gateway, the Winlink client, three HF data modems, the full-featured APRS client, a digipeater and an internet gateway, mail tools, AMPRnet routing, a GRIB weather viewer, and, where the running kernel still carries it, the kernel AX.25 stack's configuration and user tools.\n**The free HF modems are ardopcf, Mercury and FreeDATA.** ardopcf speaks ARDOP and Mercury speaks VARA HF's TCP interface; Pat drives either one (`ardop://` and `varahf://`). Mercury on the air talks to other Mercury stations, not to VARA ones. FreeDATA is its own messaging and file-transfer system with a browser interface, station to station, and is not a Winlink path. All three transmit on HF when a client keys them: a licence and the band plan apply, and nothing here keys the rig without your rig-control setup. FreeDATA is x86-64 only; the codec2 library it ships has no arm64 build.\n**The station is userspace-primary (D-045).** Direwolf or QtSoundModem turns the radio into a modem; pat, LinBPQ, YAAC and Xastir talk to it over KISS or AGW and never touch the kernel. That is the whole station on every kernel, and the path a new operator should learn first. The kernel stack — `axports`, `kissattach`, `ax25d`, NET/ROM, and packet connections as sockets — is the fuller station where the kernel has it, and a bonus rather than the foundation.\n**On a kernel without AX.25 the kernel-side members are withheld, by name.** Linux 7.1 removed the AX.25 stack (2026-04-24); Kali rolling and Pop!_OS on their 7.1 kernels no longer have it, measured 2026-09-04. The plan reads the running kernel and defers `ax25-tools`, `ax25-apps`, `ax25-xtools`, `ax25mail-utils`, `axmail`, `aprsdigi`, `linpac` and `uronode` with the reason, and the rest installs: Direwolf, pat over `ax25+agwpe`, LinBPQ, YAAC and Xastir's AGWPE interface work with no kernel stack. What such a machine cannot have is a kernel port — no `axports`, `kissattach`, `ax25d` or NET/ROM. `docs/reference/kernel-ax25.md` has the measurements.",
+        "why_together": "This is a network, not a set of programs. Direwolf turns a radio into a modem, the applications speak to it over KISS or AGW, and ax25-tools brings a kernel port up where there is a kernel to bring it up on. Installing half of it gives you something that connects to nothing.\n**The weather viewer belongs here and looks like it does not.** A GRIB file for one region is small enough to move over HF where a weather website is not, which is why sailors and emergency operators request them over Winlink. It is the thing the link is often carrying.\nMost of the 73Linux delta lands in this profile whole, and AHRL has none of it — this is the clearest example of what the five-source union bought.",
+        "deliberately_excludes": "Pi-APRS, which is the last of D-008's eight packet-core units without a manifest. **QtTermTCP and QtSoundModem are now IN**, and not through the binary backend: 73Linux fetches unversioned prebuilt executables from a directory called `Beta`, and upstream tags source on GitHub, so both are ordinary pinned qmake builds. Neither is packaged on any of our six targets, which was measured. VARA and its messaging client are post-1.0 — closed software needing a configured Wine prefix — and optional since Mercury joined (Q-022 #6): Pat reaches a Mercury station through the same `varahf` transport, and what VARA still adds is gateways that run only VARA. `fbb`, the classic packet BBS, is in Ubuntu and Mint and not in Debian, Kali or Parrot, so including it would half-install the profile on the primary target; its client-side tools are here and the BBS you forward with will be somebody else's.",
+        "manual_configuration": "**This profile installs a working packet stack that does nothing until you write your callsign into two files, and that is the largest manual step in this catalog.** `/etc/ax25/axports` needs a port line naming your callsign, the device and the speed; `direwolf.conf` needs your callsign, the audio device and the PTT method. Neither is generated yet — station-local configuration is the open design question, and `linbpq` is the one manifest that already templates it. The shipped direwolf example is heavily commented and is the right starting point. Pat is configured with `pat configure`, which writes your Winlink credentials. **Pat's own web interface is the menu** — `pat http` serves it at `localhost:8080` for composing, reading and posting Winlink mail. 73Linux wraps Pat in its PATMENU3 script; that wrapper is licence-blocked and unneeded here, because the web UI it fronts ships with Pat itself. **ardopcf's web interface is the ARDOP GUI** — start the modem with `-G 8514` and open `localhost:8514` for its spectrum, waterfall, levels and drive-level slider. 73Linux installs John Wiseman's separate ARDOPGUI binary for this; it is superseded here because the modem ships the interface itself. It listens on every interface, as the modem's host port does.\n**The HF modems take their callsign from somewhere different each.** ardopcf and Mercury are told it by Pat when it connects, so they need no file. FreeDATA keeps its own, in its browser settings page, and its first start copies upstream's example station AA1AAA into `~/.config/FreeDATA/config.ini`: change it before transmitting. Each modem is started by hand with its sound device and keying method; the packet-and-Winlink guide has the commands.\n**Serial and audio access need the `dialout` group**, and a session already open does not gain it. **Transmit audio level** decides whether anyone decodes you; direwolf reports its own receive levels and that is where to start. Running a digipeater or an igate puts traffic on a shared network under your callsign — the example configurations are deliberately not digipeaters, and turning that on is a decision about a resource other people depend on.",
+        "disk_footprint_hint": "Around 500 MB, plus about 220 MB for FreeDATA's venv (219 MB measured on Parrot). LinBPQ, ardopcf and Mercury are source builds from pinned upstream tags (Mercury is apt on Kali); FreeDATA is a hash-pinned venv; everything else is apt."
+      },
+      "members": 24,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "phone-maps",
+      "summary": "Offline maps and points of interest for the team's phones, built on the laptop",
+      "stage": "post-1.0",
+      "packages": [
+        "osm-regions",
+        "mapsforge-map",
+        "mapsforge-poi"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "The OpenStreetMap regions you choose, downloaded from Geofabrik and verified (`osm-regions`); a Mapsforge vector map of each (`mapsforge-map`), built with the archive's osmosis and Mapsforge writer; and a Mapsforge points-of-interest file of each (`mapsforge-poi`), built with Mapsforge's POI writer, which is fetched once from Maven Central and checked against a sha256 Hammunition measured. `hammunition maps phone` then gathers the files, with the Garmin maps from `navigation` when they are installed, into one folder with a SHA256SUMS, and prints the ways to carry them to a phone.",
+        "why_together": "Phones lean on the network for their maps. With these, the laptop makes every phone's offline maps from one verified download per region, ahead of time, so a team deployed with the phone network down navigates on the same maps as the laptop. The regions are shared with `navigation`, so a machine with both downloads each region once.",
+        "deliberately_excludes": "OsmAnd's `.obf`, because its generator is a nightly build replaced daily with no checksum, signature or tag (the route is a build of OsmAnd-tools from a source commit). Organic Maps' and CoMaps' `.mwm`, because the generator must match the app's release and needs the whole planet's coastline for any coastal region (the route is the publishers' own files, checked by their per-file hashes). PocketMaps, which needs a 2019 routing engine for an app with no commit since 2024-10. Transportr, which queries online transit services and stores nothing offline. The engine transfers nothing to a phone itself: `adb` and KDE Connect are opt-ins the operator installs, and `maps phone` says what each needs.",
+        "manual_configuration": "Choose your map regions first, for example `hammunition station set --map-regions north-america/us/vermont`; without them the map units are deferred. After the install, run `hammunition maps phone` as yourself, then carry the folder it names to each phone by one of the routes it prints: the laptop's hotspot with a web server bound to the hotspot's address, USB file transfer, or the opt-in `adb` or KDE Connect. On the phone, install a Mapsforge-reading app while it still has the internet, and open the files from it. None of this has been checked on a phone yet; the bench owes it.",
+        "disk_footprint_hint": "osmosis, libmapsforge-java and a Java runtime from the archive (size not yet measured), and the 18.8 MB POI writer once. Per region, measured on Delaware (22 MB download): the download, a map at about 0.78 times it and a POI file at about 0.21 times it, with about 15 times the download of scratch while the map builds, removed afterwards. `maps phone` copies the files once more into your home."
+      },
+      "members": 3,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "propagation",
+      "summary": "Band conditions, grey line, beacons and DX spotting",
+      "stage": "1.0",
+      "packages": [
+        "openhamclock",
+        "hamclock-next",
+        "xdx",
+        "flcluster",
+        "sunclock",
+        "voacapl",
+        "pythonprop",
+        "ibp",
+        "wwl",
+        "qgrid",
+        "python3-pyhamtools",
+        "twclock"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "Two HamClock successors — a browser dashboard and a desktop program — each a live map showing the grey line and solar indices; two DX cluster clients, a sun clock, the VOACAP propagation engine with a graphical front end that makes its output readable, a monitor for the international beacon network, and grid-square tools in command-line and graphical form.",
+        "why_together": "Every one of these answers the same question from a different angle: is the band open, and to where. They are grouped rather than spread through the mode profiles because they are genuinely optional — a station that works one local repeater needs none of it — and because most of them depend on web services, which makes this the first profile a low-bandwidth or offline station skips.\n**The beacon monitor is the one to notice.** The NCDXF/IARU beacons transmit on a fixed three-minute rotation from known transmitters at known powers in known places, so listening to 14.100 and noting which callsigns you hear is a real measurement of your own antenna and receiver. No website substitutes for that.",
+        "deliberately_excludes": "Nothing that Q-006 chose. **Both HamClock continuations ship**: `openhamclock`, the default, is a Node and Vite web application built by the `node` backend (D-037) and needs Node.js 20.19 or newer from the distribution — Debian 13, Parrot and Ubuntu 26.04 offer it; **Ubuntu 24.04's 18.19 does not, and there the plan refuses `openhamclock` by name** (it builds on 18 and its server dies at first start, measured). A refused unit refuses the transaction (D-016), so on 24.04 this profile does not install as a whole — `voacapl` and `pythonprop` have no candidate there either — and the operator installs the units that do resolve by name, `hamclock-next` among them. `hamclock-next` is the SDL2 rewrite that runs as an ordinary desktop program with no Node involved; an operator who wants the original's look, or no web server on the machine, uses that one. Excludes SPLAT!, which answers \"what does the terrain do to this specific path\" and lives in `antenna`.",
+        "manual_configuration": "**A DX cluster client needs a node address and your callsign**, and neither is chosen for you. **VOACAP needs a smoothed sunspot number** for the month you are asking about, which is itself a prediction you supply, and antenna descriptions if you want the answer to be about your station rather than about a default dipole — treating that default as your station is the commonest way to get a confidently wrong answer. **`openhamclock` needs your callsign and grid in its `.env`** (the path is in its package page); it starts with `N0CALL` at `FN31` until you edit it. `hamclock-next`'s data backend defaults to `ohb.works`, a community-run service, and is user-configurable; nobody has yet run a client end to end against it, so confirm before relying on it. The beacon monitor is a schedule computation, so a system clock a minute out tells you confidently about the wrong beacon.",
+        "disk_footprint_hint": "Around 450 MB. pythonprop's cartopy, scipy and matplotlib stack is the largest piece, openhamclock's pruned Node tree is about 140 MB (measured; the build copy under ~/.cache is the same again), and hamclock-next is a source build against SDL2."
+      },
+      "members": 12,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "reference",
+      "summary": "An offline library -- Wikipedia, WikiMed, ham Q&A, dictionaries and the ICS forms -- on one local page",
+      "stage": "post-1.0",
+      "packages": [
+        "kiwix-tools",
+        "kiwix",
+        "kiwix-library",
+        "dictionaries",
+        "goldendict-ng",
+        "ics-forms"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "kiwix-tools, the Kiwix reader and server `hammunition reference serve` runs, and `kiwix`, the desktop reader; the Kiwix books you choose, pinned and checked (`kiwix-library`); dictd with GCIDE, WordNet, FOLDOC and VERA acronyms on 127.0.0.1 (`dictionaries`) and goldendict-ng to look words up on the desktop; and FEMA's 39 ICS forms (`ics-forms`).",
+        "why_together": "They are the questions that do not stop when the network does: what a word or an acronym means, how to treat an injury, how a circuit works, what an agency's form wants. Readers without books are empty and books without a reader are files, and `hammunition reference serve` puts all of it on one page on the laptop.",
+        "deliberately_excludes": "wikiHow (no current Kiwix file, CC BY-NC-SA), the zimgit prepper collections (no licence stated anywhere), energypedia (licence not verified), the whole of Project Gutenberg (221 GB; one class of it is offered), video-channel ZIMs and MedlinePlus (mixed licences), ARRL and ARES material (ARRL copyright), a sigidwiki ZIM (none exists; `artemis` carries the signal database), and Debian's Direwolf manual (Debian's package strips the PDFs; upstream's direwolf-doc repository is the route, not yet measured). Translation dictionaries (`dict-freedict-*`) are left for you to choose by language.",
+        "manual_configuration": "Choose books first, by id, for example `hammunition station set --reference-books ham.stackexchange.com_en_all,wikipedia_en_medicine_nopic` (`hammunition reference books` lists the 27 with sizes and licences); with none chosen, `kiwix-library` is deferred and everything else installs. Then `hammunition reference serve` and open http://127.0.0.1:8480/. goldendict-ng needs the local dictd added once as a DICT server (127.0.0.1).",
+        "disk_footprint_hint": "Readers and dictionaries from the archive: kiwix-tools about 11.4 MB with its dependencies, the dictionaries about 32 MB, kiwix and goldendict-ng mostly their WebEngine (not yet measured). The ICS forms 8 MB. Books as chosen, from 27 MB (Simple English Wiktionary) and 76 MB (Amateur Radio Stack Exchange) to 127 GB (English Wikipedia with pictures); each is counted twice while it installs."
+      },
+      "members": 6,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "rf-research",
+      "summary": "Transmit-capable and interception-capable RF tooling — affirmative opt-in required",
+      "stage": "post-1.0",
+      "packages": [
+        "gr-gsm",
+        "hacktv"
+      ],
+      "consent_gated": true,
+      "documentation": {
+        "what_it_installs": "Software whose capability, rather than its complexity, is the reason it is kept separate: tools that can cause hardware to transmit, and tools that receive and decode communications not addressed to you. Today that is `gr-gsm`, which receives and decodes GSM downlink signalling, and `hacktv`, which drives a HackRF to generate complete analogue television signals in bands allocated to other services.",
+        "why_together": "They share a single property — using them lawfully depends on authorization you hold and we cannot see. Grouping them means the affirmation is asked once, about something specific, rather than repeatedly about everything.",
+        "deliberately_excludes": "Transmit-capable cellular network stacks — srsRAN_4G, the Osmocom core, osmo-trx, OsmocomBB, intrusive-lte-mme and sni5gect. They are **post-1.0, not out of scope** (D-034): they land in a separate consent-gated `cellular` profile with its own env_var, once that profile and the `docs/rf-security/` framing exist. The objection was never to the software, which is legitimate and which DragonOS ships; it is that a one-command installer aimed at licensed hams is the wrong delivery mechanism for a rogue base station before that framing is written. Also excludes everything in `rf-security`, which is not gated.",
+        "manual_configuration": "Nothing is configured automatically. gr-gsm needs a supported SDR and a tuned capture — its own documentation (the upstream project page in the gr-gsm package manifest) is the reference; this catalog ships no worked example yet. No transmit path is enabled by installing this.",
+        "disk_footprint_hint": "Small today — one package plus the GNU Radio stack it depends on."
+      },
+      "members": 2,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "rf-security",
+      "summary": "Spectrum analysis, wireless auditing and protocol inspection",
+      "stage": "1.0",
+      "packages": [
+        "aircrack-ng",
+        "esptool",
+        "hcxdumptool",
+        "hcxtools",
+        "inspectrum",
+        "kismet",
+        "rtl-433",
+        "tcpdump",
+        "ubertooth",
+        "wireshark",
+        "artemis",
+        "rayhunter",
+        "skid-finder"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "Tools for looking at radio and network traffic you are entitled to look at: a protocol analyser, Wi-Fi and Bluetooth capture tooling, a wireless device detector and logger (Kismet) that puts Wi-Fi, Bluetooth and sniffer dongles in one view, an offline signal visualiser, a decoder for the unlicensed ISM bands, and an offline signal-identification reference (Artemis) for naming what the visualiser shows.",
+        "why_together": "All of it is receive-and-analyse, and none of it is specific to protected communications. Most of it installs from each target's own archive with no ceremony. Two units do not: Artemis is a venv from its source tarball, because its vendor package collides with an unrelated Debian package of the same name (D-048); and Kismet is in Kali's and Parrot's archives but not in Debian 13's, Ubuntu's or Mint's, so on Debian 13, Ubuntu 24.04 and Mint 22.3 it comes from the Kismet project's own signed repository, added only after you type its key fingerprint (D-040). On those three targets, installing this profile therefore asks that one question, and `--yes` cannot answer it; declining stops the whole transaction, and every other member can still be installed by name. Ubuntu 26.04 has no Kismet release repository yet, so there Kismet is deferred and the rest installs (D-039).",
+        "deliberately_excludes": "Anything that transmits, and anything aimed at cellular. `esptool` is the edge case D-026 was written for and is included: it writes bytes to a serial port, and the firmware people write with it comes from upstream and runs on the device rather than on the host. Gating a flasher would gate the serial console next, and then `lsusb`. What is held back for `rf-research` (consent-gated) is transmit-capable and cellular tooling — not the flasher, the console, or `lsusb`. Kismet is included, ungated for the same reason Wireshark and aircrack-ng are: it captures and logs what it hears, and gates attach to profiles whose capability is the hazard (D-021), not to a sniffer. It had been held back until the third-party repository path existed; D-040 built that on 2026-09-03 and Kismet joined on 2026-09-30. The CatSniffer V3's Kismet capture helpers are in no Kismet release yet, so that board is not a Kismet source here.",
+        "manual_configuration": "Wireshark asks at install time whether non-root users may capture; that choice adds users to the `wireshark` group and is recorded as a system modification. Monitor-mode capture needs a supported adapter. Ubertooth needs its udev rules and group membership from the hardware catalog. Kismet adds you to the `kismet` group (log out and back in), serves its interface at http://localhost:2501 -- on every network interface unless you set `httpd_bind_address=127.0.0.1` in /etc/kismet/kismet_site.conf -- and asks the first browser to connect to set its login. On Kali and Parrot its package also enables a root `kismet.service` at boot; `sudo systemctl disable --now kismet.service` if you only want it on demand. See docs/rf-security/kismet.md.",
+        "disk_footprint_hint": "Roughly 300 MB with dependencies, dominated by Wireshark. Kismet's share, by apt's own estimate on 2026-09-30: 36 MB on a bare Parrot image, 72 MB on a bare Kali one (more of its libraries already present on a real desktop install)."
+      },
+      "members": 13,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "rfid",
+      "summary": "RFID and NFC — card protocols, readers, and the tooling to study them",
+      "stage": "post-1.0",
+      "packages": [
+        "libnfc-bin",
+        "libfreefare-bin",
+        "mfoc",
+        "mfcuk",
+        "pcsc-tools",
+        "proxmark3"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "Tools for two different card worlds. Five packages cover 13.56 MHz over libnfc and PC/SC -- reader diagnostics, MIFARE Classic key recovery, and DESFire management -- and one, the Proxmark3 client, covers both 13.56 MHz and the 125 kHz low-frequency cards nothing else here reaches.",
+        "why_together": "They are the same domain at two frequencies and two price points. The libnfc side runs on a reader costing a few pounds and is where most people start; the Proxmark3 is purpose-built hardware that reaches the low-frequency access-control cards actually deployed in buildings. Studying one without the other gives half the picture, and the two families of tool do not overlap in what they can talk to.",
+        "deliberately_excludes": "Anything that is not card-range. Long-range RFID, UHF and the 900 MHz inventory-tag world are a different domain again and are not here. Nothing aimed at cloning credentials for use rather than for study, and no pre-loaded key dictionaries -- the tools take those as input if you supply them. Also excluded is the vendor tooling for proprietary readers, which is neither free software nor packaged anywhere.",
+        "manual_configuration": "Membership of `dialout` and `plugdev` for the Proxmark3, from the hardware catalog. Serial PN53x readers need an entry in /etc/nfc/libnfc.conf; USB ones usually do not. The one that catches everyone: pcscd and libnfc compete for the same reader, whichever claims it first wins, and the other reports no device at all -- stop pcscd if libnfc tools suddenly stop seeing your hardware.",
+        "disk_footprint_hint": "Under 50 MB from apt. The Proxmark3 source build is larger and pulls an ARM cross-compiler, because the client ships the firmware images it flashes; on Kali it is a package like any other."
+      },
+      "members": 6,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "satellite",
+      "summary": "Tracking, working and decoding amateur and weather satellites",
+      "stage": "1.0",
+      "packages": [
+        "gpredict",
+        "gr-satellites",
+        "satdump",
+        "libhamlib-utils"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "A tracker that predicts passes and drives a rotator and radio through hamlib, a large collection of telemetry decoders as GNU Radio blocks, and SatDump for turning a weather-satellite pass into an image. Hamlib's command-line tools come along because Doppler correction is what makes the difference between chasing a signal across the band and staying on it, and that runs through `rigctld`.",
+        "why_together": "A satellite pass is one activity with three parts: know when it is, follow it while it happens, and make sense of what came down. Nothing here is useful without the other two. It is a small profile because it is a well-defined job.",
+        "deliberately_excludes": "The APT weather-satellite decoders. `noaa-apt` and `xwxapt` are in this catalog and in the AHRL inventory, and both are RETIRE'd for the same reason: every NOAA APT satellite went out of service on 2025-11-09. SatDump covers what is still transmitting, and the retired entries stay in the catalog with their provenance rather than vanishing. FoxTelem is also absent — decoding AMSAT Fox telemetry is only worth it if enough of that constellation is still alive, which nobody here has checked.",
+        "manual_configuration": "**Keplerian elements go stale in days, not months**, and gpredict computes from whatever it last downloaded without warning you. Update them before relying on a prediction; that is the single most common cause of a pass that does not happen when predicted. Set your own location accurately — every prediction is relative to it. Rotator and radio control need hamlib reaching the hardware and `rigctld` running, which is a step that is easy to miss.",
+        "disk_footprint_hint": "Around 400 MB. SatDump and gr-satellites carry most of it; gr-satellites pulls the whole GNU Radio stack if it is not already present, which roughly doubles the figure on a fresh machine."
+      },
+      "members": 4,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "sdr",
+      "summary": "Software-defined radio — receivers, GNU Radio, and the driver layer",
+      "stage": "1.0",
+      "packages": [
+        "gqrx-sdr",
+        "sdrpp",
+        "cubicsdr",
+        "gnuradio",
+        "gr-osmosdr",
+        "gr-fosphor",
+        "soapysdr-tools",
+        "soapysdr-module-rtlsdr",
+        "rtl-sdr",
+        "soapyremote-server",
+        "soapysdr-module-remote",
+        "inspectrum",
+        "gr-rds",
+        "quisk",
+        "pihpsdr",
+        "gnss-sdr"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "Three general-purpose receivers with waterfalls, GNU Radio and the block that lets a flow graph talk to almost any radio, fosphor's GPU-drawn spectrum and waterfall blocks for it, the SoapySDR tools and the RTL-SDR driver stack, the client and server halves of network SDR sharing, an offline signal visualiser, an RDS decoder, two transceiver applications for hardware that transmits -- Quisk, and piHPSDR for OpenHPSDR radios such as the ANAN and the Hermes Lite 2 -- and a complete GPS receiver in software.",
+        "why_together": "Everything here works with one cheap dongle, and the driver layer is what makes the applications interchangeable — software written against SoapySDR reaches your radio through a module, which is why installing the right one is usually the difference between an application listing your radio and showing an empty device list.\n**The network pair is worth the two packages.** Run the server where the antenna is and the client where you are sitting, and every SoapySDR program reaches the remote radio unchanged. Getting the antenna away from a modern house is the single biggest improvement available to most receivers.",
+        "deliberately_excludes": "**Eleven of the twelve per-device SoapySDR modules.** Airspy, bladeRF, LimeSDR, MiriSDR, PlutoSDR, Red Pitaya, RFSpace, USRP, OsmoSDR, audio and the FUNcube all have manifests and none is installed here, because a one-dongle user needs one module and installing twelve to be safe is exactly what D-020 exists to avoid. Install the one matching your hardware by name. **The HydraSDR RFOne and the RigExpert Fobos SDR** (`hydrasdr-host` and `soapysdr-module-hydrasdr`; `libfobos`, `libfobos-sdr-agile` and `soapysdr-module-fobos`) are the same case and a heavier one: on most targets they are source builds, so installing them for hardware you do not own would compile five projects for nothing. `soapysdr-module-rtlsdr` is the exception on frequency grounds rather than principle: an RTL-SDR is what most people have.\nAlso excludes transmit-capable research and interception tooling, which is `rf-security` and the consent-gated `rf-research`. The two transceiver programs here, `quisk` and `pihpsdr`, transmit the way a station transceiver does: when you key them, on the frequency shown, and a licence and the band plan apply. Installing them transmits nothing; the profile also excludes the DAB transmit chain, which emits into a broadcast band; and the aeronautical and utility decoders, which are `listening`.",
+        "manual_configuration": "**A dongle that works under `sudo` and not otherwise is a permissions problem.** Device access needs a udev rule and usually the `plugdev` group; the hardware catalog carries the rules and `hammunition hardware apply` writes them and adds you to the groups (log out and back in afterward). `SoapySDRUtil --find` is the first command to run when a radio is invisible — it separates a USB or permissions problem from a missing module from an application bug.\n**Determine your dongle's frequency error once** and keep the PPM correction; several decoders fail to lock rather than reporting an error when it is wrong. `soapyremote-server` has no authentication at all — anyone who can reach the port can use your radio and hear what it hears — so it belongs on a trusted network or behind a tunnel, deliberately. Quisk is configured in Python rather than through a dialog; the shipped examples are the starting point and this is the step that stops people. fosphor's blocks need an OpenCL driver for the graphics hardware, which nothing here installs; `clinfo` shows whether one is present, and the `gr-fosphor` package page says what the archives offer.",
+        "disk_footprint_hint": "Around 1.5 GB, most of it GNU Radio and its Python stack. Without GNU Radio the rest is roughly 300 MB. `gr-fosphor` (added 2026-09-30) also pulls `gnuradio-dev`, GNU Radio's development headers; what that adds has not been measured. `pihpsdr` (added 2026-10-01) is a source build whose GTK 3 development dependencies came to about 1.0 GB on a bare debian:13 image. Its first start spends minutes to an hour computing FFTW wisdom; see its package page."
+      },
+      "members": 16,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "station",
+      "summary": "The floor every station stands on — rig control, time, position",
+      "stage": "1.0",
+      "packages": [
+        "libhamlib-utils",
+        "flrig",
+        "rig-service",
+        "chirp",
+        "gpsd",
+        "gpsd-clients",
+        "gpsd-tools",
+        "gpsbabel",
+        "twclock",
+        "tzwatch",
+        "pipx",
+        "hammunition-hill",
+        "hammunition-tray",
+        "hammunition-tray-qt"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "Hamlib's command-line tools, a rig control panel that other programs can share, and `rig-service`, which runs one shared `rigctld` for the radio you name with `station set --rig` (deferred by name until you do), the one radio programmer that covers hundreds of models, GPS for position and time with the converter that gets tracks off a handheld, two clocks, pipx, Hammunition Hill -- the family's own local-first dashboard, installed from its release .deb and served to your browser on 127.0.0.1:8073 -- and the tray switches for the desktop you run (KDE's applet, or the Qt tray for Xfce, LXQt, LXDE, MATE and Cinnamon), which park and wake devices and start and stop services.",
+        "why_together": "This is what every other profile quietly assumes is already there. A digital-modes setup needs something to key the radio; a logger needs to know the frequency; anything timed needs the clock to be right. Installing it once and by name is better than each profile pulling in half of it.\nTwo pieces earn their place beyond the obvious. **One program owns the CAT port and the rest ask it**, which is what lets fldigi, WSJT-X and a logger share a radio instead of the second program to start finding the port busy — that is the normal digital-modes setup, and without something in the middle it does not work. By default that program is `rigctld`, run for you by `rig-service` as a user service on 127.0.0.1:4532 (D-073); flrig, which gives a front panel and an XML-RPC server, is the other route, chosen with `station set --rig-owner flrig`. **`rigctl` is the diagnostic** that separates a radio problem from a program problem: when fldigi will not key the transmitter, one command answers whether hamlib can.",
+        "deliberately_excludes": "Per-manufacturer radio tools. `wfview` is Icom, `kappanhang` is Icom network radios, `qdmr` and `dmrconfig` are DMR, `icom` is CI-V, `tmd710-tncsetup` is two Kenwood models. All are in the catalog and all belong to whoever owns that radio; putting them in the floor would install six manufacturers' software on every machine. CHIRP is the exception because it covers hundreds of models across most manufacturers, which makes it a general tool rather than a specific one. Also excludes loggers, propagation tools and anything mode-specific — those are their own profiles, which is the whole point of the split.",
+        "manual_configuration": "**Serial access needs the `dialout` group, and adding you to it does not affect a session that is already open** — log out and back in. Rig control needs your radio's hamlib model number, which `rigctl -l` lists and which is the thing most often set wrong; a mismatched backend gives partial control, where frequency works and mode does not, which reads as a broken cable. Icom radios additionally need the CI-V address matched to the radio's own menu. **Decide who owns the serial port**: say which radio you have with `hammunition station set --rig ... --rig-device ... --rig-baud ...`, run `hammunition install rig-service`, and point every program at `127.0.0.1:4532` (the guide, docs/guides/rig-control.md, has the table), or choose flrig and point everything at it. Two programs opening the port directly is the classic failure and its symptom is erratic behaviour rather than an error. The tray switches need `hammunition hardware apply` run once, to write the lists they read (docs/guides/tray-controls.md). `pipx ensurepath` needs a new shell before it takes effect. **Hammunition Hill is running from the moment its package lands**: the .deb enables and starts `hammunition-hill.service` as its own `hamhill` user, bound to loopback. Give it your callsign and an ADIF log in `/etc/hammunition-hill/config.toml` and restart the service; leave the host at 127.0.0.1.",
+        "disk_footprint_hint": "Around 125 MB. CHIRP and its wxPython dependency are most of it; Hammunition Hill's .deb is under half a megabyte plus two Python libraries."
+      },
+      "members": 14,
+      "installed": 0,
+      "installed_size_bytes": null
+    },
+    {
+      "name": "workstation",
+      "summary": "Terminal and bench tooling for the machine the station runs on",
+      "stage": "post-1.0",
+      "packages": [
+        "git",
+        "tio",
+        "minicom",
+        "screen",
+        "tmux",
+        "usbutils",
+        "pciutils"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "Version control, three serial consoles, a terminal multiplexer, and the two hardware enumeration tools every device problem starts with. Seven packages, all from the distribution's own archive on every supported target — nothing here adds a repository or asks for consent.",
+        "why_together": "A person building a station is usually also building the machine it runs on, and every RF profile in this catalog silently assumes some of this is already present. Manifests install from pinned git revisions, hardware entries instruct you to run lsusb, badge and Meshtastic work needs a serial console, and a decode running over SSH to a field machine needs to survive the link dropping. This is that assumed floor, made explicit and installable rather than left to chance.",
+        "deliberately_excludes": "Shells, prompts, dotfiles, window managers, fonts, colour schemes, and terminal emulators beyond what serial work needs. The rule is simple enough to apply without argument: if it is a matter of taste, it is not in scope. There are a thousand dotfile projects and this is not one of them; every hour spent choosing between tmux and zellij is an hour not spent on the source backend, which is what actually blocks 60% of the parity target. Also excluded, since 2026-09-03, is any editor: `codium` and `code` live in the opt-in `editors` profile because each needs its publisher's apt repository on most targets, and that gate should never stand between an operator and `lsusb`.",
+        "manual_configuration": "Set `user.name` and `user.email` before your first commit or git refuses to make one. Serial work needs membership of the `dialout` group, which the hardware catalog requests but which does not apply to a session already open — log out and back in. Nothing here ships a tmux, screen or minicom configuration, deliberately: those are taste, and taste is excluded.",
+        "disk_footprint_hint": "Roughly 200 MB. An editor from the `editors` profile adds around 400 MB on top of this."
+      },
+      "members": 7,
+      "installed": 0,
+      "installed_size_bytes": null
+    }
+  ],
+  "packages": [
+    {
+      "name": "a2d",
+      "version": "2.0.5",
+      "summary": "Bridges APRS messages to DAPNET pagers",
+      "categories": [
+        "aprs",
+        "emcomm"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "acarsdec",
+      "version": "4.6",
+      "summary": "VHF ACARS decoder for aircraft datalink messages",
+      "categories": [
+        "aircraft"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "acarsserv",
+      "version": "0+git20181219",
+      "summary": "Stores what acarsdec and dumpvdl2 decode into a SQLite database",
+      "categories": [
+        "aircraft"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "acma-register",
+      "version": "daily",
+      "summary": "The Australian regulator's licence register, for the ACMA repeater layer on the map",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "register"
+      ],
+      "resolves_here": "register"
+    },
+    {
+      "name": "aethersdr",
+      "version": "26.8.1",
+      "summary": "Linux client for FlexRadio transceivers",
+      "categories": [
+        "rig-control",
+        "sdr-receivers"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "aircrack-ng",
+      "version": "1.7",
+      "summary": "Wi-Fi security auditing suite — capture, analysis and key recovery",
+      "categories": [
+        "wifi"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "airspy",
+      "version": "1.0.10",
+      "summary": "Host tools and library for Airspy R2 and Mini receivers",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "airspyhf",
+      "version": "1.6.8",
+      "summary": "Host tools and library for the Airspy HF+ HF and VHF receiver",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "ais-catcher",
+      "version": "0.70",
+      "summary": "AIS receiver and decoder for marine vessel traffic, with a web map",
+      "categories": [
+        "ships"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "aldo",
+      "version": "0.7.8",
+      "summary": "Morse trainer with four teaching methods, including Koch",
+      "categories": [
+        "morse-training",
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "ampr-ripd",
+      "version": "2.4.1",
+      "summary": "Keeps a gateway's routes current on the amateur radio IP network",
+      "categories": [
+        "packet-nodes"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "antscope2",
+      "version": "2.0.2",
+      "summary": "RigExpert's own analyzer software, for their antenna analyzers",
+      "categories": [
+        "antenna-analysers"
+      ],
+      "status": "supported",
+      "methods": [
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "aprsdigi",
+      "version": "3.11.0",
+      "summary": "APRS digipeater — repeats packets so they reach further than one hop",
+      "categories": [
+        "aprs",
+        "packet-nodes"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "aprx",
+      "version": "2.9.1",
+      "summary": "APRS digipeater and internet gateway, small enough for a Pi",
+      "categories": [
+        "aprs",
+        "packet-nodes"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "ardopcf",
+      "version": "1.0.4.1.3",
+      "summary": "HF data modem for Winlink and packet over poor paths",
+      "categories": [
+        "soundcard-modems",
+        "winlink"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "arduino-cli",
+      "version": "1.5.1",
+      "summary": "Command-line toolchain for compiling and uploading Arduino-framework firmware",
+      "categories": [
+        "programmer",
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": null
+    },
+    {
+      "name": "artemis",
+      "version": "4.2.0",
+      "summary": "Signal identification reference — the sigidwiki database, offline",
+      "categories": [
+        "references",
+        "signal-analysis"
+      ],
+      "status": "supported",
+      "methods": [
+        "venv"
+      ],
+      "resolves_here": "venv"
+    },
+    {
+      "name": "atlc",
+      "version": "4.6.1",
+      "summary": "Computes impedance of a transmission line of any cross-section, from a picture of it",
+      "categories": [
+        "antenna",
+        "electronics"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "avrdude",
+      "version": "7.1",
+      "summary": "Reads and writes AVR microcontroller memories through almost any programmer",
+      "categories": [
+        "programmer"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "ax25-apps",
+      "version": "0.0.8",
+      "summary": "The programs you actually use over AX.25 once a port is up",
+      "categories": [
+        "packet-terminals"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "ax25-tools",
+      "version": "0.0.10",
+      "summary": "Configures the kernel AX.25 stack — ports, interfaces, NET/ROM, Rose",
+      "categories": [
+        "packet-terminals"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "ax25-xtools",
+      "version": "0.0.10",
+      "summary": "X11 versions of the AX.25 monitoring tools",
+      "categories": [
+        "packet-terminals"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "ax25mail-utils",
+      "version": "0.15",
+      "summary": "Utilities for exchanging mail with an FBB packet BBS",
+      "categories": [
+        "packet-nodes"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "axmail",
+      "version": "2.13",
+      "summary": "Mail reader that packet callers reach through a node",
+      "categories": [
+        "packet-nodes"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "baycomepp",
+      "version": "0.10",
+      "summary": "Driver for the HB9JNX parallel-port packet modem",
+      "categories": [
+        "device-support",
+        "soundcard-modems"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "baycomusb",
+      "version": "0.10",
+      "summary": "Driver for the HB9JNX USB packet modem",
+      "categories": [
+        "device-support",
+        "soundcard-modems"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "bladerf",
+      "version": "0.2024.05",
+      "summary": "Command-line tools for Nuand bladeRF transceivers",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "brouter",
+      "version": "1.7.10",
+      "summary": "BRouter, the offline router QMapShack runs for hiking, bike and car routes with elevation",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "brouter-mapcreator-profiles",
+      "version": "1.7.10",
+      "summary": "The two filter files BRouter's map creator needs and its release zip leaves out",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "data"
+      ],
+      "resolves_here": "data"
+    },
+    {
+      "name": "brouter-segments",
+      "version": "station",
+      "summary": "BRouter routing files built from your own regions, with elevation, never downloaded",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "derived"
+      ],
+      "resolves_here": "derived"
+    },
+    {
+      "name": "canadian-ham-exam",
+      "version": "1.0.1",
+      "summary": "Practice tests for the Canadian amateur radio qualification exams",
+      "categories": [
+        "exams"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "cassbeam",
+      "version": "1.1",
+      "summary": "Models Cassegrain dish antennas — the microwave and radio-astronomy case",
+      "categories": [
+        "antenna"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "chirp",
+      "version": "20250530",
+      "summary": "Reads, edits and writes the memory channels of hundreds of radios",
+      "categories": [
+        "radio-programming"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "chrony",
+      "version": "4.6",
+      "summary": "The clock follows your GPS receiver when the network is gone — chrony reading gpsd",
+      "categories": [
+        "time-frequency",
+        "gps-gnss"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "claws-mail",
+      "version": "4.3.1",
+      "summary": "The fast, plain-text-first mail client AHRL shipped",
+      "categories": [
+        "email-clients",
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "code",
+      "version": "1.104",
+      "summary": "Microsoft's Visual Studio Code build — optional alternative to the VSCodium your distro ships",
+      "categories": [
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "codium",
+      "version": "1.126",
+      "summary": "VSCodium — Microsoft's VS Code source, built without their telemetry or branding",
+      "categories": [
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt",
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "coil64",
+      "version": "2.4.39",
+      "summary": "Calculates inductance for coils of almost any geometry",
+      "categories": [
+        "electronics",
+        "antenna"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "comaps",
+      "version": "2026.08.31-14",
+      "summary": "Offline vector maps with search and car, bike and foot routing, from CoMaps' own map files",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "comaps-maps",
+      "version": "station",
+      "summary": "CoMaps' own map files for your map regions, checked against CoMaps' index",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "mwm-regions"
+      ],
+      "resolves_here": "mwm-regions"
+    },
+    {
+      "name": "comptext",
+      "version": "1.0.1",
+      "summary": "Compares two text streams and scores how much of one arrived intact",
+      "categories": [
+        "keyboard-modes",
+        "nbems"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "comptty",
+      "version": "1.0.1",
+      "summary": "The same accuracy comparison as comptext, for Baudot RTTY streams",
+      "categories": [
+        "keyboard-modes"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "country-boundaries",
+      "version": "5.1.2",
+      "summary": "Natural Earth's world country borders, which let Navit's address search find towns",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "data"
+      ],
+      "resolves_here": "data"
+    },
+    {
+      "name": "country-files",
+      "version": "20260906",
+      "summary": "The DX-cluster country file (cty.dat) — callsign prefix to entity, zone and coordinates",
+      "categories": [
+        "contest",
+        "logging"
+      ],
+      "status": "supported",
+      "methods": [
+        "data"
+      ],
+      "resolves_here": "data"
+    },
+    {
+      "name": "cqrlog",
+      "version": "2.5.2",
+      "summary": "Full-featured station log with a database behind it and rig control in front",
+      "categories": [
+        "logging",
+        "rig-control"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "cubicsdr",
+      "version": "0.2.7",
+      "summary": "Cross-platform SDR receiver with several demodulators running at once",
+      "categories": [
+        "sdr-receivers"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "cutecom",
+      "version": "0.51.0",
+      "summary": "A graphical serial terminal, Qt-native and simple",
+      "categories": [
+        "serial-terminals",
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "cutesdr",
+      "version": "1.20",
+      "summary": "Small demodulator and spectrum display for networked receivers",
+      "categories": [
+        "sdr-receivers"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "cw",
+      "version": "3.6.1",
+      "summary": "Sounds text as Morse from the command line — the unixcw core tool",
+      "categories": [
+        "morse-training",
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "cwcp",
+      "version": "3.6.1",
+      "summary": "Curses Morse tutor — unixcw with a menu instead of a command line",
+      "categories": [
+        "morse-training",
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "cwdaemon",
+      "version": "0.10.2",
+      "summary": "Network service that keys a transmitter's Morse from a serial or parallel port",
+      "categories": [
+        "cw",
+        "contest"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "cwwav",
+      "version": "0.4.1",
+      "summary": "Turns text into a Morse audio file, from the command line",
+      "categories": [
+        "morse-training",
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "dablin",
+      "version": "1.16.0",
+      "summary": "Lightweight DAB receiver for the command line or a small window",
+      "categories": [
+        "broadcast"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "dem-3dep",
+      "version": "station",
+      "summary": "USGS 3DEP bare-earth elevation for your US map regions, when you choose it",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "dem-tiles"
+      ],
+      "resolves_here": "dem-tiles"
+    },
+    {
+      "name": "dem-copernicus",
+      "version": "station",
+      "summary": "Copernicus GLO-30 elevation tiles for your map regions, verified",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "dem-tiles"
+      ],
+      "resolves_here": "dem-tiles"
+    },
+    {
+      "name": "dem-qmapshack",
+      "version": "station",
+      "summary": "Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "derived"
+      ],
+      "resolves_here": "derived"
+    },
+    {
+      "name": "dfu-util",
+      "version": "0.11",
+      "summary": "Device Firmware Upgrade tool — flash devices that expose a standard DFU mode",
+      "categories": [
+        "programmer",
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "dictionaries",
+      "version": "1.13.1",
+      "summary": "A local dictionary server with an English dictionary, a thesaurus, computing terms and acronyms",
+      "categories": [
+        "references"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "direwolf",
+      "version": "1.7",
+      "summary": "Software TNC — turns a sound card into an APRS and packet modem",
+      "categories": [
+        "soundcard-modems",
+        "aprs"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "dmrconfig",
+      "version": "1.1+git20230126",
+      "summary": "Command-line DMR codeplug tool — the text-file approach to the same job",
+      "categories": [
+        "dmr",
+        "radio-programming"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "droidstar",
+      "version": "0+git20260913",
+      "summary": "M17, DMR, D-STAR, Fusion, P25 and NXDN over reflectors, with software vocoders and no radio",
+      "categories": [
+        "digital-voice",
+        "echolink-repeaters"
+      ],
+      "status": "supported",
+      "methods": [
+        "git",
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "dsdcc",
+      "version": "1.9.3",
+      "summary": "Decodes digital voice protocols from demodulated audio",
+      "categories": [
+        "digital-voice",
+        "pagers-decoders"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "dump1090-mutability",
+      "version": "1.15",
+      "summary": "The older dump1090 fork, kept because two targets still carry it",
+      "categories": [
+        "aircraft"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "dump978-fa",
+      "version": "11.1",
+      "summary": "Decoder for 978 MHz UAT, the second ADS-B link -- US general aviation below 18,000 ft",
+      "categories": [
+        "aircraft"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "dumphfdl",
+      "version": "1.7.0",
+      "summary": "HFDL decoder for long-range oceanic aircraft datalink",
+      "categories": [
+        "aircraft"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "dumpvdl2",
+      "version": "2.7.0",
+      "summary": "VDL Mode 2 decoder for aircraft datalink",
+      "categories": [
+        "aircraft"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "ebook2cw",
+      "version": "0.8.5",
+      "summary": "Converts a text file or ebook into Morse code audio at a chosen speed",
+      "categories": [
+        "morse-training",
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "ebook2cwgui",
+      "version": "0.1.2",
+      "summary": "Graphical front end for ebook2cw",
+      "categories": [
+        "morse-training",
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "eia-860m",
+      "version": "2026-08",
+      "summary": "EIA's monthly inventory of US power plants (EIA-860M), for the infrastructure layers",
+      "categories": [
+        "navigation-maps",
+        "emcomm"
+      ],
+      "status": "supported",
+      "methods": [
+        "data"
+      ],
+      "resolves_here": "data"
+    },
+    {
+      "name": "electronics-radio-dev",
+      "version": "0.3",
+      "summary": "Metapackage pulling in the Blend's RF circuit-design tools",
+      "categories": [
+        "electronics",
+        "antenna"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "esptool",
+      "version": "4.7.0",
+      "summary": "Flash and inspect ESP8266 and ESP32 chips over their serial bootloader",
+      "categories": [
+        "programmer",
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "evolution",
+      "version": "3.56.2",
+      "summary": "GNOME's integrated mail, calendar and groupware client",
+      "categories": [
+        "email-clients",
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "faa-nasr-airports",
+      "version": "2026-10-01",
+      "summary": "The FAA's airport, heliport and seaplane base list (NASR), for the infrastructure layers",
+      "categories": [
+        "navigation-maps",
+        "emcomm"
+      ],
+      "status": "supported",
+      "methods": [
+        "data"
+      ],
+      "resolves_here": "data"
+    },
+    {
+      "name": "fbb",
+      "version": "7.011",
+      "summary": "The classic packet radio BBS and mailbox",
+      "categories": [
+        "packet-nodes"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "fccexam",
+      "version": "1.0.7",
+      "summary": "Practice tests for the US FCC commercial radio licence exams",
+      "categories": [
+        "exams"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "fl-moxgen",
+      "version": "1.00",
+      "summary": "Designs Moxon rectangle antennas and prints them to scale",
+      "categories": [
+        "antenna"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "flaa",
+      "version": "1.0.2",
+      "summary": "Drives a RigExpert antenna analyser from the desktop",
+      "categories": [
+        "antenna-analysers"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "flamp",
+      "version": "2.2.14",
+      "summary": "Sends files over radio in numbered blocks that can be filled in later",
+      "categories": [
+        "nbems",
+        "emcomm"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "flashrom",
+      "version": "1.4.0",
+      "summary": "Reads, writes and verifies SPI, LPC and parallel flash chips in place",
+      "categories": [
+        "programmer"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "flcluster",
+      "version": "1.1.01",
+      "summary": "DX cluster client that feeds the rest of the W1HKJ suite",
+      "categories": [
+        "dx-cluster"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "fldigi",
+      "version": "4.2.13",
+      "summary": "Multi-mode digital modem for PSK31, RTTY, Olivia, MT63 and more",
+      "categories": [
+        "keyboard-modes",
+        "nbems"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "fllog",
+      "version": "1.2.9",
+      "summary": "Logging server the W1HKJ programs write contacts into",
+      "categories": [
+        "logging"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "flmsg",
+      "version": "4.0.23",
+      "summary": "Fills in and transmits the standard message forms EMCOMM runs on",
+      "categories": [
+        "nbems",
+        "emcomm"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "flnet",
+      "version": "7.5.0",
+      "summary": "Net control operator's list — who checked in, in what order",
+      "categories": [
+        "emcomm",
+        "logging"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "flrig",
+      "version": "2.0.05",
+      "summary": "Rig control with a real front panel, shared between programs over XML-RPC",
+      "categories": [
+        "rig-control"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "flwkey",
+      "version": "1.2.4",
+      "summary": "Control panel for the Winkeyer hardware CW keyer",
+      "categories": [
+        "cw",
+        "rig-control"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "flwrap",
+      "version": "1.3.6",
+      "summary": "Wraps a file with a checksum so the far end knows it arrived intact",
+      "categories": [
+        "nbems",
+        "emcomm"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "freedata",
+      "version": "0.18.2",
+      "summary": "HF messaging and file transfer over codec2 modems, with a browser interface",
+      "categories": [
+        "soundcard-modems",
+        "emcomm"
+      ],
+      "status": "supported",
+      "methods": [
+        "venv"
+      ],
+      "resolves_here": "venv"
+    },
+    {
+      "name": "freedv",
+      "version": "1.8.11",
+      "summary": "Digital voice over HF in the bandwidth of an SSB signal",
+      "categories": [
+        "digital-voice"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "garim",
+      "version": "1.7",
+      "summary": "Graphical ARIM messaging over an ARDOP TNC",
+      "categories": [
+        "winlink",
+        "emcomm"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "gdal-bin",
+      "version": "3.10.3",
+      "summary": "GDAL's command-line tools for rasters and elevation data",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "geary",
+      "version": "46.0",
+      "summary": "The minimal, conversation-view mail client",
+      "categories": [
+        "email-clients",
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "git",
+      "version": "2.47.3",
+      "summary": "Distributed version control — the tool this project is distributed with",
+      "categories": [
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "glfer",
+      "version": "0.4.2",
+      "summary": "QRSS and DFCW receiver for extremely slow narrowband CW on LF/MF",
+      "categories": [
+        "weak-signal"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "gnss-sdr",
+      "version": "0.0.20",
+      "summary": "A complete GPS and GNSS receiver built entirely in software",
+      "categories": [
+        "gps-gnss",
+        "sdr-toolkits"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gnuais",
+      "version": "0.3.3",
+      "summary": "Decodes AIS from the discriminator output of a VHF receiver",
+      "categories": [
+        "ships"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gnuaisgui",
+      "version": "0.3.3",
+      "summary": "Puts the vessels gnuais has heard on an OpenStreetMap display",
+      "categories": [
+        "ships"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gnuradio",
+      "version": "3.10.12.0",
+      "summary": "Build a radio out of signal-processing blocks instead of hardware",
+      "categories": [
+        "sdr-toolkits"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "goldendict-ng",
+      "version": "25.06.0",
+      "summary": "A desktop dictionary that looks words up in dictd and in Kiwix books",
+      "categories": [
+        "references"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gpa",
+      "version": "0.11.1",
+      "summary": "GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic",
+      "categories": [
+        "email-clients",
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt",
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "gpredict",
+      "version": "2.3-115-g0f3beb6",
+      "summary": "Real-time satellite tracking and pass prediction, with radio control",
+      "categories": [
+        "satellite-tracking"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gps-tether",
+      "version": "0.1.0",
+      "summary": "Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service",
+      "categories": [
+        "navigation-maps",
+        "gps-gnss"
+      ],
+      "status": "supported",
+      "methods": [
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "gpsbabel",
+      "version": "1.10.0",
+      "summary": "Converts between GPS file formats and talks to the receiver",
+      "categories": [
+        "gps-gnss"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gpsd",
+      "version": "3.25",
+      "summary": "GPS service daemon — one process owns the receiver, everything else asks it",
+      "categories": [
+        "gps-gnss"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gpsd-clients",
+      "version": "3.25",
+      "summary": "Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode",
+      "categories": [
+        "gps-gnss"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gpsd-tools",
+      "version": "3.25",
+      "summary": "cgps and gpsmon — the two programs you actually reach for when a receiver misbehaves",
+      "categories": [
+        "gps-gnss"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gqrx-sdr",
+      "version": "2.17.6",
+      "summary": "Graphical SDR receiver — waterfall, demodulators and a bookmark list",
+      "categories": [
+        "sdr-receivers"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gr-air-modes",
+      "version": "0.0.20210211",
+      "summary": "Decodes aircraft transponder replies with GNU Radio",
+      "categories": [
+        "aircraft",
+        "sdr-toolkits"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gr-fosphor",
+      "version": "3.9~git20240323.74d54fc",
+      "summary": "GPU-drawn real-time spectrum and waterfall display blocks for GNU Radio",
+      "categories": [
+        "sdr-toolkits"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gr-funcube",
+      "version": "3.10.0~rc3",
+      "summary": "GNU Radio source blocks for the FUNcube Dongle Pro and Pro+",
+      "categories": [
+        "sdr-hardware",
+        "sdr-toolkits"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gr-gsm",
+      "version": "1.0.0",
+      "summary": "GNU Radio blocks for receiving and analysing GSM signalling",
+      "categories": [
+        "rf-research",
+        "cellular"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gr-hpsdr",
+      "version": "3.0",
+      "summary": "GNU Radio blocks for OpenHPSDR transceiver hardware",
+      "categories": [
+        "sdr-hardware",
+        "sdr-toolkits"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gr-limesdr",
+      "version": "3.0.1.10.69",
+      "summary": "GNU Radio blocks for LimeSDR hardware",
+      "categories": [
+        "sdr-hardware",
+        "sdr-toolkits"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gr-osmosdr",
+      "version": "0.2.6",
+      "summary": "One GNU Radio source block that speaks to nearly every SDR",
+      "categories": [
+        "sdr-hardware",
+        "sdr-toolkits"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gr-rds",
+      "version": "3.10",
+      "summary": "Decodes the data carried alongside broadcast FM — station names, traffic",
+      "categories": [
+        "broadcast",
+        "signal-analysis"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "gr-satellites",
+      "version": "5.5.0",
+      "summary": "Decoders for the telemetry of hundreds of amateur satellites",
+      "categories": [
+        "satellite-decoding",
+        "sdr-toolkits"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "graphhopper",
+      "version": "11.1",
+      "summary": "GraphHopper, the offline router behind the browser map's car, bike, foot and hiking routes",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "graphhopper-graph",
+      "version": "station",
+      "summary": "GraphHopper's route graph built from your own regions, for routes on the browser map",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "derived"
+      ],
+      "resolves_here": "derived"
+    },
+    {
+      "name": "gridtracker2",
+      "version": "2.260812.0",
+      "summary": "Live map of FT8/JS8 activity, fed by WSJT-X and JS8Call",
+      "categories": [
+        "weak-signal"
+      ],
+      "status": "supported",
+      "methods": [
+        "binary",
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "gsmc",
+      "version": "1.2.1",
+      "summary": "Interactive Smith chart for designing impedance matching networks",
+      "categories": [
+        "electronics",
+        "antenna"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "gtk-meshtastic-client",
+      "version": "1.2",
+      "summary": "Desktop GUI for Meshtastic nodes",
+      "categories": [
+        "mesh"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "hackrf",
+      "version": "2024.02.1",
+      "summary": "Host tools for HackRF — transfer, sweep, spectrum and firmware utilities",
+      "categories": [
+        "sdr-hardware",
+        "ism-subghz"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "hacktv",
+      "version": "0+git20250218",
+      "summary": "Generates and transmits analogue television — a HackRF as a TV station",
+      "categories": [
+        "sstv-atv",
+        "rf-research"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "hamclock-next",
+      "version": "1.6",
+      "summary": "Maintained SDL2 rewrite of HamClock — grey line, propagation, DX cluster",
+      "categories": [
+        "dashboards",
+        "propagation"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "hamexam",
+      "version": "1.11.2",
+      "summary": "Practice tests for the United States amateur radio licence exams",
+      "categories": [
+        "exams"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "hammunition-hill",
+      "version": "1.0.0",
+      "summary": "Local-first ham radio dashboard — the Hammunition family's own",
+      "categories": [
+        "dashboards"
+      ],
+      "status": "supported",
+      "methods": [
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "hammunition-tray",
+      "version": "0.5.0",
+      "summary": "KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own",
+      "categories": [
+        "device-support"
+      ],
+      "status": "supported",
+      "methods": [
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "hammunition-tray-qt",
+      "version": "0.5.0",
+      "summary": "Tray switches for parking and waking radio devices on Xfce, LXQt, LXDE, MATE and Cinnamon — the Hammunition family's own",
+      "categories": [
+        "device-support"
+      ],
+      "status": "supported",
+      "methods": [
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "hcxdumptool",
+      "version": "6.3.5",
+      "summary": "Wi-Fi frame capture aimed at producing hash files for offline analysis",
+      "categories": [
+        "wifi"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "hcxtools",
+      "version": "6.3.5",
+      "summary": "Converts captured Wi-Fi frames into hash formats analysis tools read",
+      "categories": [
+        "wifi"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "hydrasdr-host",
+      "version": "1.1.1",
+      "summary": "Host library and command-line tools for the HydraSDR RFOne receiver",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt",
+        "apt",
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "ibp",
+      "version": "0.21",
+      "summary": "Shows which NCDXF/IARU beacon is transmitting right now, on which band",
+      "categories": [
+        "propagation",
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "icom",
+      "version": "20120228",
+      "summary": "Minimal CI-V control for Icom radios from the command line",
+      "categories": [
+        "rig-control"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "ics-forms",
+      "version": "2026-09-29",
+      "summary": "FEMA's 39 fillable ICS forms, 205 radio communications plan and 213 general message among them",
+      "categories": [
+        "references",
+        "emcomm"
+      ],
+      "status": "supported",
+      "methods": [
+        "data"
+      ],
+      "resolves_here": "data"
+    },
+    {
+      "name": "inspectrum",
+      "version": "0.3.1",
+      "summary": "Offline visualiser for captured radio signals — read a waveform by eye",
+      "categories": [
+        "signal-analysis"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "js8call",
+      "version": "3.0.3",
+      "summary": "Weak-signal keyboard-to-keyboard messaging built on the FT8 modem",
+      "categories": [
+        "weak-signal"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt",
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "js8spotter",
+      "version": "1.20",
+      "summary": "JS8Call's companion — spot tracking, forms, APRS and SMS gateways",
+      "categories": [
+        "weak-signal",
+        "emcomm"
+      ],
+      "status": "supported",
+      "methods": [
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "jtdx",
+      "version": "2.2.159",
+      "summary": "WSJT-X derivative tuned for DX working and crowded FT8 conditions",
+      "categories": [
+        "weak-signal"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "k5prog",
+      "version": "0.9+git20231229",
+      "summary": "Reads and writes a Quansheng UV-K5's memory, and flashes its firmware, over the programming cable",
+      "categories": [
+        "radio-programming",
+        "programmer"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "kalibrate-rtl",
+      "version": "0.4.1+git20191125",
+      "summary": "Measures an SDR dongle's frequency error against GSM base stations",
+      "categories": [
+        "signal-analysis",
+        "cellular"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt",
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "kappanhang",
+      "version": "1.3",
+      "summary": "Opens an Icom network radio as an ordinary sound card and serial port",
+      "categories": [
+        "rig-control"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "kel-agent",
+      "version": "0.4.6",
+      "summary": "Bridges browser-based logging software to the radio hardware on your desk",
+      "categories": [
+        "logging",
+        "rig-control"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "kismet",
+      "version": "2025.09.R1",
+      "summary": "Wireless network and device detector, sniffer and logger for Wi-Fi, Bluetooth and SDR sources",
+      "categories": [
+        "wifi",
+        "bluetooth",
+        "capture-analysis"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "kiwix",
+      "version": "2.4.1",
+      "summary": "The Kiwix desktop reader for offline Wikipedia and other ZIM books",
+      "categories": [
+        "references"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "kiwix-library",
+      "version": "station",
+      "summary": "The Kiwix books you chose -- Wikipedia, WikiMed, Stack Exchange -- pinned and verified",
+      "categories": [
+        "references"
+      ],
+      "status": "supported",
+      "methods": [
+        "kiwix-books"
+      ],
+      "resolves_here": "kiwix-books"
+    },
+    {
+      "name": "kiwix-tools",
+      "version": "3.7.0",
+      "summary": "Kiwix's command-line reader, server and library manager for offline ZIM books",
+      "categories": [
+        "references"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "klog",
+      "version": "2.4.1",
+      "summary": "Cross-platform Qt station log that stays out of the way",
+      "categories": [
+        "logging",
+        "rig-control"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "langford-utils",
+      "version": "0.0.20130228",
+      "summary": "Control programs for the Per Vices Noctar board",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "libacars",
+      "version": "2.2.1",
+      "summary": "Shared library that decodes ACARS application-layer messages",
+      "categories": [
+        "aircraft"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "libbladerf2",
+      "version": "0.2024.05",
+      "summary": "Library and udev rules for Nuand bladeRF boards",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "libfobos",
+      "version": "2.4.1",
+      "summary": "Host library and command-line tools for the RigExpert Fobos SDR receiver",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "libfobos-sdr-agile",
+      "version": "3.3.0",
+      "summary": "Host library for RigExpert Fobos SDR boards running the \"agile\" firmware",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "libfreefare-bin",
+      "version": "0.4.0",
+      "summary": "Tools for MIFARE DESFire, Ultralight and Classic over libnfc",
+      "categories": [
+        "rfid"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "libhamlib-utils",
+      "version": "4.6.2",
+      "summary": "The command-line tools for hamlib — test a radio before blaming software",
+      "categories": [
+        "rig-control"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "libiio-utils",
+      "version": "0.26",
+      "summary": "Command-line tools that find and talk to IIO devices such as the PlutoSDR and ADALM2000",
+      "categories": [
+        "sdr-hardware",
+        "electronics"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "libmirisdr4",
+      "version": "2.0.0",
+      "summary": "Open driver for Mirics-based receivers, including SDRplay RSP hardware",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "libnfc-bin",
+      "version": "1.8.0",
+      "summary": "Command-line tools for PN53x-based NFC readers",
+      "categories": [
+        "rfid"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "librevna",
+      "version": "1.6.5",
+      "summary": "The PC program for the LibreVNA, an open-hardware 6 GHz vector network analyser",
+      "categories": [
+        "antenna-analysers",
+        "electronics"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "limesuite",
+      "version": "23.11.0",
+      "summary": "Host tools and library for LimeSDR hardware",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "linbpq",
+      "version": "25.40",
+      "summary": "BPQ32 packet-radio node, BBS and Winlink gateway",
+      "categories": [
+        "packet-nodes",
+        "winlink"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "linpac",
+      "version": "0.28",
+      "summary": "Terminal for AX.25 packet with a built-in mail client and macros",
+      "categories": [
+        "packet-terminals"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "linrad",
+      "version": "05.02",
+      "summary": "SM5BSZ's DSP receiver — the deep-toolbox SDR for weak-signal work",
+      "categories": [
+        "sdr-receivers"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "m2kcli",
+      "version": "0.9.0",
+      "summary": "Command-line control of the ADALM2000 lab instrument",
+      "categories": [
+        "electronics"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "mapsforge-map",
+      "version": "station",
+      "summary": "Mapsforge vector maps of your OpenStreetMap regions, for phone map apps",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "derived"
+      ],
+      "resolves_here": "derived"
+    },
+    {
+      "name": "mapsforge-poi",
+      "version": "station",
+      "summary": "Mapsforge points-of-interest files of your regions, for searching on a phone",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "derived"
+      ],
+      "resolves_here": "derived"
+    },
+    {
+      "name": "mercury",
+      "version": "1.9.15",
+      "summary": "Open HF data modem that speaks VARA's TCP interface, so pat uses it unchanged",
+      "categories": [
+        "soundcard-modems",
+        "winlink"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt",
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "mfcuk",
+      "version": "0.3.8",
+      "summary": "MIFARE Classic key recovery with no known key — the slow path",
+      "categories": [
+        "rfid"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "mfoc",
+      "version": "0.10.7",
+      "summary": "Key recovery for MIFARE Classic cards with at least one known key",
+      "categories": [
+        "rfid"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "minicom",
+      "version": "2.10",
+      "summary": "Full-screen serial communication program, the one everyone already knows",
+      "categories": [
+        "serial-terminals"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "minimodem",
+      "version": "0.24",
+      "summary": "General-purpose audio FSK modem — Bell 103, RTTY, AX.25 and anything else",
+      "categories": [
+        "keyboard-modes",
+        "soundcard-modems"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "miri-sdr",
+      "version": "2.0.0",
+      "summary": "Command-line tools for Mirics-based receivers",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "mkgmap",
+      "version": "0.0.0+svn4923",
+      "summary": "Builds Garmin-format maps from OpenStreetMap data",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "mkgmap-splitter",
+      "version": "0.0.0+svn654",
+      "summary": "Cuts OpenStreetMap data into tiles sized for mkgmap",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "mlat-client-adsbfi",
+      "version": "0.4.2",
+      "summary": "Contributes ADS-B timing data so a network can locate aircraft by multilateration",
+      "categories": [
+        "aircraft"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "morse-classic",
+      "version": "2.6",
+      "summary": "Text-to-Morse sounder and trainer, Eric Raymond's morse-classic",
+      "categories": [
+        "morse-training",
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "morse-runner",
+      "version": "1.68z",
+      "summary": "CW contest simulator, the native Lazarus port of VE3NEA's Morse Runner",
+      "categories": [
+        "morse-training",
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "morse2ascii",
+      "version": "0.2.1",
+      "summary": "Decodes Morse out of a recorded WAV file",
+      "categories": [
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "mshv",
+      "version": "2.76.5",
+      "summary": "Multi-mode weak-signal application with multi-stream FT8 decoding",
+      "categories": [
+        "weak-signal"
+      ],
+      "status": "supported",
+      "methods": [
+        "source",
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "multimon",
+      "version": "1.0",
+      "summary": "The original multimon decoder, kept for the modes its successor dropped",
+      "categories": [
+        "pagers-decoders"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "multimon-ng",
+      "version": "1.3.1",
+      "summary": "Decoder for POCSAG, FLEX, AFSK, DTMF and other audio-band digital modes",
+      "categories": [
+        "pagers-decoders"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "nanovna-saver",
+      "version": "0.7.3",
+      "summary": "Sweep, chart and calibrate a NanoVNA from the computer",
+      "categories": [
+        "antenna-analysers"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt",
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "navit",
+      "version": "0.5.6",
+      "summary": "Offline turn-by-turn navigation that follows the GPS, with spoken directions",
+      "categories": [
+        "navigation-maps",
+        "gps-gnss"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "nec2c",
+      "version": "1.3.1",
+      "summary": "The NEC2 antenna modelling engine as a C program, for scripting",
+      "categories": [
+        "antenna"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "noaa-apt",
+      "version": "1.4.1",
+      "summary": "Decoder for NOAA weather-satellite APT imagery",
+      "categories": [
+        "satellite-decoding"
+      ],
+      "status": "retired",
+      "methods": [
+        "binary",
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "not1mm",
+      "version": "26.8.28",
+      "summary": "A contest logger that speaks to your rig, keyer and cluster",
+      "categories": [
+        "contest",
+        "logging"
+      ],
+      "status": "supported",
+      "methods": [
+        "venv"
+      ],
+      "resolves_here": "venv"
+    },
+    {
+      "name": "nrsc5",
+      "version": "3.2.0",
+      "summary": "HD Radio (NRSC-5) receiver for an RTL-SDR -- the digital side of North American FM and AM",
+      "categories": [
+        "broadcast"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "odr-audioenc",
+      "version": "3.6.0",
+      "summary": "Encodes audio into the DAB and DAB+ formats a multiplexer expects",
+      "categories": [
+        "sdr-toolkits",
+        "broadcast"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "odr-dabmod",
+      "version": "3.0.0",
+      "summary": "Turns a DAB ensemble into a transmittable OFDM signal",
+      "categories": [
+        "sdr-toolkits",
+        "broadcast"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "odr-dabmux",
+      "version": "5.1.0",
+      "summary": "Assembles audio services into a DAB ensemble multiplex",
+      "categories": [
+        "sdr-toolkits",
+        "broadcast"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "odr-padenc",
+      "version": "3.0.0",
+      "summary": "Encodes the text and images that ride alongside a DAB service",
+      "categories": [
+        "sdr-toolkits",
+        "broadcast"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "open-repeater",
+      "version": "2026-10-01",
+      "summary": "Open Repeater's CC0 list of amateur repeaters, for the repeater layer on the map",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "data"
+      ],
+      "resolves_here": "data"
+    },
+    {
+      "name": "opencpn",
+      "version": "5.10.2",
+      "summary": "Marine chart plotter -- your position and AIS ships on nautical charts",
+      "categories": [
+        "ships",
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "openfpgaloader",
+      "version": "0.13.1",
+      "summary": "Universal bitstream loader for FPGAs, over JTAG and SPI",
+      "categories": [
+        "programmer"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "openhamclock",
+      "version": "26.7.3",
+      "summary": "Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites",
+      "categories": [
+        "dashboards",
+        "propagation"
+      ],
+      "status": "supported",
+      "methods": [
+        "node"
+      ],
+      "resolves_here": "node"
+    },
+    {
+      "name": "openocd",
+      "version": "0.12.0",
+      "summary": "On-chip debugging and in-system programming over JTAG and SWD",
+      "categories": [
+        "programmer"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "osm-garmin",
+      "version": "station",
+      "summary": "Garmin maps of your OpenStreetMap regions, with trails, for QMapShack",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "derived"
+      ],
+      "resolves_here": "derived"
+    },
+    {
+      "name": "osm-navit",
+      "version": "station",
+      "summary": "Navit's binary maps, converted from your OpenStreetMap regions, and its configuration",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "derived"
+      ],
+      "resolves_here": "derived"
+    },
+    {
+      "name": "osm-pmtiles",
+      "version": "station",
+      "summary": "Vector-tile maps of your OpenStreetMap regions, for the offline browser map",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "derived"
+      ],
+      "resolves_here": "derived"
+    },
+    {
+      "name": "osm-regions",
+      "version": "station",
+      "summary": "OpenStreetMap region extracts from Geofabrik, the regions you choose, verified",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "osm-regions"
+      ],
+      "resolves_here": "osm-regions"
+    },
+    {
+      "name": "osm-routino",
+      "version": "station",
+      "summary": "One Routino routing database over all your regions, for routes on foot",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "derived"
+      ],
+      "resolves_here": "derived"
+    },
+    {
+      "name": "osmo-sdr",
+      "version": "0.1.8",
+      "summary": "Tools for the original OsmoSDR hardware",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "paracon",
+      "version": "1.3.0",
+      "summary": "Packet radio terminal that talks AGWPE to Direwolf, with no kernel AX.25",
+      "categories": [
+        "packet-terminals"
+      ],
+      "status": "supported",
+      "methods": [
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "pat",
+      "version": "0.16.0",
+      "summary": "Winlink client — radio email that works when the internet does not",
+      "categories": [
+        "winlink"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "pciutils",
+      "version": "3.13.0",
+      "summary": "lspci — for the SDRs and capture cards that are not on USB",
+      "categories": [
+        "device-support",
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "pcsc-tools",
+      "version": "1.7.3",
+      "summary": "Smartcard reader diagnostics — is the reader even working?",
+      "categories": [
+        "rfid"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "picocom",
+      "version": "3.1",
+      "summary": "The minimal terminal-native serial console",
+      "categories": [
+        "serial-terminals",
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "pihpsdr",
+      "version": "3.0",
+      "summary": "Operator program for OpenHPSDR transceivers -- ANAN, Hermes Lite 2 and their kin",
+      "categories": [
+        "rig-control",
+        "sdr-receivers"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "pipx",
+      "version": "1.7.1",
+      "summary": "Installs Python applications in their own environments, on the PATH",
+      "categories": [
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "proxmark3",
+      "version": "4.21611",
+      "summary": "Client and firmware tooling for the Proxmark3 RFID and NFC research device",
+      "categories": [
+        "rfid"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt",
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "psk31lx",
+      "version": "2.2",
+      "summary": "PSK31 in a terminal, with no desktop and no waterfall",
+      "categories": [
+        "keyboard-modes"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "putty",
+      "version": "0.83",
+      "summary": "The GUI serial terminal hams reach for, with saved sessions",
+      "categories": [
+        "serial-terminals",
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "pygpsclient",
+      "version": "1.7.7",
+      "summary": "See what your GNSS receiver sees, and configure a u-blox receiver without u-center",
+      "categories": [
+        "gps-gnss"
+      ],
+      "status": "supported",
+      "methods": [
+        "venv"
+      ],
+      "resolves_here": "venv"
+    },
+    {
+      "name": "pyqso",
+      "version": "1.1.0",
+      "summary": "Simple GTK logger in Python, easy to read and easy to change",
+      "categories": [
+        "logging"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "python3-meshtastic",
+      "version": "2.6.0",
+      "summary": "Meshtastic command-line client and Python API",
+      "categories": [
+        "mesh"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "python3-pyhamtools",
+      "version": "0.11.0",
+      "summary": "Python library for callsign lookup, locators and DXCC data",
+      "categories": [
+        "references",
+        "logging"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "pythonprop",
+      "version": "0.30.1",
+      "summary": "Graphical front end that makes VOACAP predictions readable",
+      "categories": [
+        "propagation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "qdmr",
+      "version": "0.12.1",
+      "summary": "Codeplug editor for DMR handhelds — one codeplug, many radios",
+      "categories": [
+        "dmr",
+        "radio-programming"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "qflipper",
+      "version": "1.3.3",
+      "summary": "Desktop companion for the Flipper Zero — firmware, files, and CLI over USB",
+      "categories": [
+        "ism-subghz",
+        "device-support"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "qgrid",
+      "version": "3.2",
+      "summary": "Maidenhead grid square calculator with a map and a compass",
+      "categories": [
+        "locators"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "qlog",
+      "version": "0.52.0",
+      "summary": "Modern Qt station log with award tracking and online-service upload",
+      "categories": [
+        "logging",
+        "rig-control"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt",
+        "git"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "qmapshack",
+      "version": "1.17.1",
+      "summary": "Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot",
+      "categories": [
+        "navigation-maps",
+        "gps-gnss"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "qpwgraph",
+      "version": "0.8.2",
+      "summary": "PipeWire patchbay -- see and change which program is connected to which sound card",
+      "categories": [
+        "device-support"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "qrq",
+      "version": "0.3.5",
+      "summary": "High-speed Morse trainer that pushes your callsign copy to its limit",
+      "categories": [
+        "morse-training",
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "qsstv",
+      "version": "9.5.8",
+      "summary": "Slow-scan television and radiofax — receive and transmit pictures",
+      "categories": [
+        "sstv-atv"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "qtbpqaprs",
+      "version": "00.13",
+      "summary": "G8BPQ's Qt APRS client, the messaging-focused one",
+      "categories": [
+        "aprs"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "qtel",
+      "version": "24.02",
+      "summary": "EchoLink client — work repeaters and stations over the internet",
+      "categories": [
+        "echolink-repeaters"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "qthid-fcd-controller",
+      "version": "4.1",
+      "summary": "Sets frequency and gain on a FUNcube Dongle",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "qtsoundmodem",
+      "version": "24.45",
+      "summary": "Soundcard packet modem with a scope — an alternative to Direwolf",
+      "categories": [
+        "soundcard-modems"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "qttermtcp",
+      "version": "0.81",
+      "summary": "Packet terminal that connects over TCP to a BPQ node",
+      "categories": [
+        "packet-terminals"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "qttinysa",
+      "version": "1.0.2",
+      "summary": "Desktop front end for the tinySA and tinySA Ultra spectrum analysers",
+      "categories": [
+        "spectrum-analysers"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "quisk",
+      "version": "4.2.32",
+      "summary": "SDR transceiver software with a real front panel, driving hardware or a dongle",
+      "categories": [
+        "sdr-receivers",
+        "rig-control"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "radio-tool",
+      "version": "0.3.0+git20260829",
+      "summary": "Flashes firmware -- OpenRTX among it -- onto TYT, Baofeng, Radioddity and other DMR handhelds from Linux",
+      "categories": [
+        "radio-programming",
+        "dmr"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "radioclk",
+      "version": "1.0",
+      "summary": "Disciplines the system clock from an MSF, WWVB or DCF77 time signal",
+      "categories": [
+        "time-frequency"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "radiosonde-auto-rx",
+      "version": "1.8.2",
+      "summary": "Automatically receive, decode and map weather-balloon radiosondes",
+      "categories": [
+        "weather-sensors"
+      ],
+      "status": "supported",
+      "methods": [
+        "venv"
+      ],
+      "resolves_here": "venv"
+    },
+    {
+      "name": "rayhunter",
+      "version": "0.12.0",
+      "summary": "EFF's IMSI-catcher detector — the installer for a supported hotspot, and the offline capture analyser",
+      "categories": [
+        "cellular"
+      ],
+      "status": "supported",
+      "methods": [
+        "binary",
+        "binary",
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "readsb",
+      "version": "3.14.1630",
+      "summary": "Efficient Mode S and ADS-B decoder — the maintained dump1090 successor",
+      "categories": [
+        "aircraft"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "remotetrx",
+      "version": "24.02",
+      "summary": "Puts an SvxLink receiver or transceiver at the end of a network link",
+      "categories": [
+        "echolink-repeaters"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "rig-service",
+      "version": "1.0",
+      "summary": "One shared rigctld for the station's rig, as a systemd user service",
+      "categories": [
+        "rig-control"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "routino",
+      "version": "3.4.3",
+      "summary": "Offline routing over OpenStreetMap data, on foot, by bike or by car",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "rtl-433",
+      "version": "25.02",
+      "summary": "Decoder for the unlicensed ISM bands — weather stations, sensors, tyre monitors",
+      "categories": [
+        "weather-sensors",
+        "ism-subghz"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "rtl-ais",
+      "version": "0.3",
+      "summary": "Receives both AIS channels at once from one cheap dongle",
+      "categories": [
+        "ships"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "rtl-sdr",
+      "version": "2.0.2",
+      "summary": "Host tools and library for RTL2832U-based receivers",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "rtlsdr-airband",
+      "version": "5.3.1",
+      "summary": "Multi-channel AM/NFM voice receiver with streaming output",
+      "categories": [
+        "aircraft"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "satdump",
+      "version": "1.2.2",
+      "summary": "Satellite data processing — receive, decode and image from weather and science satellites",
+      "categories": [
+        "satellite-decoding"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "screen",
+      "version": "4.9.1",
+      "summary": "Terminal multiplexer, and the serial console of last resort",
+      "categories": [
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "sdrangel",
+      "version": "7.27.2",
+      "summary": "SDR transceiver and analyser that does several things at once",
+      "categories": [
+        "sdr-receivers"
+      ],
+      "status": "supported",
+      "methods": [
+        "binary",
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "sdrpp",
+      "version": "0.0~git20260520.36ea9a1",
+      "summary": "SDR++ — cross-platform SDR receiver with a modular DSP chain",
+      "categories": [
+        "sdr-receivers"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt",
+        "git"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "ser2net",
+      "version": "4.6.4",
+      "summary": "Serve a serial port over TCP, so a rig's CAT port can be reached from another machine",
+      "categories": [
+        "serial-terminals",
+        "rig-control"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "signal-server",
+      "version": "4.0+git20260130.7f6242a",
+      "summary": "Multi-threaded radio coverage prediction from SPLAT! terrain, on the command line",
+      "categories": [
+        "propagation",
+        "antenna"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "skid-finder",
+      "version": "0.6.0-alpha.1",
+      "summary": "Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector",
+      "categories": [
+        "bluetooth",
+        "wifi",
+        "capture-analysis"
+      ],
+      "status": "supported",
+      "methods": [
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "soapyremote-server",
+      "version": "0.5.2",
+      "summary": "Serves a local SDR over the network to software on another machine",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "soapysdr-module-airspy",
+      "version": "0.2.0",
+      "summary": "SoapySDR driver module for Airspy hardware",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "soapysdr-module-audio",
+      "version": "0.1.1",
+      "summary": "SoapySDR driver module for sound-card SDRs and Airspy HF hardware",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "soapysdr-module-bladerf",
+      "version": "0.4.2",
+      "summary": "SoapySDR driver module for bladeRF hardware",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "soapysdr-module-fobos",
+      "version": "1.1.0",
+      "summary": "SoapySDR driver module for the RigExpert Fobos SDR",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "soapysdr-module-hackrf",
+      "version": "0.3.4",
+      "summary": "SoapySDR driver module for HackRF hardware",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "soapysdr-module-hydrasdr",
+      "version": "1.0.1",
+      "summary": "SoapySDR driver module for the HydraSDR RFOne",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt",
+        "apt",
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "soapysdr-module-lms7",
+      "version": "23.11.0",
+      "summary": "SoapySDR driver module for LimeSDR (LMS7002M) hardware",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "soapysdr-module-mirisdr",
+      "version": "0.2.5",
+      "summary": "SoapySDR driver module for Mirics hardware",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "soapysdr-module-osmosdr",
+      "version": "0.2.5",
+      "summary": "SoapySDR driver module for OsmoSDR and MiriSDR hardware",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "soapysdr-module-plutosdr",
+      "version": "0.2.2",
+      "summary": "SoapySDR driver module for the ADALM-Pluto",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": null
+    },
+    {
+      "name": "soapysdr-module-redpitaya",
+      "version": "0.1.1",
+      "summary": "SoapySDR driver module for Red Pitaya boards used as an SDR",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "soapysdr-module-remote",
+      "version": "0.5.2",
+      "summary": "The client half of SoapyRemote — uses an SDR served by another machine",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "soapysdr-module-rfspace",
+      "version": "0.2.5",
+      "summary": "SoapySDR driver module for RFSpace networked receivers",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "soapysdr-module-rtlsdr",
+      "version": "0.3.3",
+      "summary": "SoapySDR driver module for RTL-SDR hardware",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "soapysdr-module-uhd",
+      "version": "0.4.1",
+      "summary": "SoapySDR driver module for Ettus USRP hardware",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "soapysdr-tools",
+      "version": "0.8.1",
+      "summary": "Command-line tools for the SoapySDR hardware abstraction layer",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "socat",
+      "version": "1.8.0.3",
+      "summary": "A relay between two data channels, sockets, files or programs",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "retired",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "spectools",
+      "version": "201601r1",
+      "summary": "Spectrum display for MetaGeek Wi-Spy dongles and the Ubertooth One",
+      "categories": [
+        "spectrum-analysers",
+        "bluetooth"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "splat",
+      "version": "1.4.2",
+      "summary": "Terrain-aware path analysis for VHF and above, from real elevation data",
+      "categories": [
+        "propagation",
+        "antenna"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "splat-sdf",
+      "version": "station",
+      "summary": "SPLAT! and Signal-Server terrain, made from your map regions' elevation",
+      "categories": [
+        "propagation"
+      ],
+      "status": "supported",
+      "methods": [
+        "derived"
+      ],
+      "resolves_here": "derived"
+    },
+    {
+      "name": "stlink-tools",
+      "version": "1.8.0",
+      "summary": "Flash and debug STM32 targets through an ST-Link probe",
+      "categories": [
+        "programmer"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "stm32flash",
+      "version": "0.7",
+      "summary": "Flash STM32 microcontrollers over their built-in serial bootloader",
+      "categories": [
+        "programmer"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "sunclock",
+      "version": "3.57",
+      "summary": "World map showing the day-night terminator and where the sun is now",
+      "categories": [
+        "dashboards",
+        "propagation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "supersdr",
+      "version": "0+gabebfd0b",
+      "summary": "Turn any KiwiSDR into your rig's panadapter, synchronized over CAT",
+      "categories": [
+        "sdr-receivers"
+      ],
+      "status": "supported",
+      "methods": [
+        "venv"
+      ],
+      "resolves_here": "venv"
+    },
+    {
+      "name": "svxlink-calibration-tools",
+      "version": "24.02",
+      "summary": "Sets the audio levels an SvxLink node needs to work properly",
+      "categories": [
+        "echolink-repeaters"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "svxlink-gpio",
+      "version": "24.02",
+      "summary": "Lets SvxLink key a radio and read squelch through GPIO pins",
+      "categories": [
+        "echolink-repeaters"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "svxlink-server",
+      "version": "24.02",
+      "summary": "Repeater controller and EchoLink node in software",
+      "categories": [
+        "echolink-repeaters",
+        "emcomm"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "svxreflector",
+      "version": "24.02",
+      "summary": "Conference server that links many SvxLink nodes into one talk group",
+      "categories": [
+        "echolink-repeaters"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "tar1090",
+      "version": "3.14.1823+ge784ee5",
+      "summary": "The ADS-B aircraft map for readsb, served on this machine only, with no outside requests",
+      "categories": [
+        "aircraft"
+      ],
+      "status": "supported",
+      "methods": [
+        "data"
+      ],
+      "resolves_here": "data"
+    },
+    {
+      "name": "tcpdump",
+      "version": "4.99.5",
+      "summary": "Command-line packet capture — the tool that works when nothing else does",
+      "categories": [
+        "capture-analysis",
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "tempest-for-eliza",
+      "version": "1.0.5",
+      "summary": "Makes a monitor radiate music on an AM radio — a TEMPEST demonstration",
+      "categories": [
+        "rf-research",
+        "electronics"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "thunderbird",
+      "version": "140.14.0esr",
+      "summary": "Mozilla's full-featured mail client — the household name",
+      "categories": [
+        "email-clients",
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "tio",
+      "version": "3.9",
+      "summary": "Serial device terminal — the modern replacement for screen on a TTY",
+      "categories": [
+        "serial-terminals"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "tlf",
+      "version": "1.4.1",
+      "summary": "Console contest logger built for speed, driven from the keyboard",
+      "categories": [
+        "contest",
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "tmd710-tncsetup",
+      "version": "1.13.1",
+      "summary": "Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios",
+      "categories": [
+        "soundcard-modems",
+        "radio-programming"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "tmux",
+      "version": "3.5a",
+      "summary": "Terminal multiplexer for sessions that outlive the connection",
+      "categories": [
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "trustedqsl",
+      "version": "2.8.1",
+      "summary": "Signs and uploads logs to ARRL Logbook of the World",
+      "categories": [
+        "logging"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "tucnak",
+      "version": "4.67",
+      "summary": "VHF and above contest logger, built around locator scoring and networking",
+      "categories": [
+        "contest",
+        "logging"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "twclock",
+      "version": "3.5",
+      "summary": "World clock for the operating position, with a CW station-ID timer",
+      "categories": [
+        "time-frequency",
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "twpsk",
+      "version": "4.3",
+      "summary": "PSK31 in an X11 window, the graphical companion to psk31lx",
+      "categories": [
+        "keyboard-modes"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "tzwatch",
+      "version": "1.4.4",
+      "summary": "Prints the time in several time zones at once, in a terminal",
+      "categories": [
+        "time-frequency"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "ubertooth",
+      "version": "2020.12.R1",
+      "summary": "Host tools for the Ubertooth One Bluetooth sniffer",
+      "categories": [
+        "bluetooth"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "uhd-host",
+      "version": "4.8.0.0",
+      "summary": "USRP Hardware Driver — host tools and firmware images for Ettus USRP radios",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "uhd-soapysdr",
+      "version": "0.4.1",
+      "summary": "Makes SoapySDR devices visible to software written for UHD",
+      "categories": [
+        "sdr-hardware"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "uronode",
+      "version": "2.15",
+      "summary": "Node front end that lets other stations reach services on your machine",
+      "categories": [
+        "packet-nodes"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "usbutils",
+      "version": "018",
+      "summary": "lsusb — step one of every hardware problem in this catalog",
+      "categories": [
+        "device-support",
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "usfs-fstopo",
+      "version": "station",
+      "summary": "Forest Service FSTopo 7.5-minute sheets for your US map regions, with trail numbers",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "topo-quads"
+      ],
+      "resolves_here": "topo-quads"
+    },
+    {
+      "name": "usgs-ustopo",
+      "version": "station",
+      "summary": "USGS US Topo 7.5-minute map sheets for your US map regions, verified",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "topo-quads"
+      ],
+      "resolves_here": "topo-quads"
+    },
+    {
+      "name": "ustopo-qmapshack",
+      "version": "station",
+      "summary": "The US Topo sheets as one seamless QMapShack map, collars cropped",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "derived"
+      ],
+      "resolves_here": "derived"
+    },
+    {
+      "name": "vector-map-kit",
+      "version": "2026-09-30",
+      "summary": "The fixed files the offline browser map needs, from their publishers, pinned",
+      "categories": [
+        "navigation-maps"
+      ],
+      "status": "supported",
+      "methods": [
+        "data"
+      ],
+      "resolves_here": "data"
+    },
+    {
+      "name": "voacapl",
+      "version": "0.7.6",
+      "summary": "The VOACAP HF propagation prediction engine, ported to Linux",
+      "categories": [
+        "propagation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "welle-io",
+      "version": "2.4",
+      "summary": "DAB and DAB+ digital radio receiver with a modern interface",
+      "categories": [
+        "broadcast"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "wfview",
+      "version": "2.03",
+      "summary": "Control a modern Icom radio, waterfall and all, over USB or the network",
+      "categories": [
+        "rig-control",
+        "sdr-receivers"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "wireshark",
+      "version": "4.4.16",
+      "summary": "Protocol analyser — decodes captured traffic across two thousand protocols",
+      "categories": [
+        "capture-analysis",
+        "workstation"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "wordsworth",
+      "version": "0.3",
+      "summary": "Generate Morse practice text the Wordsworth way — words, not characters",
+      "categories": [
+        "morse-training",
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "wri-power-plants",
+      "version": "1.3.0",
+      "summary": "WRI's Global Power Plant Database, for the infrastructure layers outside the US",
+      "categories": [
+        "navigation-maps",
+        "emcomm"
+      ],
+      "status": "supported",
+      "methods": [
+        "data"
+      ],
+      "resolves_here": "data"
+    },
+    {
+      "name": "wsjtx",
+      "version": "3.0.2",
+      "summary": "Weak-signal digital modes — FT8, FT4, JT65, JT9, WSPR, Q65",
+      "categories": [
+        "weak-signal"
+      ],
+      "status": "supported",
+      "methods": [
+        "git"
+      ],
+      "resolves_here": "git"
+    },
+    {
+      "name": "wsjtx-improved",
+      "version": "3.2.0",
+      "summary": "Community fork of WSJT-X with additional decoding and UI features",
+      "categories": [
+        "weak-signal"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt",
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "wwl",
+      "version": "1.3",
+      "summary": "Distance and bearing between two Maidenhead locators, from the command line",
+      "categories": [
+        "locators"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "xastir",
+      "version": "2.2.0",
+      "summary": "APRS client with real maps — see and be seen on the packet network",
+      "categories": [
+        "aprs"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "xcwcp",
+      "version": "3.6.1",
+      "summary": "Qt Morse tutor that both sends practice and reads your keying",
+      "categories": [
+        "morse-training",
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "xdemorse",
+      "version": "3.6.7",
+      "summary": "Live Morse decoder with a GTK waterfall, from a sound card",
+      "categories": [
+        "cw"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "xdx",
+      "version": "2.91",
+      "summary": "DX cluster client — see what other operators are hearing, right now",
+      "categories": [
+        "dx-cluster"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "xlog",
+      "version": "2.0.24",
+      "summary": "Small GTK station log that opens instantly and does the basics well",
+      "categories": [
+        "logging"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "xnec2c",
+      "version": "4.4.16",
+      "summary": "Interactive antenna modelling — NEC2 with a live graphical front end",
+      "categories": [
+        "antenna"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "xwefax",
+      "version": "2.4.4",
+      "summary": "Receives HF weather fax and draws the chart",
+      "categories": [
+        "sstv-atv",
+        "weather-sensors"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    },
+    {
+      "name": "xygrib",
+      "version": "1.2.6.1",
+      "summary": "Views GRIB weather files — wind, pressure, waves, on a map",
+      "categories": [
+        "weather-sensors",
+        "emcomm"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "yaac",
+      "version": "1.0-beta230(03-Sep-2026)",
+      "summary": "Yet Another APRS Client — the deep, portable Java one",
+      "categories": [
+        "aprs"
+      ],
+      "status": "supported",
+      "methods": [
+        "binary"
+      ],
+      "resolves_here": "binary"
+    },
+    {
+      "name": "yagiuda",
+      "version": "1.19",
+      "summary": "Analyse and optimise Yagi-Uda arrays without writing a NEC model",
+      "categories": [
+        "antenna"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "z8530-utils2",
+      "version": "3.0-1",
+      "summary": "Configures Z8530-based HDLC cards for high-speed packet",
+      "categories": [
+        "device-support",
+        "soundcard-modems"
+      ],
+      "status": "retired",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    }
+  ]
+}

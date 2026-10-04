@@ -1,0 +1,19 @@
+{
+  "schema": "hammunition/1",
+  "kind": "update",
+  "engine": "0.20.0",
+  "target": {"distro": "debian", "version": "13", "arch": "x86_64", "id_like": [], "pretty_name": "Debian GNU/Linux 13 (trixie)", "description": "Debian GNU/Linux 13 (trixie) (ID=debian, version=13, arch=x86_64)", "debian_family": true},
+  "from_log": true,
+  "rows": [
+    {"unit": "a2d", "state": "up to date", "detail": "a2d 2.0.5-2", "strategy": "reinstall", "upgradable": []},
+    {"unit": "fixture-apt", "state": "candidate differs", "detail": "1.0 installed, 1.1 candidate", "strategy": "reinstall", "upgradable": ["fixture-apt"]},
+    {"unit": "acarsdec", "state": "behind the pin", "detail": "built at an earlier pin; `install acarsdec` rebuilds", "strategy": "reinstall", "upgradable": []},
+    {"unit": "old-unit", "state": "retired", "detail": "retired in the catalog", "strategy": "reinstall", "upgradable": []}
+  ],
+  "counts": {"up_to_date": 1, "candidate_differs": 1, "behind_pin": 1, "not_installed": 0, "unknown": 0, "on_install": 0, "manual": 0},
+  "lists_note": "apt lists: last refreshed 2026-10-01 06:38 UTC",
+  "upgrade_command": "sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --only-upgrade --no-remove -- fixture-apt",
+  "rebuild_command": "hammunition install acarsdec",
+  "upstream_declared": [],
+  "upstream": null
+}

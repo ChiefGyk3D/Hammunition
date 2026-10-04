@@ -1,0 +1,20 @@
+{
+  "schema": "hammunition/1",
+  "kind": "station",
+  "engine": "0.20.0",
+  "path": "/home/user/.config/hammunition/station.yml",
+  "file_exists": false,
+  "callsign": null,
+  "grid_square": null,
+  "node_alias": null,
+  "map_regions": [],
+  "map_freshness": null,
+  "reference_books": [],
+  "mirror": null,
+  "rig": null,
+  "rig_device": null,
+  "rig_baud": null,
+  "rig_ptt_line": null,
+  "rig_owner": null,
+  "dem_source": "copernicus"
+}

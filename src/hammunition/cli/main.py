@@ -5387,6 +5387,7 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
         decorate_entries,
         device_entries,
         device_entry_steps,
+        engine_entry_steps,
         gnome_commands,
         load_vocabulary,
         menu_steps,
@@ -5473,6 +5474,9 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     steps.extend(
         device_entry_steps(device_generated, applications, vocabulary.icons, engine=engine)
     )
+    # #302: `hammunition console` is the engine's own, so its entry is written here,
+    # not generated from a unit.
+    steps.extend(engine_entry_steps(applications, engine=engine))
 
     desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
     wants_gnome = "GNOME" in desktop.upper() or args.gnome
@@ -6881,6 +6885,16 @@ def _read_services() -> tuple[ServicesDocument | None, int]:
         return None, EXIT_FAILED
 
 
+def cmd_console(args: argparse.Namespace) -> int:
+    """`hammunition console`: the TUI. It lives in hammunition.console and is
+    imported here, not at the top of the module, so the engine never needs urwid
+    (the console imports it only when it is about to draw). It drives the engine
+    through the --json documents (D-059)."""
+    from hammunition.console.__main__ import main as console_main
+
+    return console_main(list(getattr(args, "console_args", [])))
+
+
 @envelope.json_capable()
 def cmd_services(args: argparse.Namespace) -> int:
     """The services the helper may start, stop, enable and disable, and what each is doing."""
@@ -8202,6 +8216,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_time_measure.set_defaults(func=cmd_time_measure)
 
+    p_console = sub.add_parser(
+        "console",
+        help="the full-screen terminal front end (needs urwid; see `hammunition console --help`)",
+        add_help=False,
+    )
+    p_console.set_defaults(func=cmd_console)
+
     p_services = sub.add_parser(
         "services",
         help="the services the helper controls, and start, stop, enable or disable one",
@@ -8561,6 +8582,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         reconfigure(line_buffering=True)
     arguments = list(sys.argv[1:] if argv is None else argv)
     _RUN_ARGV[:] = arguments
+    if arguments[:1] == ["console"] and "--json" not in arguments:
+        # The console owns its own --help and --version, so it is handed its
+        # words whole. `console --json` falls through to the parser and is
+        # refused like any verb with no document.
+        return cmd_console(argparse.Namespace(console_args=arguments[1:]))
     if _json_requested(arguments):
         return _main_json(arguments)
     parser = build_parser()

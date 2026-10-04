@@ -1,0 +1,7 @@
+{
+  "schema": "hammunition/1",
+  "kind": "regions",
+  "engine": "0.20.0",
+  "filter": "vermont",
+  "regions": ["north-america/us/vermont"]
+}

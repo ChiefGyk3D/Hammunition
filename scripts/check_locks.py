@@ -41,7 +41,12 @@ from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-LOCKS: dict[str, str | None] = {"runtime": None, "dev": "dev", "docs": "docs"}
+LOCKS: dict[str, str | None] = {
+    "runtime": None,
+    "console": "console",
+    "dev": "dev",
+    "docs": "docs",
+}
 FIX = "run: scripts/refresh-locks.sh"
 
 _PIN = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==(\S+?)(?:\s*;.*)?\s*\\?$")

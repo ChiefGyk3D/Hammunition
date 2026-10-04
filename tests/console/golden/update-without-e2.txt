@@ -1,0 +1,24 @@
+the engine refused (exit 2): update: 9 unit(s) the transaction log names are
+retired in the catalog: old-unit ... Name the units to compare.
+
+Update by profile instead (Enter):
+  antenna
+  digital-modes
+  editors
+  electronics
+  listening
+  logging
+  morse
+  navigation
+  packet
+  phone-maps
+  propagation
+  reference
+  rf-research
+  rf-security
+  rfid
+  satellite
+  sdr
+  station
+  workstation
+

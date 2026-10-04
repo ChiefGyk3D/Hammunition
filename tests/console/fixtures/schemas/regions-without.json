@@ -1,0 +1,30 @@
+{
+  "additionalProperties": false,
+  "description": "Geofabrik's region paths, filtered. Fetched from Geofabrik's index when\nthis command runs, and only then; nothing here is the operator's.",
+  "properties": {
+    "filter": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Filter"
+    },
+    "regions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Regions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "filter",
+    "regions"
+  ],
+  "title": "RegionsDocument",
+  "type": "object"
+}

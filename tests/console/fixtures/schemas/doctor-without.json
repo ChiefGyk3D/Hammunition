@@ -1,0 +1,72 @@
+{
+  "$defs": {
+    "CheckView": {
+      "additionalProperties": false,
+      "description": "One thing looked at, its verdict, and how to fix it.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "fix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Fix"
+        }
+      },
+      "required": [
+        "name",
+        "status",
+        "detail",
+        "fix"
+      ],
+      "title": "CheckView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The read-only health check: is this machine ready? Exit 1 when blocking.",
+  "properties": {
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/CheckView"
+      },
+      "title": "Checks",
+      "type": "array"
+    },
+    "fails": {
+      "title": "Fails",
+      "type": "integer"
+    },
+    "warns": {
+      "title": "Warns",
+      "type": "integer"
+    },
+    "healthy": {
+      "title": "Healthy",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "checks",
+    "fails",
+    "warns",
+    "healthy"
+  ],
+  "title": "DoctorDocument",
+  "type": "object"
+}

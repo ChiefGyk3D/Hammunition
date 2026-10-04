@@ -1,0 +1,332 @@
+{
+  "$defs": {
+    "CatalogSummary": {
+      "additionalProperties": false,
+      "description": "The catalog this run read.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "packages": {
+          "title": "Packages",
+          "type": "integer"
+        },
+        "resolvable": {
+          "title": "Resolvable",
+          "type": "integer"
+        },
+        "profiles": {
+          "title": "Profiles",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "packages",
+        "resolvable",
+        "profiles"
+      ],
+      "title": "CatalogSummary",
+      "type": "object"
+    },
+    "CheckLine": {
+      "additionalProperties": false,
+      "description": "An effect the transaction could not confirm afterwards (D-031).",
+      "properties": {
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject",
+        "detail"
+      ],
+      "title": "CheckLine",
+      "type": "object"
+    },
+    "LatestTransaction": {
+      "additionalProperties": false,
+      "description": "The most recent `transaction_begin` in the log, and how it ended.",
+      "properties": {
+        "when": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "When"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "completed_commands": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Completed Commands"
+        },
+        "intended": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Intended",
+          "type": "array"
+        },
+        "verified": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Verified"
+        },
+        "checks": {
+          "title": "Checks",
+          "type": "integer"
+        },
+        "unconfirmed": {
+          "items": {
+            "$ref": "#/$defs/CheckLine"
+          },
+          "title": "Unconfirmed",
+          "type": "array"
+        },
+        "deferred": {
+          "items": {
+            "$ref": "#/$defs/LoggedDeferral"
+          },
+          "title": "Deferred",
+          "type": "array"
+        }
+      },
+      "required": [
+        "when",
+        "outcome",
+        "completed_commands",
+        "intended",
+        "verified",
+        "checks",
+        "unconfirmed",
+        "deferred"
+      ],
+      "title": "LatestTransaction",
+      "type": "object"
+    },
+    "LoggedDeferral": {
+      "additionalProperties": false,
+      "description": "Something that transaction deferred by design (D-035, D-039).",
+      "properties": {
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "what": {
+          "title": "What",
+          "type": "string"
+        },
+        "why": {
+          "title": "Why",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "subject",
+        "what",
+        "why"
+      ],
+      "title": "LoggedDeferral",
+      "type": "object"
+    },
+    "RecordedUnit": {
+      "additionalProperties": false,
+      "description": "A unit some install or uninstall here named, and how the latest one ended.\n\nNot a claim that the unit is installed now: `update --json` compares the\nmachine. A unit the catalog no longer carries has null method and pin.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "last_named": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Named"
+        },
+        "last_outcome": {
+          "title": "Last Outcome",
+          "type": "string"
+        },
+        "catalog_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Catalog Version"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Method"
+        },
+        "pin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pin"
+        }
+      },
+      "required": [
+        "name",
+        "last_named",
+        "last_outcome",
+        "catalog_version",
+        "method",
+        "pin"
+      ],
+      "title": "RecordedUnit",
+      "type": "object"
+    },
+    "TargetView": {
+      "additionalProperties": false,
+      "description": "What `/etc/os-release` said, verbatim, with the one line the text prints.",
+      "properties": {
+        "distro": {
+          "title": "Distro",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "arch": {
+          "title": "Arch",
+          "type": "string"
+        },
+        "id_like": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Id Like",
+          "type": "array"
+        },
+        "pretty_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pretty Name"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "debian_family": {
+          "title": "Debian Family",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "distro",
+        "version",
+        "arch",
+        "id_like",
+        "pretty_name",
+        "description",
+        "debian_family"
+      ],
+      "title": "TargetView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "What this machine is, what the catalog holds, and what has been done here.",
+  "properties": {
+    "target": {
+      "$ref": "#/$defs/TargetView"
+    },
+    "catalog": {
+      "$ref": "#/$defs/CatalogSummary"
+    },
+    "log_path": {
+      "title": "Log Path",
+      "type": "string"
+    },
+    "log_entries": {
+      "title": "Log Entries",
+      "type": "integer"
+    },
+    "latest": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LatestTransaction"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "recorded_units": {
+      "items": {
+        "$ref": "#/$defs/RecordedUnit"
+      },
+      "title": "Recorded Units",
+      "type": "array"
+    }
+  },
+  "required": [
+    "target",
+    "catalog",
+    "log_path",
+    "log_entries",
+    "latest",
+    "recorded_units"
+  ],
+  "title": "StatusDocument",
+  "type": "object"
+}

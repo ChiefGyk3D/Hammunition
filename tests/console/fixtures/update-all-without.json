@@ -1,0 +1,8 @@
+{
+  "schema": "hammunition/1",
+  "kind": "error",
+  "engine": "0.20.0",
+  "command": "update",
+  "exit_code": 2,
+  "message": "update: 9 unit(s) the transaction log names are retired in the catalog: old-unit ... Name the units to compare.\n"
+}
