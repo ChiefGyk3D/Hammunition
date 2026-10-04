@@ -43,15 +43,15 @@ jobs:
       # measured on its VM 2026-09-02, suite green). Test the matrix, not the
       # dev machine.
       python-versions: '["3.11", "3.12", "3.13", "3.14"]'
-      install-command: pip install -e ".[dev]"
+      install-command: pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
       # The tether contract test reads hammunition-gps-tether's source (#215);
       # the script checks it out at the tag the catalog pins, then runs pytest.
       test-command: bash scripts/ci-test.sh
       # CLAUDE.md: Python 3.11+. Lint and types run on the floor.
       lint-python-version: "3.11"
-      lint-install-command: pip install -e ".[dev]"
+      lint-install-command: pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
       lint-command: ruff check . && ruff format --check .
-      typecheck-install-command: pip install -e ".[dev]"
+      typecheck-install-command: pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
       typecheck-command: mypy --strict
       # No image of its own; the per-distribution containers are the targets job.
       docker-build: false
@@ -84,7 +84,7 @@ jobs:
         env:
           BASE: ${{ github.base_ref }}
         run: |
-          pip install pytest
+          pip install --require-hashes -r requirements/dev.txt
           git fetch --no-tags origin "$BASE:refs/remotes/origin/$BASE"
           # --noconftest: the check is stdlib-only; conftest imports the engine.
           HAMMUNITION_REQUIRE_PR_RANGE=1 python -m pytest tests/test_changelog.py -q \
@@ -118,23 +118,23 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - { name: parrot,        image: "parrotsec/core:latest",        platform: linux/amd64 }
-          - { name: debian-13,     image: "debian:13",                    platform: linux/amd64 }
-          - { name: ubuntu-26.04,  image: "ubuntu:26.04",                 platform: linux/amd64 }
+          - { name: parrot,        image: "parrotsec/core:latest@sha256:97f64574565cc2cd7dfe1e3128ab6ad4131cd745cfba5fbd4bc28421a9827e9d",        platform: linux/amd64 }
+          - { name: debian-13,     image: "debian:13@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c",                    platform: linux/amd64 }
+          - { name: ubuntu-26.04,  image: "ubuntu:26.04@sha256:3595d7fc4286a33fad0fd853a4063e654287a9c3787437d7937c94ca3f7a804e",                 platform: linux/amd64 }
           # The LTS that Mint 22.x and Pop!_OS 24.04 install from; declared
           # 2026-09-03 from the VM campaign, kept alongside 26.04 (targets.yaml).
-          - { name: ubuntu-24.04,  image: "ubuntu:24.04",                 platform: linux/amd64 }
-          - { name: kali-rolling,  image: "kalilinux/kali-rolling:latest", platform: linux/amd64 }
+          - { name: ubuntu-24.04,  image: "ubuntu:24.04@sha256:a853f94d226358a79c740cfc7bce0c289748f3fe3488d921d038ccd752c61b60",                 platform: linux/amd64 }
+          - { name: kali-rolling,  image: "kalilinux/kali-rolling:latest@sha256:d1d7e581ed60b0bbf9cb8a4bc853526355978f3b943d3a1d7dc7ce209e4231b6", platform: linux/amd64 }
           # Mint's image ships Ubuntu's base-files; identity_package installs
           # Mint's own from its own repo so os-release reads linuxmint (Q-014).
-          - { name: linuxmint-22.3, image: "linuxmintd/mint22.3-amd64:latest", platform: linux/amd64, identity_package: "base-files/zena" }
+          - { name: linuxmint-22.3, image: "linuxmintd/mint22.3-amd64:latest@sha256:304bbf7ec2a61252962c5210467d231a141661490e8962f52fd4df7688370369", platform: linux/amd64, identity_package: "base-files/zena" }
           # NOT Raspberry Pi OS — exercises aarch64 selectors only (Q-003).
           # Runs natively on GitHub's hosted arm64 runner (ubuntu-24.04-arm,
           # free for public repositories; Podman 4.9.3 on its image, verified
           # against actions/runner-images 2026-09-12). Under QEMU user-mode
           # emulation on an x64 runner this job took 13-16 min against 1 min
           # for every amd64 target, every run.
-          - { name: debian-13-arm64, image: "debian:13",                    platform: linux/arm64, runner: ubuntu-24.04-arm }
+          - { name: debian-13-arm64, image: "debian:13@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c",                    platform: linux/arm64, runner: ubuntu-24.04-arm }
     # The matrix is this file's own literal, but values reach the shell as
     # environment variables all the same, as GYST's callers do.
     env:
@@ -208,7 +208,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - run: pip install -e ".[dev]"
+      - run: pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
       # Runs before the tests so its report is the first thing in the log: it
       # names the offending rule and line, which a pytest assertion cannot.
       - run: python scripts/audit_gitignore.py
@@ -237,7 +237,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - run: pip install -e ".[dev]"
+      - run: pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
       - name: Verify the git refs of changed manifests
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
@@ -275,7 +275,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - run: pip install -e ".[dev]"
+      - run: pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
       # --verify-refs fetches each ref from its upstream, which needs the
       # network. That is fine on a scheduled job and is why this check lives
       # here rather than in the test suite, which blocks the network on
@@ -360,7 +360,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - run: pip install -e ".[dev]"
+      - run: pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
       - name: Sweep every udev rule in the archive
         # The same runner a developer uses, so the mounts the sweep needs
         # (the script and its parser module) live in one place. A hand-written
