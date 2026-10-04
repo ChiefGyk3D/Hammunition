@@ -102,7 +102,8 @@ def test_the_header_bbox_is_read_in_degrees(tmp_path: Path, compress: bool) -> N
 
 
 def test_a_header_without_a_bbox_is_none(tmp_path: Path) -> None:
-    assert header_bbox(write(tmp_path, pbf(None))) is None
+    got = header_bbox(write(tmp_path, pbf(None)))
+    assert got is None
 
 
 def test_only_the_first_blob_is_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
