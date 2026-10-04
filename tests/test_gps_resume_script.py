@@ -11,6 +11,7 @@ symlink to a ``ttyACM0`` file, exactly the shape gpsd's own udev rule makes.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import socket
@@ -67,6 +68,9 @@ class FakeGpsd:
                 conn, _ = self.server.accept()
             except OSError:
                 return
+            if self._stop:
+                conn.close()
+                return
             conn.sendall(b'{"class":"VERSION","release":"3.25","proto_major":3}\r\n')
             data = b""
             while b";" not in data:
@@ -91,8 +95,14 @@ class FakeGpsd:
             conn.close()
 
     def close(self) -> None:
+        """Stop serving and wait for the thread: ``shutdown`` wakes ``accept()``
+        (a bare ``close`` does not on Linux, and the thread would then accept
+        on whichever socket next reuses the descriptor number)."""
         self._stop = True
+        with contextlib.suppress(OSError):
+            self.server.shutdown(socket.SHUT_RDWR)
         self.server.close()
+        self.thread.join(timeout=5.0)
         for conn in self._held:
             conn.close()
 
@@ -174,6 +184,18 @@ def _ran(m: dict[str, Path]) -> list[str]:
     if not m["log"].exists():
         return []
     return m["log"].read_text().splitlines()
+
+
+def test_a_closed_fake_gpsd_has_no_thread_left_in_accept() -> None:
+    """The fixture's hygiene, held by a test because it once was not: a thread
+    still blocked in ``accept()`` on a closed descriptor accepts for whichever
+    later socket Linux hands that descriptor number, and answers it from a
+    queue that is empty or another test's (three different tests failed on CI
+    on 2026-10-04 with replies no fake in them could give)."""
+    server = FakeGpsd([["/dev/ttyACM0"]])
+    server.close()
+    server.thread.join(timeout=2.0)
+    assert not server.thread.is_alive()
 
 
 def test_no_gps_symlink_does_nothing_so_a_parked_receiver_stays_parked(
