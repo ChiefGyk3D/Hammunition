@@ -21,6 +21,17 @@ That server is the reason. A radio has one CAT port and a station has several pr
 
 A CAT interface to the radio and access to its serial device, which means membership of the `dialout` group. Knowing which model to select: flrig has per-radio backends and the closest-looking one is often not the right one.
 
+## Install and launch
+
+- **Installed with the profiles:** [`digital-modes`](../profiles/digital-modes.md), [`station`](../profiles/station.md).
+- **Install:** `hammunition install flrig --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `flrig`

@@ -20,6 +20,17 @@ Direwolf is the default soundcard TNC in this catalog and is excellent headless.
 
 Sound card audio to and from the radio, and PTT -- a serial control line or VOX. A program to connect to its KISS port: LinBPQ, Xastir, Pat or anything else that speaks KISS over TCP.
 
+## Install and launch
+
+- **Installed with the profile:** [`packet`](../profiles/packet.md).
+- **Install:** `hammunition install qtsoundmodem --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `qtsoundmodem`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - git (qmake) — https://github.com/g8bpq/QtSoundModem at `24.45`

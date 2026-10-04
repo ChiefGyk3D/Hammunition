@@ -20,6 +20,17 @@ It is how you work out what an unknown signal is before writing any code to deco
 
 A recorded IQ file. Nothing transmits and no receiver is required, which makes it a good first tool for someone who owns no hardware yet.
 
+## Install and launch
+
+- **Installed with the profiles:** [`rf-security`](../profiles/rf-security.md), [`sdr`](../profiles/sdr.md).
+- **Install:** `hammunition install inspectrum --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `inspectrum`

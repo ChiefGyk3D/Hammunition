@@ -1,0 +1,12 @@
+/* SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* Offline bundle only (mkdocs-offline.yml). A link that leaves the bundle
+   needs the internet, so it says so. The arrow is plain text in a CSS
+   string: no font and no image. */
+.md-content a[href^="http://"]::after,
+.md-content a[href^="https://"]::after {
+  content: " \2197 (online)";
+  font-size: 0.8em;
+  opacity: 0.8;
+}

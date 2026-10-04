@@ -20,6 +20,17 @@ It is the most feature-dense SDR application in open source, and the reason to r
 
 An SDR and its driver library. A capable machine: SDRangel is computationally heavy and benefits from a GPU for its display. On Debian 13, Parrot, Ubuntu 24.04 and Linux Mint, nothing here installs -- see the install notes for what was measured.
 
+## Install and launch
+
+- **Installed by name only** — it is in no profile.
+- **Install:** `hammunition install sdrangel --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive; the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - prebuilt deb from https://github.com/f4exb/sdrangel/releases/download/v7.27.2/sdrangel_7.27.2_ubuntu-26.04_amd64.deb — *on ubuntu; version 26.04; arch x86_64*

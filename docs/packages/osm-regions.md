@@ -20,6 +20,21 @@ Offline maps have to be on the disk before the network goes away. This is the on
 
 Your regions, set in station config with Geofabrik's own region paths, for example `hammunition station set --map-regions north-america/us/vermont,north-america/us/new-hampshire`. With no regions set this unit is deferred by name and the rest of the install goes ahead; the plan names the command to run. Optionally a freshness mode, `hammunition station set --map-freshness yearly|monthly|latest`, which defaults to `yearly`.
 
+## Install and launch
+
+- **Installed with the profiles:** [`navigation`](../profiles/navigation.md), [`phone-maps`](../profiles/phone-maps.md).
+- **Install:** `hammunition install osm-regions --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+The map data downloads at install time only, from Geofabrik (or a LAN mirror named with `station set --mirror`), and is used with no network afterwards. It covers only the regions you chose with `hammunition station set --map-regions`, and it is as old as the extract: the default is Geofabrik's 1 January file for the year (`--map-freshness monthly` or `latest` for newer). OpenStreetMap is volunteer-mapped and the extract is a snapshot, so a road, hospital or shelter may have changed since. `hammunition update` reports regions behind the pin; refresh with `hammunition install osm-regions osm-navit` while online. Ahead of time: choose regions for every place you might deploy, including the route there.
+
+## First useful task
+
+Find your region with `hammunition maps regions vermont` (this fetches Geofabrik's index), save it with `hammunition station set --map-regions north-america/us/vermont`, then `hammunition install osm-regions osm-navit --dry-run` and without `--dry-run`. The plan names every region, its size and its licence before anything downloads.
+
 ## How it installs
 
 - OpenStreetMap regions from Geofabrik (chosen in station config) (ODbL-1.0, https://www.openstreetmap.org/copyright)

@@ -20,6 +20,17 @@ hackrf_info is the diagnostic that tells you whether the board is seen, what fir
 
 HackRF hardware, the udev rules and plugdev membership from the hardware catalog.
 
+## Install and launch
+
+- **Installed by name only** — it is in no profile.
+- **Install:** `hammunition install hackrf --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `hackrf_info-check`.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `hackrf`

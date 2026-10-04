@@ -20,6 +20,17 @@ In the United States, aircraft flying below 18,000 feet may carry UAT instead of
 
 An SDR that tunes 978 MHz -- an RTL-SDR is the usual one -- with an antenna cut for 978 MHz, and the SoapySDR module for that receiver: `soapysdr-module-rtlsdr` for an RTL-SDR (the `rtl-sdr` hardware entry lists it). FlightAware's package starts it as `dump978-fa --sdr driver=rtlsdr --format CS8 --raw-port 30978 --json-port 30979` (`debian/dump978-fa.default` in the tree); run by hand, write the ports as `127.0.0.1:30978` and `127.0.0.1:30979` unless you mean other machines to reach them.
 
+## Install and launch
+
+- **Installed with the profile:** [`listening`](../profiles/listening.md).
+- **Install:** `hammunition install dump978-fa --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `dump978-fa`, `skyaware978`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - git (make) — https://github.com/flightaware/dump978 at `v11.1` (commit `f40aa9a0d2d0a0067c0c628b44ba316f7049b8ce`)

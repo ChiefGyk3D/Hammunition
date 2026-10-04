@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# The offline documentation bundle. Inherits everything from mkdocs.yml (the
+# same nav, the same pages, the same --strict build) and changes only what a
+# page opened from a disk with no network needs:
+#
+# * no web fonts (Material fetches Google Fonts by default),
+# * links that end in a file name, so they work from file://,
+# * Material's `offline` plugin, which makes the search index load without a
+#   server,
+# * external links marked, because they will not open without the internet.
+#
+# Built by scripts/build_offline_bundle.py, which supplies the build line
+# below through HAMMUNITION_BUNDLE_LINE and then verifies the result: a bundle
+# that merely built is not a bundle that works offline.
+
+INHERIT: mkdocs.yml
+
+site_url: ""
+site_dir: site-offline
+use_directory_urls: false
+
+copyright: !ENV [HAMMUNITION_BUNDLE_LINE, "Offline bundle"]
+
+# Material asks api.github.com for the repository's star count and latest
+# release when it draws the header's repository link. The bundle must make no
+# request, so offline-theme/ overrides that one partial with nothing. repo_url
+# itself stays: the link hook (scripts/site_hooks.py) needs it.
+theme:
+  name: material
+  custom_dir: offline-theme
+  font: false
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - toc.follow
+    - content.code.copy
+
+plugins:
+  - search
+  - offline
+
+extra_css:
+  - assets/offline-external.css
+
+# The offline plugin adds https://unpkg.com/iframe-worker/shim unless a
+# polyfill naming iframe-worker is already listed. That script is what lets the
+# search worker run from file://, so it is carried in the bundle (MIT, see its
+# LICENSE.txt) instead of fetched.
+extra:
+  polyfills:
+    - assets/vendor/iframe-worker/shim.js

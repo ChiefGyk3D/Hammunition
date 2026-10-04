@@ -20,6 +20,17 @@ ST-Link probes are on the front of every Nucleo and Discovery board and cost a f
 
 An ST-Link probe. Access comes from the `programmer` hardware class; the package ships rules for 11 identifiers covering the V1 through V3 probes.
 
+## Install and launch
+
+- **Installed with the profile:** [`electronics`](../profiles/electronics.md).
+- **Install:** `hammunition install stlink-tools --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `st-info-probe`.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `stlink-tools`

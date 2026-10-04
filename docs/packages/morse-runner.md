@@ -20,6 +20,17 @@ Nothing else in this catalog trains contest copying. qrq, xcwcp, ebook2cwgui and
 
 A desktop session and working audio. No radio: it generates every signal itself. Set your own callsign in the Station panel first; the default is VE3NEA, the author's.
 
+## Install and launch
+
+- **Installed by name only** — it is in no profile.
+- **Install:** `hammunition install morse-runner --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `morse-runner`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - git (make) — https://github.com/zmetzing/MorseRunner at `29590a6719c725bc95730e72213a00ef92cfa489` — *on debian, parrot, ubuntu, linuxmint, pop; arch x86_64*

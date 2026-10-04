@@ -20,6 +20,21 @@ HamClock answers "what is the band doing" on one screen; Hill answers it for a l
 
 A browser on this machine. An internet connection for the fetched tiers (space weather, spots, NWS); nothing for the offline tier. Optional: an ADIF log to colour spots and track DXCC/WAS, a callsign in /etc/hammunition-hill/config.toml, and API keys for the sources that want one -- the config file documents each. The `station` profile's gpsd is not consulted yet; position comes from the browser's geolocation.
 
+## Install and launch
+
+- **Installed with the profile:** [`station`](../profiles/station.md).
+- **Install:** `hammunition install hammunition-hill --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `hammunition-hill`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+Hill needs no internet to run. A collector fetches its sources on its own schedule and the page reads the stored snapshots, so with the WAN unplugged the parts that need no internet keep working: the clocks, band plan, pocket references, CW trainer and shack tools. Space weather, spots and NWS data are the fetched tiers; they are not produced locally and go stale without a connection. It serves 127.0.0.1:8073 on this machine only, so it needs no local network, no radio and no GPS (position comes from the browser's geolocation). Ahead of time: install while online, set your callsign in /etc/hammunition-hill/config.toml, and open it once online so the fetched panels have something to show. What a fetched panel shows when it has been offline for days is not measured here.
+
+## First useful task
+
+After the install, open http://127.0.0.1:8073/ in a browser on this machine (`systemctl status hammunition-hill` should say active). You should see the dashboards with the clocks and band plan filled in. If a panel is blank, run `hamhill check --fetch`, which exercises every configured source and says which one fails.
+
 ## How it installs
 
 - prebuilt deb from https://github.com/ChiefGyk3D/hammunition-hill/releases/download/v1.0.0/hammunition-hill_1.0.0_all.deb

@@ -21,6 +21,17 @@ AIS data as text is a list of MMSI numbers and coordinates. On a map it is a har
 
 gnuais running and populating its database, which this manifest declares as a dependency. Map tiles are fetched over the network, so the display needs an internet connection even though the reception does not.
 
+## Install and launch
+
+- **Installed with the profile:** [`listening`](../profiles/listening.md).
+- **Install:** `hammunition install gnuaisgui --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `gnuaisgui`

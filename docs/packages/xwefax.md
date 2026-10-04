@@ -21,6 +21,17 @@ Radiofax is still transmitted: surface analyses, wind and wave charts and ice re
 
 A receiver capable of SSB reception on HF, its audio into a sound card, and a schedule -- transmissions are at fixed times from fixed stations and tuning at the wrong moment gets you nothing. Rig control through the CAT interface is supported and optional.
 
+## Install and launch
+
+- **Installed with the profile:** [`digital-modes`](../profiles/digital-modes.md).
+- **Install:** `hammunition install xwefax --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `xwefax`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - source (autotools) from https://www.qsl.net/5b4az/pkg/xwefax/xwefax-2.4.4.tar.bz2

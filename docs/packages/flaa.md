@@ -20,6 +20,17 @@ An antenna analyser's own screen is small and its memory is smaller. This turns 
 
 A RigExpert analyser and access to its serial device -- membership of the `dialout` group. This catalog also carries `antscope2` territory: AHRL installs RigExpert's own vendor .deb on x86 only, and this is the portable, source-built alternative.
 
+## Install and launch
+
+- **Installed with the profile:** [`antenna`](../profiles/antenna.md).
+- **Install:** `hammunition install flaa --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `flaa`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - source (autotools) from https://w1hkj.org/files/flaa/flaa-1.0.2.tar.gz

@@ -21,6 +21,17 @@ The UV-K5 is the most-modified handheld of the decade, and most of what people d
 
 A UV-K5 programming cable: the two-pin Kenwood-style plug with a USB-serial chip in it. Access to the serial device -- the `dialout` group, then log out and in. The port defaults to /dev/ttyUSB0; give the cable's /dev/serial/by-id/ path with `-p` so the right device is written. For EEPROM work the radio is on as normal; for flashing it is started in its bootloader (PTT held while switching on, as k5prog's own warning describes it).
 
+## Install and launch
+
+- **Installed by name only** — it is in no profile.
+- **Install:** `hammunition install k5prog --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `k5prog`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - git (make) — https://github.com/sq5bpf/k5prog at `241ab18b61f6d8933fecf60643fe94322fbf4198`

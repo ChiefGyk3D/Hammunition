@@ -20,6 +20,17 @@ Many small STM32 boards have no USB bootloader and no debug header fitted, and t
 
 A serial connection to the board's bootloader pins (TX, RX and ground at 3.3 V logic), and access to the serial device -- the `dialout` group. The chip must be in its system bootloader: BOOT0 held high at reset, by a jumper, a button or the adapter's control lines.
 
+## Install and launch
+
+- **Installed with the profile:** [`electronics`](../profiles/electronics.md).
+- **Install:** `hammunition install stm32flash --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `stm32flash`

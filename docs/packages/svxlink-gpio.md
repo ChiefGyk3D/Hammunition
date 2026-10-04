@@ -21,6 +21,17 @@ A Pi at a repeater site has GPIO and often no serial port worth using. This is w
 
 A board with GPIO, and level shifting or opto-isolation between it and the radio -- 3.3 volt logic connected directly to a radio's control lines is how boards die. Permission to access the GPIO device, which is a group membership on most systems.
 
+## Install and launch
+
+- **Installed by name only** — it is in no profile.
+- **Install:** `hammunition install svxlink-gpio --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `svxlink-gpio`

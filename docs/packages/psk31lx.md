@@ -20,6 +20,17 @@ It runs over SSH. A remote or headless station -- a Pi at the antenna, a machine
 
 Sound card audio to and from the radio, and PTT -- serial line or VOX. Tuning is done from a text indicator rather than a waterfall, which takes more care than clicking a trace.
 
+## Install and launch
+
+- **Installed with the profile:** [`digital-modes`](../profiles/digital-modes.md).
+- **Install:** `hammunition install psk31lx --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `psk31lx`

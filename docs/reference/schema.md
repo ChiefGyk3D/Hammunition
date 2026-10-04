@@ -35,7 +35,7 @@ A manifest is **strict**: an unknown field is an error, not ignored. That is del
 | `system_modifications` | `list[SystemModification]` | no |  |
 | `config_files` | `list[ConfigFile]` | no |  |
 | `user_services` | `list[UserService]` | no | systemd user services the engine renders from station values, enables, and reverses on uninstall (D-073 §6). Rendered into the operator's ~/.config/systemd/user/; deferred when a station value is missing, like config_files. |
-| `debconf_selections` | `list[str]` | no | debconf preseed lines applied BEFORE the apt install, so a package's postinst reads them instead of taking a default that needs an interactive answer. Each line is '<package> <question> <type> <value>', the debconf-set-selections format. The one measured need: wireshark, whose non-root capture is off by default and whose group and dumpcap capabilities are only created when wireshark-common/install-setuid is preseeded true (measured on Debian 13, 2026-09-01). |
+| `debconf_selections` | `list[str]` | no | debconf preseed lines applied BEFORE the apt install, so a package's postinst reads them instead of taking a default that needs an interactive answer. Each line is '&lt;package> &lt;question> &lt;type> &lt;value>', the debconf-set-selections format. The one measured need: wireshark, whose non-root capture is off by default and whose group and dumpcap capabilities are only created when wireshark-common/install-setuid is preseeded true (measured on Debian 13, 2026-09-01). |
 | `reconfigure_after` | `list[str]` | no | Packages to `dpkg-reconfigure` non-interactively AFTER the apt install. Paired with `debconf_selections` for the case where a postinst action depends on another package in the same transaction: wireshark-common's setcap of dumpcap needs libcap2-bin, and apt does not guarantee it is configured first, so the reconfigure re-runs the action once the whole transaction is settled (measured on Debian 13, 2026-09-01). |
 | `scope` | `Literal[system, user]` | no (default `system`) |  |
 | `status` | `Status` | no (default `supported`) |  |
@@ -101,7 +101,7 @@ Build from a verified source archive.
 | `build_dir` | `str \| None` | no |  |
 | `autoreconf` | `bool` | no (default `False`) | Run autoreconf -fi before configure -- for autotools projects shipped without a generated configure (git checkouts, mostly). kalibrate-rtl proved the need (source-build-gaps #3); the planner injects the autotools toolchain when set. |
 | `provides_install_target` | `bool` | no (default `True`) | False when the project's build system has no install rule. The backend then installs the manifest's `binaries` explicitly instead of running `make install`, which would fail. Requires `binaries` to be declared. |
-| `install_tree` | `bool` | no (default `False`) | Install the whole built/extracted tree to <prefix>/share/hammunition/<name> instead of (or beside) named binaries. For software that reads settings, resources or data beside its executable -- MSHV, run-in-place trees (gaps #6/#8). Requires a launcher (or binaries) so the tree is reachable. |
+| `install_tree` | `bool` | no (default `False`) | Install the whole built/extracted tree to &lt;prefix>/share/hammunition/&lt;name> instead of (or beside) named binaries. For software that reads settings, resources or data beside its executable -- MSHV, run-in-place trees (gaps #6/#8). Requires a launcher (or binaries) so the tree is reachable. |
 | `tree_marker` | `str \| None` | no | One file, relative to the installed tree, whose presence proves the tree is what the launcher expects: yaac's YAAC.jar, js8spotter's js8spotter.py. The effect check reads it back after the run; `cp -aT` exits 0 on any directory, so without it a tree unit ended `verified: true` with no check at all (issue #27). Required exactly when the block installs a tree. |
 
 ### `GitInstall`
@@ -120,7 +120,7 @@ Build from a pinned git revision. `ref` must be immutable.
 | `build_args` | `list[str]` | no |  |
 | `autoreconf` | `bool` | no (default `False`) | Run autoreconf -fi before configure -- for autotools projects shipped without a generated configure (git checkouts, mostly). kalibrate-rtl proved the need (source-build-gaps #3); the planner injects the autotools toolchain when set. |
 | `provides_install_target` | `bool` | no (default `True`) | False when the project's build system has no install rule. See SourceInstall for the full note. |
-| `install_tree` | `bool` | no (default `False`) | Install the whole built/extracted tree to <prefix>/share/hammunition/<name> instead of (or beside) named binaries. For software that reads settings, resources or data beside its executable -- MSHV, run-in-place trees (gaps #6/#8). Requires a launcher (or binaries) so the tree is reachable. |
+| `install_tree` | `bool` | no (default `False`) | Install the whole built/extracted tree to &lt;prefix>/share/hammunition/&lt;name> instead of (or beside) named binaries. For software that reads settings, resources or data beside its executable -- MSHV, run-in-place trees (gaps #6/#8). Requires a launcher (or binaries) so the tree is reachable. |
 | `patches` | `list[Patch]` | no | Unified diffs applied after the checkout and before the build, in order, exactly as a source block's. linbpq's makefile runs `sudo setcap` inside the build (#96); the patch that removes it is the first use. |
 | `tree_marker` | `str \| None` | no | One file, relative to the installed tree, whose presence proves the tree is what the launcher expects: yaac's YAAC.jar, js8spotter's js8spotter.py. The effect check reads it back after the run; `cp -aT` exits 0 on any directory, so without it a tree unit ended `verified: true` with no check at all (issue #27). Required exactly when the block installs a tree. |
 | `pin_review` | `PinReview \| None` | no | Required when `ref` is a commit SHA rather than a tag. D-024. |
@@ -144,7 +144,7 @@ Vendor .deb, archive, or prebuilt executable.
 | `devctl_helper` | `DevctlHelper \| None` | no | The tray's privileged device helper, installed from this archive. |
 | `deb_package` | `str \| None` | no | The control-file Package name a `deb` artifact installs, read from the .deb itself (`dpkg-deb -f file.deb Package`), never assumed from the filename — wsjtx-improved's vendor deb installs as `wsjtx`, and GridTracker2's filename casing matches nothing. Required for format: deb; it is what `uninstall` hands to `apt-get remove` and what `status` probes. |
 | `strip_components` | `int` | no (default `0`) |  |
-| `install_tree` | `bool` | no (default `False`) | Install the whole built/extracted tree to <prefix>/share/hammunition/<name> instead of (or beside) named binaries. For software that reads settings, resources or data beside its executable -- MSHV, run-in-place trees (gaps #6/#8). Requires a launcher (or binaries) so the tree is reachable. |
+| `install_tree` | `bool` | no (default `False`) | Install the whole built/extracted tree to &lt;prefix>/share/hammunition/&lt;name> instead of (or beside) named binaries. For software that reads settings, resources or data beside its executable -- MSHV, run-in-place trees (gaps #6/#8). Requires a launcher (or binaries) so the tree is reachable. |
 | `tree_marker` | `str \| None` | no | One file, relative to the installed tree, whose presence proves the tree is what the launcher expects: yaac's YAAC.jar, js8spotter's js8spotter.py. The effect check reads it back after the run; `cp -aT` exits 0 on any directory, so without it a tree unit ended `verified: true` with no check at all (issue #27). Required exactly when the block installs a tree. |
 
 ### `VenvInstall`
@@ -167,8 +167,8 @@ comment lines pass through untouched.
 | `method` | `Literal[venv]` | no (default `venv`) |  |
 | `requirements` | `list[str]` | **yes** |  |
 | `python` | `str` | no (default `>=3.11`) |  |
-| `env` | `dict[str, str]` | no | Build-time environment for pip. Exists for one measured case: a project using setuptools-scm, installed from a hashed release archive, has no .git to read its version from and needs SETUPTOOLS_SCM_PRETEND_VERSION_FOR_<NAME> (nanovna-saver proved it, 2026-08-30). Never secrets -- the plan prints this. |
-| `payload` | `RemoteArtifact \| None` | no | A verified archive whose extracted tree installs to <prefix>/share/hammunition/<name>, for software that is a data tree run by a venv rather than a pip-installable package. The two-unit demand (source-build-gaps #9): radiosonde_auto_rx and supersdr. Launchers reach the venv with the {venv} placeholder. |
+| `env` | `dict[str, str]` | no | Build-time environment for pip. Exists for one measured case: a project using setuptools-scm, installed from a hashed release archive, has no .git to read its version from and needs SETUPTOOLS_SCM_PRETEND_VERSION_FOR_&lt;NAME> (nanovna-saver proved it, 2026-08-30). Never secrets -- the plan prints this. |
+| `payload` | `RemoteArtifact \| None` | no | A verified archive whose extracted tree installs to &lt;prefix>/share/hammunition/&lt;name>, for software that is a data tree run by a venv rather than a pip-installable package. The two-unit demand (source-build-gaps #9): radiosonde_auto_rx and supersdr. Launchers reach the venv with the {venv} placeholder. |
 | `payload_build_script` | `str \| None` | no | A script inside the verified payload tree, run with sh before the tree installs -- radiosonde_auto_rx compiles its C demodulators via auto_rx/build.sh. Requires payload; declare its toolchain in the block's build_depends. |
 | `tree_marker` | `str \| None` | no | One file, relative to the installed tree, whose presence proves the tree is what the launcher expects: yaac's YAAC.jar, js8spotter's js8spotter.py. The effect check reads it back after the run; `cp -aT` exits 0 on any directory, so without it a tree unit ended `verified: true` with no check at all (issue #27). Required exactly when the block installs a tree. |
 | `expose` | `list[str]` | no | Console-script names from the venv's bin/ to wrap onto the operator's PATH (~/.local/bin). A venv nobody can invoke installs nothing while reporting success. |
@@ -407,6 +407,8 @@ Required by CLAUDE.md. A manifest without these cannot ship.
 | `known_problems` | `str \| None` | no |  |
 | `upstream_url` | `str` | **yes** |  |
 | `upstream_support` | `str \| None` | no |  |
+| `offline` | `str \| None` | no | What works with no internet and what does not, and what must be downloaded or configured ahead of time. Separates internet, a local network and radio connectivity. |
+| `first_task` | `str \| None` | no | One first useful task: the command or action, and the result the operator should see. Only what the docs or a run have shown. |
 
 ### `ProfileManifest`
 
@@ -710,7 +712,7 @@ missing, so a script's exit status is not evidence of anything (D-031).
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `script` | `str` | **yes** | Path of the script, relative to the tree; run as ./<script>. |
+| `script` | `str` | **yes** | Path of the script, relative to the tree; run as ./&lt;script>. |
 | `args` | `list[str]` | no |  |
 | `env` | `dict[str, str]` | no | Upstream's own switches, e.g. SKIP_PYTHON_VENV=1 so CoMaps' script does not pip-install an unpinned protobuf. Never secrets: the plan prints it. |
 | `produces` | `list[str]` | **yes** | Globs relative to the tree; each must match at least one non-empty regular file after the script, or the step fails naming it. |

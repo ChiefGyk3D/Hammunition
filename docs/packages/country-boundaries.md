@@ -20,6 +20,17 @@ Without it, Navit's address search finds almost nothing on a map of one US state
 
 Nothing. It is installed as a dependency of `osm-navit`, in the `navigation` profile.
 
+## Install and launch
+
+- **Installed with the profile:** [`navigation`](../profiles/navigation.md).
+- **Install:** `hammunition install country-boundaries --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - data (Public domain (Natural Earth's terms of use), https://www.naturalearthdata.com/about/terms-of-use/): https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/geojson/ne_10m_admin_0_countries.geojson (13,287,234 bytes)

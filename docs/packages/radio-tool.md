@@ -22,6 +22,17 @@ The manufacturers' update tools run on Windows. On Linux, `qdmr` and `dmrconfig`
 
 The radio's programming cable, and the radio started in its firmware update mode: OpenRTX's user guide says PTT and the side button above it held while switching on for the MD-3x0 radios, the two side buttons below PTT for the GD-77 family, and the red button with P1 for the MD-9600. The account needs access to the raw USB device. A TYT radio in that mode is an STM32 bootloader (0483:df11), and access to it comes from the udev rule the archive's `dfu-util` ships, which this unit installs as a dependency; the `dmr-radio` hardware class records that pair as a firmware target only, never as a rule matched to whatever is attached (D-028). The RD-5R and GD-77 bootloader (15a2:0073) is an identifier the same class carries, for `dialout`. A firmware image for that exact model, and a codeplug backup first, as OpenRTX's guide says.
 
+## Install and launch
+
+- **Installed by name only** — it is in no profile.
+- **Install:** `hammunition install radio-tool --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `radio_tool`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - git (cmake) — https://github.com/v0l/radio_tool at `f9083b6313eed0317694c1caa0814c17de4acb5e`

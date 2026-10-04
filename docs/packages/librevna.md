@@ -21,6 +21,17 @@ The catalog's `nanovna-saver` and `flaa` speak to the NanoVNA and to RigExpert a
 
 A LibreVNA, and access to its raw USB device: see the `librevna` hardware entry, whose identifiers are read from upstream's source and not yet seen on hardware here, so no udev rule is generated from it yet. A calibration kit for the connector type you measure through, and the time to calibrate before measuring.
 
+## Install and launch
+
+- **Installed with the profile:** [`electronics`](../profiles/electronics.md).
+- **Install:** `hammunition install librevna --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `librevna-window`, `LibreVNA-GUI`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - git (qmake6) — https://github.com/jankae/LibreVNA at `v1.6.5` (commit `5fee370d4e56c30efaa0c6040a504bd01a63cc90`)

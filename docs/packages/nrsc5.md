@@ -20,6 +20,17 @@ The catalog had DAB twice (`welle-io`, `dablin`) and HD Radio not at all, and HD
 
 An RTL-SDR dongle and an FM antenna, and the dongle's permissions (the `rtl-sdr` hardware entry's `plugdev` group). A sound device for live listening; `-o file.wav` needs none. A station in range that broadcasts HD Radio: outside North America there is usually none, and nrsc5 reports nothing rather than an error.
 
+## Install and launch
+
+- **Installed with the profile:** [`listening`](../profiles/listening.md).
+- **Install:** `hammunition install nrsc5 --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `nrsc5`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - git (cmake) — https://github.com/theori-io/nrsc5 at `v3.2.0` (commit `a5c09723b135327aeef157770caae9aebf597547`)

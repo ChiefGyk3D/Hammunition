@@ -157,6 +157,7 @@ dmypy.json
 # Docs build output
 # ---------------------------------------------------------------------------
 /site/
+/site-offline/
 docs/_build/
 .docusaurus/
 .cache/

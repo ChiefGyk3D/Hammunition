@@ -20,6 +20,21 @@ It made hardware TNCs optional. A radio, a cheap sound interface and this is a c
 
 Audio in and out to the radio, and a way to key the transmitter -- a serial control line, a GPIO pin on a Pi, or VOX. A configuration file naming your callsign, the audio device and the PTT method: Hammunition writes `/etc/direwolf.conf` with your callsign from station config (`hammunition station set --callsign <yours>`) and the KISS and AGW ports, and leaves the audio device and PTT to you, because they depend on your interface and nothing here can know them. With no callsign set the package installs and the file is reported as not written. Direwolf is an ALSA program: `docs/guides/audio-routing.md` says how to name the radio's sound card in `ADEVICE` and what changes between the `plughw:` and `default` routes on a PipeWire desktop.
 
+## Install and launch
+
+- **Installed with the profile:** [`packet`](../profiles/packet.md).
+- **Install:** `hammunition install direwolf --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+No internet is needed to use it as a packet modem: it is a sound-card TNC, so what it needs is the radio, a sound interface and a way to key the transmitter, which is a radio link and not a network one. Its APRS internet gateway is an optional feature; the example configuration is deliberately not a digipeater or an igate. Ahead of time: set your callsign (`hammunition station set --callsign`), then edit the audio device and PTT method in `/etc/direwolf.conf` for your interface. Nothing here has been run over the air on the field laptop.
+
+## First useful task
+
+Run `direwolf -c /etc/direwolf.conf` (without `-c` it looks only in the current directory and your home directory) after naming your sound card in `ADEVICE`. It prints its audio levels and each packet it decodes as traffic is heard; the levels are where to start when the station hears everyone and is heard by nobody.
+
 ## How it installs
 
 - apt: `direwolf`

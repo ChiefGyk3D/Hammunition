@@ -21,6 +21,17 @@ It is the long-standing open tool for wireless survey and wardriving, and the on
 
 A capture source Kismet has a helper for. For Wi-Fi, an adapter whose driver supports monitor mode: Kismet switches it itself when you add it as a source, and many built-in laptop cards cannot. For Bluetooth, the machine's own adapter works through BlueZ. You must be in the `kismet` group (added by this install; log out and back in first), or run Kismet with sudo, which upstream advises against. Start it with `kismet` in a terminal, open http://localhost:2501, set the login, and add sources under Data Sources -- or name one on the command line, `kismet -c wlan1`. The CatSniffer V3 is not a source in any packaged Kismet yet; see the known problems.
 
+## Install and launch
+
+- **Installed with the profile:** [`rf-security`](../profiles/rf-security.md).
+- **Install:** `hammunition install kismet --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `kismet`

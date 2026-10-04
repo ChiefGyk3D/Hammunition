@@ -20,6 +20,17 @@ Carries `rigctl` and `rigctld`, the command-line and daemon interfaces to hamlib
 
 A CAT interface and access to its serial device -- the `dialout` group. Knowing your radio's hamlib model number, which `rigctl -l` lists.
 
+## Install and launch
+
+- **Installed with the profiles:** [`satellite`](../profiles/satellite.md), [`station`](../profiles/station.md).
+- **Install:** `hammunition install libhamlib-utils --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `rigctl-dummy`.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `libhamlib-utils`

@@ -52,7 +52,8 @@ def rendered() -> dict[str, str]:
             "categories"
         ]
     }
-    rendered: dict[str, str] = gen.render(catalog, vocabulary)  # type: ignore[attr-defined]
+    profiles = load_profiles(REPO_ROOT / "catalog" / "profiles", catalog)
+    rendered: dict[str, str] = gen.render(catalog, vocabulary, profiles)  # type: ignore[attr-defined]
     return rendered
 
 

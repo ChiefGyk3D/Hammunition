@@ -20,6 +20,17 @@ APRS is the network that answers "where is everyone" during an event or an emerg
 
 A callsign, which APRS transmits in clear and which identifies you. RF operation needs a TNC or a soundmodem such as Direwolf, and access to the serial or audio device. Maps are the real setup: Xastir supports many formats and ships with very little, so obtaining map data for your area is a step nothing does for you -- and the project's own website, which is where that documentation lived, is currently unreachable (see below).
 
+## Install and launch
+
+- **Installed with the profile:** [`packet`](../profiles/packet.md).
+- **Install:** `hammunition install xastir --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `xastir`

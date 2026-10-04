@@ -22,6 +22,17 @@ It is the entry point to aeronautical monitoring and it works with the cheapest 
 
 An SDR (RTL-SDR, Airspy or anything SoapySDR reaches) and a VHF antenna. Install libacars first or the application layer is left undecoded — the catalog sequences that for you.
 
+## Install and launch
+
+- **Installed with the profile:** [`listening`](../profiles/listening.md).
+- **Install:** `hammunition install acarsdec --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `acarsdec`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - git (cmake) — https://github.com/f00b4r0/acarsdec at `v4.6`

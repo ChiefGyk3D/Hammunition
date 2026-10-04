@@ -22,6 +22,17 @@ A node is what makes a station useful to other people rather than only to you. I
 
 A configured AX.25 stack, and `ax25d` set up to hand inbound connections to uronode. Your callsign appears in that configuration and in what callers see: Hammunition writes it, with your node alias, into `/etc/ax25/uronode.conf` from station config (`hammunition station set --callsign <yours> --node-alias <alias>`); `ax25d.conf` is still yours. With either value unset the package installs and the file is reported as not written.
 
+## Install and launch
+
+- **Installed with the profile:** [`packet`](../profiles/packet.md).
+- **Install:** `hammunition install uronode --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `uronode`

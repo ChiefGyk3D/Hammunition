@@ -2422,6 +2422,25 @@ class Documentation(Strict):
     known_problems: str | None = None
     upstream_url: str
     upstream_support: str | None = None
+    # The two fields below answer the wiki's per-application questions (issue
+    # #298). Optional, because only a measured or read-from-the-guides answer
+    # belongs here: an unwritten field renders as "not yet documented", never
+    # as an invented one.
+    offline: str | None = Field(
+        default=None,
+        description=(
+            "What works with no internet and what does not, and what must be "
+            "downloaded or configured ahead of time. Separates internet, a "
+            "local network and radio connectivity."
+        ),
+    )
+    first_task: str | None = Field(
+        default=None,
+        description=(
+            "One first useful task: the command or action, and the result the "
+            "operator should see. Only what the docs or a run have shown."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------

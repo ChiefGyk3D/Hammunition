@@ -115,3 +115,21 @@ documentation:
   upstream_support: >-
     Issues on the GitHub repository. `hamhill check --fetch` exercises every
     configured source and is the first thing to run when a panel is blank.
+  offline: >-
+    Hill needs no internet to run. A collector fetches its sources on its own
+    schedule and the page reads the stored snapshots, so with the WAN unplugged
+    the parts that need no internet keep working: the clocks, band plan, pocket
+    references, CW trainer and shack tools. Space weather, spots and NWS data
+    are the fetched tiers; they are not produced locally and go stale without a
+    connection. It serves 127.0.0.1:8073 on this machine only, so it needs no
+    local network, no radio and no GPS (position comes from the browser's
+    geolocation). Ahead of time: install while online, set your callsign in
+    /etc/hammunition-hill/config.toml, and open it once online so the fetched
+    panels have something to show. What a fetched panel shows when it has been
+    offline for days is not measured here.
+  first_task: >-
+    After the install, open http://127.0.0.1:8073/ in a browser on this machine
+    (`systemctl status hammunition-hill` should say active). You should see the
+    dashboards with the clocks and band plan filled in. If a panel is blank, run
+    `hamhill check --fetch`, which exercises every configured source and says
+    which one fails.

@@ -21,6 +21,17 @@ A map shows where things are; a POI file lets the phone find them by name or kin
 
 `osm-regions` with at least one region set in station config, and the archive's `osmosis` and `libmapsforge-java`; all install first. The POI writer is downloaded once from Maven Central (18.8 MB) and checked against the sha256 above. With no regions set this unit is deferred by name.
 
+## Install and launch
+
+- **Installed with the profile:** [`phone-maps`](../profiles/phone-maps.md).
+- **Install:** `hammunition install mapsforge-poi --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - converted from osm-regions by mapsforge-poi (ODbL-1.0, https://www.openstreetmap.org/copyright), running `mapsforge-poi-writer-0.25.0-jar-with-dependencies.jar` fetched from https://repo1.maven.org/maven2/org/mapsforge/mapsforge-poi-writer/0.25.0/mapsforge-poi-writer-0.25.0-jar-with-dependencies.jar (18827962 bytes, LGPL-3.0), sha256 `85dd23488511f51a710139dffc8c622d184ea93e817c4ec27dde1c222b7432a7`, pinned by Hammunition; a signature is published at https://repo1.maven.org/maven2/org/mapsforge/mapsforge-poi-writer/0.25.0/mapsforge-poi-writer-0.25.0-jar-with-dependencies.jar.asc and not verified

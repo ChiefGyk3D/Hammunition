@@ -20,6 +20,17 @@ It turns the beacons into a propagation instrument rather than a curiosity. Tune
 
 An accurate clock. The whole thing is a schedule computation, so a clock a minute out tells you confidently about the wrong beacon. Run NTP or chrony. A receiver on the five frequencies above, and preferably CW ears -- the beacons send their callsign then four dashes at descending power.
 
+## Install and launch
+
+- **Installed with the profiles:** [`morse`](../profiles/morse.md), [`propagation`](../profiles/propagation.md).
+- **Install:** `hammunition install ibp --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `ibp`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - source (make) from http://www.pa3fwm.nl/software/ibp/ibp-0.21.tgz

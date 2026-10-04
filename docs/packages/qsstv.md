@@ -20,6 +20,17 @@ SSTV is the mode where the result is a picture, which makes it the one people sh
 
 Receiver audio into a sound card, and for transmit, audio out plus PTT through hamlib, flrig or a serial line. The sound card sample rate matters: an uncalibrated card slants the picture, which is what the slant correction exists for.
 
+## Install and launch
+
+- **Installed with the profile:** [`digital-modes`](../profiles/digital-modes.md).
+- **Install:** `hammunition install qsstv --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `qsstv`

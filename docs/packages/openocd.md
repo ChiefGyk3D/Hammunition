@@ -20,6 +20,17 @@ It is the free implementation everything else assumes. A vendor IDE will flash t
 
 A debug adapter and a configuration naming it and the target. Access comes from the `programmer` hardware class — plugdev and dialout — and openocd ships its own udev rules covering 100 identifiers, the largest set of the five programmer packages.
 
+## Install and launch
+
+- **Installed with the profile:** [`electronics`](../profiles/electronics.md).
+- **Install:** `hammunition install openocd --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `openocd`

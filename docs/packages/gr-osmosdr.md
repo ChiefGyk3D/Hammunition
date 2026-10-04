@@ -21,6 +21,17 @@ Without it, every SDR needs its own source block and every flow graph is tied to
 
 GNU Radio, and the driver library for whatever hardware you have -- this is a shim over those libraries, not a replacement for them.
 
+## Install and launch
+
+- **Installed with the profile:** [`sdr`](../profiles/sdr.md).
+- **Install:** `hammunition install gr-osmosdr --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `osmocom_fft-spectrum`.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `gr-osmosdr`

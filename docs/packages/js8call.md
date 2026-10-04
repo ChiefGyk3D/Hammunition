@@ -21,6 +21,17 @@ It is the practical choice for keyboard-to-keyboard conversation and store-and-f
 
 Rig control via hamlib or flrig, and correctly routed sound-card audio between the radio and the computer, with the clock within about a second as for FT8. `docs/guides/digital-modes.md` walks through all three; `docs/guides/audio-routing.md` covers the audio path.
 
+## Install and launch
+
+- **Installed with the profile:** [`digital-modes`](../profiles/digital-modes.md).
+- **Install:** `hammunition install js8call --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `js8call`.
+- **The install needs the network to:** your distribution's package archive; the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `js8call` — *on linuxmint, ubuntu, pop; version 22.3, 24.04*

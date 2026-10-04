@@ -22,6 +22,17 @@ Routino, the other router here, treats an alpine scramble like a footpath and ig
 
 Java (default-jre-headless, installed with it). Routing files from `brouter-segments`, which needs your map regions set in station config. Start QMapShack from the `qmapshack-offline` launcher, which registers this BRouter in QMapShack's settings, then choose BRouter in QMapShack's Routing dock.
 
+## Install and launch
+
+- **Installed with the profile:** [`navigation`](../profiles/navigation.md).
+- **Install:** `hammunition install brouter --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - prebuilt zip from https://github.com/abrensch/brouter/releases/download/v1.7.10/brouter-1.7.10.zip

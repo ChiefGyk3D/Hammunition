@@ -22,6 +22,17 @@ FT8 is the most-used mode on HF, and this is the reference implementation. It ma
 
 Accurate system clock (within about a second), CAT rig control, and audio routed both ways between radio and computer. All three, and the first FT8 contact, are walked through in `docs/guides/digital-modes.md`; the audio path in `docs/guides/audio-routing.md`.
 
+## Install and launch
+
+- **Installed with the profile:** [`digital-modes`](../profiles/digital-modes.md).
+- **Install:** `hammunition install wsjtx --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `wsjtx`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - git (cmake) — https://github.com/WSJTX/wsjtx at `v3.0.2`

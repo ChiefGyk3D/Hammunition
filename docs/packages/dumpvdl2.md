@@ -23,6 +23,17 @@ VDL2 carries most of the datalink traffic that plain ACARS used to, so in much o
 
 An SDR and a VHF antenna. libacars must be installed first for application decoding, which the catalog sequences. The aircraft-registration lookup needs a Basestation-format database file you supply yourself; upstream documents where to get one.
 
+## Install and launch
+
+- **Installed with the profile:** [`listening`](../profiles/listening.md).
+- **Install:** `hammunition install dumpvdl2 --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `dumpvdl2`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - git (cmake) — https://github.com/szpajder/dumpvdl2 at `v2.7.0`

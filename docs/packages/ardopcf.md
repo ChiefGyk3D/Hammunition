@@ -21,6 +21,17 @@ It is the open path to Winlink over HF. Without an HF modem, Pat can reach a gat
 
 An HF transceiver with audio in and out and PTT, and a Winlink client such as Pat pointed at the modem's TCP port. A Winlink account for anything beyond testing.
 
+## Install and launch
+
+- **Installed with the profile:** [`packet`](../profiles/packet.md).
+- **Install:** `hammunition install ardopcf --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `ardopcf`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - git (make) — https://github.com/pflarue/ardop at `1.0.4.1.3`

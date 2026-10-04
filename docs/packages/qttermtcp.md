@@ -21,6 +21,17 @@ It is the client for the node LinBPQ runs. Where `linpac` connects to a callsign
 
 A node to connect to and its host and port. Your callsign, because the node asks for it at login. Nothing local: this needs no AX.25 stack and no radio on the machine it runs on, which is the point.
 
+## Install and launch
+
+- **Installed with the profile:** [`packet`](../profiles/packet.md).
+- **Install:** `hammunition install qttermtcp --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `qttermtcp`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - git (qmake) — https://github.com/g8bpq/QtTermTCP at `0.81`

@@ -20,6 +20,17 @@ ebook2cw covers the same ground with more features and MP3 output; cwwav is smal
 
 None to generate a file. Something to play it with.
 
+## Install and launch
+
+- **Installed with the profile:** [`morse`](../profiles/morse.md).
+- **Install:** `hammunition install cwwav --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `cwwav`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - git (make) — https://github.com/oyvholm/cwwav at `0.4.1`

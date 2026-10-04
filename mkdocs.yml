@@ -113,6 +113,23 @@ nav:
       - The projects we install: projects.md
       - Credits: credits.md
   - Installation: getting-started/installation.md
+  - Suite:
+      - suite/index.md
+      - Hammunition (engine and catalog): suite/hammunition.md
+      - Tray: suite/tray.md
+      - Hill: suite/hill.md
+      - Bunker: suite/bunker.md
+      - Console: suite/console.md
+      - GPS Tether: suite/gps-tether.md
+  - EMCOMM:
+      - emcomm/index.md
+      - Preparation checklist: emcomm/preparation-checklist.md
+      - Offline data: emcomm/offline-data.md
+      - Communications: emcomm/communications.md
+      - Backup and recovery: emcomm/backup-and-recovery.md
+      - Without internet: emcomm/no-internet.md
+      - Quick reference: emcomm/quick-reference.md
+  - Offline docs: offline/index.md
   - Profiles:
       - profiles/index.md
       - station: profiles/station.md
@@ -285,3 +302,6 @@ nav:
       - Continuous integration: contributing/ci.md
       - Releasing: contributing/releasing.md
       - The docs sweep: contributing/docs-sweep.md
+      - Writing and publishing the docs: contributing/documentation.md
+      - "Template: an application": contributing/template-application.md
+      - "Template: a suite project": contributing/template-suite-project.md

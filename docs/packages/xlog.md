@@ -20,6 +20,17 @@ It is the log for an operator who wants a log rather than a station management s
 
 Nothing to start. DXCC lookup uses cty.dat, which the package ships; keeping it current is a manual step and one AHRL automated by copying a fresh file into six directories.
 
+## Install and launch
+
+- **Installed with the profile:** [`logging`](../profiles/logging.md).
+- **Install:** `hammunition install xlog --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `xlog`

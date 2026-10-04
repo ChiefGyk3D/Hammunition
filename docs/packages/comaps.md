@@ -21,6 +21,17 @@ One program that finds an address and routes to it offline, with modern renderin
 
 Map regions set in station config (`hammunition station set --map-regions ...`) and `comaps-maps` installed for them; without maps it shows only the World overview. Start it from the menu entry "CoMaps with your offline maps", which runs `hammunition maps comaps`.
 
+## Install and launch
+
+- **Installed with the profile:** [`navigation`](../profiles/navigation.md).
+- **Install:** `hammunition install comaps --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `comaps-offline`, `CoMaps`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - git (cmake) — https://codeberg.org/comaps/comaps.git at `v2026.08.31-14` (commit `72632e4de65a98dfed827d8e447f0287168639d0`); with submodules at their recorded commits, a hash-pinned build Python, upstream's `configure.sh` first, 3 file(s) the install rule leaves out

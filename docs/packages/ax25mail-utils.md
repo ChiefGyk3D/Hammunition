@@ -22,6 +22,17 @@ Packet BBS forwarding is how mail moved around amateur networks before Winlink, 
 
 A configured AX.25 port and a BBS to forward with, which means an agreement with its operator: forwarding is a two-sided arrangement, not something you switch on. Note that `fbb`, the BBS itself, is NOT in Debian 13, Kali or Parrot -- only Ubuntu 26.04 and Mint carry it (measured 2026-08-28) -- so on the primary target these utilities talk to somebody else's BBS.
 
+## Install and launch
+
+- **Installed with the profile:** [`packet`](../profiles/packet.md).
+- **Install:** `hammunition install ax25mail-utils --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `ax25mail-utils`

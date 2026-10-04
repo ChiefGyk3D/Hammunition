@@ -21,6 +21,21 @@ A map anyone can open in a browser, with no program to learn, and no network: st
 
 `osm-regions` with at least one region set in station config, `vector-map-kit`, and the archive's `tilemaker` 3.0 or newer and `gdal-bin`; all install first. With no regions set this unit is deferred by name. Ubuntu 24.04 and the releases built on it carry tilemaker 2.4, which cannot write PMTiles; the plan defers this unit there by name.
 
+## Install and launch
+
+- **Installed with the profile:** [`navigation`](../profiles/navigation.md).
+- **Install:** `hammunition install osm-pmtiles --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+The tiles are built on this machine from the regions you installed and served with no network by `hammunition reference serve` at http://127.0.0.1:8480/map/ , on this machine only. The page loads nothing from anywhere else. Your position appears on it only while the GPS tether runs. Not yet looked at on the field laptop's own browser for the infrastructure layer.
+
+## First useful task
+
+Run `hammunition reference serve` and open http://127.0.0.1:8480/map/ ; your installed regions are drawn, and layers written by `hammunition maps infra` are listed beside the map with a show/hide box.
+
 ## How it installs
 
 - converted from osm-regions by tilemaker-pmtiles (ODbL-1.0, https://www.openstreetmap.org/copyright)

@@ -20,6 +20,17 @@ Draws every PipeWire audio (and MIDI and video) node as a box -- the radio's USB
 
 A desktop session running PipeWire, which is what every supported target uses for desktop audio. The radio's sound interface plugged in and on, so it appears as a node. The audio-routing guide (docs/guides/audio-routing.md) is the walk-through this tool supports.
 
+## Install and launch
+
+- **Installed with the profile:** [`digital-modes`](../profiles/digital-modes.md).
+- **Install:** `hammunition install qpwgraph --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `qpwgraph`

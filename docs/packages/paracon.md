@@ -21,6 +21,17 @@ It is the packet terminal that needs nothing from the kernel. Direwolf's AGW por
 
 Direwolf (or another AGWPE server -- ldsped, LinBPQ 6.0.24.73 or later) running with its AGW port enabled, on this machine or one reachable over the network. Python 3.9 or later, which every target ships. Your callsign goes into Paracon's own config on first run; it is not templated from the station file (D-035) yet.
 
+## Install and launch
+
+- **Installed with the profile:** [`packet`](../profiles/packet.md).
+- **Install:** `hammunition install paracon --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `paracon`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - prebuilt executable from https://github.com/mfncooper/paracon/releases/download/v1.3.0/paracon_1.3.0.pyz

@@ -142,6 +142,19 @@ Two fields do the real work and both are commonly skimped:
   and an operator who has not been told will look in the wrong place for an
   evening.
 
+Two more fields make the page usable in the field, and are filled where they
+can be written truthfully (the [application template](template-application.md)
+has the full list):
+
+* **`offline`** says what works with no internet, what needs a local service or
+  a radio, and what has to be fetched or configured ahead of time. Keep the
+  three apart: a program that runs offline still does nothing without its radio.
+* **`first_task`** is one useful first thing to do and what you should see. Only
+  commands and menu entries that exist; say what was not tried on hardware.
+
+A manifest without them renders "Not yet documented" in that section, honestly;
+the gap is visible, not hidden.
+
 Write nothing you have not checked. An unverified known problem is worse than
 none, because it sends people to inspect something that was never wrong.
 

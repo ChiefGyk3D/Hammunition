@@ -20,6 +20,17 @@ The PlutoSDR and the ADALM2000 are IIO devices, reached over USB or the network 
 
 An IIO device, attached over USB or reachable on the network (a Pluto answers at `ip:192.168.2.1` over its USB network interface by default, per Analog Devices' documentation; not checked here). USB access needs a udev rule, which the plutosdr hardware entry does not yet carry: its identifier is unconfirmed.
 
+## Install and launch
+
+- **Installed with the profile:** [`electronics`](../profiles/electronics.md).
+- **Install:** `hammunition install libiio-utils --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `iio_scan`.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `libiio-utils`

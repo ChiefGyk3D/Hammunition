@@ -20,6 +20,17 @@ It is SPLAT! rebuilt to run unattended: every input is a command-line argument r
 
 Terrain from `splat-sdf` (or SPLAT Data Files of your own); without it every square reads as sea level. Pass the directory with `-sdf`: `hammunition maps splat` prints it. The coverage guide (docs/guides/propagation.md, "Terrain for coverage plots") has a complete command. ImageMagick or any image viewer that reads PPM to look at the result.
 
+## Install and launch
+
+- **Installed with the profile:** [`antenna`](../profiles/antenna.md).
+- **Install:** `hammunition install signal-server --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `signalserver`, `signalserverHD`, `signalserverLIDAR`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - git (cmake) — https://github.com/W3AXL/Signal-Server at `7f6242afb3685ff31d9ad14062b80d692ee56327`

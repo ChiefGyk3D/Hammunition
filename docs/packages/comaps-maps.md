@@ -20,6 +20,17 @@ CoMaps reads its own format and nothing else, so this is how its search and rout
 
 Map regions set in station config with Geofabrik's region paths, for example `hammunition station set --map-regions north-america/us/vermont`. With none set this unit is deferred by name.
 
+## Install and launch
+
+- **Installed with the profile:** [`navigation`](../profiles/navigation.md).
+- **Install:** `hammunition install comaps-maps --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - CoMaps' own maps for the regions in station config, each checked by the SHA-1 and size in `catalog/data/comaps-pins.yaml` (ODbL-1.0, https://www.openstreetmap.org/copyright)

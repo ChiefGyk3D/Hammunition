@@ -21,6 +21,17 @@ It is the free answer to VARA. Pat already speaks VARA HF's interface, and pat's
 
 An SSB transceiver with audio in and out, and a way to key it: hamlib (`-R` model and `-A` device), serial RTS (`-P serial -A /dev/ttyUSB0`, DigiRig-style), a CM108 sound chip's GPIO (`-P cm108`), or VOX. Pick the sound device with `-i` and `-o` (`mercury -z` lists them). A client: Pat's `varahf` transport, whose default address `localhost:8300` is Mercury's default port. The callsign comes from the client (Pat sends `MYCALL` with yours), so Mercury itself needs no station file. Settings can also live in a `mercury.ini` in the working directory, or one named with `-C`; upstream's example is in the source tree as `mercury.ini.example`.
 
+## Install and launch
+
+- **Installed with the profile:** [`packet`](../profiles/packet.md).
+- **Install:** `hammunition install mercury --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `mercury`.
+- **The install needs the network to:** your distribution's package archive; the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `mercury` — *on kali*

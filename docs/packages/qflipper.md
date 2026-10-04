@@ -20,6 +20,17 @@ It is the normal, supported way to manage a Flipper from a computer, and the one
 
 A Flipper Zero, and membership of `dialout` and `plugdev` — the same groups the `flipper-zero` hardware entry requests. The shipped udev rule handles the permissions once you are in those groups.
 
+## Install and launch
+
+- **Installed by name only** — it is in no profile.
+- **Install:** `hammunition install qflipper --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `qflipper`

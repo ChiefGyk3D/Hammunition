@@ -21,6 +21,21 @@ A road navigator does not know trails and has no terrain. For a hike, a search, 
 
 Your map regions set in station config, and the `navigation` profile's map units installed, so there are maps, elevation and a routing database to show; start it from the `qmapshack-offline` launcher, which writes their directories into QMapShack's own configuration first (`mapPath` and `demPaths` under [Canvas], `routino\paths` under [Route]) and, when `brouter` and its routing files are installed, points QMapShack's local BRouter at them on 127.0.0.1 (the `brouter\*` keys under [Route]); choose BRouter in the Routing dock to use it. For your position, gpsd with a receiver that has a fix, and the `gps-tether` launcher running, which makes NMEA from gpsd's position and serves it on 127.0.0.1 port 10110 for QMapShack's Realtime source "GPS TCP/IP" to take. A gpsd on another machine (a Pi, a phone, a shack computer) is read with `hammunition maps gps-tether --gpsd HOST[:PORT]`, and `--port N` serves another port; the offline navigation guide's section 12 has each setup.
 
+## Install and launch
+
+- **Installed with the profile:** [`navigation`](../profiles/navigation.md).
+- **Install:** `hammunition install qmapshack --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `qmapshack-offline`, `gps-tether`.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+Maps, routing and terrain are built on this machine at install time and used with no network afterwards. A live position needs the GPS tether (`gps-tether`) and a receiver with a fix. Drawing the official topo mosaics and the infrastructure layers in QMapShack is not yet measured on the bench. Ahead of time: install the `navigation` profile online and open it once at home.
+
+## First useful task
+
+Start it from the menu entry the install places, then in the Realtime dock add a source of type *GPS TCP/IP* on 127.0.0.1 port 10110 while `gps-tether` runs; the position appears on your map. docs/guides/offline-navigation.md section 9 walks the rest.
+
 ## How it installs
 
 - apt: `qmapshack`

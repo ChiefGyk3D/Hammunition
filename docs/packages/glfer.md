@@ -20,6 +20,17 @@ QRSS operating on the LF and MF bands uses milliwatts and relies on visual detec
 
 A receiver with stable frequency reference and audio into the sound card. Frequency drift matters more than sensitivity for this mode.
 
+## Install and launch
+
+- **Installed with the profile:** [`digital-modes`](../profiles/digital-modes.md).
+- **Install:** `hammunition install glfer --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Commands it leaves on your PATH: `glfer`.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - source (autotools) from https://www.qsl.net/in3otd/glfer-0.4.2.tar.gz

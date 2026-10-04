@@ -21,6 +21,21 @@ QMapShack and the browser map have no gpsd client of their own. The tether is th
 
 gpsd running with a receiver that has a fix (the `station` profile's gpsd is socket-activated; the first client wakes it). Nothing in station config. The service starts at your next login; to start it now run `systemctl --user start hammunition-gps-tether.service` (the install does not, and says so in the plan).
 
+## Install and launch
+
+- **Installed with the profile:** [`navigation`](../profiles/navigation.md).
+- **Install:** `hammunition install gps-tether --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
+
+## Offline use
+
+Entirely local: it needs no internet and no local network, only gpsd on this machine and a receiver with a fix. Its two ports, 127.0.0.1:10110 (NMEA) and 127.0.0.1:10111 (the browser map's position stream), are loopback only. The only radio link involved is the GNSS signal itself, so a receiver indoors or parked with `hammunition hardware park` gives no position. Ahead of time: install it, run `hammunition hardware apply` if you use CoMaps, and confirm `cgps` shows a fix before you leave. Not yet measured: the service started from this unit on a real machine, and its start at login after a reboot.
+
+## First useful task
+
+Start the service now with `systemctl --user start hammunition-gps-tether.service` (the install enables it for your next login), then run `nc 127.0.0.1 10110`. With a fix you should see `$GPRMC` and `$GPGGA` sentences; with no fix it sends nothing and says gpsd has sent no position with a fix. In QMapShack add a Realtime source of type *GPS TCP/IP* on host 127.0.0.1, port 10110.
+
 ## How it installs
 
 - prebuilt tarball from https://github.com/ChiefGyk3D/hammunition-gps-tether/archive/refs/tags/v0.1.1.tar.gz

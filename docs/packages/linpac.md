@@ -21,6 +21,17 @@ It is the classic packet terminal and still the most comfortable way to work a B
 
 A configured AX.25 stack -- ax25-tools with a port defined in `/etc/ax25/axports`, which Hammunition appends when your callsign is set -- and a TNC or soundmodem behind it. LinPac's own configuration is made by LinPac: the first time you run it, it asks for your callsign, your home BBS with its SSID, the port to reach it on, any digipeaters and the BBS's hierarchical address, and builds `~/LinPac` from the answers. Hammunition deliberately writes nothing there (Q-022 #1, measured 2026-09-29 from linpac 0.28's startup script): the questions run only when `~/LinPac` does not exist, so a file placed there in advance would skip them and leave LinPac without the macros and tables it copies in, and four of the five answers are not station values.
 
+## Install and launch
+
+- **Installed with the profile:** [`packet`](../profiles/packet.md).
+- **Install:** `hammunition install linpac --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `linpac`

@@ -20,6 +20,17 @@ To reach a radio's CAT port, a TNC, a GPS or a rotator controller from a differe
 
 The serial device (use its /dev/serial/by-id/ path) and its baud rate from the radio's menu, written as a `connection` in /etc/ser2net.yaml (`man ser2net.yaml`), then `sudo systemctl restart ser2net`. The program on the far end needs a way to open a TCP serial port: many take a host and port directly; others need a virtual serial device on the client side (`socat` with a pty, for example). The rig-control guide's rule applies unchanged -- exactly one program opens the radio's port, and here that program is ser2net.
 
+## Install and launch
+
+- **Installed by name only** — it is in no profile.
+- **Install:** `hammunition install ser2net --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `ser2net`

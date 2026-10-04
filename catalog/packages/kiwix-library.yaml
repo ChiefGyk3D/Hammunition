@@ -68,3 +68,17 @@ documentation:
   upstream_support: >-
     The Kiwix project (https://kiwix.org/) for the files; each book's own
     publisher for its content.
+  offline: >-
+    The books download at install time (from Kiwix, or a LAN mirror) and are
+    read with no network. Which books are installed is your choice in station
+    config (`--reference-books`); `hammunition reference books` lists them with
+    size and licence. Books are dated snapshots, not live pages. `hammunition
+    reference serve` listens on 127.0.0.1 only; reading from another machine
+    needs an SSH forward, which is a local-network step and not part of the
+    books.
+  first_task: >-
+    Run `hammunition reference books`, pick ids such as
+    `ham.stackexchange.com_en_all`, `hammunition station set --reference-books
+    ID,ID`, then `hammunition install kiwix-library`. Afterwards `hammunition
+    reference serve` and open http://127.0.0.1:8480/ ; each installed book is
+    listed and *Search every book* searches them all.

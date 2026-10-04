@@ -21,6 +21,17 @@ Every mapping program and every receiver has a favourite format and it is never 
 
 A file to convert, or a receiver on serial or USB and access to its device -- the `dialout` group for a serial adapter. Knowing which format your receiver actually speaks, which is not always the one its manual claims.
 
+## Install and launch
+
+- **Installed with the profile:** [`station`](../profiles/station.md).
+- **Install:** `hammunition install gpsbabel --dry-run`, read the plan, then run it without `--dry-run`.
+- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
+- **The install needs the network to:** your distribution's package archive.
+
+## Offline use
+
+*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
+
 ## How it installs
 
 - apt: `gpsbabel`
