@@ -2036,6 +2036,18 @@ class ConfigFile(Strict):
         return self
 
     @model_validator(mode="after")
+    def _mode_is_a_plain_permission(self) -> ConfigFile:
+        # The mode reaches os.chmod and `install -m` as written, so a manifest
+        # (a community or local one included) must not be able to ask for a
+        # setuid, setgid or sticky bit or a world-writable file.
+        if not re.fullmatch(r"0?[0-7]{3}", self.mode) or int(self.mode, 8) & 0o7002:
+            raise ManifestError(
+                f"{self.path}: mode {self.mode!r} must be three octal digits with no "
+                f"setuid, setgid or sticky bit and no world write (for example 0644)"
+            )
+        return self
+
+    @model_validator(mode="after")
     def _skip_only_when_appending(self) -> ConfigFile:
         if self.skip_if_present and not self.append:
             raise ManifestError(

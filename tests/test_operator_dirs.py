@@ -191,7 +191,7 @@ def test_a_root_owned_ancestor_of_staging_fails_the_region_with_the_fix(
     from hammunition.manifest.schema import DerivedDataInstall
     from test_regions_backend import VT, _AsOperator, _install_region, _stock, navit_manifest
 
-    fake, home, _ = operator
+    _, home, _ = operator
     left = home / ".cache" / "hammunition"
     left.mkdir(parents=True)
     _root_owned(monkeypatch, left)
@@ -215,7 +215,6 @@ def test_a_root_owned_ancestor_of_staging_fails_the_region_with_the_fix(
     assert "FAILED" in convert.perform()
     assert f"sudo chown -R operator: {left}" in backend.ledger.failed[VT.slug]
     assert calls == []
-    del fake
 
 
 # ---------------------------------------------------------------------------

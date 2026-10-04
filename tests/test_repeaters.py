@@ -246,9 +246,9 @@ def test_the_navit_textfile_has_one_labelled_tower_per_repeater() -> None:
     text = repeaters.navit_text((_row(), _row(callsign="N0TST", label='a"b')))
     assert text.splitlines() == [
         '-89.64360 39.80170 type=poi_custom0 label="N0CALL 146.940" '
-        'icon_src="/usr/share/navit/icons/tower.png"',
+        + 'icon_src="/usr/share/navit/icons/tower.png"',
         '-89.64360 39.80170 type=poi_custom0 label="N0TST 146.940" '
-        'icon_src="/usr/share/navit/icons/tower.png"',
+        + 'icon_src="/usr/share/navit/icons/tower.png"',
     ]
 
 
@@ -302,7 +302,8 @@ def test_every_poi_is_found_by_qmapshacks_own_query_in_exactly_one_tile(tmp_path
         assert _tiles_holding(db, row.lat, row.lon, number) == 1, row
     meta = dict(db.execute("SELECT name, value FROM metadata").fetchall())
     min_lat, min_lon, max_lat, max_lon = (float(x) for x in meta["bounds"].split(","))
-    assert min_lat < 38.55 < 39.8017 < max_lat and min_lon < -89.6436 < -60.1 < max_lon
+    assert min_lat < 38.55 and max_lat > 39.8017
+    assert min_lon < -89.6436 and max_lon > -60.1
     assert meta["comment"] == "Layer. comment"
     assert meta["writer"] == "hammunition"
     cats = db.execute("SELECT id, name, parent FROM poi_categories ORDER BY id").fetchall()
