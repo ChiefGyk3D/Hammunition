@@ -14,7 +14,11 @@ import pytest
 from .helpers import SRC_DIR, TESTS_DIR, load, make_shim
 from .pty_driver import PtyProcess
 
-pytestmark = pytest.mark.pty
+pytestmark = [
+    pytest.mark.pty,
+    # The console refuses root by design; the distro containers run the suite as root.
+    pytest.mark.skipif(os.geteuid() == 0, reason="the console refuses to run as root"),
+]
 
 
 def env_for(tmp: Path) -> dict[str, str]:
