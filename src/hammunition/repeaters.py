@@ -66,6 +66,7 @@ __all__ = [
     "LAYERS",
     "OPEN_REPEATER",
     "OSM",
+    "REPEATERBOOK_API",
     "REPEATERBOOK_CSV",
     "REPEATERBOOK_GPX",
     "SUFFIXES",
@@ -109,6 +110,8 @@ REPEATERBOOK_GPX = "repeaterbook-gpx"
 REPEATERBOOK_CSV = "repeaterbook-csv"
 HEARHAM = "hearham-json"
 HAND = "hand-csv"
+# RepeaterBook through its API with the operator's own key (D-081).
+REPEATERBOOK_API = "repeaterbook-api"
 # D-074's sources, each read into its own layer (``repeater_sources``).
 OPEN_REPEATER = "open-repeater-json"
 OSM = "osm-extract"
@@ -141,6 +144,7 @@ LAYERS: dict[str, str] = {
     "osm": "repeaters-osm",
     "etcc": "repeaters-etcc",
     "brandmeister": "repeaters-brandmeister",
+    "repeaterbook": "repeaters-repeaterbook",
     "aprs-heard": "repeaters-aprs-heard",
 }
 #: What this station heard is evidence, not a directory: never in the
@@ -194,6 +198,8 @@ POI_CATEGORY = "Amateur radio repeaters"
 SOURCE_NAMES = {
     REPEATERBOOK_GPX: "RepeaterBook export. Data courtesy of RepeaterBook.com",
     REPEATERBOOK_CSV: "RepeaterBook export. Data courtesy of RepeaterBook.com",
+    REPEATERBOOK_API: "RepeaterBook (https://www.repeaterbook.com) API, your own key, personal "
+    "use. Data courtesy of RepeaterBook.com",
     HEARHAM: "hearham.com, unverified",
     HAND: "your own list",
     ACMA: "ACMA Register of Radiocommunications Licences. Based on Australian Communications and Media Authority information",
@@ -1345,7 +1351,11 @@ def fetch_hearham(
 
 
 def fetch_list(
-    url: str, *, timeout: float = 60.0, limit: int, user_agent: str = "hammunition"
+    url: str,
+    *,
+    timeout: float = 60.0,
+    limit: int,
+    user_agent: str = "hammunition",
 ) -> tuple[bytes, str, datetime]:
     """A list fetched on the operator's request (hearham, D-064; the ETCC
     and Brandmeister, D-074): the bytes as served, their observed sha256 and

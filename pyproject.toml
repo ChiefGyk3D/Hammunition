@@ -76,6 +76,12 @@ pretty = true
 module = ["yaml.*"]
 ignore_missing_imports = true
 
+# The repeaterbook-client unit's own venv carries these, never the engine's
+# (src/hammunition/repeaterbook_runner.py runs under that venv's python, D-081).
+[[tool.mypy.overrides]]
+module = ["anyio.*", "loguru.*", "pycountry.*", "repeaterbook.*"]
+ignore_missing_imports = true
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_typed = true

@@ -105,7 +105,13 @@ _NOT_TEMPLATES = _MAP_FIELDS | {
     "topo_radius_km",
     "topo_regions",
     "topo_all",
+    "secrets_doppler_project",
+    "secrets_doppler_config",
 }
+
+#: A Doppler project or config name: a slug that cannot read as an option
+#: (it is an argv element of the one `doppler` command, D-081).
+DOPPLER_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 #: Where QMapShack's elevation is drawn from (D-068, amended 2026-10-01):
 #: Copernicus GLO-30, a surface model, by default; USGS 3DEP bare earth by
@@ -228,6 +234,11 @@ class Station:
     topo_all: bool | None = None
     """Every sheet of every region, as before the bound; always disclosed with
     its size and asked for by a typed ``yes``."""
+    secrets_doppler_project: str | None = None
+    """The Doppler project a keyed download's secret is read from
+    (:func:`hammunition.secrets.resolve_secret`, D-081). A name, never a token."""
+    secrets_doppler_config: str | None = None
+    """The Doppler config within that project (``dev``, ``prd``). A name."""
 
     def __post_init__(self) -> None:
         if self.callsign is not None:
@@ -360,6 +371,16 @@ class Station:
         object.__setattr__(self, "topo_regions", topo)
         if self.topo_all is not None and not isinstance(self.topo_all, bool):
             raise StationError(f"topo_all {self.topo_all!r} must be true or false")
+        for label, doppler_name in (
+            ("doppler project", self.secrets_doppler_project),
+            ("doppler config", self.secrets_doppler_config),
+        ):
+            if doppler_name is not None and not DOPPLER_NAME.match(doppler_name):
+                raise StationError(
+                    f"{label} {doppler_name!r} must be a name of letters, digits, '.', '_' or '-', "
+                    f"starting with a letter or digit: it is an argument of the one "
+                    f"`doppler secrets get` command, never a token."
+                )
 
     @property
     def topo_radius(self) -> int:
@@ -441,6 +462,10 @@ class Station:
             result["rig_baud"] = self.rig_baud
         if self.dem_source is not None:
             result["dem_source"] = self.dem_source
+        if self.secrets_doppler_project is not None:
+            result["secrets_doppler_project"] = self.secrets_doppler_project
+        if self.secrets_doppler_config is not None:
+            result["secrets_doppler_config"] = self.secrets_doppler_config
         if self.topo_radius_km is not None:
             result["topo_radius_km"] = self.topo_radius_km
         if self.topo_regions:
@@ -578,6 +603,8 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         topo_radius_km=topo_radius,
         topo_regions=tuple(str(r) for r in topo_regions) if topo_regions is not None else (),
         topo_all=topo_all,
+        secrets_doppler_project=_str("secrets_doppler_project"),
+        secrets_doppler_config=_str("secrets_doppler_config"),
     )
 
 
@@ -631,6 +658,8 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
                     topo_radius_km=station.topo_radius_km,
                     topo_regions=station.topo_regions,
                     topo_all=station.topo_all,
+                    secrets_doppler_project=station.secrets_doppler_project,
+                    secrets_doppler_config=station.secrets_doppler_config,
                     **{**values, variable: answer},
                 )
             except StationError as exc:
@@ -648,6 +677,8 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
         topo_radius_km=station.topo_radius_km,
         topo_regions=station.topo_regions,
         topo_all=station.topo_all,
+        secrets_doppler_project=station.secrets_doppler_project,
+        secrets_doppler_config=station.secrets_doppler_config,
         **values,
     )
 

@@ -10188,3 +10188,110 @@ argument in `src/hammunition/userservice.py`, the call in
 `tests/test_user_services_venv.py`, `tests/test_venv_licence.py`,
 `tests/test_rnode_catalog.py`, `tests/test_mesh_profile.py`,
 `tests/test_reticulum_docs.py`.
+
+---
+
+## D-081 — Operator secrets come from an environment variable or Doppler, through one helper, never the repo, station config, argv or logs; RepeaterBook's API is fetched only with the operator's own key, personal use, never mirrored or listed for a Bunker
+
+**Date:** 2026-10-04. **Status:** accepted (the maintainer's rulings of
+2026-10-04, implemented on branch `repeaterbook-api`; the implementation is
+proposed until merged, and the RepeaterBook half is **built against the
+documented format and not yet run against the live API**). **Depends on:**
+D-078 (bring your own export or key), D-064 and D-074 (the repeater layers),
+D-070 (the mirror), D-077 (run logs), D-021 (disclose, never adjudicate).
+
+**The helper.** `resolve_secret(name, *, env, station)` in
+`src/hammunition/secrets.py`, the one way any keyed download gets its key:
+the environment variable `name` when set and not empty; otherwise, when the
+station config carries `secrets_doppler_project` and `secrets_doppler_config`
+(`station set --doppler-project P --doppler-config C`, cleared by
+`--clear-doppler`; names only, validated as slugs that cannot read as
+options), exactly `doppler secrets get NAME --plain --project P --config C`
+with a fixed argv and its stripped stdout; otherwise `SecretUnavailable`,
+which says both ways. A missing `doppler` or a non-zero exit is named, quoting
+only stderr's first line, never stdout. The value is printed nowhere; the run
+log redacts it by value (`RunLog.add_scrub`) and redacts every `Authorization`,
+`X-RB-App-Token` and `Proxy-Authorization` header line whatever its value.
+
+**RepeaterBook.** `maps repeaters fetch-repeaterbook --state CODE
+[--country NAME]` fetches `api/export.php` (`country`, `state_id`). The first
+draft had the engine speak HTTP to RepeaterBook under an application of
+Hammunition's own; **the maintainer will not apply for one** (it would attach
+his identity to it), so the engine instead drives the unofficial `repeaterbook`
+0.13.0 client (PyPI, MIT, Micael Jarniac, `MicaelJarniac/repeaterbook`), which
+RepeaterBook approved as "RepeaterBook Python Client", **App #114**: each
+operator generates a token for App #114 on their own account at
+`/user/api_apps.php`, and the client sends it with its own User-Agent, which
+RepeaterBook matches literally (`403 ua_mismatch`) and which is therefore left
+untouched. The client is the catalog unit `repeaterbook-client`
+(`method: venv`, the closure of 23 packages and 983 hashes resolved with `uv pip
+compile --generate-hashes` on 2026-10-04 and recorded in
+`docs/reference/repeaterbook-client-closure.txt`; about 76 MB; MIT; installed by
+name, in no profile; nothing exposed, because its two console scripts are an
+MCP server that needs an extra the closure omits and a schema writer). It is
+**not a dependency of the engine**: its aiohttp, pydantic and sqlmodel closure is
+not something the engine carries. The verb requires the unit installed (refused
+by name otherwise), resolves the token through
+`resolve_secret("REPEATERBOOK")`, the client's own variable name, and runs
+`<venv>/bin/python -I src/hammunition/repeaterbook_runner.py --country C
+--state-id N` (`-I` because a `secrets.py` beside the script would shadow the
+standard library's). The runner uses the client's API (`RepeaterBookAPI.urls_export`
+and `export_multi_json`), prints one JSON document, and the engine parses it
+into the layer. The token is in that subprocess's environment only: never argv,
+never the run log (the resolved value, any credential header and any
+`REPEATERBOOK=` assignment are redacted), never a document. The client caches
+responses on disk; the runner gives it a private temporary directory and a zero
+cache age and removes the directory on exit. One request per state with a pause of
+our own; a `401`, `403` or `429` stops the run and is never retried.
+What RepeaterBook's wiki said when read on 2026-10-04: since 2026-03-03 access
+needs an approved application and a per-user `rbuapp_` token (header
+`X-RB-App-Token`, preferred; `Authorization: Bearer` second choice); limits are
+unpublished and `429` means back off at once; `exportROW.php` (`country`,
+`region`, no `state_id`) is documented and **not carried**, the verb being per
+state. The client's source (read the same day) gives what the wiki does not
+print: the export is `{"count", "results"}`, the row keys the parser reads,
+`state_id` as the zero-padded US FIPS code (`"06"`) and `CA##`/`MX##` for Canada
+and Mexico, `Retry-After` on a `429`, an answer cut near 3,500 rows. **Policy
+summary (2026-10-04):** "Personal/internal use limits data to approved
+purposes"; a public application must credit RepeaterBook with a link; approval
+is "less likely" for a public repeater search page, map or directory, a
+nearby-repeater finder as a standalone feature, republishing for others to
+browse, a shadow site or mirror, an app that "caches and re-serves repeater data
+to multiple users", a "redistributable offline database", or one that uses
+RepeaterBook "as just one data source inside a broader mapping, preparedness, or
+discovery platform". So **the `repeaterbook` layer is never mirrored and never
+listed by `artifacts`** (not under `repeater-snapshots`; a Bunker must not hold
+it, even on a LAN), is written 0600 under the operator's own overlays, and every
+rendering carries RepeaterBook's name with a link: the GPX description and each
+waypoint's `<src>`, and the POI collection's comment. Navit's textfile has no
+place for a title or a link, so that file is named for RepeaterBook and the link
+is in the others; the browser map draws no repeater layer.
+
+**The layer.** `repeaterbook`, titled `Repeaters (RepeaterBook, personal use,
+YYYY-MM-DD, unverified)`; a second state merges into it (D-074's merge, new
+rows first). Rows off the air, without a position, a callsign or a frequency
+are skipped and counted. Its terms print before the fetch and are recorded in
+the layer.
+
+**Not established.** That the client behaves against the live API as its
+source reads (**built against the documentation and the source; not yet run
+against the live API**, no token existed on 2026-10-04: the tests use a
+hand-written fixture and a fake client); RepeaterBook's rate limit; the
+3,500-row cut (from the client). The wiki prints no JSON key names and no
+`state_id` table; both come from the client. A key rename
+fails with a named error and writes nothing. No request has been made: the
+tests serve a hand-written fixture from loopback.
+
+**Rejected.** A key in the station file, the repository or argv. The
+`repeaterbook` package as a dependency of the engine. An application of
+Hammunition's own (the maintainer's identity). Changing the client's User-Agent.
+A Bunker, a mirror or `artifacts` holding or listing the layer. `exportROW.php`.
+
+**Consequences.** `src/hammunition/secrets.py`, `src/hammunition/repeaterbook.py`,
+`src/hammunition/repeaterbook_runner.py`, `catalog/packages/repeaterbook-client.yaml`,
+`docs/reference/repeaterbook-client-closure.txt`,
+`Station.secrets_doppler_project`/`_config`, `RunLog.add_scrub`,
+`docs/guides/offline-navigation.md` §13, `docs/guides/station-settings.md`,
+`docs/reference/cli.md`, `docs/reference/json-interface.md`. Tests:
+`tests/test_secrets.py`, `tests/test_repeaterbook.py`,
+`tests/test_repeaterbook_runner.py`, `tests/test_repeaterbook_client_catalog.py`.

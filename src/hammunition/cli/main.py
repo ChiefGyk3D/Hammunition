@@ -507,6 +507,8 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
         ("dem_source", args.dem_source),
         ("topo_radius_km", args.topo_radius_km),
         ("topo_all", args.topo_all),
+        ("secrets_doppler_project", args.doppler_project),
+        ("secrets_doppler_config", args.doppler_config),
     ):
         if value is None:
             continue
@@ -574,6 +576,31 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
     if args.clear_mirror:
         requested["mirror"] = None
         accepted["mirror"] = None
+
+    if args.clear_doppler:
+        if args.doppler_project is not None or args.doppler_config is not None:
+            refuse(
+                "secrets_doppler_project",
+                args.doppler_project or args.doppler_config,
+                "--clear-doppler removes both Doppler names; do not give "
+                "--doppler-project or --doppler-config with it.",
+            )
+        else:
+            for key in ("secrets_doppler_project", "secrets_doppler_config"):
+                requested[key] = None
+                accepted[key] = None
+    elif args.doppler_project is not None or args.doppler_config is not None:
+        have = (
+            accepted.get("secrets_doppler_project", current.secrets_doppler_project),
+            accepted.get("secrets_doppler_config", current.secrets_doppler_config),
+        )
+        if bool(have[0]) != bool(have[1]) and not refused:
+            refuse(
+                "secrets_doppler_project",
+                args.doppler_project or args.doppler_config,
+                "Doppler needs both a project and a config: give --doppler-project and "
+                "--doppler-config together (names only, never a token).",
+            )
 
     topo_regions = current.topo_regions
     if args.clear_topo_regions:
@@ -687,7 +714,7 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
         message = (
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
             "--node-alias, --map-regions, --map-freshness, --reference-books, --mirror, "
-            "--clear-mirror, --dem-source, --topo-radius-km, --topo-regions, --topo-all, "
+            "--clear-mirror, --doppler-project, --doppler-config, --clear-doppler, --dem-source, --topo-radius-km, --topo-regions, --topo-all, "
             "--rig, --rig-device, --rig-baud, --rig-ptt-line, --rig-owner, --clear-rig, "
             "--unattended."
         )
@@ -724,6 +751,14 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
             topo_radius_km=cast(int, accepted.get("topo_radius_km", current.topo_radius_km)),
             topo_regions=cast(tuple[str, ...], accepted.get("topo_regions", topo_regions)),
             topo_all=cast(bool | None, accepted.get("topo_all", current.topo_all)),
+            secrets_doppler_project=cast(
+                str | None,
+                accepted.get("secrets_doppler_project", current.secrets_doppler_project),
+            ),
+            secrets_doppler_config=cast(
+                str | None,
+                accepted.get("secrets_doppler_config", current.secrets_doppler_config),
+            ),
         )
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -746,6 +781,8 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
         "topo_radius_km",
         "topo_regions",
         "topo_all",
+        "secrets_doppler_project",
+        "secrets_doppler_config",
     )
     saved = (
         {}
@@ -2665,6 +2702,96 @@ def cmd_maps_repeaters_fetch_brandmeister(args: argparse.Namespace) -> int:
         name=rs.brandmeister_layer_name,
         layer_id="brandmeister",
     )
+
+
+def cmd_maps_repeaters_fetch_repeaterbook(args: argparse.Namespace) -> int:
+    """Fetch repeaters from RepeaterBook's API with the operator's own token.  D-081.
+
+    Runs the ``repeaterbook-client`` unit's venv python on the engine's small
+    runner, which uses the unofficial ``repeaterbook`` client (App #114). The
+    token comes from ``REPEATERBOOK`` or Doppler through
+    :func:`hammunition.secrets.resolve_secret` and reaches only that
+    subprocess's environment: never argv, the station file, a log or a
+    document. One layer, ``repeaterbook``, unverified and personal use; a
+    second state merges into it; never mirrored, never listed by
+    ``artifacts``. Built against the documented format and the client's
+    source, not yet run against the live API. No ``--json`` form."""
+    from hammunition import repeaterbook as rb
+    from hammunition import repeaters
+    from hammunition.repeaters import RepeaterFetchError, RepeaterInputError, overlay_dir
+    from hammunition.secrets import SecretUnavailable, resolve_secret
+
+    if _refuse_root("repeater overlays"):
+        return EXIT_FAILED
+    country = args.country
+    try:
+        ids = list(dict.fromkeys(rb.resolve_state(country, s) for s in args.state))
+    except RepeaterInputError as exc:
+        print(f"error: {exc}. Nothing was fetched.", file=sys.stderr)
+        return EXIT_FAILED
+    python = rb.client_python(operator(args) or None)
+    if not python.is_file():
+        print(
+            f"error: the {rb.UNIT} unit is not installed (no {python}). It is the unofficial "
+            f"third-party repeaterbook client, registered with RepeaterBook as App #114; "
+            f"install it by name: `hammunition install {rb.UNIT}`. Nothing was fetched.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    try:
+        station = load_station(owner=operator(args))
+    except StationError as exc:
+        print(f"note: the station file could not be read ({exc}); using the environment only.")
+        station = None
+    try:
+        token = resolve_secret(rb.TOKEN_ENV, env=os.environ, station=station)
+    except SecretUnavailable as exc:
+        print(
+            f"error: {exc}\nGenerate a token for App #114 (RepeaterBook Python Client) on your "
+            f"own account at https://www.repeaterbook.com/user/api_apps.php. Nothing was "
+            f"fetched.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    print(rb.terms(), flush=True)
+    print(
+        f"This fetches {len(ids)} state(s) of {country} through the {rb.UNIT} unit's client, "
+        f"one request each, now and only now. Your token ({rb.TOKEN_ENV}) goes only into that "
+        f"process's environment and is written nowhere; the client's response cache is a "
+        f"private temporary directory removed afterwards; the layer is never mirrored.",
+        flush=True,
+    )
+    reads = []
+    for number, state_id in enumerate(ids):
+        if number:
+            rb.pause()
+        try:
+            reads.append(rb.run_runner(python, country, state_id, token))
+        except rb.RunnerError as exc:
+            print(f"error: {rb.explain(exc)}. Nothing was written.", file=sys.stderr)
+            return EXIT_FAILED
+        except (RepeaterFetchError, RepeaterInputError) as exc:
+            print(f"error: {exc}. Nothing was written.", file=sys.stderr)
+            return EXIT_FAILED
+    for read in reads:
+        if rb.maybe_cut_short(read):
+            print(
+                f"note: RepeaterBook returned {read.parsed.read} rows, near the most it sends "
+                f"in one answer; a state this size may have been cut short."
+            )
+    day = max(r.when for r in reads).date()
+    existing: tuple[repeaters.Repeater, ...] = ()
+    rows_path = overlay_dir() / repeaters.layer_files("repeaterbook")[3]
+    if rows_path.is_file():
+        try:
+            existing = repeaters.read_layer_rows(rows_path).rows
+        except ValueError as exc:
+            print(f"note: the earlier RepeaterBook layer is not merged ({exc}).")
+    licences = [rb.terms()]
+    for read in reads:
+        licences.append(rb.provenance(f"Fetched {read.when.isoformat()}", read.sha256))
+    parsed = rb.merged_inputs([r.parsed for r in reads], existing, rows_path)
+    return _write_repeater_layer(parsed, rb.layer_name(day), day, licences, args, "repeaterbook")
 
 
 def cmd_maps_repeaters_fetch_hearham(args: argparse.Namespace) -> int:
@@ -7363,12 +7490,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="do not ask the station's LAN mirror first; fetch from the publisher (D-078)",
     )
     p_rep_bm.set_defaults(func=cmd_maps_repeaters_fetch_brandmeister)
+    p_rep_rb = rep_sub.add_parser(
+        "fetch-repeaterbook",
+        help="fetch repeaters from RepeaterBook's API with your own token for App #114 "
+        "(REPEATERBOOK or Doppler), through the repeaterbook-client unit; personal use, "
+        "recorded as unverified (D-081)",
+    )
+    p_rep_rb.add_argument(
+        "--state",
+        action="append",
+        required=True,
+        metavar="NAME|CODE",
+        help="a state name or two-letter code, e.g. Delaware or DE; repeat for more",
+    )
+    p_rep_rb.add_argument(
+        "--country",
+        default="United States",
+        help="RepeaterBook's country name (default: United States)",
+    )
+    p_rep_rb.set_defaults(func=cmd_maps_repeaters_fetch_repeaterbook)
     p_rep_remove = rep_sub.add_parser(
         "remove", help="delete repeater layers and take them out of QMapShack and Navit"
     )
     p_rep_remove.add_argument(
         "--layer",
-        choices=("export", "acma", "open-repeater", "osm", "etcc", "brandmeister", "aprs-heard"),
+        choices=(
+            "export",
+            "acma",
+            "open-repeater",
+            "osm",
+            "etcc",
+            "brandmeister",
+            "repeaterbook",
+            "aprs-heard",
+        ),
         default=None,
         help="remove only this layer (default: every layer and the all-sources file)",
     )
@@ -7758,6 +7913,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="a LAN mirror of the data artifacts, tried before the publisher (D-070)",
     )
     mirror_flags.add_argument("--clear-mirror", action="store_true", help="remove the saved mirror")
+    p_station_set.add_argument(
+        "--doppler-project",
+        default=None,
+        metavar="PROJECT",
+        help="the Doppler project a keyed download's key is read from when its environment "
+        "variable is not set: a name, never a token (D-081)",
+    )
+    p_station_set.add_argument(
+        "--doppler-config",
+        default=None,
+        metavar="CONFIG",
+        help="the Doppler config within that project, e.g. dev or prd (D-081)",
+    )
+    p_station_set.add_argument(
+        "--clear-doppler",
+        action="store_true",
+        help="remove the saved Doppler project and config",
+    )
     p_station_set.add_argument(
         "--dem-source",
         default=None,
