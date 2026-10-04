@@ -570,8 +570,17 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         value = data.get(key)
         return str(value) if value is not None else None
 
-    regions = data.get("map_regions")
-    books = data.get("reference_books")
+    def _str_list(key: str) -> tuple[str, ...]:
+        # A missing key is an empty list; anything but a list is refused by name. An
+        # int raised TypeError here and a bare string would have iterated its
+        # characters (found by the station-config fuzz target, #339).
+        value = data.get(key)
+        if value is None:
+            return ()
+        if not isinstance(value, list):
+            raise StationError(f"{target}: {key} must be a list, not {type(value).__name__}")
+        return tuple(str(item) for item in value)
+
     raw_baud = data.get("rig_baud")
     try:
         rig_baud = int(raw_baud) if raw_baud is not None else None
@@ -582,7 +591,6 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         topo_radius = int(raw_radius) if raw_radius is not None else None
     except (TypeError, ValueError) as exc:
         raise StationError(f"{target}: topo_radius_km {raw_radius!r} is not a number") from exc
-    topo_regions = data.get("topo_regions")
     topo_all = data.get("topo_all")
     if topo_all is not None and not isinstance(topo_all, bool):
         raise StationError(f"{target}: topo_all {topo_all!r} must be true or false")
@@ -590,9 +598,9 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         callsign=_str("callsign"),
         grid_square=_str("grid_square"),
         node_alias=_str("node_alias"),
-        map_regions=tuple(str(r) for r in regions) if regions is not None else (),
+        map_regions=_str_list("map_regions"),
         map_freshness=_str("map_freshness"),
-        reference_books=tuple(str(b) for b in books) if books is not None else (),
+        reference_books=_str_list("reference_books"),
         mirror=_str("mirror"),
         rig=_str("rig"),
         rig_device=_str("rig_device"),
@@ -601,7 +609,7 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         rig_owner=_str("rig_owner"),
         dem_source=_str("dem_source"),
         topo_radius_km=topo_radius,
-        topo_regions=tuple(str(r) for r in topo_regions) if topo_regions is not None else (),
+        topo_regions=_str_list("topo_regions"),
         topo_all=topo_all,
         secrets_doppler_project=_str("secrets_doppler_project"),
         secrets_doppler_config=_str("secrets_doppler_config"),

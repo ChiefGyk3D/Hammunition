@@ -546,3 +546,24 @@ def test_rig_fields_are_template_variables() -> None:
     from hammunition.station import STATION_FIELDS
 
     assert {"rig", "rig_device", "rig_baud", "rig_ptt_line", "rig_owner"} <= STATION_FIELDS
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("map_regions", "3"),
+        ("map_regions", "delaware"),
+        ("reference_books", "7"),
+        ("topo_regions", "1"),
+        ("map_regions", "{a: 1}"),
+    ],
+)
+def test_a_list_valued_key_that_is_not_a_list_is_a_station_error(
+    tmp_path: Path, key: str, value: str
+) -> None:
+    """Found by the station-config fuzz target (#339): `map_regions: 3` raised TypeError
+    out of load_station, and a bare string would have iterated its characters."""
+    path = tmp_path / "station.yml"
+    path.write_text(f"callsign: N0CALL\n{key}: {value}\n")
+    with pytest.raises(StationError, match=f"{key}.*list"):
+        load_station(path)
