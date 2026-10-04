@@ -117,3 +117,18 @@ def test_the_guide_lists_what_uninstall_leaves_and_how_to_back_it_up() -> None:
 def test_the_cli_reference_names_the_user_service_row() -> None:
     cli = _text(ROOT / "docs" / "reference" / "cli.md")
     assert "(`gps-tether`, `rig`, `rns`)" in cli
+
+
+def test_the_records_carry_the_decision_the_row_and_the_status_line() -> None:
+    """D-080 is one decision, in the record, the table the project instructions
+    carry and the scope page's Track C, with the licence evidence beside the others."""
+    decisions = _text(ROOT / "docs" / "DECISIONS.md")
+    assert decisions.count("## D-080 ") == 1
+    assert "## D-080 — Reticulum is carried as per-user venvs with one shared instance" in decisions
+    assert "(**D-080**)" in _text(ROOT / "CLAUDE.md")
+    assert "| Reticulum |" in _text(ROOT / "CLAUDE.md")
+    assert "**Status, 2026-10-03 (D-080):**" in _text(ROOT / "docs" / "SCOPE.md")
+    licences = _text(ROOT / "docs" / "reference" / "licence-verification.md")
+    assert "## Reticulum, LXMF and NomadNet — the Reticulum License" in licences
+    for unit in ("`rns` 1.5.6", "`lxmf` 1.2.0", "`nomadnet` 1.4.4"):
+        assert unit in licences, unit

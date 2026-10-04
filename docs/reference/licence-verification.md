@@ -3,6 +3,8 @@
 Evidence for **D-001** (73Linux is an inventory source, not a base) and
 **D-011** (provenance: facts only, from both sources). `why-hammunition.md`
 makes a public claim about 73Linux's licence; this is what that claim rests on.
+The last section is the evidence for **D-080**: the licences of Reticulum,
+LXMF and NomadNet.
 
 **Verified:** 2026-08-25. **Re-verify before any public release.** A licence
 file can appear at any time, and if one does, D-001 reopens.
@@ -341,3 +343,41 @@ however he likes, and downstream redistribution of *those specific binaries*
 would carry an obligation to offer corresponding source. Building from the
 tagged source sidesteps that question entirely, which is a second reason to
 prefer it.
+
+---
+
+## Reticulum, LXMF and NomadNet — the Reticulum License, and GPL-3.0 by shipped text, verified 2026-10-03
+
+**Evidence for D-080 and D-033's shape.** `rns`, `lxmf` and `nomadnet` are
+installed from PyPI into per-user virtualenvs and never mirrored or vendored.
+This is what the packages and their repositories say, read on 2026-10-03; it
+records the text and rules on nothing. **Re-verify before any public release.**
+
+| Unit | What was read | What it says | Carried as |
+|---|---|---|---|
+| `rns` 1.5.6 | The wheel's `METADATA` (`License: Reticulum License`; no licence file in `.dist-info`); `markqvist/Reticulum`'s `LICENSE` (`gh api repos/markqvist/Reticulum/contents/LICENSE`, 1,510 bytes, default branch `master`; GitHub's licence API reports `NOASSERTION`) | MIT plus two added conditions, quoted below | `licence: Reticulum License (MIT plus two use restrictions; not OSI-approved)`, printed on the plan line |
+| `lxmf` 1.2.0 | The wheel's `METADATA` (`License: Reticulum License`; no licence file); `markqvist/LXMF`'s `LICENSE` (1,510 bytes; `NOASSERTION`) | The same text as Reticulum's; the two files differ only in the copyright years | the same |
+| `nomadnet` 1.4.4 | The wheel's `METADATA` (classifier `License :: OSI Approved :: MIT License`, `License-File: LICENSE`); the wheel's `licenses/LICENSE` (35,149 bytes, "GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007"); `markqvist/NomadNet`'s `LICENSE` (the same 35,149 bytes, and the same first 16 hex digits of its sha256, `3972dc9744f6499f`; GitHub reports `GPL-3.0`) | The two statements disagree: the classifier says MIT, the shipped text is the GNU GPL v3 | `licence: GPL-3.0-only (by the licence text the wheel ships; the wheel's classifier says MIT)` (the maintainer's ruling, 2026-10-03: the shipped text governs) |
+
+The two added conditions, from `markqvist/Reticulum`'s `LICENSE`:
+
+> The Software shall not be used in any kind of system which includes amongst
+> its functions the ability to purposefully do harm to human beings.
+>
+> The Software shall not be used, directly or indirectly, in the creation of an
+> artificial intelligence, machine learning or language model training dataset,
+> including but not limited to any use that contributes to the training or
+> development of such a model or algorithm.
+
+**What this establishes, and what it does not.** The Reticulum License is not an
+OSI-approved licence and not an SPDX identifier, and it limits fields of use
+rather than granting nothing, which is D-033's situation with a different
+shape: the catalog is data, the bytes reach the operator's machine from PyPI by
+the act the operator would perform by hand, and Hammunition names the terms
+where the operator will read them (the plan line before the confirmation, the
+package page, the guide) and does not judge anyone's use of them (D-021). It
+does not establish that those clauses are enforceable, how they apply to any
+particular use, or that Sideband (CC BY-NC-SA 4.0) and LXST (CC BY-NC-ND 4.0),
+which are not carried, are acceptable to carry later: those licences are
+recorded in `docs/reference/mesh-inventory.md` and are their own decision. No
+upstream was asked.
