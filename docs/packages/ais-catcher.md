@@ -20,17 +20,6 @@ It is the most capable open AIS decoder available, and coastal monitoring is a n
 
 An RTL-SDR or similar receiver and a VHF marine-band antenna. You must be within range of the coast or inland waterways.
 
-## Install and launch
-
-- **Installed with the profile:** [`listening`](../profiles/listening.md).
-- **Install:** `hammunition install ais-catcher --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `ais-catcher-web`, `AIS-catcher`.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - git (cmake) — https://github.com/jvde-github/AIS-catcher at `v0.70`

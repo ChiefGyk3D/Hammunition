@@ -129,15 +129,3 @@ documentation:
   upstream_support: >-
     The project's wiki (https://github.com/Maproom/qmapshack/wiki) and its
     GitHub issues.
-  offline: >-
-    Maps, routing and terrain are built on this machine at install time and used
-    with no network afterwards. A live position needs the GPS tether
-    (`gps-tether`) and a receiver with a fix. Drawing the official topo mosaics
-    and the infrastructure layers in QMapShack is not yet measured on the bench.
-    Ahead of time: install the `navigation` profile online and open it once at
-    home.
-  first_task: >-
-    Start it from the menu entry the install places, then in the Realtime dock
-    add a source of type *GPS TCP/IP* on 127.0.0.1 port 10110 while `gps-tether`
-    runs; the position appears on your map. docs/guides/offline-navigation.md
-    section 9 walks the rest.

@@ -20,17 +20,6 @@ A pager runs for weeks on one battery and receives where a phone has no signal, 
 
 An APRS feed to watch, DAPNET credentials, and a pager on the network. DAPNET is largely European in coverage; there may be no transmitter within range of you, which is worth checking before setting any of this up.
 
-## Install and launch
-
-- **Installed with the profile:** [`packet`](../profiles/packet.md).
-- **Install:** `hammunition install a2d --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `a2d`

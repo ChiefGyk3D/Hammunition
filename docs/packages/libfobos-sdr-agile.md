@@ -20,17 +20,6 @@ You do not install it for itself. The SoapySDR module for the Fobos links both l
 
 None beyond a compiler and CMake to build it. To use a board with it you need the `fobos-sdr` hardware entry's udev rule and group, and firmware of the agile family: upstream says hardware revisions 2 and 3 need special firmware loaded for it and revision 4 and higher run it natively.
 
-## Install and launch
-
-- **Installed by name only** — it is in no profile.
-- **Install:** `hammunition install libfobos-sdr-agile --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - git (cmake) — https://github.com/rigexpert/libfobos-sdr-agile at `v.3.3.0` (commit `2753965dee361267df86e4a713b8278ad9ae46bb`)

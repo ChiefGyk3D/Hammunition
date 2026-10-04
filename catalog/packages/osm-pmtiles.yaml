@@ -77,14 +77,3 @@ documentation:
     tilemaker's GitHub issues (https://github.com/systemed/tilemaker/issues)
     for the conversion; problems in the map data are fixed in OpenStreetMap
     (https://www.openstreetmap.org/fixthemap).
-  offline: >-
-    The tiles are built on this machine from the regions you installed and
-    served with no network by `hammunition reference serve` at
-    http://127.0.0.1:8480/map/ , on this machine only. The page loads nothing
-    from anywhere else. Your position appears on it only while the GPS tether
-    runs. Not yet looked at on the field laptop's own browser for the
-    infrastructure layer.
-  first_task: >-
-    Run `hammunition reference serve` and open http://127.0.0.1:8480/map/ ; your
-    installed regions are drawn, and layers written by `hammunition maps infra`
-    are listed beside the map with a show/hide box.

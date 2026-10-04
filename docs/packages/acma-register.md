@@ -20,17 +20,6 @@ It is the regulator's own record of every licensed amateur repeater in Australia
 
 For the layer: at least one Australian map region installed (`hammunition station set --map-regions australia-oceania/australia/tasmania` and `hammunition install osm-regions`), because the import keeps only the repeaters inside the installed regions' bounding boxes. QMapShack and Navit show the layer when they are installed.
 
-## Install and launch
-
-- **Installed by name only** — it is in no profile.
-- **Install:** `hammunition install acma-register --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - the publisher's whole file from acma-rrl, rebuilt daily and **unverified** (no checksum is published; the zip's own CRC-32s and the tables its reader needs are checked); installed by name only (ACMA Register of Radiocommunications Licences, Licence to use the Register of Radiocommunications Licences, attribution required, https://cdn.acma.gov.au/rrl/spectra_rrl.zip)

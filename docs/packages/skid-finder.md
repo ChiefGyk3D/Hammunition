@@ -21,17 +21,6 @@ A venue or security team wants a timeline and a rough location, not a hunch, whe
 
 A BlueZ-visible Bluetooth adapter for the BLE side; a monitor-mode capable Wi-Fi adapter (the MT7921 in the AC1200 is one) for the Wi-Fi side. Root for anything that touches a radio; the menu adds sudo to exactly those actions. Copy config/interfaces.conf.example to config/interfaces.conf in the installed tree (the menu offers to on first run) and set the adapter names, SENSOR_ID and, for a fixed sensor, its position. An MQTT broker only if you run more than one sensor.
 
-## Install and launch
-
-- **Installed with the profile:** [`rf-security`](../profiles/rf-security.md).
-- **Install:** `hammunition install skid-finder --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `skid-finder`.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - prebuilt tarball from https://github.com/ChiefGyk3D/Skid-Finder/archive/refs/tags/v0.6.0-alpha.1.tar.gz

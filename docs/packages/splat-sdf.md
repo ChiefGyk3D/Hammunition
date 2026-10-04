@@ -21,17 +21,6 @@ SPLAT! and Signal-Server answer "what does the terrain do to this path" and "how
 
 `osm-regions` with at least one map region set (`hammunition station set --map-regions ...`); with none, this unit is deferred by name and the rest of its profile installs. `dem-copernicus` supplies the elevation; `dem-3dep` fetches nothing unless you choose USGS bare earth with `hammunition station set --dem-source 3dep`, and then the files are made from it. Run `hammunition maps splat` once as yourself to point SPLAT! at the directory through `~/.splat_path`; or pass `-d` with the directory.
 
-## Install and launch
-
-- **Installed with the profile:** [`antenna`](../profiles/antenna.md).
-- **Install:** `hammunition install splat-sdf --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - converted from dem-copernicus by splat-sdf (Copernicus DEM licence (free, with attribution), https://copernicus-dem-30m.s3.amazonaws.com/readme.html)

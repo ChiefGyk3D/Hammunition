@@ -145,13 +145,7 @@ def render_model(name: str, model: type[BaseModel]) -> str:
         ):
             required = f"no (default `{info.default}`)"
         type_str = _type_name(info.annotation).replace("|", "\\|")
-        desc = (
-            (info.description or "")
-            .replace("\n", " ")
-            .replace("|", "\\|")
-            .replace("<", "&lt;")
-            .strip()
-        )
+        desc = (info.description or "").replace("\n", " ").replace("|", "\\|").strip()
         lines.append(f"| `{field_name}` | `{type_str}` | {required} | {desc} |")
     lines.append("")
     return "\n".join(lines)

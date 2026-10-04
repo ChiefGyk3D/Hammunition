@@ -20,17 +20,6 @@ The suite's logging problem is that several programs each know part of a contact
 
 Nothing to start. The programs that will write into it need to be pointed at its XML-RPC address, which is a setting in each of them.
 
-## Install and launch
-
-- **Installed with the profile:** [`logging`](../profiles/logging.md).
-- **Install:** `hammunition install fllog --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `fllog`.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - source (autotools) from https://w1hkj.org/files/fllog/fllog-1.2.9.tar.gz

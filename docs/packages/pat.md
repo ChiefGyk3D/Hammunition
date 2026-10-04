@@ -20,21 +20,6 @@ Winlink is how amateur radio carries email with no internet at all, and it is th
 
 A Winlink account, which is free and tied to your callsign. A path to a gateway: telnet over the internet to start with, then packet or HF once the radio side is configured. Its configuration file carries your callsign and password, and is written by `pat configure` rather than generated here -- the station-configuration question this catalog has open (CLAUDE.md, D-004 amendment) is exactly this file and LinBPQ's.
 
-## Install and launch
-
-- **Installed with the profile:** [`packet`](../profiles/packet.md).
-- **Install:** `hammunition install pat --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-Pat needs a path to a Winlink gateway, and the three kinds of connectivity are different. Over the internet (its *telnet* alias) it reaches Winlink's servers, and your first connection, which registers your callsign and sets the password, can only be made that way. By radio it needs the radio, a sound interface or modem (Direwolf for packet, ardopcf or Mercury for HF) and a gateway in range, and no internet. `pat-winlink rmslist` downloads Winlink's gateway list, so run it online before you deploy and note the gateways you can reach; whether Pat keeps that list for offline use is not established here. A message sent over the air from the field laptop is not yet in the bench record.
-
-## First useful task
-
-Debian and Ubuntu name the command `pat-winlink`. Run `pat-winlink configure`, set `mycall`, `locator` and the `agwpe` engine as docs/guides/packet-winlink.md shows, then `pat-winlink http` and open http://localhost:8080. Compose a message to yourself and connect with the *telnet* alias; Winlink answers your first connection with a message that says how to set your password. That proves Pat, your account and your mailbox before any radio is involved.
-
 ## How it installs
 
 - apt: `pat`

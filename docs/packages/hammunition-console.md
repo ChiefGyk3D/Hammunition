@@ -21,21 +21,6 @@ You would rather pick from a list than remember the CLI's verbs, or you are walk
 
 The engine itself, 0.19.0 or later, on PATH (this unit does not install it), and a terminal of at least 80x24. Nothing is configured first; the Station screen sets the values the engine needs. Python 3.11 or later, which every target but Ubuntu 22.04 and Pop!_OS 22.04 ships.
 
-## Install and launch
-
-- **Installed by name only** — it is in no profile.
-- **Install:** `hammunition install hammunition-console --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `hammunition-console`.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-Local only: it reads the engine's `--json` documents and runs the engine's own commands in a terminal pane. It needs the same network the engine needs for whatever you run through it (apt, downloads), and none to look around. It works over SSH. Not yet run through a real install on any target.
-
-## First useful task
-
-Run `hammunition-console` in a terminal of at least 80x24. Home shows the health check, whether your station is set and the four-step first-run checklist; step 1 opens Station and runs `hammunition station set` for you.
-
 ## How it installs
 
 - prebuilt tarball from https://github.com/ChiefGyk3D/hammunition-console/releases/download/v0.1.0/hammunition-console-0.1.0.tar.gz

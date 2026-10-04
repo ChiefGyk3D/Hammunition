@@ -20,17 +20,6 @@ Icom's own remote software is Windows-only. This is the Linux answer, and for th
 
 A supported Icom radio. USB control needs `dialout`; network control needs the radio's remote settings enabled and a user and password set on the radio itself. Over the internet, a route to it -- which is a firewall decision, not a software one.
 
-## Install and launch
-
-- **Installed by name only** — it is in no profile.
-- **Install:** `hammunition install wfview --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `wfview`

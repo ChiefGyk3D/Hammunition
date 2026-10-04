@@ -20,17 +20,6 @@ A GPS receiver is normally a sealed box that emits a position, and there is no w
 
 An SDR with enough bandwidth -- roughly 2 MHz minimum for GPS L1 -- and an active GNSS antenna, which needs bias tee power the dongle may not provide. Substantial CPU: real-time multi-constellation processing is genuinely demanding, and file-based post-processing is the usual route.
 
-## Install and launch
-
-- **Installed with the profile:** [`sdr`](../profiles/sdr.md).
-- **Install:** `hammunition install gnss-sdr --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `gnss-sdr`

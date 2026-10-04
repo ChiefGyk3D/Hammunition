@@ -22,21 +22,6 @@ The Plasma applet's switch on a lighter desktop: parking a GPS or a modem you ar
 
 Xfce, LXQt, LXDE, MATE or Cinnamon, with a panel that has a system tray (Xfce's Status Tray plugin, LXQt's Status Notifier, lxpanel's system tray). A polkit authentication agent must be running for the password prompt; the tray says so, and names the package, when none is. This unit installs the device helper and the polkit action the menu calls (from the same release archive, D-056); the device and service lists it reads are written by `hammunition hardware apply`, which also hands over to this helper rather than writing its own. The helper runs as root through the engine's own Python, so the engine's virtualenv must not be writable by any account but its owner: the install asks one `yes` that `--yes` cannot answer when it belongs to one account, and refuses when any account can write it.
 
-## Install and launch
-
-- **Installed with the profile:** [`station`](../profiles/station.md).
-- **Install:** `hammunition install hammunition-tray-qt --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-Entirely local: no internet and no local network. The menu calls a root helper through polkit on this machine, so a polkit authentication agent must be running, and `hammunition hardware apply` must already have written the device and service lists. The Radios group switches mobile broadband, Wi-Fi and Bluetooth off and on; turning one off is what cuts that connectivity, so do it on purpose. It has not yet been run on any of the desktops it lists.
-
-## First useful task
-
-Run `hammunition hardware apply --dry-run`, read it, then `hammunition hardware apply`. Start the tray from the *Hammunition Devices* menu entry or run `hammunition-tray-qt` (it also starts at your next login). With a catalogued parkable device plugged in, its entry appears in the tray icon's menu; choose it to park the device and again to wake it, with one password prompt. `hammunition hardware state` shows the same state in a terminal.
-
 ## How it installs
 
 - prebuilt tarball from https://github.com/ChiefGyk3D/hammunition-tray/archive/refs/tags/v0.5.0.tar.gz

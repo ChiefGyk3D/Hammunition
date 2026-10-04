@@ -218,15 +218,3 @@ documentation:
   upstream_support: >-
     FEMA's Emergency Management Institute, which maintains the ICS Resource
     Center (https://training.fema.gov/emiweb/is/icsresource/).
-  offline: >-
-    Downloaded once at install time and read with no network. It is 39 FEMA PDFs
-    under `/usr/local/share/hammunition/data/ics-forms/`, fillable in a PDF
-    reader that fills forms. FEMA publishes no checksum, so each file is checked
-    against a sha256 Hammunition measured on 2026-09-29; a form FEMA has since
-    revised will fail that check and must be re-pinned. The ICS 309
-    communications log is not among the 39.
-  first_task: >-
-    After `hammunition install ics-forms`, run `hammunition reference serve` and
-    open http://127.0.0.1:8480/ ; the forms are listed under *ICS forms*. Or
-    open a PDF such as the ICS 213 general message directly from the data
-    directory.

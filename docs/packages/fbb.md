@@ -22,17 +22,6 @@ If you want to run a BBS rather than use one, this is the software the rest of t
 
 A configured AX.25 stack and a callsign for the BBS. Forwarding partners, which is an arrangement with their operators rather than a setting. Somewhere for it to run continuously. FBB configures itself: when `/etc/ax25/fbb/fbb.conf` is absent, its start script (`fbb`) asks for the BBS callsign, SSID, hierarchical address, locator, city, sysop name and callsign and the offset from GMT, writes `fbb.conf` from them and then asks for the ports. Hammunition does not template `fbb.conf` (Q-022 #1, measured 2026-09-29 from the 7.011-3 package's script and samples): its mandatory lines include the hierarchical address, the SSID, the city and the sysop's first name, none of them station values, and a file with only the callsign and locator filled in is the partial file D-035 never writes.
 
-## Install and launch
-
-- **Installed by name only** — it is in no profile.
-- **Install:** `hammunition install fbb --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `fbb`

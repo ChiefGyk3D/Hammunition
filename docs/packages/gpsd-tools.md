@@ -21,17 +21,6 @@ The first question about a misbehaving receiver is always whether it has a fix a
 
 gpsd running. This is a separate package from `gpsd-clients` on Debian, which is worth knowing before spending an evening wondering where `cgps` went.
 
-## Install and launch
-
-- **Installed with the profile:** [`station`](../profiles/station.md).
-- **Install:** `hammunition install gpsd-tools --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `cgps-fix`.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `gpsd-tools`

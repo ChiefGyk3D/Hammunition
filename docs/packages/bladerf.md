@@ -20,17 +20,6 @@ It is the first thing to run when a bladeRF is not working and the diagnostic th
 
 A bladeRF, and the matching FPGA bitstream for the board revision and the library version. USB 3 for the higher sample rates; on USB 2 the device works and the achievable bandwidth is much lower.
 
-## Install and launch
-
-- **Installed by name only** — it is in no profile.
-- **Install:** `hammunition install bladerf --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `bladeRF-cli-shell`.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `bladerf`

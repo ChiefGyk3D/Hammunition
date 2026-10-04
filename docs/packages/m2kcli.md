@@ -20,17 +20,6 @@ The ADALM2000 is a genuinely capable USB instrument -- scope, generator, logic a
 
 An ADALM2000 and libiio reaching it, over USB or over the network. Device access usually needs a udev rule.
 
-## Install and launch
-
-- **Installed with the profile:** [`electronics`](../profiles/electronics.md).
-- **Install:** `hammunition install m2kcli --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `m2kcli`

@@ -20,17 +20,6 @@ It is the layer the SoapySDR module (`soapysdr-module-fobos`), and through it SD
 
 A Fobos SDR, which the maintainer does not own, and the udev rule and `plugdev` membership from the `fobos-sdr` hardware entry (`hammunition hardware apply`). Upstream's versions.txt, at v.2.3.2, says "please update the firmware to v.2.1.1" and "HW rev 3.0.0 or higher only"; `fobos_fwloader` writes firmware. The sibling library `libfobos-sdr-agile` says it supports revision 4 natively and revisions 2 and 3 only with special firmware.
 
-## Install and launch
-
-- **Installed by name only** — it is in no profile.
-- **Install:** `hammunition install libfobos --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `fobos_devinfo`, `fobos_recorder`, `fobos_fwloader`.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - git (cmake) — https://github.com/rigexpert/libfobos at `1e0fab3d361ee553faa88f67d2ef0ae502483151`

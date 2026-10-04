@@ -20,17 +20,6 @@ It is how anything ESP32-based gets new firmware from Linux rather than from a b
 
 Membership of the `dialout` group, and a board in bootloader mode. Many boards enter it automatically via DTR/RTS; some need BOOT held while RESET is tapped. Group membership does not apply to a session already open.
 
-## Install and launch
-
-- **Installed with the profile:** [`rf-security`](../profiles/rf-security.md).
-- **Install:** `hammunition install esptool --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `esptool`

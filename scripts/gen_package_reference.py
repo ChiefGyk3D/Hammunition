@@ -39,7 +39,7 @@ import yaml  # noqa: E402
 
 from hammunition.backends.source import DEFAULT_PREFIX, tree_destination  # noqa: E402
 from hammunition.desktop import describe_set  # noqa: E402
-from hammunition.manifest.load import load_catalog, load_profiles  # noqa: E402
+from hammunition.manifest.load import load_catalog  # noqa: E402
 from hammunition.manifest.schema import (  # noqa: E402
     AptInstall,
     Binary,
@@ -54,7 +54,6 @@ from hammunition.manifest.schema import (  # noqa: E402
     NodeInstall,
     PackageManifest,
     PipxInstall,
-    ProfileManifest,
     RegionalDataInstall,
     RegisterInstall,
     Selector,
@@ -65,7 +64,6 @@ from hammunition.manifest.schema import (  # noqa: E402
 )
 
 CATALOG = REPO_ROOT / "catalog" / "packages"
-PROFILES = REPO_ROOT / "catalog" / "profiles"
 VOCABULARY = REPO_ROOT / "catalog" / "categories.yaml"
 OUT = REPO_ROOT / "docs" / "packages"
 
@@ -210,39 +208,7 @@ def status_line(m: PackageManifest) -> str | None:
     return " ".join(bits)
 
 
-def _network_at_install(m: PackageManifest) -> str:
-    """Where the install itself reaches, from the install methods alone.
-
-    Read from the manifest, never guessed: apt asks the distribution's archive,
-    the build and binary methods fetch a pinned upstream file, the data methods
-    fetch from a publisher or a LAN mirror (D-070). Running the software later
-    is a different question, answered by the manifest's `offline` field.
-    """
-    methods = {b.install.method for b in m.install}
-    places = []
-    if "apt" in methods:
-        places.append("your distribution's package archive")
-    if methods - {"apt"}:
-        places.append(
-            "the upstream files the plan lists, each checked against a pinned digest "
-            "(or, for map and reference data, the publisher or a LAN mirror)"
-        )
-    return "; ".join(places)
-
-
-def _launch_line(m: PackageManifest) -> str:
-    names = [launcher.name for launcher in m.launchers]
-    names += [b.install_as for b in m.binaries if b.install_as not in names]
-    if names:
-        return "Commands it leaves on your PATH: " + ", ".join(f"`{n}`" for n in names) + "."
-    return (
-        "Its package ships its own commands and application-menu entry; a unit that ships "
-        "none gets a generated terminal entry (**D-050**). `hammunition status` lists what "
-        "is installed."
-    )
-
-
-def page(m: PackageManifest, profiles: list[str] | None = None) -> str:
+def page(m: PackageManifest) -> str:
     d = m.documentation
     out = [HEADER, f"# {m.name}\n", f"**{m.summary}**\n"]
 
@@ -297,33 +263,6 @@ def page(m: PackageManifest, profiles: list[str] | None = None) -> str:
     if d.prerequisites:
         out.append("## Before it will work\n")
         out.append(d.prerequisites.strip() + "\n")
-
-    out.append("## Install and launch\n")
-    if profiles:
-        links = ", ".join(f"[`{p}`](../profiles/{p}.md)" for p in profiles)
-        out.append(f"- **Installed with the profile{'s' if len(profiles) > 1 else ''}:** {links}.")
-    else:
-        out.append("- **Installed by name only** — it is in no profile.")
-    out.append(
-        f"- **Install:** `hammunition install {m.name} --dry-run`, read the plan, then run it without `--dry-run`."
-    )
-    out.append(f"- **Launch:** {_launch_line(m)}")
-    out.append(f"- **The install needs the network to:** {_network_at_install(m)}.")
-    out.append("")
-
-    out.append("## Offline use\n")
-    if d.offline:
-        out.append(d.offline.strip() + "\n")
-    else:
-        out.append(
-            "*Not yet documented for this application.* Read “Before it will work” above for what "
-            "it needs; the install-time network line above is the only offline fact generated "
-            "from the manifest. Internet, a local network and a radio link are three different "
-            "things, and this page does not claim any of them works until it says so.\n"
-        )
-    if d.first_task:
-        out.append("## First useful task\n")
-        out.append(d.first_task.strip() + "\n")
 
     out.append("## How it installs\n")
     for block in m.install:
@@ -497,12 +436,7 @@ def page(m: PackageManifest, profiles: list[str] | None = None) -> str:
     return "\n".join(out)
 
 
-def index(
-    catalog: dict[str, PackageManifest],
-    vocabulary: dict[str, str],
-    profiles: dict[str, ProfileManifest] | None = None,
-) -> str:
-    profiles = profiles or {}
+def index(catalog: dict[str, PackageManifest], vocabulary: dict[str, str]) -> str:
     by_category: dict[str, list[PackageManifest]] = {name: [] for name in vocabulary}
     for m in catalog.values():
         for c in m.categories:
@@ -528,26 +462,6 @@ def index(
             out.append(f"- [{m.name}]({m.name}.md) — {m.summary}")
         out.append("")
 
-    if profiles:
-        out.append("## By profile\n")
-        out.append(
-            "What `hammunition install PROFILE` brings in. A package in no profile is "
-            "installed by name only.\n"
-        )
-        for pname in sorted(profiles):
-            names = profiles[pname].packages
-            out.append(
-                f"- [`{pname}`](../profiles/{pname}.md) — {len(names)}: "
-                + ", ".join(f"[{n}]({n}.md)" for n in sorted(names))
-            )
-        loose = sorted(set(catalog) - {n for p in profiles.values() for n in p.packages})
-        out.append("")
-        out.append(
-            f"**In no profile ({len(loose)}), installed by name:** "
-            + ", ".join(f"[{n}]({n}.md)" for n in loose)
-            + "\n"
-        )
-
     out.append("## Everything, alphabetically\n")
     out.append("| Package | Summary | Installs by |")
     out.append("|---|---|---|")
@@ -558,17 +472,9 @@ def index(
     return "\n".join(out)
 
 
-def render(
-    catalog: dict[str, PackageManifest],
-    vocabulary: dict[str, str],
-    profiles: dict[str, ProfileManifest] | None = None,
-) -> dict[str, str]:
-    profiles = profiles or {}
-    files = {
-        f"{name}.md": page(m, sorted(p.name for p in profiles.values() if name in p.packages))
-        for name, m in catalog.items()
-    }
-    files["index.md"] = index(catalog, vocabulary, profiles)
+def render(catalog: dict[str, PackageManifest], vocabulary: dict[str, str]) -> dict[str, str]:
+    files = {f"{name}.md": page(m) for name, m in catalog.items()}
+    files["index.md"] = index(catalog, vocabulary)
     return files
 
 
@@ -581,7 +487,7 @@ def main() -> int:
     vocabulary = {
         c["name"]: c["summary"] for c in yaml.safe_load(VOCABULARY.read_text())["categories"]
     }
-    files = render(catalog, vocabulary, load_profiles(PROFILES, catalog))
+    files = render(catalog, vocabulary)
 
     if args.check:
         existing = {p.name: p.read_text() for p in OUT.glob("*.md")} if OUT.exists() else {}

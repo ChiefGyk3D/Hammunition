@@ -21,17 +21,6 @@ gpsd on its own is a daemon with nothing attached to it. These are the programs 
 
 gpsd running with a receiver attached. These talk to the daemon over its socket and never to the device, so they need no serial permissions of their own — which is the point of running a daemon in front of a receiver.
 
-## Install and launch
-
-- **Installed with the profiles:** [`navigation`](../profiles/navigation.md), [`station`](../profiles/station.md).
-- **Install:** `hammunition install gpsd-clients --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `gpsd-clients`

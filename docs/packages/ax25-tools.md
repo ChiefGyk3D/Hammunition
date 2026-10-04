@@ -21,17 +21,6 @@ Linux has AX.25 in the kernel, which is unusual and genuinely useful -- packet c
 
 A port definition in `/etc/ax25/axports` naming your callsign, the device, and the speed. Hammunition appends one, `wl2k <your callsign> 1200 255 7 Winlink` -- the port pat's AX.25 transport uses by default -- from station config (`hammunition station set --callsign <yours>`). Attaching that port to Direwolf or a TNC with `kissattach` is still yours to do. With no callsign set the package installs and the line is reported as not written.
 
-## Install and launch
-
-- **Installed with the profile:** [`packet`](../profiles/packet.md).
-- **Install:** `hammunition install ax25-tools --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `mheard-stations`.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `ax25-tools`

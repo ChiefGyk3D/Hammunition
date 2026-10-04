@@ -22,21 +22,6 @@ Parking a GPS or a modem you are not using saves battery on a field laptop, and 
 
 KDE Plasma 6. This unit installs the device helper and the polkit action the switches call (from the same release archive, D-056); the device and service lists it reads are written by `hammunition hardware apply`, which also hands over to this helper rather than writing its own. Without the lists the applet shows no switches; without the helper it says "Device control is not installed". A device only gets a switch when its catalog entry carries a power_control block and it is plugged in. The helper runs as root through the engine's own Python, so the engine's virtualenv must not be writable by any account but its owner: the install asks one `yes` that `--yes` cannot answer when it belongs to one account, and refuses when any account can write it.
 
-## Install and launch
-
-- **Installed with the profile:** [`station`](../profiles/station.md).
-- **Install:** `hammunition install hammunition-tray --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-Entirely local: no internet and no local network. The switches call a root helper through polkit on this machine, so a polkit authentication agent must be running in your session, and `hammunition hardware apply` must already have written the device and service lists. The Radios group switches mobile broadband, Wi-Fi and Bluetooth off and on; turning one off is what cuts that connectivity, so do it on purpose and not before you need a link. The GPS and modem switches save power while the device is not in use.
-
-## First useful task
-
-Run `hammunition hardware apply --dry-run`, read it, then `hammunition hardware apply`. Add the *Hammunition Devices* applet to the panel or the System Tray's shown items (nothing places it for you). With a catalogued parkable device plugged in, its switch appears; turning it off and on again parks and wakes it, with one password prompt. `hammunition hardware state` shows the same state in a terminal; docs/guides/tray-controls.md says which switch asks for a password.
-
 ## How it installs
 
 - prebuilt tarball from https://github.com/ChiefGyk3D/hammunition-tray/archive/refs/tags/v0.5.0.tar.gz

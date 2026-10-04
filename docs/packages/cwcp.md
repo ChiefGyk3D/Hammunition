@@ -20,17 +20,6 @@ It is the middle ground between the scriptable cw and the graphical xcwcp: inter
 
 A sound device and a terminal. Nothing else.
 
-## Install and launch
-
-- **Installed with the profile:** [`morse`](../profiles/morse.md).
-- **Install:** `hammunition install cwcp --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `cwcp`

@@ -20,17 +20,6 @@ It is what lets one program drive many different radios. Software written agains
 
 LimeSDR hardware and limesuite. The `limesdr` hardware entry carries three identifiers confirmed from Debian's own 64-limesuite.rules (closed 2026-08-26 without hardware — the maintainer still owns none), so udev rules for it can be generated from the catalog.
 
-## Install and launch
-
-- **Installed by name only** — it is in no profile.
-- **Install:** `hammunition install soapysdr-module-lms7 --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `soapysdr-module-lms7`

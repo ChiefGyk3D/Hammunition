@@ -20,17 +20,6 @@ It is the most capable open RFID research tool there is, and it is the only one 
 
 Proxmark3 hardware, membership of `dialout` and `plugdev`, and firmware matching the client version. On Debian 13 and Parrot the client must be built from source, which needs a backend this project has not written yet. See `catalog/hardware/devices/proxmark3.yaml` -- its USB identifier is confirmed by capture (2d2d:504d, 2026-08-26); what it cannot solve is telling two identical units apart, since the board supplies no serial.
 
-## Install and launch
-
-- **Installed with the profile:** [`rfid`](../profiles/rfid.md).
-- **Install:** `hammunition install proxmark3 --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `proxmark3`, `pm3`.
-- **The install needs the network to:** your distribution's package archive; the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `proxmark3` — *on kali*

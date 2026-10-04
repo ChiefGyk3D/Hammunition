@@ -137,19 +137,3 @@ documentation:
     Issues on the hammunition-gps-tether repository for the tether itself;
     gpsd's own mailing list and `gpsmon` / `cgps` for a receiver that has no
     fix.
-  offline: >-
-    Entirely local: it needs no internet and no local network, only gpsd on this
-    machine and a receiver with a fix. Its two ports, 127.0.0.1:10110 (NMEA) and
-    127.0.0.1:10111 (the browser map's position stream), are loopback only. The
-    only radio link involved is the GNSS signal itself, so a receiver indoors or
-    parked with `hammunition hardware park` gives no position. Ahead of time:
-    install it, run `hammunition hardware apply` if you use CoMaps, and confirm
-    `cgps` shows a fix before you leave. Not yet measured: the service started
-    from this unit on a real machine, and its start at login after a reboot.
-  first_task: >-
-    Start the service now with `systemctl --user start
-    hammunition-gps-tether.service` (the install enables it for your next
-    login), then run `nc 127.0.0.1 10110`. With a fix you should see `$GPRMC`
-    and `$GPGGA` sentences; with no fix it sends nothing and says gpsd has sent
-    no position with a fix. In QMapShack add a Realtime source of type *GPS
-    TCP/IP* on host 127.0.0.1, port 10110.

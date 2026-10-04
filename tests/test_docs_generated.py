@@ -52,8 +52,7 @@ def rendered() -> dict[str, str]:
             "categories"
         ]
     }
-    profiles = load_profiles(REPO_ROOT / "catalog" / "profiles", catalog)
-    rendered: dict[str, str] = gen.render(catalog, vocabulary, profiles)  # type: ignore[attr-defined]
+    rendered: dict[str, str] = gen.render(catalog, vocabulary)  # type: ignore[attr-defined]
     return rendered
 
 
@@ -695,6 +694,7 @@ CHECKED_GENERATORS: list[tuple[str, list[str], list[Path]]] = [
     ("gen_json_reference.py", ["docs/reference/json-interface.md"], []),
     ("gen_station_settings.py", ["docs/guides/station-settings.md"], []),
     ("gen_projects_page.py", ["docs/projects.md"], []),
+    ("gen_application_directory.py", ["docs/applications.md"], []),
     (
         "gen_geofabrik_countries.py",
         ["catalog/data/geofabrik-countries.yaml"],

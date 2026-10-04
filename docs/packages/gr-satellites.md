@@ -21,17 +21,6 @@ Receiving a satellite is easy and understanding it is not. Every spacecraft has 
 
 An SDR and an antenna suited to the band -- most amateur satellites are on VHF and UHF. Doppler correction, which means knowing when the pass is and tracking it; gpredict feeding a tuning offset is the usual arrangement.
 
-## Install and launch
-
-- **Installed with the profile:** [`satellite`](../profiles/satellite.md).
-- **Install:** `hammunition install gr-satellites --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `gr_satellites-list`.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `gr-satellites`

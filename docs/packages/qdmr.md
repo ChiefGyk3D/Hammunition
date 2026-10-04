@@ -20,17 +20,6 @@ The manufacturer's own software is Windows-only in every case that matters, and 
 
 Membership of `dialout`, which the `dmr-radio` hardware class requests, and a radio in the right mode — most are programmed over a normal USB cable but the TYT MD-UV380 family is programmed in STM32 DFU mode.
 
-## Install and launch
-
-- **Installed by name only** — it is in no profile.
-- **Install:** `hammunition install qdmr --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `qdmr`

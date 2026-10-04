@@ -61,22 +61,3 @@ documentation:
     LA5NTA and contributors. GitHub issues and a wiki linked from the site;
     the wiki's connection-script examples are the fastest route to a working
     HF or packet setup.
-  offline: >-
-    Pat needs a path to a Winlink gateway, and the three kinds of connectivity
-    are different. Over the internet (its *telnet* alias) it reaches Winlink's
-    servers, and your first connection, which registers your callsign and sets
-    the password, can only be made that way. By radio it needs the radio, a
-    sound interface or modem (Direwolf for packet, ardopcf or Mercury for HF)
-    and a gateway in range, and no internet. `pat-winlink rmslist` downloads
-    Winlink's gateway list, so run it online before you deploy and note the
-    gateways you can reach; whether Pat keeps that list for offline use is not
-    established here. A message sent over the air from the field laptop is not
-    yet in the bench record.
-  first_task: >-
-    Debian and Ubuntu name the command `pat-winlink`. Run `pat-winlink
-    configure`, set `mycall`, `locator` and the `agwpe` engine as
-    docs/guides/packet-winlink.md shows, then `pat-winlink http` and open
-    http://localhost:8080. Compose a message to yourself and connect with the
-    *telnet* alias; Winlink answers your first connection with a message that
-    says how to set your password. That proves Pat, your account and your
-    mailbox before any radio is involved.

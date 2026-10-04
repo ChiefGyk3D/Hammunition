@@ -20,17 +20,6 @@ Because the general modellers make you describe a Yagi as arbitrary wires and th
 
 Element dimensions to start from, in the units the programs expect -- reading the manual pages first will save an hour of numbers that are off by a factor.
 
-## Install and launch
-
-- **Installed with the profile:** [`antenna`](../profiles/antenna.md).
-- **Install:** `hammunition install yagiuda --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `yagiuda-input`.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `yagiuda`

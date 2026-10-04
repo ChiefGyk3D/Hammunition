@@ -21,17 +21,6 @@ It is the GNU Radio path to ADS-B, which means the decode chain is open to inspe
 
 An SDR that reaches 1090 MHz with at least 2 MHz of bandwidth, and an antenna for that band -- a quarter wave is about 7 cm, so a proper antenna is small and cheap and makes an enormous difference against the stub that came with a dongle.
 
-## Install and launch
-
-- **Installed with the profile:** [`listening`](../profiles/listening.md).
-- **Install:** `hammunition install gr-air-modes --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `gr-air-modes`

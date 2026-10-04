@@ -145,6 +145,12 @@ def test_the_nav_names_no_missing_page() -> None:
     assert not missing, f"mkdocs.yml's nav names pages that do not exist: {missing}"
 
 
+def test_the_site_asks_for_no_web_fonts() -> None:
+    # Material fetches Google Fonts unless font is false; the documentation
+    # tarball must read with no network.
+    assert _config()["theme"]["font"] is False
+
+
 # ---------------------------------------------------------------------------
 # The build itself.
 # ---------------------------------------------------------------------------

@@ -20,17 +20,6 @@ It is the at-a-glance answer to "which band should I be on right now", and the m
 
 **Node.js 20.19 or newer from your distribution** — `hammunition` installs `nodejs` and `npm` from the archive and refuses, naming the version, if what is offered is too old. Debian 13 and Parrot ship 20.19 and Ubuntu 26.04 ships 22.22; **Ubuntu 24.04 ships 18.19 and is refused** — the server needs `require()` of an ES module, which arrived in 20.19, and on 18 it builds and then dies at its first start (measured). The engine will not fetch a newer Node for you (D-037); on 24.04 the answer is `hamclock-next`, or a newer release of the distribution. **A network connection at install time**: the build fetches about 730 packages from registry.npmjs.org, each checked against the lock file that arrives inside the sha256-verified source archive; nothing else is fetched and no package's install scripts run. After installing, **edit `~/.local/share/hammunition/node/openhamclock/.env`** and set `CALLSIGN` and `LOCATOR` — the first start creates that file from upstream's example with `N0CALL` and `FN31` in it, and the dashboard is centred on the wrong hemisphere until you do. A reinstall or update keeps your `.env`. The engine does not fill those values in yet (station config, D-035, is absolute-path config files only so far); this is a hand step and the profile says so.
 
-## Install and launch
-
-- **Installed with the profile:** [`propagation`](../profiles/propagation.md).
-- **Install:** `hammunition install openhamclock --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `openhamclock`.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - node (needs Node 20.19+ from the distribution; dependencies fetched from registry.npmjs.org against the lock file) from https://github.com/accius/openhamclock/archive/refs/tags/v26.7.3.tar.gz

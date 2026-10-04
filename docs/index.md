@@ -33,17 +33,11 @@ finish it without asking anyone a question.
 4. **[Troubleshooting](troubleshooting/index.md).** By symptom, when something
    does not do what a page said it would.
 
-## Where everything is
-
-| Area | What is there |
-|---|---|
-| **Setup** | [Installation](getting-started/installation.md), [profiles](profiles/index.md), [first profile](getting-started/first-profile.md) |
-| **Applications** | [Every application](packages/index.md), by category and by profile, each with how to install, launch and use it offline |
-| **The suite** | [Hammunition, Tray, Hill, Bunker, Console and GPS Tether](suite/index.md): what each is, its repository, status and how they fit together |
-| **EMCOMM** | [Field guides](emcomm/index.md): preparation checklist, offline data, communications, backup, no-internet troubleshooting, quick reference |
-| **Offline** | [This documentation as a folder you can carry](offline/index.md), and the difference between downloading documents, software and data |
-| **Troubleshooting** | [By symptom](troubleshooting/index.md), and [without the internet](emcomm/no-internet.md) |
-| **Contributing** | [Writing and publishing the docs](contributing/documentation.md) and the templates |
+Also: **[The Hammunition suite](suite.md)** (the engine, Tray, Hill, Bunker,
+Console and GPS Tether, and how they fit), **[Applications by
+activity](applications.md)**, **[EMCOMM preparation and field
+use](guides/emcomm-field.md)** and **[what to download before a
+deployment](getting-started/before-deployment.md)**.
 
 ## Five minutes to a plan
 

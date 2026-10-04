@@ -171,17 +171,3 @@ documentation:
     Issues on the GitHub repository. For "the menu does nothing", run
     `hammunition hardware state` first: the tray shows what that command
     reports.
-  offline: >-
-    Entirely local: no internet and no local network. The menu calls a root
-    helper through polkit on this machine, so a polkit authentication agent must
-    be running, and `hammunition hardware apply` must already have written the
-    device and service lists. The Radios group switches mobile broadband, Wi-Fi
-    and Bluetooth off and on; turning one off is what cuts that connectivity, so
-    do it on purpose. It has not yet been run on any of the desktops it lists.
-  first_task: >-
-    Run `hammunition hardware apply --dry-run`, read it, then `hammunition
-    hardware apply`. Start the tray from the *Hammunition Devices* menu entry or
-    run `hammunition-tray-qt` (it also starts at your next login). With a
-    catalogued parkable device plugged in, its entry appears in the tray icon's
-    menu; choose it to park the device and again to wake it, with one password
-    prompt. `hammunition hardware state` shows the same state in a terminal.

@@ -20,17 +20,6 @@ It is the only maintained, open, cheap way to detect cell-site simulators in the
 
 A supported hotspot, its admin password, and a USB cable; the installer speaks USB directly (no adb needed) and today wants either root or a udev rule for the hotspot's identifiers -- the hardware-catalog entry that would supply the rule is the open item on issue #69. Running Rayhunter on this machine's own cellular modem is not possible with upstream as shipped; the same issue records why and the route.
 
-## Install and launch
-
-- **Installed with the profile:** [`rf-security`](../profiles/rf-security.md).
-- **Install:** `hammunition install rayhunter --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - prebuilt zip from https://github.com/EFForg/rayhunter/releases/download/v0.12.0/rayhunter-v0.12.0-linux-x64.zip — *arch x86_64*

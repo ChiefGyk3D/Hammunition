@@ -20,17 +20,6 @@ Running a net means tracking twenty callsigns in the order they arrived while al
 
 Nothing to start; the member database is built as you go or imported. Integration with fllog and fldigi is over XML-RPC and is optional.
 
-## Install and launch
-
-- **Installed with the profile:** [`logging`](../profiles/logging.md).
-- **Install:** `hammunition install flnet --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `flnet`.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - source (autotools) from https://w1hkj.org/files/flnet/flnet-7.5.0.tar.gz

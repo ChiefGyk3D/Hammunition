@@ -20,17 +20,6 @@ A CPU-drawn FFT display in GNU Radio stutters or drops samples at the wide sampl
 
 GNU Radio (it arrives as a dependency) and a working OpenCL platform with OpenGL on the same device, which apt does NOT install for you. Install the OpenCL driver for your graphics hardware and check it with `clinfo` before opening a flow graph. The 2026-09-30 sweep found `mesa-opencl-icd`, `pocl-opencl-icd` and `clinfo` offered on Debian 13, Parrot and Ubuntu 24.04; Intel's own `intel-opencl-icd` was offered on Ubuntu 24.04 and not in the main component of Debian 13 or Parrot. Which one works with fosphor on which GPU is unmeasured here.
 
-## Install and launch
-
-- **Installed with the profile:** [`sdr`](../profiles/sdr.md).
-- **Install:** `hammunition install gr-fosphor --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `gr-fosphor`

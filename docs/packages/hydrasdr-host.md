@@ -20,17 +20,6 @@ It is the layer every other program reaches the RFOne through. The SoapySDR modu
 
 A HydraSDR RFOne, which the maintainer does not own, and the udev rule and `plugdev` membership from the `hydrasdr-rfone` hardware entry (`hammunition hardware apply`). Without the rule the tools see the board only as root. Nothing to configure before the first run.
 
-## Install and launch
-
-- **Installed by name only** — it is in no profile.
-- **Install:** `hammunition install hydrasdr-host --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `hydrasdr_info`, `hydrasdr_rx`, `hydrasdr_list_devices`, `hydrasdr_lib_version`.
-- **The install needs the network to:** your distribution's package archive; the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `hydrasdr-tools` — *on kali*

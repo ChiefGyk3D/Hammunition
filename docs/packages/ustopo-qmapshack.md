@@ -21,17 +21,6 @@ A US Topo GeoTIFF is the whole printed page, each in its own projection; QMapSha
 
 `usgs-ustopo` and `gdal-bin`, which install first. `usfs-fstopo` is read when installed and never pulled in.
 
-## Install and launch
-
-- **Installed with the profile:** [`navigation`](../profiles/navigation.md).
-- **Install:** `hammunition install ustopo-qmapshack --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - converted from usgs-ustopo by ustopo-mosaic (Public domain (USGS), https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits)

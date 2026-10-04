@@ -20,17 +20,6 @@ It is a complete repeater controller in software, which replaces a box of dedica
 
 A radio interfaced for audio and PTT, and squelch detection -- either a COS line from the radio or SvxLink's own tone or level detection, which is less reliable. A callsign, which the node identifies with. EchoLink requires validation of your licence with the EchoLink system.
 
-## Install and launch
-
-- **Installed by name only** — it is in no profile.
-- **Install:** `hammunition install svxlink-server --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `svxlink-server`

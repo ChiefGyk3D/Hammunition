@@ -20,17 +20,6 @@ A Moxon is a two-element beam with about 5 dB of gain and a very deep rearward n
 
 A desktop session and a frequency. Nothing else -- the design work happens before any hardware exists.
 
-## Install and launch
-
-- **Installed with the profile:** [`antenna`](../profiles/antenna.md).
-- **Install:** `hammunition install fl-moxgen --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `fl_moxgen`.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - source (make) from https://sourceforge.net/projects/flmoxgen/files/Fl_MoxGen-1.00.tar.gz/download

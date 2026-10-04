@@ -20,17 +20,6 @@ This is the half that goes on the machine with the screen. Install `soapyremote-
 
 A running `soapyremote-server` somewhere reachable. Discovery uses broadcast, so a device on another subnet must be named explicitly in the device string rather than found.
 
-## Install and launch
-
-- **Installed with the profile:** [`sdr`](../profiles/sdr.md).
-- **Install:** `hammunition install soapysdr-module-remote --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `soapysdr-module-remote`

@@ -20,17 +20,6 @@ It is the vendor's own software and the only Linux program that speaks to every 
 
 A RigExpert analyzer. Most models enumerate as a USB CDC serial device -- membership of `dialout` covers those. AHRL additionally shipped a udev rule opening 0483:a1de (some models' custom USB interface) to MODE 0666; this catalog has not yet carried a RigExpert entry in the hardware catalog, so on such models the device may need root until it does.
 
-## Install and launch
-
-- **Installed by name only** — it is in no profile.
-- **Install:** `hammunition install antscope2 --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - prebuilt deb from https://rigexpert.com/files/software/Antscope/antscope2forlinux/antscope2_2.0.2_ubuntu.deb — *arch x86_64*

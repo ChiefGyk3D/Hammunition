@@ -129,18 +129,3 @@ documentation:
   upstream_support: >-
     John Langner, WB2OSZ. GitHub issues, and the user guide in the repository
     is unusually thorough -- it explains packet radio, not just the program.
-  offline: >-
-    No internet is needed to use it as a packet modem: it is a sound-card TNC,
-    so what it needs is the radio, a sound interface and a way to key the
-    transmitter, which is a radio link and not a network one. Its APRS internet
-    gateway is an optional feature; the example configuration is deliberately
-    not a digipeater or an igate. Ahead of time: set your callsign (`hammunition
-    station set --callsign`), then edit the audio device and PTT method in
-    `/etc/direwolf.conf` for your interface. Nothing here has been run over the
-    air on the field laptop.
-  first_task: >-
-    Run `direwolf -c /etc/direwolf.conf` (without `-c` it looks only in the
-    current directory and your home directory) after naming your sound card in
-    `ADEVICE`. It prints its audio levels and each packet it decodes as traffic
-    is heard; the levels are where to start when the station hears everyone and
-    is heard by nobody.

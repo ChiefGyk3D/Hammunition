@@ -21,17 +21,6 @@ Between Xastir's mapping focus and QtBPQAPRS's messaging focus, YAAC is the do-e
 
 A display: YAAC is a graphical Java application and needs the full JRE (default-jre, which this manifest installs), under X11 or a Wayland session with XWayland. A TNC (Direwolf serves well -- this catalog configures it) or an APRS-IS passcode for internet-only operation. Serial TNCs need the dialout group; libjssc-java supplies the serial bindings.
 
-## Install and launch
-
-- **Installed by name only** — it is in no profile.
-- **Install:** `hammunition install yaac --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `yaac`.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - prebuilt zip from https://www.ka2ddo.org/ka2ddo/YAAC.zip

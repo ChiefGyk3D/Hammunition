@@ -22,17 +22,6 @@ It is the reference implementation for HF digital modes on Linux and the foundat
 
 Sound-card audio routed to and from the radio, and PTT via hamlib, flrig, CAT, or a serial line. `docs/guides/digital-modes.md` covers rig control and the first PSK31 and RTTY contacts; `docs/guides/audio-routing.md` covers the audio path and choosing between fldigi's PulseAudio and PortAudio options.
 
-## Install and launch
-
-- **Installed with the profile:** [`digital-modes`](../profiles/digital-modes.md).
-- **Install:** `hammunition install fldigi --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `fldigi`, `flarq`.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - source (autotools) from https://downloads.sourceforge.net/project/fldigi/fldigi/fldigi-4.2.13.tar.gz

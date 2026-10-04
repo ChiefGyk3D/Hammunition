@@ -20,17 +20,6 @@ Above about 30 MHz the question is line of sight and what is in the way, and tha
 
 Elevation data in SPLAT's own SDF format. `splat-sdf` makes it from the elevation of your map regions (D-061, amended 2026-10-02), with the `srtm2sdf` tools this package ships; `hammunition maps splat` then points SPLAT! at it through `~/.splat_path`. Without map regions, convert SRTM tiles yourself with the same tools. gnuplot, which the package depends on, draws the profiles.
 
-## Install and launch
-
-- **Installed with the profile:** [`antenna`](../profiles/antenna.md).
-- **Install:** `hammunition install splat --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `splat`

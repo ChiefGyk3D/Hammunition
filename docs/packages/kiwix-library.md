@@ -20,21 +20,6 @@ When the network is down the questions are not: how to treat a wound, what a par
 
 Choose books first, by id: `hammunition station set --reference-books ham.stackexchange.com_en_all,wikipedia_en_medicine_nopic`. A reader: `kiwix-tools` (for `hammunition reference serve`) or `kiwix`. Disk space: each book is counted twice while it installs (the checked download, then the installed copy; the download is deleted after).
 
-## Install and launch
-
-- **Installed with the profile:** [`reference`](../profiles/reference.md).
-- **Install:** `hammunition install kiwix-library --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-The books download at install time (from Kiwix, or a LAN mirror) and are read with no network. Which books are installed is your choice in station config (`--reference-books`); `hammunition reference books` lists them with size and licence. Books are dated snapshots, not live pages. `hammunition reference serve` listens on 127.0.0.1 only; reading from another machine needs an SSH forward, which is a local-network step and not part of the books.
-
-## First useful task
-
-Run `hammunition reference books`, pick ids such as `ham.stackexchange.com_en_all`, `hammunition station set --reference-books ID,ID`, then `hammunition install kiwix-library`. Afterwards `hammunition reference serve` and open http://127.0.0.1:8480/ ; each installed book is listed and *Search every book* searches them all.
-
 ## How it installs
 
 - Kiwix books chosen in station config, each pinned in `catalog/data/kiwix-pins.yaml` and licensed as `catalog/data/kiwix-books.yaml` states, printed in the plan

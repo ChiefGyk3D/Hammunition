@@ -20,17 +20,6 @@ It is the standard way a Linux logging or contest program sends Morse: tlf, and 
 
 A keying interface on a real serial or parallel port and a transmitter to key. Access to the port means membership of the `dialout` group for serial, or `lp` for parallel — this manifest does not add either, because which one you need depends on hardware this catalog cannot see.
 
-## Install and launch
-
-- **Installed with the profile:** [`morse`](../profiles/morse.md).
-- **Install:** `hammunition install cwdaemon --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `cwdaemon`

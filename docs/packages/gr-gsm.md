@@ -21,17 +21,6 @@ It is the standard teaching and research tool for how a cellular control channel
 
 GNU Radio and a receiver capable of covering the GSM bands -- typically an RTL-SDR with a corrected frequency offset, which grgsm_scanner will help establish. It is in the consent-gated `rf-research` profile, so installing it requires an affirmative answer that neither `--yes` nor a scripted install can supply on your behalf.
 
-## Install and launch
-
-- **Installed with the profile:** [`rf-research`](../profiles/rf-research.md).
-- **Install:** `hammunition install gr-gsm --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `grgsm_livemon-window`.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - apt: `gr-gsm`

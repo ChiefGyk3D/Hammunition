@@ -407,7 +407,7 @@ every profile, package and device, and [every project we
 install](docs/projects.md), linked to its home. It is built from `docs/` by
 `mkdocs build --strict` and published from `main` (**D-065**).
 
-The [GitHub wiki](https://github.com/ChiefGyk3D/Hammunition/wiki) is a mirror of the same pages, generated from `docs/` on every push to `main`; edit `docs/`, never the wiki. The [suite](docs/suite/index.md) pages cover Hammunition, Tray, Hill, Bunker, Console and the GPS Tether, the [EMCOMM](docs/emcomm/index.md) pages are the field guides, and [the offline bundle](docs/offline/index.md) is these docs as a folder that opens with no network (`python scripts/build_offline_bundle.py`). [How the docs are written and published](docs/contributing/documentation.md).
+The [GitHub wiki](https://github.com/ChiefGyk3D/Hammunition/wiki) is a mirror of the same pages, generated from `docs/` on every push to `main`; edit `docs/`, never the wiki.
 
 The decision record and the policies below were written before the code
 they describe, deliberately; the reference pages are generated from the

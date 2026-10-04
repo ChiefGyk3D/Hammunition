@@ -178,19 +178,3 @@ documentation:
     Issues on the GitHub repository. For "the switch does nothing", run
     `hammunition hardware state` first: the applet shows what that command
     reports.
-  offline: >-
-    Entirely local: no internet and no local network. The switches call a root
-    helper through polkit on this machine, so a polkit authentication agent must
-    be running in your session, and `hammunition hardware apply` must already
-    have written the device and service lists. The Radios group switches mobile
-    broadband, Wi-Fi and Bluetooth off and on; turning one off is what cuts that
-    connectivity, so do it on purpose and not before you need a link. The GPS
-    and modem switches save power while the device is not in use.
-  first_task: >-
-    Run `hammunition hardware apply --dry-run`, read it, then `hammunition
-    hardware apply`. Add the *Hammunition Devices* applet to the panel or the
-    System Tray's shown items (nothing places it for you). With a catalogued
-    parkable device plugged in, its switch appears; turning it off and on again
-    parks and wakes it, with one password prompt. `hammunition hardware state`
-    shows the same state in a terminal; docs/guides/tray-controls.md says which
-    switch asks for a password.

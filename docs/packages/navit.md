@@ -21,21 +21,6 @@ A phone's navigation needs the phone network for its maps and often for its rout
 
 A GPS receiver served by gpsd (the `gpsd` unit, installed first), and maps: the `osm-regions` and `osm-navit` units, which need your regions set first with `hammunition station set --map-regions`. The launcher runs `hammunition maps navit`, which opens the configuration `osm-navit` writes, so it has nothing to open until `osm-navit` has installed. A repeater layer from `hammunition maps repeaters import` is added to a copy of it in your own data directory, which the launcher then opens. Spoken directions need working audio output.
 
-## Install and launch
-
-- **Installed with the profile:** [`navigation`](../profiles/navigation.md).
-- **Install:** `hammunition install navit --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `navit-offline`.
-- **The install needs the network to:** your distribution's package archive.
-
-## Offline use
-
-Once its maps are converted it needs no network at all: Navit, the maps, gpsd and the voice are on the laptop. It needs a GPS receiver gpsd can see for your position, and audio output for spoken turns. Test it on purpose before a deployment: `nmcli networking off`, start `navit-offline`, confirm the map, your position and a route, then `nmcli networking on`. The map's coverage is the regions you installed; address search depends on how well OpenStreetMap mapped addresses there.
-
-## First useful task
-
-After `hammunition install navigation` (or `osm-navit`), start `navit-offline` from the menu or a terminal. You should see your installed region's map, and with a GPS fix your position on it.
-
 ## How it installs
 
 - apt: `navit`, `navit-gui-internal`, `navit-graphics-gtk-drawing-area`, `espeak-ng`, `maptool`

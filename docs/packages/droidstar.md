@@ -22,17 +22,6 @@ It is the one program here that speaks every common digital-voice network, M17 i
 
 A microphone and speakers or a headset, and a network connection. Your callsign in its Settings tab; for DMR, a DMR ID registered to that callsign, and the server's hotspot password if your account has one. For an AMBE dongle or an MMDVM modem, the `dialout` group; upstream's README also asks for ModemManager to be disabled so it leaves the serial port alone.
 
-## Install and launch
-
-- **Installed with the profile:** [`digital-modes`](../profiles/digital-modes.md).
-- **Install:** `hammunition install droidstar --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `droidstar-window`, `droidstar`.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - git (cmake) — https://github.com/nostar/DroidStar at `c6a4c54e7c142814d44e1a887982391e99354e5c` — *on debian, parrot, kali*

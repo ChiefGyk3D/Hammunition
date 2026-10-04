@@ -74,13 +74,3 @@ path = ["LICENSE", "catalog/LICENSE", "LICENSES/**", "src/hammunition/map_style/
 precedence = "override"
 SPDX-FileCopyrightText = "NONE"
 SPDX-License-Identifier = "CC0-1.0"
-
-# iframe-worker's shim (1.0.4, by Martin Donath), carried in the offline
-# documentation bundle so that search runs from file:// without fetching it from
-# unpkg.com. Copied unmodified from the npm package; its notice is
-# docs/assets/vendor/iframe-worker/LICENSE.txt.
-[[annotations]]
-path = "docs/assets/vendor/iframe-worker/**"
-precedence = "override"
-SPDX-FileCopyrightText = "Copyright (c) 2020-2022 Martin Donath <martin.donath@squidfunk.com>"
-SPDX-License-Identifier = "MIT"

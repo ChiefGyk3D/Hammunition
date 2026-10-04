@@ -21,17 +21,6 @@ GraphHopper routes only over a graph built for it, and nobody publishes one to d
 
 `osm-regions` with at least one region set; with none, installing this unit is refused, and the refusal says how to set them. `graphhopper` (installed with it). Install it by name: `hammunition install graphhopper-graph`; it is in no profile.
 
-## Install and launch
-
-- **Installed by name only** — it is in no profile.
-- **Install:** `hammunition install graphhopper-graph --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - converted from osm-regions by graphhopper-import (ODbL-1.0, https://www.openstreetmap.org/copyright)

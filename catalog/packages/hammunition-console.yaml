@@ -86,12 +86,3 @@ documentation:
   upstream_support: >-
     Issues on the hammunition-console repository for the console itself; the engine's own
     docs and `hammunition doctor` for anything the engine reports.
-  offline: >-
-    Local only: it reads the engine's `--json` documents and runs the engine's
-    own commands in a terminal pane. It needs the same network the engine needs
-    for whatever you run through it (apt, downloads), and none to look around.
-    It works over SSH. Not yet run through a real install on any target.
-  first_task: >-
-    Run `hammunition-console` in a terminal of at least 80x24. Home shows the
-    health check, whether your station is set and the four-step first-run
-    checklist; step 1 opens Station and runs `hammunition station set` for you.

@@ -21,17 +21,6 @@ It is the at-a-glance station dashboard for deciding which band to work, and it 
 
 A working network connection and a reachable data backend. Set your latitude, longitude and callsign on first run.
 
-## Install and launch
-
-- **Installed with the profile:** [`propagation`](../profiles/propagation.md).
-- **Install:** `hammunition install hamclock-next --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `hamclock-next-window`, `hamclock-next`.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - source (cmake) from https://github.com/k4drw/hamclock-next/archive/refs/tags/v1.6.tar.gz

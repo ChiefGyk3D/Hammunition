@@ -20,17 +20,6 @@ The Wordsworth method (QST, 2019) trains hearing whole words instead of counting
 
 A CW audio generator to feed -- ebook2cw or the ebook2cwgui this catalog carries. Perl is already on every Debian-family system.
 
-## Install and launch
-
-- **Installed by name only** — it is in no profile.
-- **Install:** `hammunition install wordsworth --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Commands it leaves on your PATH: `gen_cw_words`, `text_to_cw`.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - prebuilt tarball from https://downloads.sourceforge.net/project/kb1oiq-k1ig-wordsworth/wordsworth/wordsworth_0.3.tar.gz

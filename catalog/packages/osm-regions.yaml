@@ -77,20 +77,3 @@ documentation:
     Geofabrik's download server FAQ (https://download.geofabrik.de/technical.html)
     for the files themselves; problems in the map data are fixed in
     OpenStreetMap (https://www.openstreetmap.org/fixthemap).
-  offline: >-
-    The map data downloads at install time only, from Geofabrik (or a LAN mirror
-    named with `station set --mirror`), and is used with no network afterwards.
-    It covers only the regions you chose with `hammunition station set
-    --map-regions`, and it is as old as the extract: the default is Geofabrik's
-    1 January file for the year (`--map-freshness monthly` or `latest` for
-    newer). OpenStreetMap is volunteer-mapped and the extract is a snapshot, so
-    a road, hospital or shelter may have changed since. `hammunition update`
-    reports regions behind the pin; refresh with `hammunition install
-    osm-regions osm-navit` while online. Ahead of time: choose regions for every
-    place you might deploy, including the route there.
-  first_task: >-
-    Find your region with `hammunition maps regions vermont` (this fetches
-    Geofabrik's index), save it with `hammunition station set --map-regions
-    north-america/us/vermont`, then `hammunition install osm-regions osm-navit
-    --dry-run` and without `--dry-run`. The plan names every region, its size
-    and its licence before anything downloads.

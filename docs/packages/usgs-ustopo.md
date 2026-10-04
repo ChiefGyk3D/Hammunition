@@ -21,17 +21,6 @@ OpenStreetMap already has nearly every trail's line, but not always the name on 
 
 Map regions set in station config, and a grid square: the sheets are those of your regions within a radius of the grid square's centre, 100 km unless `station set --topo-radius-km N` says otherwise (0 selects none). `--topo-regions a,b` narrows to some of your regions, taken whole unless a radius is also set; `--topo-all` takes every sheet of every region, and the install then prints the count and size and asks you to type `yes`, which `--yes` does not answer; so does any selection over 10 GB. With no regions set this unit is deferred by name; with no grid square (and neither `--topo-all` nor `--topo-regions`) it is deferred by name too and what is installed is kept. Only regions in the United States and its territories have sheets; a region elsewhere gets none, and the plan says so without failing.
 
-## Install and launch
-
-- **Installed with the profile:** [`navigation`](../profiles/navigation.md).
-- **Install:** `hammunition install usgs-ustopo --dry-run`, read the plan, then run it without `--dry-run`.
-- **Launch:** Its package ships its own commands and application-menu entry; a unit that ships none gets a generated terminal entry (**D-050**). `hammunition status` lists what is installed.
-- **The install needs the network to:** the upstream files the plan lists, each checked against a pinned digest (or, for map and reference data, the publisher or a LAN mirror).
-
-## Offline use
-
-*Not yet documented for this application.* Read “Before it will work” above for what it needs; the install-time network line above is the only offline fact generated from the manifest. Internet, a local network and a radio link are three different things, and this page does not claim any of them works until it says so.
-
 ## How it installs
 
 - topographic map sheets from usgs-ustopo for the regions in station config (Public domain (USGS), https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits)
