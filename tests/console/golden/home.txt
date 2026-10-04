@@ -1,0 +1,24 @@
+The engine's own commands, one screen at a time.
+
+First run: four steps, each optional. Enter opens one, s skips it, D dismisses
+this list.
+ [x] 1  Set your station  - the engine has your callsign and grid square
+ [?] 2  Apply the hardware rules  - the engine does not yet report whether the u
+ [ ] 3  Pick a profile  - the station profile is the floor everything stands on;
+ [ ] 4  Install station  - 0 of 14 of its units installed; Enter shows the plan
+
+Doctor: 0 fail, 1 warn, 17 healthy  (Enter lists the checks)
+Station: set
+Last run: install - running  2026-10-03T14:02:11Z
+Behind the pin: 1; retired in the catalog: 1
+
+Where to next (press the number, or Enter):
+ 1  Install   pick a profile or unit, read the plan, run it
+ 2  Station   your callsign, grid square, maps and rig
+ 3  Logs      what each run did
+ 4  Update    installed versus the catalog
+ 5  Help      keys, and what each profile is for
+
+
+
+

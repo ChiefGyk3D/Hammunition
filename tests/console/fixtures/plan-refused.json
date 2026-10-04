@@ -1,0 +1,30 @@
+{
+  "schema": "hammunition/1",
+  "kind": "plan",
+  "engine": "0.20.0",
+  "action": "install",
+  "requested": [
+    "no-such-unit-xyz"
+  ],
+  "outcome": "refused",
+  "target": {
+    "distro": "parrot",
+    "version": "7.4",
+    "arch": "x86_64",
+    "id_like": [
+      "debian"
+    ],
+    "pretty_name": "Parrot Security 7.4 (echo)",
+    "description": "Parrot Security 7.4 (echo) (ID=parrot, version=7.4, arch=x86_64)",
+    "debian_family": true
+  },
+  "blockers": [
+    {
+      "subject": "no-such-unit-xyz",
+      "reason": "is not a package or profile in the catalog",
+      "remedy": "`hammunition list` shows everything the catalog contains"
+    }
+  ],
+  "install": null,
+  "removal": null
+}

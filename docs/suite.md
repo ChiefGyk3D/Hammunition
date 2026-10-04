@@ -19,7 +19,7 @@ links to it, so a copy here cannot drift from the project.
 | [Hammunition Tray](https://github.com/ChiefGyk3D/hammunition-tray) | System-tray switches to park GPS, modem, Bluetooth and camera and to start services | v0.5.0 pinned; the Qt tray is built, not yet run on any desktop it lists | Yes |
 | [Hammunition Hill](https://github.com/ChiefGyk3D/hammunition-hill) | A ham-radio dashboard in your browser | v1.2.0 pinned by the catalog (the repeaters panel); upstream may be newer | No |
 | [Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker) | A LAN server that keeps verified copies of the offline data | 0.1.0, unreleased: tested against a fake engine, never run on a NAS | Yes |
-| [Hammunition Console](https://github.com/ChiefGyk3D/hammunition-console) | A full-screen terminal front end for the engine | v0.1.0 pinned; not yet run through a real install | Yes |
+| Hammunition Console | A full-screen terminal front end for the engine | Part of the engine since v0.21.0 (#302); the old repository is archived. Not yet run through a real install | It is part of the engine |
 | [Hammunition GPS Tether](https://github.com/ChiefGyk3D/hammunition-gps-tether) | Your gpsd position as NMEA and as a browser stream, on this machine only | v0.1.1 pinned; measured on the field laptop as a service, including across a reboot ([bench session 13](reference/bench-verification-5430.md)) | Needs gpsd; the engine installs it |
 
 "Pinned" is the version `catalog/packages/` installs; a project's repository
@@ -115,16 +115,23 @@ suite's runtime.
 
 ## Hammunition Console
 
-- **Repository and install specifics:** <https://github.com/ChiefGyk3D/hammunition-console#readme>.
+- **Where it lives:** in the engine, since v0.21.0 (#302): `hammunition console`.
+  The old repository, `hammunition-console`, is archived. It ships with the
+  engine because it makes no sense on its own: it only drives the engine, and a
+  separate repository produced a version floor and a refusal where an update was
+  wanted. Tray, Hill, Bunker and the GPS tether stay separate: each runs without
+  the engine or serves other clients.
 - **Platforms:** Python 3.11 or later; a terminal of at least 80x24; refuses
-  `TERM=dumb` and root. Works over SSH.
-- **Depends on:** the engine (0.19.0 or later) on PATH.
-- **Example:** `hammunition install hammunition-console`, then
-  `hammunition-console`; pick `station` in Install: the plan is shown, and
-  nothing changes until you type `yes`. Walkthrough: [The console](getting-started/console.md).
+  `TERM=dumb` and root. SSH and Raspberry Pi use are not measured.
+- **Depends on:** the engine it is part of, and `python3-urwid` (or the
+  `console` extra in a virtualenv).
+- **Example:** `hammunition console`; pick `station` in Install: the plan is
+  shown, and nothing changes until you type `yes`. Walkthrough:
+  [The console](getting-started/console.md); keys and screens:
+  [the console reference](console/index.md).
 - **Not yet measured:** a real install driven from it. Hardware and maps
-  screens are not in this release.
-- **Report problems:** [issues](https://github.com/ChiefGyk3D/hammunition-console/issues).
+  screens are not in it yet.
+- **Report problems:** [issues on the Hammunition repository](https://github.com/ChiefGyk3D/Hammunition/issues).
 
 ## Hammunition GPS Tether
 

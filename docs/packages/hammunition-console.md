@@ -4,22 +4,25 @@
 
 **A terminal front end for the engine -- install, station, logs and updates in one full-screen program**
 
+> **Status: retired.** Folded into the engine as `hammunition console` (#302): the console only drives the engine, so a separate repository produced a version floor and a refusal where an update was wanted. Install or update the engine and run `hammunition console`; `sudo apt install python3-urwid` (or the `console` extra in a virtualenv) is its one dependency. The old repository is archived. Recorded 2026-10-04. Verdict tested by us.
+
 - **Version recorded:** 0.1.0
 - **Categories:** `workstation`
 - **Upstream:** <https://github.com/ChiefGyk3D/hammunition-console>
 - **Needs first:** `python3`, `python3-urwid`
+- **Not a recommended default** — installed only when asked for.
 
 ## What it does
 
-A full-screen terminal program that shows what Hammunition has installed on this machine, what is wrong, and what to do next, and runs the engine's own commands for you. Home shows the health check, whether your station is set, the last run and how many units are behind the catalog's pin, with a four-step first-run checklist. Install lists the profiles and units, shows the engine's own plan, then runs the real command in a terminal pane. Station, Logs, Update and Help round it out. It works over SSH and on a Pi.
+Retired: the standalone v0.1.0 terminal front end, now part of the engine as `hammunition console`. It is the same full-screen program: Home shows the health check, whether your station is set, the last run and how many units are behind the catalog's pin; Install shows the engine's own plan and then runs the real command in a terminal pane; Station, Logs, Update and Help round it out. Nothing about it is measured over SSH or on a Pi.
 
 ## Why you would want it
 
-You would rather pick from a list than remember the CLI's verbs, or you are walking a fresh machine to a working station for the first time. It is a front end for the commands in docs/reference/cli.md and does exactly what they do and nothing else; it is the alternative to typing them. Because it runs each change in a real terminal, sudo and every consent prompt are the engine's and are answered by you, never by the console.
+You do not need this unit. Run `hammunition console` from the engine you already have (reference: docs/console/index.md). This entry stays only so that `hammunition uninstall hammunition-console` removes what a v0.1.0 install placed.
 
 ## Before it will work
 
-The engine itself, 0.19.0 or later, on PATH (this unit does not install it), and a terminal of at least 80x24. Nothing is configured first; the Station screen sets the values the engine needs. Python 3.11 or later, which every target but Ubuntu 22.04 and Pop!_OS 22.04 ships.
+None for the unit, which cannot be installed. `hammunition console` needs the engine, python3-urwid (or the `console` extra in a virtualenv) and a terminal of at least 80x24.
 
 ## How it installs
 
@@ -34,7 +37,7 @@ The engine itself, 0.19.0 or later, on PATH (this unit does not install it), and
 
 ## Known problems
 
-**First release; not yet run through a real install on any target.** It was tested against recorded engine documents and a fake engine on a real pseudo-terminal, not against a real install through its terminal pane on the field laptop; that is a bench item. The engine's per-profile installed state and its update report for retired units are used when the engine sends them and shown as "unknown" when it does not. Hardware and maps screens are not in this release: use the CLI and hammunition-tray. A per-user copy placed by the console repository's own install.sh (~/.local/bin/hammunition-console) shadows or conflicts with this unit's launcher; run that repository's uninstall.sh once before installing the unit. It refuses to start without a terminal, with TERM=dumb, or as root.
+A copy of the standalone console on PATH (the old unit's tree, or the old repository's per-user install.sh) keeps working until you uninstall it, and `hammunition-console` is not `hammunition console`: remove the old one with `hammunition uninstall hammunition-console` (or that repository's uninstall.sh).
 
 ## Keeping it current
 
@@ -44,6 +47,6 @@ The engine itself, 0.19.0 or later, on PATH (this unit does not install it), and
 
 ## Where to get help with the software itself
 
-Issues on the hammunition-console repository for the console itself; the engine's own docs and `hammunition doctor` for anything the engine reports.
+The old repository is archived. Issues about `hammunition console` go to the Hammunition repository.
 
 *Source: [`catalog/packages/hammunition-console.yaml`](../../catalog/packages/hammunition-console.yaml)*

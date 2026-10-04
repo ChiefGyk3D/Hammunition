@@ -1,0 +1,127 @@
+{
+  "schema": "hammunition/1",
+  "kind": "update",
+  "engine": "0.20.0",
+  "target": {
+    "distro": "parrot",
+    "version": "7.4",
+    "arch": "x86_64",
+    "id_like": [
+      "debian"
+    ],
+    "pretty_name": "Parrot Security 7.4 (echo)",
+    "description": "Parrot Security 7.4 (echo) (ID=parrot, version=7.4, arch=x86_64)",
+    "debian_family": true
+  },
+  "from_log": false,
+  "rows": [
+    {
+      "unit": "chirp",
+      "state": "up to date",
+      "detail": "chirp 1:20250530-1parrot1",
+      "strategy": "apt_upgrade",
+      "upgradable": []
+    },
+    {
+      "unit": "flrig",
+      "state": "up to date",
+      "detail": "flrig 2.0.05-1",
+      "strategy": "apt_upgrade",
+      "upgradable": []
+    },
+    {
+      "unit": "gpsbabel",
+      "state": "up to date",
+      "detail": "gpsbabel 1.10.0+ds-1",
+      "strategy": "apt_upgrade",
+      "upgradable": []
+    },
+    {
+      "unit": "gpsd",
+      "state": "up to date",
+      "detail": "gpsd 3.25-5+deb13u2",
+      "strategy": "apt_upgrade",
+      "upgradable": []
+    },
+    {
+      "unit": "gpsd-clients",
+      "state": "up to date",
+      "detail": "gpsd-clients 3.25-5+deb13u2",
+      "strategy": "apt_upgrade",
+      "upgradable": []
+    },
+    {
+      "unit": "gpsd-tools",
+      "state": "up to date",
+      "detail": "gpsd-tools 3.25-5+deb13u2",
+      "strategy": "apt_upgrade",
+      "upgradable": []
+    },
+    {
+      "unit": "hammunition-hill",
+      "state": "behind the pin",
+      "detail": "dpkg does not hold the catalog's .deb (sha256 4b26abaa6571…) as this engine's; `install hammunition-hill` fetches it",
+      "strategy": "reinstall",
+      "upgradable": []
+    },
+    {
+      "unit": "hammunition-tray",
+      "state": "behind the pin",
+      "detail": "on disk, but not attributed at sha256 614148fb4241…: built at an earlier pin, or never verified here; `install hammunition-tray` rebuilds",
+      "strategy": "reinstall",
+      "upgradable": []
+    },
+    {
+      "unit": "libhamlib-utils",
+      "state": "up to date",
+      "detail": "libhamlib-utils 4.7.2-1~bpo13+1",
+      "strategy": "apt_upgrade",
+      "upgradable": []
+    },
+    {
+      "unit": "pipx",
+      "state": "up to date",
+      "detail": "pipx 1.7.1-1",
+      "strategy": "apt_upgrade",
+      "upgradable": []
+    },
+    {
+      "unit": "rig-service",
+      "state": "up to date",
+      "detail": "libhamlib-utils 4.7.2-1~bpo13+1",
+      "strategy": "apt_upgrade",
+      "upgradable": []
+    },
+    {
+      "unit": "twclock",
+      "state": "up to date",
+      "detail": "twclock 3.5-2",
+      "strategy": "apt_upgrade",
+      "upgradable": []
+    },
+    {
+      "unit": "tzwatch",
+      "state": "up to date",
+      "detail": "tzwatch 1.4.4-12",
+      "strategy": "apt_upgrade",
+      "upgradable": []
+    }
+  ],
+  "counts": {
+    "up_to_date": 11,
+    "candidate_differs": 0,
+    "behind_pin": 2,
+    "not_installed": 0,
+    "unknown": 0,
+    "on_install": 0,
+    "manual": 0
+  },
+  "lists_note": "last refreshed 2026-10-02 22:58 EDT (`sudo apt-get update` refreshes them; this report does not)",
+  "upgrade_command": null,
+  "rebuild_command": "hammunition install hammunition-hill hammunition-tray",
+  "upstream_declared": [
+    "hammunition-hill",
+    "hammunition-tray"
+  ],
+  "upstream": null
+}

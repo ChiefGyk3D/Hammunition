@@ -7,8 +7,11 @@
 # One universal lock per set covers Python 3.11 to 3.14 and every platform.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-compile() { uv pip compile pyproject.toml "$@" --generate-hashes --python-version 3.11 --universal -q; }
-compile -o requirements/runtime.txt
-compile --extra dev -o requirements/dev.txt
-compile --extra docs -o requirements/docs.txt
+# The output goes last so the header the lock records names the extra first, which is
+# what scripts/check_locks.py looks for.
+compile() { local out=$1; shift; uv pip compile pyproject.toml "$@" --generate-hashes --python-version 3.11 --universal -q -o "$out"; }
+compile requirements/runtime.txt
+compile requirements/console.txt --extra console
+compile requirements/dev.txt --extra dev
+compile requirements/docs.txt --extra docs
 .venv/bin/python scripts/check_locks.py --check 2>/dev/null || python3 scripts/check_locks.py --check

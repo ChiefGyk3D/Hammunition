@@ -39,6 +39,14 @@ dev = [
     # MkDocs 2.0 removes the plugin and theme systems mkdocs.yml relies on.
     "mkdocs==1.6.1",
     "mkdocs-material==9.7.7",
+    # The console's tests run inside this suite, so its extra is part of dev.
+    "urwid>=2.6",
+]
+# `hammunition console` (the terminal front end, D-059 amended 2026-10-04).
+# urwid is the whole dependency; Debian-family machines can take the archive's
+# python3-urwid instead, which a virtualenv does not see.
+console = [
+    "urwid>=2.6",
 ]
 # Just what the Pages workflow needs to build the site.
 docs = [
@@ -75,6 +83,30 @@ pretty = true
 [[tool.mypy.overrides]]
 module = ["yaml.*"]
 ignore_missing_imports = true
+
+# urwid is treated as untyped, on purpose. Versions 2.6 (Debian's python3-urwid)
+# to 4.x are all supported at runtime, and 3.x/4.x ship types 2.6 lacks: checking
+# against whichever is installed would make the gate depend on the machine
+# (CLAUDE.md: test the matrix, not your machine). Every widget subclasses an urwid
+# class, so the base is Any, which is not a defect in this code; and the
+# Any-from-unfollowed-import check cannot hold for a package whose whole job is
+# drawing with that library. The console package itself stays --strict otherwise.
+[[tool.mypy.overrides]]
+module = ["urwid", "urwid.*"]
+follow_imports = "skip"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["hammunition.console", "hammunition.console.*", "console", "console.*"]
+disallow_subclassing_any = false
+disallow_any_unimported = false
+
+# The console's tests poke at private widget state and urwid internals, whose
+# types differ between urwid versions; an ignore needed on one is unused on the
+# other, so unused-ignore warnings are off for them only.
+[[tool.mypy.overrides]]
+module = ["console", "console.*"]
+warn_unused_ignores = false
 
 # The repeaterbook-client unit's own venv carries these, never the engine's
 # (src/hammunition/repeaterbook_runner.py runs under that venv's python, D-081).
@@ -115,3 +147,4 @@ extend-immutable-calls = ["hammunition.interface.envelope.described"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q --strict-markers"
+markers = ["pty: drives the console inside a real pseudo-terminal (tests/console)"]

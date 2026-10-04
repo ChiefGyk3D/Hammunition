@@ -1,0 +1,17 @@
+{
+  "schema": "hammunition/1",
+  "kind": "logs",
+  "engine": "0.20.0",
+  "directory": "/home/user/.local/state/hammunition/logs",
+  "total_bytes": 4096,
+  "max_files": 30,
+  "max_bytes": 209715200,
+  "runs": [
+    {"path": "/home/user/.local/state/hammunition/logs/20261003T140211Z-install-4242.log", "started": "2026-10-03T14:02:11Z", "command": "install", "pid": 4242, "size": 900, "result": "running", "exit_code": null},
+    {"path": "/home/user/.local/state/hammunition/logs/20261003T120000Z-install-4100.log", "started": "2026-10-03T12:00:00Z", "command": "install", "pid": 4100, "size": 800, "result": "ok", "exit_code": 0},
+    {"path": "/home/user/.local/state/hammunition/logs/20261003T110000Z-install-4000.log", "started": "2026-10-03T11:00:00Z", "command": "install", "pid": 4000, "size": 700, "result": "failed", "exit_code": 1},
+    {"path": "/home/user/.local/state/hammunition/logs/20261003T100000Z-uninstall-3900.log", "started": "2026-10-03T10:00:00Z", "command": "uninstall", "pid": 3900, "size": 600, "result": "refused", "exit_code": 2},
+    {"path": "/home/user/.local/state/hammunition/logs/20261003T090000Z-install-3800.log", "started": "2026-10-03T09:00:00Z", "command": "install", "pid": 3800, "size": 500, "result": "not confirmed", "exit_code": 3},
+    {"path": "/home/user/.local/state/hammunition/logs/20261003T080000Z-hardware-apply-3700.log", "started": "2026-10-03T08:00:00Z", "command": "hardware-apply", "pid": 3700, "size": 400, "result": "incomplete", "exit_code": null}
+  ]
+}

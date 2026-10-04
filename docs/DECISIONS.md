@@ -5789,6 +5789,35 @@ when one is missing. Files: `src/hammunition/interface/` (`envelope.py`,
 `tests/test_path_link.py`, `tests/test_doctor.py`,
 `tests/test_docs_json_interface.py`, goldens under `tests/fixtures/json/`.
 
+### Amendment (2026-10-04): the console ships with the engine (#302)
+
+The terminal console (`hammunition-console`) moved into this repository as
+`hammunition console`. It is the one front end that makes no sense on its own: it
+has no install logic, no package names and no catalog parser, and does nothing
+the engine's `--json` documents and commands do not. Its separate repository
+produced the failure the maintainer hit on 2026-10-04: a version floor
+(`ENGINE_FLOOR`), a stale version stamp on the engine's virtualenv, and a refusal
+where an update was wanted. There is now one release and one version, so the
+floor check, the `EngineTooOld` refusal and the fixtures' `engine` field it read
+are gone; the `engine` field of a document is shown, never compared. The console
+still drives the engine as a subprocess through the documents (the interface
+this decision created is unchanged, and the console imports nothing of the
+engine's but one launcher, `hammunition.console.launch.engine_argv()`, which
+runs the interpreter that is running it with `-m hammunition`, so a checkout's
+virtualenv, the bootstrap-linked `~/.local/bin/hammunition` and a packaged
+install each drive their own engine). urwid is an optional extra
+(`hammunition[console]`; `python3-urwid` on the Debian family), imported only
+when the screen is drawn: `hammunition` itself never needs it, and without it
+`hammunition console` prints one line naming the command and exits 2. The
+standalone unit is retired (its install block stays so an uninstall can find
+what v0.1.0 placed); `menus apply` writes the engine's own entry for
+`hammunition console`. `tests/console/capture_fixtures.py` refuses to run unless
+the HOME the engine would see is a temporary directory it created itself (console
+issue #5, the 2026-10-03 incident). Tray, Hill, Bunker and the GPS tether stay
+separate: each runs without the engine or serves other clients, which is the
+test for a separate project. The console's design record is
+`docs/superpowers/specs/2026-10-03-console-design.md`, amended the same day.
+
 ## D-060 — A unit may be for particular desktops: read from the session files, deferred from a profile on a machine with none of them, refused by name; Plasma first, Xfce and LXQt welcomed
 
 **Date:** 2026-09-28. **Status:** accepted (maintainer, 2026-09-28, on the

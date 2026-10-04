@@ -1,0 +1,176 @@
+{
+  "$defs": {
+    "ConsentView": {
+      "additionalProperties": false,
+      "description": "A profile's consent gate, as `show` discloses it.",
+      "properties": {
+        "env_var": {
+          "title": "Env Var",
+          "type": "string"
+        },
+        "risk_categories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Risk Categories",
+          "type": "array"
+        },
+        "disclosure": {
+          "title": "Disclosure",
+          "type": "string"
+        }
+      },
+      "required": [
+        "env_var",
+        "risk_categories",
+        "disclosure"
+      ],
+      "title": "ConsentView",
+      "type": "object"
+    },
+    "ProfileDocs": {
+      "additionalProperties": false,
+      "description": "The documentation every profile carries (CLAUDE.md).",
+      "properties": {
+        "what_it_installs": {
+          "title": "What It Installs",
+          "type": "string"
+        },
+        "why_together": {
+          "title": "Why Together",
+          "type": "string"
+        },
+        "deliberately_excludes": {
+          "title": "Deliberately Excludes",
+          "type": "string"
+        },
+        "manual_configuration": {
+          "title": "Manual Configuration",
+          "type": "string"
+        },
+        "disk_footprint_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Disk Footprint Hint"
+        }
+      },
+      "required": [
+        "what_it_installs",
+        "why_together",
+        "deliberately_excludes",
+        "manual_configuration",
+        "disk_footprint_hint"
+      ],
+      "title": "ProfileDocs",
+      "type": "object"
+    },
+    "SuggestionView": {
+      "additionalProperties": false,
+      "description": "A choice the profile offers when nothing already answers it.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Options",
+          "type": "array"
+        },
+        "recommended": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Recommended"
+        },
+        "detect_commands": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Detect Commands",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "reason",
+        "options",
+        "recommended",
+        "detect_commands"
+      ],
+      "title": "SuggestionView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One profile, everything `show` prints, disclosure included.",
+  "properties": {
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    },
+    "stage": {
+      "title": "Stage",
+      "type": "string"
+    },
+    "documentation": {
+      "$ref": "#/$defs/ProfileDocs"
+    },
+    "consent": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ConsentView"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "packages": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Packages",
+      "type": "array"
+    },
+    "suggests_one_of": {
+      "items": {
+        "$ref": "#/$defs/SuggestionView"
+      },
+      "title": "Suggests One Of",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "summary",
+    "stage",
+    "documentation",
+    "consent",
+    "packages",
+    "suggests_one_of"
+  ],
+  "title": "ProfileDocument",
+  "type": "object"
+}

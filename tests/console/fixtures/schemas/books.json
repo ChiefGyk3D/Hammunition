@@ -1,0 +1,96 @@
+{
+  "$defs": {
+    "BookRow": {
+      "additionalProperties": false,
+      "description": "One book the catalog offers, with its pin.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "File"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Size"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Note"
+        },
+        "chosen": {
+          "title": "Chosen",
+          "type": "boolean"
+        },
+        "installed": {
+          "title": "Installed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "file",
+        "size",
+        "licence",
+        "licence_url",
+        "note",
+        "chosen",
+        "installed"
+      ],
+      "title": "BookRow",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The Kiwix books the catalog offers. Read from the catalog and the disk;\nnothing is fetched.",
+  "properties": {
+    "books": {
+      "items": {
+        "$ref": "#/$defs/BookRow"
+      },
+      "title": "Books",
+      "type": "array"
+    }
+  },
+  "required": [
+    "books"
+  ],
+  "title": "BooksDocument",
+  "type": "object"
+}

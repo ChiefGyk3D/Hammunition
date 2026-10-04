@@ -375,7 +375,6 @@ def test_every_catalog_launcher_working_directory_is_under_the_shared_prefix() -
         "qmapshack": ("qmapshack-offline", "gps-tether"),
         "radiosonde-auto-rx": ("radiosonde-auto-rx",),
         "rtl-sdr": ("rtl_test-tuner",),
-        "hammunition-console": ("hammunition-console",),
         "skid-finder": ("skid-finder",),
         "stlink-tools": ("st-info-probe",),
         "supersdr": ("supersdr",),

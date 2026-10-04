@@ -1,0 +1,122 @@
+{
+  "schema": "hammunition/1",
+  "kind": "plan",
+  "engine": "0.20.0",
+  "action": "install",
+  "requested": [
+    "rf-research"
+  ],
+  "outcome": "planned",
+  "target": {
+    "distro": "parrot",
+    "version": "7.4",
+    "arch": "x86_64",
+    "id_like": [
+      "debian"
+    ],
+    "pretty_name": "Parrot Security 7.4 (echo)",
+    "description": "Parrot Security 7.4 (echo) (ID=parrot, version=7.4, arch=x86_64)",
+    "debian_family": true
+  },
+  "blockers": [],
+  "install": {
+    "packages": [
+      {
+        "name": "gnuradio",
+        "method": "apt",
+        "state": "already installed",
+        "requested_by": [
+          "dependency of gr-gsm"
+        ],
+        "apt": [
+          {
+            "package": "gnuradio",
+            "outstanding": false,
+            "build_only": false
+          }
+        ]
+      },
+      {
+        "name": "gr-gsm",
+        "method": "apt",
+        "state": "already installed",
+        "requested_by": [
+          "profile rf-research"
+        ],
+        "apt": [
+          {
+            "package": "gr-gsm",
+            "outstanding": false,
+            "build_only": false
+          }
+        ]
+      },
+      {
+        "name": "hacktv",
+        "method": "apt",
+        "state": "already installed",
+        "requested_by": [
+          "profile rf-research"
+        ],
+        "apt": [
+          {
+            "package": "hacktv",
+            "outstanding": false,
+            "build_only": false
+          }
+        ]
+      }
+    ],
+    "displaced": [],
+    "apt_release": null,
+    "no_recommends": null,
+    "repos": [],
+    "mirror": null,
+    "data": [],
+    "maps": null,
+    "memberships": [],
+    "consent_gates": [
+      {
+        "profile": "rf-research",
+        "env_var": "HAMMUNITION_ACCEPT_RF_RESEARCH",
+        "risk_lines": [
+          "unlicensed_transmission: Can cause connected hardware to emit radio frequency energy, including on frequencies, at power levels, or in modes that may require a licence or other authorization.",
+          "protected_communications: Can receive, decode, store or display communications that may be protected from interception.",
+          "identifier_collection: Can collect identifiers associated with people or their devices, such as IMSI, IMEI, MAC addresses, or subscriber records.",
+          "spectrum_disruption: Can degrade or deny service to other users of the radio spectrum, whether or not that is the intent."
+        ]
+      }
+    ],
+    "config_files": [],
+    "user_services": [],
+    "desktops_read": null,
+    "deferrals": [],
+    "notes": [],
+    "records": {
+      "log": "/home/user/.local/state/hammunition/transactions.jsonl",
+      "handed_to": null
+    },
+    "sudo": null,
+    "commands": [
+      {
+        "description": "Generate the grgsm_livemon-window launcher for gr-gsm",
+        "display": "[wrapper] /home/user/.local/bin/grgsm_livemon-window",
+        "argv": [],
+        "action": "wrapper",
+        "requires_root": false,
+        "sources": []
+      },
+      {
+        "description": "Add grgsm_livemon-window to the desktop menus",
+        "display": "[desktop-entry] /home/user/.local/share/applications/hammunition-grgsm_livemon-window.desktop",
+        "argv": [],
+        "action": "desktop-entry",
+        "requires_root": false,
+        "sources": []
+      }
+    ],
+    "suggestion_notes": [],
+    "region_notes": []
+  },
+  "removal": null
+}

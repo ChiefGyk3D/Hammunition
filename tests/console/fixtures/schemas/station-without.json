@@ -1,0 +1,161 @@
+{
+  "additionalProperties": false,
+  "description": "The saved station values, the values themselves included -- map\nregions among them, per D-057.\n\nFor a local front end filling in a form. Not for pasting into an issue,\na forum or a chat: a callsign resolves to a name and a licence address,\nand a grid square or a map region says where the station is.",
+  "properties": {
+    "path": {
+      "title": "Path",
+      "type": "string"
+    },
+    "file_exists": {
+      "title": "File Exists",
+      "type": "boolean"
+    },
+    "callsign": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Callsign"
+    },
+    "grid_square": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Grid Square"
+    },
+    "node_alias": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Node Alias"
+    },
+    "map_regions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Map Regions",
+      "type": "array"
+    },
+    "map_freshness": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Map Freshness"
+    },
+    "reference_books": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reference Books",
+      "type": "array"
+    },
+    "mirror": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Mirror"
+    },
+    "rig": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Rig"
+    },
+    "rig_device": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Rig Device"
+    },
+    "rig_baud": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Rig Baud"
+    },
+    "rig_ptt_line": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Rig Ptt Line"
+    },
+    "rig_owner": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Rig Owner"
+    },
+    "dem_source": {
+      "title": "Dem Source",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "file_exists",
+    "callsign",
+    "grid_square",
+    "node_alias",
+    "map_regions",
+    "map_freshness",
+    "reference_books",
+    "mirror",
+    "rig",
+    "rig_device",
+    "rig_baud",
+    "rig_ptt_line",
+    "rig_owner",
+    "dem_source"
+  ],
+  "title": "StationDocument",
+  "type": "object"
+}
