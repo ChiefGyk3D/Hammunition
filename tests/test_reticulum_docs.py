@@ -185,9 +185,13 @@ def test_the_shared_instance_is_per_machine_in_the_record_the_row_and_the_fragme
     for path in files:
         text = _flat(_text(path))
         if path.name == "DECISIONS.md":
-            text = text[text.index("## D-080 ") : text.index("## D-081 ") if "## D-081 " in text else None]
+            text = text[
+                text.index("## D-080 ") : text.index("## D-081 ") if "## D-081 " in text else None
+            ]
         assert not re.search(r"shared instance per operator", text, re.IGNORECASE), path.name
-        assert not re.search(r"per operator[^.]{0,40}shared instance", text, re.IGNORECASE), path.name
+        assert not re.search(r"per operator[^.]{0,40}shared instance", text, re.IGNORECASE), (
+            path.name
+        )
         assert "per machine" in text, path.name
     decision = _flat(_text(files[0]))
     assert "every console script `rns` 1.5.6 declares (14)" in decision
@@ -210,14 +214,16 @@ def test_the_guide_and_the_page_warn_that_an_old_pip_or_pipx_reticulum_is_overwr
     assert "pipx uninstall rns" in _flat(rns) and "does not bring the old one back" in _flat(rns)
 
 
-def test_nothing_is_claimed_not_to_transmit_on_a_network_and_the_autointerface_can_be_scoped() -> None:
+def test_nothing_is_claimed_not_to_transmit_on_a_network_and_the_autointerface_can_be_scoped() -> (
+    None
+):
     rns = load_catalog(ROOT / "catalog" / "packages")["rns"].documentation.prerequisites
     assert rns is not None
     flat = _flat(rns)
     assert "Nothing here transmits" not in flat
     assert "no radio transmits until you attach and configure one" in flat.lower()
     assert "announces on every link-local interface from the first start" in flat
-    guide = _flat(_text(GUIDE)).replace("No radio transmits","no radio transmits")
+    guide = _flat(_text(GUIDE)).replace("No radio transmits", "no radio transmits")
     for needle in (
         "no radio transmits until you attach and configure one",
         "announces on every link-local interface from the first start",

@@ -32,13 +32,12 @@ installer executes.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import pwd
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hammunition.backends import (
     IMPLEMENTED_BINARY_FORMATS,
