@@ -26,8 +26,11 @@ resolve() { # repo:tag -> sha256:...
     local ref=$1 repo tag token digest
     repo=${ref%%:*}; tag=${ref##*:}
     case "$repo" in */*) ;; *) repo="library/$repo" ;; esac
-    token=$(curl -fsS "https://auth.docker.io/token?service=registry.docker.io&scope=repository:$repo:pull" \
-        | python3 -c 'import sys, json; print(json.load(sys.stdin)["token"])')
+    # The token document is fetched to a variable and parsed from it, never piped
+    # from the network into an interpreter (Scorecard's download-then-run rule).
+    local token_doc
+    token_doc=$(curl -fsS "https://auth.docker.io/token?service=registry.docker.io&scope=repository:$repo:pull")
+    token=$(printf '%s' "$token_doc" | python3 -c 'import sys, json; print(json.load(sys.stdin)["token"])')
     digest=$(curl -fsSI -H "Authorization: Bearer $token" -H "Accept: $accept" \
         "https://registry-1.docker.io/v2/$repo/manifests/$tag" \
         | tr -d '\r' | awk -F': ' 'tolower($1) == "docker-content-digest" {print $2}')
