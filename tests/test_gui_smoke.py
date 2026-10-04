@@ -107,8 +107,8 @@ def test_non_zero_exit_is_failed_and_the_tail_names_the_fault(smoke: ModuleType)
         # raised HeadlessException is skipped, and the lane's first live
         # falsification on Debian 13 (2026-09-05) filed it exited-clean.
         'Exception in thread "AWT-EventQueue-0" java.lang.NullPointerException: '
-        'Cannot invoke "org.ka2ddo.yaac.gui.FirstWindowInitIfc.initMenuBar()" '
-        'because "this.initialWindow" is null',
+        + 'Cannot invoke "org.ka2ddo.yaac.gui.FirstWindowInitIfc.initMenuBar()" '
+        + 'because "this.initialWindow" is null',
     ],
 )
 def test_the_usual_launch_faults_are_recognised(smoke: ModuleType, line: str) -> None:

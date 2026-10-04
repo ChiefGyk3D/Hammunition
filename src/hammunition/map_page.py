@@ -422,15 +422,15 @@ def map_page(*, position_port: int, router: Sequence[str] | None = None) -> str:
                 "<title>Offline map</title>",
                 f'<link rel="stylesheet" href="{KIT}maplibre/maplibre-gl.css">',
                 "<style>html,body{margin:0;height:100%;font:14px system-ui,sans-serif}"
-                "#map{position:absolute;inset:0}"
-                "#bar{position:absolute;top:8px;left:8px;z-index:2;background:#fff;padding:6px;"
-                "border-radius:4px;max-width:calc(100% - 64px)}#bar>*{margin:2px}</style>",
+                + "#map{position:absolute;inset:0}"
+                + "#bar{position:absolute;top:8px;left:8px;z-index:2;background:#fff;padding:6px;"
+                + "border-radius:4px;max-width:calc(100% - 64px)}#bar>*{margin:2px}</style>",
                 "</head><body>",
                 '<div id="map"></div>',
                 '<div id="bar"><label>Region <select id="region"></select></label> '
-                '<button id="centre" type="button">Centre on me</button> '
-                '<span id="where">Waiting for a position…</span> <span id="status"></span> '
-                '<span id="layers"></span>',
+                + '<button id="centre" type="button">Centre on me</button> '
+                + '<span id="where">Waiting for a position…</span> <span id="status"></span> '
+                + '<span id="layers"></span>',
                 *(
                     [
                         '<br><label>Route for <select id="profile">'
@@ -444,10 +444,10 @@ def map_page(*, position_port: int, router: Sequence[str] | None = None) -> str:
                 ),
                 f"<noscript>{html.escape(CREDIT)}. The map needs JavaScript.</noscript></div>",
                 "<script>window.addEventListener('error',(e)=>{document.body.dataset.error="
-                "String(e.message);document.getElementById('status').textContent='Error: '+e.message;});"
-                "window.addEventListener('unhandledrejection',(e)=>{const m=String((e.reason&&"
-                "e.reason.message)||e.reason);document.body.dataset.error=m;"
-                "document.getElementById('status').textContent='Error: '+m;});</script>",
+                + "String(e.message);document.getElementById('status').textContent='Error: '+e.message;});"
+                + "window.addEventListener('unhandledrejection',(e)=>{const m=String((e.reason&&"
+                + "e.reason.message)||e.reason);document.body.dataset.error=m;"
+                + "document.getElementById('status').textContent='Error: '+m;});</script>",
                 f'<script src="{KIT}pmtiles/dist/pmtiles.js"></script>',
                 f'<script type="module">{script}</script>',
                 "</body></html>",

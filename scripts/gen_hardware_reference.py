@@ -108,7 +108,7 @@ def power_control_lines(control: PowerControl) -> list[str]:
     lines += ["", control.note.strip(), ""]
     lines += [
         "See [device power control](power-control.md) for what parking does "
-        "to a machine, how to inspect it and how to reverse it.",
+        + "to a machine, how to inspect it and how to reverse it.",
         "",
     ]
     return lines
@@ -124,7 +124,7 @@ def resume_lines(control: ResumeControl) -> list[str]:
         control.note.strip(),
         "",
         "See [after suspend](power-control.md#after-suspend) for what the step "
-        "installs, how to inspect it and how to reverse it.",
+        + "installs, how to inspect it and how to reverse it.",
         "",
     ]
 
@@ -320,10 +320,10 @@ def index(devices: dict[str, DeviceManifest], classes: dict[str, DeviceClass]) -
         "# Hardware",
         "",
         "One page per catalogued device: what it is, how it identifies itself "
-        "on USB, what permissions it needs, and what software makes it useful. "
-        "**Status** and **verified** are separate columns on purpose (D-027): "
-        "a correct setup recipe and a device someone here has actually run are "
-        "different claims, and conflating them is how catalogs lie.",
+        + "on USB, what permissions it needs, and what software makes it useful. "
+        + "**Status** and **verified** are separate columns on purpose (D-027): "
+        + "a correct setup recipe and a device someone here has actually run are "
+        + "different claims, and conflating them is how catalogs lie.",
         "",
         "| Device | Status | Verified | Summary |",
         "|---|---|---|---|",
@@ -343,7 +343,7 @@ def index(devices: dict[str, DeviceManifest], classes: dict[str, DeviceClass]) -
     lines += [
         "",
         "Own hardware that is not here, or is marked untested? "
-        "[Closing a gap takes one lsusb](../contributing/hardware.md).",
+        + "[Closing a gap takes one lsusb](../contributing/hardware.md).",
         "",
     ]
     return "\n".join(lines)

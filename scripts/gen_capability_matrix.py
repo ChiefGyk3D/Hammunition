@@ -174,8 +174,8 @@ def render(catalog: dict[str, PackageManifest]) -> str:
         "",
         f"**Generated:** {date.today().isoformat()}  ",
         "**Method:** manifest resolution against each target's declared "
-        "`(distro, version, arch)`, merged with a measured `apt-cache policy` "
-        "sweep inside that target's own image.",
+        + "`(distro, version, arch)`, merged with a measured `apt-cache policy` "
+        + "sweep inside that target's own image.",
         "",
         "Resolution alone would overstate coverage. Most manifests here carry one",
         "unconditional apt block on purpose — apt reports the truth at plan time,",

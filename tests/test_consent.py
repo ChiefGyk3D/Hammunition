@@ -221,7 +221,7 @@ def test_legal_advice_wording_is_rejected(bad: str) -> None:
         "This software can cause connected hardware to emit radio frequency energy.",
         "This software can receive and decode communications that may be protected.",
         "Transmitting may require a licence or other authorization depending on where "
-        "and how you operate.",
+        + "and how you operate.",
     ],
 )
 def test_capability_wording_is_accepted(good: str) -> None:

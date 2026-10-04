@@ -182,20 +182,20 @@ def render(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) 
         f"run on hardware here** (D-027: two different claims).",
         "",
         "A device whose USB identifier is guessed produces a udev rule that "
-        "silently never matches, which an operator cannot distinguish from a bad "
-        "cable. So the catalog refuses to guess, and every gap is recorded here "
-        "instead — with the one fact that decides whether it is anyone's work "
-        "item: who is in a position to close it.",
+        + "silently never matches, which an operator cannot distinguish from a bad "
+        + "cable. So the catalog refuses to guess, and every gap is recorded here "
+        + "instead — with the one fact that decides whether it is anyone's work "
+        + "item: who is in a position to close it.",
         "",
         "## When these actually have to be closed",
         "",
         "Short answer: **none of them today.** `hammunition hardware apply` "
-        "consumes confirmed identifiers only and refuses to write a rule on a "
-        "guessed one (a rule that never matches is indistinguishable from a bad "
-        "cable), so an open gap costs the device its own rule and nothing else: "
-        "`apply` names the omission and moves on, and the class rules still "
-        "cover what they cover. What follows is what each gap withholds, and "
-        "when that starts to matter.",
+        + "consumes confirmed identifiers only and refuses to write a rule on a "
+        + "guessed one (a rule that never matches is indistinguishable from a bad "
+        + "cable), so an open gap costs the device its own rule and nothing else: "
+        + "`apply` names the omission and moves on, and the class rules still "
+        + "cover what they cover. What follows is what each gap withholds, and "
+        + "when that starts to matter.",
         "",
         "| Device | Closure | Blocks | Until then |",
         "|---|---|---|---|",
@@ -206,10 +206,10 @@ def render(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) 
     lines += [
         "",
         "`nothing` means the device is usable as catalogued and the gap is a "
-        "completeness item. `M4` means it blocks the device's own udev rule or "
-        "pinned symlink and nothing sooner. Only one gap blocks a decision rather than an "
-        "implementation, and even that one is a claim of support, not the "
-        "decision itself.",
+        + "completeness item. `M4` means it blocks the device's own udev rule or "
+        + "pinned symlink and nothing sooner. Only one gap blocks a decision rather than an "
+        + "implementation, and even that one is a claim of support, not the "
+        + "decision itself.",
         "",
         "| Device | Status | What is missing |",
         "|---|---|---|",
@@ -230,9 +230,9 @@ def render(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) 
         if closure != "not_applicable":
             lines += [
                 "`scripts/identify-device.sh <name>` captures what is needed and "
-                "prints a block ready to paste into the manifest. It is read-only, "
-                "needs no root, and reports a device that does not enumerate as a "
-                "finding rather than as a failure:",
+                + "prints a block ready to paste into the manifest. It is read-only, "
+                + "needs no root, and reports a device that does not enumerate as a "
+                + "finding rather than as a failure:",
                 "",
                 "```",
                 *(f"scripts/identify-device.sh {n}" for n in sorted(d.name for d in members)),
@@ -263,10 +263,10 @@ def render(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) 
         f"## Recorded but unconfirmed identifiers — {len(unconfirmed)}",
         "",
         "These are different from the gaps above: an identifier **is** recorded "
-        "and rules are generated from it, but it rests on documentation rather "
-        "than on an `lsusb` capture. Each carries its provenance, and confirming "
-        "one is a smaller job than filling a gap — the pair either matches "
-        "attached hardware or it does not.",
+        + "and rules are generated from it, but it rests on documentation rather "
+        + "than on an `lsusb` capture. Each carries its provenance, and confirming "
+        + "one is a smaller job than filling a gap — the pair either matches "
+        + "attached hardware or it does not.",
         "",
     ]
     if unconfirmed:
@@ -301,9 +301,9 @@ def render(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) 
         f"## Considered and rejected — {len(rejected)}",
         "",
         "Identifiers this catalog looked at and does not carry. They live in "
-        "`rejected_ids`, which cannot generate a udev rule and cannot be "
-        "inherited by a device, because the alternative is deleting the finding "
-        "and having somebody re-add it from the same source next year.",
+        + "`rejected_ids`, which cannot generate a udev rule and cannot be "
+        + "inherited by a device, because the alternative is deleting the finding "
+        + "and having somebody re-add it from the same source next year.",
         "",
     ]
     if rejected:
@@ -326,15 +326,15 @@ def render(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) 
         "## Support and verification are two different claims",
         "",
         "`status` says the identifiers and setup recipe are correct. "
-        "`maintainer_verified` says somebody here plugged the hardware in. They "
-        "answer different questions, and a device can honestly be the first "
-        "without the second: `usrp` claims `supported` on the strength of "
-        "Debian's own `uhd-host` udev rule, a primary source, while nobody on "
-        "this project owns one.",
+        + "`maintainer_verified` says somebody here plugged the hardware in. They "
+        + "answer different questions, and a device can honestly be the first "
+        + "without the second: `usrp` claims `supported` on the strength of "
+        + "Debian's own `uhd-host` udev rule, a primary source, while nobody on "
+        + "this project owns one.",
         "",
         "Discarding that evidence for lack of hardware would throw away a real "
-        "claim. Merging the two columns is how a project comes to claim support "
-        "it has never tested. So they are separate fields and both are shown.",
+        + "claim. Merging the two columns is how a project comes to claim support "
+        + "it has never tested. So they are separate fields and both are shown.",
         "",
         "| Device | Status | Run here | Evidence |",
         "|---|---|---|---|",
@@ -364,13 +364,13 @@ def render(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) 
         "## If you own one of these",
         "",
         "Every gap above marked `unverified_by_maintainer` is closable by anyone "
-        "holding the hardware, in about thirty seconds, and by nobody without it. "
-        "`scripts/identify-device.sh <name>` is read-only, needs no root, and "
-        "prints a block ready to paste — see "
-        "[contributing/hardware.md](../contributing/hardware.md).",
+        + "holding the hardware, in about thirty seconds, and by nobody without it. "
+        + "`scripts/identify-device.sh <name>` is read-only, needs no root, and "
+        + "prints a block ready to paste — see "
+        + "[contributing/hardware.md](../contributing/hardware.md).",
         "",
         "The catalog stores vendor and product identifiers only. Serial numbers "
-        "are per-unit and are never recorded here.",
+        + "are per-unit and are never recorded here.",
         "",
     ]
     return "\n".join(lines)

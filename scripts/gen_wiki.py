@@ -295,9 +295,9 @@ def software_by_activity(names: dict[str, str]) -> str:
     out = [
         "# Software by activity\n",
         "Every program the catalog carries, laid out the way the desktop menu is "
-        "(D-050, D-055): one chapter per activity, one section per thing a person "
-        "looks for. A program with several tags is listed under each. Generated "
-        "from `catalog/categories.yaml` and the package manifests.\n",
+        + "(D-050, D-055): one chapter per activity, one section per thing a person "
+        + "looks for. A program with several tags is listed under each. Generated "
+        + "from `catalog/categories.yaml` and the package manifests.\n",
     ]
     for group in vocab.groups:
         out.append(f"## {group.title}\n")

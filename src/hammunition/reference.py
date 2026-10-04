@@ -243,8 +243,8 @@ def landing_page(
         '<meta name="viewport" content="width=device-width, initial-scale=1">',
         "<title>Offline reference</title>",
         "<style>body{font:16px/1.5 system-ui,sans-serif;max-width:48rem;margin:1rem auto;"
-        "padding:0 1rem}li{margin:.3rem 0}small{color:#555}code{background:#eee;padding:0 .2rem}"
-        "</style></head><body>",
+        + "padding:0 1rem}li{margin:.3rem 0}small{color:#555}code{background:#eee;padding:0 .2rem}"
+        + "</style></head><body>",
         "<h1>Offline reference</h1>",
         "<p><small>Served on this machine only (127.0.0.1). Nothing here needs a network.</small></p>",
         "<h2>Books</h2>",
