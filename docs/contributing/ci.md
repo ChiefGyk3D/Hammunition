@@ -77,3 +77,20 @@ adds later can never merge unchecked. The local jobs are not behind it, which
 is why each is listed. A pull-request-only job reports as skipped on a push,
 which counts as passing. The weekly jobs are not required; they open no pull
 request and are read when they go red.
+
+## Pinned dependencies (OpenSSF Scorecard)
+
+Everything CI installs or builds from is pinned by hash, and each pin has a
+documented refresh. Never pin from memory; resolve.
+
+**Base images.** Every `image:` in `containers/targets.yaml`, in the matrix in
+`ci.yml` and the `ARG BASE` default in `containers/Dockerfile.target` is
+`repo:tag@sha256:<multi-arch index digest>`. The tag stays for the reader;
+podman follows the digest. The rolling targets (`parrot`, `kali-rolling`,
+`linuxmint-22.3`) therefore move only when the pin does. Re-resolve all of them
+from the registry and rewrite the three places:
+
+```sh
+containers/refresh-digests.sh          # rewrite in place
+containers/refresh-digests.sh --check  # report stale pins, change nothing
+```

@@ -1,11 +1,11 @@
 # Parameterised target container.
 #
-#   docker build -f containers/Dockerfile.target --build-arg BASE=debian:13 .
+#   docker build -f containers/Dockerfile.target --build-arg BASE=debian:13@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c .
 #
 # Deliberately minimal: this validates the catalog against a target's real
 # /etc/os-release and package database. It does not install ham software —
 # that arrives with the backends.
-ARG BASE=debian:13
+ARG BASE=debian:13@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c
 FROM ${BASE}
 
 # APT_SANDBOX_USER: leave as `_apt` (apt's default, defence-in-depth) wherever
