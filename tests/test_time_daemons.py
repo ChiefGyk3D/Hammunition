@@ -69,7 +69,7 @@ def test_installing_chrony_over_another_daemon_is_refused_by_name(
     from hammunition.plan import PlanError, resolve
     from test_plan import _apt
 
-    apt = _apt(tmp_path, {"chrony": None, "gpsd": None, installed: version})
+    apt = _apt(tmp_path, {"chrony": None, "gpsd": None, "pps-tools": None, installed: version})
 
     class SimulatingApt(type(apt)):  # type: ignore[misc]
         def simulate(
@@ -77,7 +77,11 @@ def test_installing_chrony_over_another_daemon_is_refused_by_name(
         ) -> Any:
             return AptSimulation(
                 ok=True,
-                installs={"chrony": frozenset({"stable"}), "gpsd": frozenset({"stable"})},
+                installs={
+                    "chrony": frozenset({"stable"}),
+                    "gpsd": frozenset({"stable"}),
+                    "pps-tools": frozenset({"stable"}),
+                },
                 removes={installed: version},
             )
 

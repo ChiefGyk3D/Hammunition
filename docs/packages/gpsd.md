@@ -22,7 +22,8 @@ A receiver the machine can see. Most USB GNSS units are USB-serial devices, so t
 
 ## How it installs
 
-- apt: `gpsd`
+- apt: `gpsd`, `pps-tools`
+  - pps-tools carries `ppstest` and `ppsctl`, which `hammunition time measure --pps` runs (issue #319). `ppstest /dev/pps0` prints one line per pulse, `source 0 - assert <seconds>.<nanoseconds>, sequence: N - clear ...`, about once a second when the device gets real pulses, and `time_pps_fetch() error -1 (Connection timed out)` when it gets none; it needs root on most machines. Not every receiver has a PPS device: one on a USB CDC-ACM line (`/sys/class/pps` naming it for the ttyACM device) is not a wired time-pulse pin, and its pulses are absent or jitter by milliseconds. gpsd is the owner because both GPS time routes read it: D-058's ntpsec lines and the `chrony` unit (D-072) depend on it. apt-cache policy on 2026-10-04, Parrot 7.3: pps-tools 1.0.2-2 has a candidate; the other six targets were not swept for it, and apt reports the truth at plan time.
 
 ## Known problems
 
