@@ -30,7 +30,7 @@ jobs:
     with:
       publish: ${{ startsWith(github.ref, 'refs/tags/v') }}
       tag-prefix: v
-      build-install-command: pip install -e ".[docs]"
+      build-install-command: pip install --require-hashes -r requirements/docs.txt && pip install --no-deps -e .
       # The same --strict build tests/test_site.py and the Pages workflow run.
       build-command: |
         mkdir -p dist

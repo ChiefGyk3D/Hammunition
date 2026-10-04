@@ -5,6 +5,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Contributing to Hammunition
 
+Found a security problem? Do not open a public issue; see
+[`SECURITY.md`](SECURITY.md) for how to report it privately.
+
 The engine's install path is not merged yet, so this is not the moment for
 large code contributions. It **is** the moment for the things that are hard to
 do later and easy to do now.

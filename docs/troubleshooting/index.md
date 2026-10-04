@@ -52,6 +52,17 @@ here. Where a fix is distribution-specific it says so.
   added to `dialout` at install, but group membership needs a fresh login.
 - **[A venv-installed program is "not found"](running.md#local-bin)** —
   `~/.local/bin` reaches PATH on next login; open a new shell.
+- **[`rnstatus` says "Could not get RNS status"](running.md#reticulum-no-instance)** —
+  it could not read the shared instance it attached to; look at who owns the
+  `@rns/` socket and at `~/.reticulum/logfile`.
+- **[Another Reticulum program owns the shared instance](running.md#reticulum-another-instance)** —
+  `hammunition-rnsd` attached to it instead of starting its own; stop one of
+  the two.
+- **[Two laptops running Reticulum do not see each other](running.md#reticulum-autointerface)** —
+  no peers on the AutoInterface: the service, link-local IPv6, UDP 29716 and
+  42671, or a network that isolates its devices.
+- **[`rnodeconf` cannot open the RNode's port](running.md#rnodeconf-port)** —
+  `dialout`, a parked device, or another program holding it.
 - **["Address family not supported by protocol" from a packet program](running.md#ax25)** —
   Linux 7.1 removed kernel AX.25; the userspace path still works.
 - **[A CH340 serial device vanishes the moment it is plugged in](running.md#brltty)** —

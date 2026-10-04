@@ -10049,3 +10049,142 @@ the capability step in text and JSON.
 view, `commands_for`, the log attribution replay and removal plan; LinBPQ
 documents its default and opt-in behavior. The package reference and JSON
 reference are generated from those declarations.
+
+
+## D-080 — Reticulum is carried as per-user venvs with one shared instance per machine; the Reticulum License is stated, not gated; the engine writes no Reticulum configuration
+
+**Date:** 2026-10-03. **Status:** accepted (the maintainer's rulings of
+2026-10-03 on the design and on its four open points, recorded in
+`docs/superpowers/specs/2026-10-03-reticulum-core-design.md`); the
+implementation is proposed until merged (branch `reticulum-core`, Track C PR 2,
+issue #105). **Depends on:** D-033 (a licence judged on what we do with it),
+D-021 (disclose, never adjudicate), D-026 (the means of talking to a device),
+D-039 (a member the target lacks is deferred by name), D-073 (user services),
+D-078 (the operator's own data stays theirs), D-010 (one update block per
+upstream), D-027 and D-018 (a hardware claim is earned).
+
+**The shape.** Three catalog units, `rns`, `lxmf` and `nomadnet`, each a
+hash-pinned `venv` from PyPI, because no archive on any of the seven targets
+carries any of it (`docs/reference/mesh-inventory.md`, 2026-10-03). `rns`
+exposes every console script `rns` 1.5.6 declares (14): `rnsd`, `rnstatus`,
+`rnpath`, `rnprobe`, `rnid`, `rncp`, `rnx`, `rnsh`, `rnodeconf`, `rnir`,
+`rnpkg`, `rngit`, `rngcs` and `git-remote-rns`; there is **no `rnsh` unit**, because `rns` 1.5.x installs its
+own and PyPI's separate `rnsh` would be a second owner of one command name.
+`lxmf` exposes `lxmd` and starts nothing: a propagation node stores other
+people's messages, and running one is the operator's decision. `nomadnet`
+exposes `nomadnet` and ships a terminal launcher named `nomadnet-terminal`
+(one name for both would have one overwrite the other in `~/.local/bin`). The
+three venvs each carry their own `rns`, so they are pinned to one version and
+bumped as a set; `tests/test_reticulum_catalog.py` fails if they are not.
+
+**One shared instance per machine.** The instance is run by the first
+operator's service; another account's service attaches to it as a client
+(measured in a Debian 13 container, 2026-10-03: a second account's
+`hammunition-rnsd` attached to the first account's `@rns/default` with the
+"another shared local instance" warning). `rns` carries a `user_services` block,
+`hammunition-rnsd` (`{venv}/bin/rnsd --service`), a plain service in D-073's
+sense: no station value, nothing to defer. It is **enabled at install** and,
+as every plain service does, starts at the operator's next login (the guide
+prints `systemctl --user start hammunition-rnsd` for now). Its purpose is that
+the first Reticulum program to start owns the interfaces and the rest attach, so
+a service that is always first means NomadNet quitting does not take the
+network with it. **It is not a TCP port.** Measured 2026-10-03 (Parrot 7.4, and again in a
+Debian 13 container, rns 1.5.6, `ss -xl` and `ss -ltn`): `rnsd` binds the abstract Unix sockets `@rns/<instance>` and
+`@rns/<instance>/rpc` and no TCP port; upstream's example configuration names
+37428 only for platforms without domain sockets. So the unit declares no
+`listens`: a declaration would print a loopback TCP listener the plan does not
+have. An abstract socket has no file permissions and is machine-wide, so it is
+not private to one account; the page and the guide say so, and which of an
+operator's interfaces another account could use through it was not measured
+(a second account's `rnsd` did attach, in the container run). A
+second `rnsd` that finds the instance taken does not exit: it attaches, logs
+"connected to another shared local instance, this is probably NOT what you
+want!" and keeps running (measured, exit 124 under `timeout`), so there is no exit status to refuse a
+restart on and none is set.
+
+**The licence is stated on the plan line and not gated.** `rns` and `lxmf` are
+under the Reticulum License, MIT plus two use restrictions (harm to human
+beings; AI and machine-learning training data), not OSI-approved. Carried under
+D-033's shape, as LinBPQ is: fetched from PyPI at the operator's direction,
+never mirrored or vendored, the terms printed before the confirmation and quoted
+on the package page, no judgement of the operator's use. A venv block gains
+`licence` and `licence_url` (set together, https) and the plan line that
+installs the venv carries them. There is **no consent gate**: nothing here
+transmits until the operator attaches and configures a radio, and `rnodeconf`,
+the RNode flasher, is the means of talking to a device (D-026); the firmware it
+fetches is upstream's, what `rnodeconf` verifies was not measured, and the page
+says so. `nomadnet`'s wheel classifier says MIT while the licence text it ships
+(identical to its repository's, 35,149 bytes) is the GNU GPL v3; **the shipped
+text governs** (the maintainer's ruling), so the unit says `GPL-3.0-only` and
+its page notes the disagreement. `docs/reference/licence-verification.md` has
+the file read and the date for each.
+
+**The engine writes no Reticulum configuration, and uninstall removes none.**
+`~/.reticulum/config` is created by `rnsd` on first start with its defaults
+(the AutoInterface, which finds peers on a local network by IPv6 multicast and
+UDP) under the operator's account. Hammunition never edits it. `hammunition
+uninstall` removes the service, the venvs and the wrappers and **leaves
+`~/.reticulum`, `~/.nomadnetwork`, `~/.lxmd` and `~/.rnsh`**, which hold the
+operator's identities and conversations; the guide says so and shows a backup.
+
+**The `mesh` profile** is post-1.0 and carries `rns`, `lxmf`, `nomadnet`,
+`python3-meshtastic` and `gtk-meshtastic-client` (the maintainer's ruling: the
+Meshtastic units belong here, and D-039 defers by name where the archive lacks
+one, as it does for `python3-meshtastic` on Ubuntu 24.04 and Pop!_OS 24.04).
+`docs/SCOPE.md` says a `mesh` profile ships when its units have run against a
+node on the bench; that is not yet true, and the profile says it is post-1.0 and
+that no LoRa link has been run through it.
+
+**The `rnode` hardware entry** records upstream's board lists, not an
+identifier: Reticulum's manual lists fifteen supported boards and
+`RNode_Firmware`'s `Boards.h` defines 21 board identifiers, and neither names a
+USB vendor or product id. It inherits the `badgelife` class (`dialout`), carries
+no identifier and no symlink (D-028), and is `untested`, not `supported`:
+`supported` is earned by an identifier of the entry's own (D-018, D-027), and
+there is none to confirm.
+
+**Where the design's assumptions met the engine and the measurement.** The
+design assumed `{venv}` was substituted in a user service's exec (it was not;
+`UserService` accepts `{venv}/...` now and `plan_user_services` fills it from
+the operator's own venv, under `sudo` as well); that a venv unit could name its
+licence (it could not; the plan printed nothing, and `note` is read by no
+plan line); that the shared instance listens on TCP 127.0.0.1:37428 (it does
+not); that the `rnode` entry could be `supported` (the catalog's own test and
+D-018 refuse it); and that Reticulum's manual lists public entry points (it
+recommends against a pasted list and points to `directory.rns.recipes` and
+`rmap.world`, so the guide carries the manual's own example and no list).
+
+**Rejected.** A consent gate (nothing transmits at install). A Reticulum
+configuration written from station values: the file is the operator's, and the
+engine cannot know their interfaces. One unit holding all three programs: each
+upstream has its own update block (D-010). A separate `rnsh` unit. A `listens:`
+entry for a port that is not bound. Starting the service during install: D-073
+starts a plain service at login, and changing that is its own decision. Sideband
+(a 293 MB Kivy environment under a non-commercial Creative Commons licence, an
+arm64 build from source) and Reticulum MeshChat (an AppImage) are their own
+decisions.
+
+**Measured in a Debian 13 container (2026-10-03).** The engine installed the
+three units unprivileged; the unit's `ExecStart` ran and `ss` showed the
+abstract sockets, no TCP listener, and UDP 29716 (multicast), 29717 and 42671
+(link-local); two containers on one bridge saw each other over the
+AutoInterface, answered `rnprobe`, exchanged an LXMF message and ran an `rnsh`
+command; uninstall left `~/.reticulum`, `~/.lxmd`, `~/.nomadnetwork` and
+`~/.rnsh`. **Not measured.** Any LoRa link: no RNode has been run, and the
+maintainer's LoRa boards were lost in a flood. A public hub (not run from CI by
+policy). The service under a real systemd user manager. NomadNet's text
+interface. What an attached client of another account can do. The last section
+of `docs/guides/mesh-and-reticulum.md` has the detail.
+
+**Consequences.** `catalog/packages/{rns,lxmf,nomadnet}.yaml`,
+`catalog/hardware/devices/rnode.yaml`, `catalog/profiles/mesh.yaml`;
+`UserService`'s `{venv}` and `VenvInstall.licence` in
+`src/hammunition/manifest/schema.py`, `service_venv_dir` and the `venv_dir`
+argument in `src/hammunition/userservice.py`, the call in
+`src/hammunition/plan.py`, the licence clause in
+`src/hammunition/backends/venv.py`; `docs/guides/mesh-and-reticulum.md`,
+`docs/hardware/rnode.md` (generated), four entries in
+`docs/troubleshooting/running.md`. Tests: `tests/test_reticulum_catalog.py`,
+`tests/test_user_services_venv.py`, `tests/test_venv_licence.py`,
+`tests/test_rnode_catalog.py`, `tests/test_mesh_profile.py`,
+`tests/test_reticulum_docs.py`.

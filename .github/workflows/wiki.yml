@@ -28,6 +28,6 @@ jobs:
     permissions:
       contents: write
     with:
-      install-command: pip install -e ".[docs]"
+      install-command: pip install --require-hashes -r requirements/docs.txt && pip install --no-deps -e .
       generate-command: python scripts/gen_wiki.py --out wiki-out --commit "$GITHUB_SHA"
       out-dir: wiki-out

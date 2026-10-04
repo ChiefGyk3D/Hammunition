@@ -2118,7 +2118,7 @@ The services the privileged helper may control, and what each is doing, from
 the helper's own `services state` document (**D-056**, amended 2026-10-02): the
 GPS daemon's socket (`gpsd`), the clock (`time`, ntpsec or chrony), the GPS
 resume step (`gps-resume`) and any user service a catalog unit installed
-(`gps-tether`, `rig`). A service whose unit is not installed is listed as
+(`gps-tether`, `rig`, `rns`). A service whose unit is not installed is listed as
 `not installed`, never left out. Reads only and asks for no password: it runs
 the installed helper unprivileged, one argv. **The engine never runs
 `systemctl` itself**, and never passes a unit: it passes a name from that list,

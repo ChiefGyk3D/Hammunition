@@ -29,5 +29,5 @@ jobs:
       pages: write
       id-token: write
     with:
-      install-command: pip install -e ".[docs]"
+      install-command: pip install --require-hashes -r requirements/docs.txt && pip install --no-deps -e .
       build-command: mkdocs build --strict

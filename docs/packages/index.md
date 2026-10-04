@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**321 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**324 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -301,12 +301,15 @@ Contact logging, awards tracking, Logbook of the World and the lookups a log nee
 - [tucnak](tucnak.md) — VHF and above contest logger, built around locator scoring and networking
 - [xlog](xlog.md) — Small GTK station log that opens instantly and does the basics well
 
-### `mesh` — 2
+### `mesh` — 5
 
 Meshtastic, MeshCore and Reticulum: off-grid text over LoRa.
 
 - [gtk-meshtastic-client](gtk-meshtastic-client.md) — Desktop GUI for Meshtastic nodes
+- [lxmf](lxmf.md) — LXMF, Reticulum's message layer, and lxmd, its store-and-forward propagation daemon
+- [nomadnet](nomadnet.md) — Nomad Network, an encrypted messenger and page browser for the terminal, over Reticulum
 - [python3-meshtastic](python3-meshtastic.md) — Meshtastic command-line client and Python API
+- [rns](rns.md) — Reticulum, encrypted networking over any medium, with its shared instance and the RNode flasher
 
 ### `morse-training` — 11
 
@@ -894,6 +897,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [linbpq](linbpq.md) | BPQ32 packet-radio node, BBS and Winlink gateway | git |
 | [linpac](linpac.md) | Terminal for AX.25 packet with a built-in mail client and macros | apt |
 | [linrad](linrad.md) | SM5BSZ's DSP receiver — the deep-toolbox SDR for weak-signal work | source |
+| [lxmf](lxmf.md) | LXMF, Reticulum's message layer, and lxmd, its store-and-forward propagation daemon | venv |
 | [m2kcli](m2kcli.md) | Command-line control of the ADALM2000 lab instrument | apt |
 | [mapsforge-map](mapsforge-map.md) | Mapsforge vector maps of your OpenStreetMap regions, for phone map apps | derived |
 | [mapsforge-poi](mapsforge-poi.md) | Mapsforge points-of-interest files of your regions, for searching on a phone | derived |
@@ -916,6 +920,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [navit](navit.md) | Offline turn-by-turn navigation that follows the GPS, with spoken directions | apt |
 | [nec2c](nec2c.md) | The NEC2 antenna modelling engine as a C program, for scripting | apt |
 | [noaa-apt](noaa-apt.md) | Decoder for NOAA weather-satellite APT imagery | binary |
+| [nomadnet](nomadnet.md) | Nomad Network, an encrypted messenger and page browser for the terminal, over Reticulum | venv |
 | [not1mm](not1mm.md) | A contest logger that speaks to your rig, keyer and cluster | venv |
 | [nrsc5](nrsc5.md) | HD Radio (NRSC-5) receiver for an RTL-SDR -- the digital side of North American FM and AM | git |
 | [odr-audioenc](odr-audioenc.md) | Encodes audio into the DAB and DAB+ formats a multiplexer expects | apt |
@@ -970,6 +975,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [readsb](readsb.md) | Efficient Mode S and ADS-B decoder — the maintained dump1090 successor | apt |
 | [remotetrx](remotetrx.md) | Puts an SvxLink receiver or transceiver at the end of a network link | apt |
 | [rig-service](rig-service.md) | One shared rigctld for the station's rig, as a systemd user service | apt |
+| [rns](rns.md) | Reticulum, encrypted networking over any medium, with its shared instance and the RNode flasher | venv |
 | [routino](routino.md) | Offline routing over OpenStreetMap data, on foot, by bike or by car | apt |
 | [rtl-433](rtl-433.md) | Decoder for the unlicensed ISM bands — weather stations, sensors, tyre monitors | apt |
 | [rtl-ais](rtl-ais.md) | Receives both AIS channels at once from one cheap dongle | apt |

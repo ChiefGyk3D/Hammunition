@@ -76,6 +76,14 @@ def write_wrapper(path: Path, target: Path) -> str:
     return f"wrote {path} -> {target}"
 
 
+def _licence_clause(block: VenvInstall) -> str:
+    """The licence, stated on the plan line that installs the venv (D-033), or
+    nothing for a block that declares none."""
+    if block.licence is None:
+        return ""
+    return f"; licence: {block.licence} ({block.licence_url})"
+
+
 class VenvBackend:
     """Plans venv installs. Steps only — the runner executes them.
 
@@ -145,7 +153,7 @@ class VenvBackend:
                 ),
                 description=(
                     f"Install {manifest.name} into its venv — every wheel verified "
-                    f"against the manifest's sha256 pins"
+                    f"against the manifest's sha256 pins{_licence_clause(block)}"
                 ),
                 requires_root=False,
                 env=dict(block.env),
