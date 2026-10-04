@@ -59,6 +59,21 @@ jobs:
       egress-policy: block
 
   # -------------------------------------------------------------------------
+  # Atheris targets under fuzz/ (the parsers: manifests, repeater imports,
+  # grid squares, gpsd JSON, os-release, station config), run by GYST's
+  # python-fuzz.yml. 30 s per target on a pull request; the weekly `schedule`
+  # trigger above runs 600 s. A crash fails the job and uploads the input
+  # that caused it (docs/contributing/ci.md, "Fuzzing"). A local job, not
+  # behind `ci / CI green`: that gate is inside the called python-ci.yml.
+  # -------------------------------------------------------------------------
+  fuzz:
+    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/python-fuzz.yml@b4dec64ea0efba8b0604339e283adb25da6fd430 # v1.10.0
+    permissions:
+      contents: read
+    with:
+      seconds-per-target: ${{ github.event_name == 'schedule' && 600 || 30 }}
+
+  # -------------------------------------------------------------------------
   # D-031. A commit message that describes a change the commit does not contain
   # is how the D-028 amendment shipped as a no-op. The hook is opt-in locally
   # (git will not run hooks from a clone, by design); this is the enforcement.
