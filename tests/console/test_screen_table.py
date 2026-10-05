@@ -13,6 +13,7 @@ from hammunition.console.screens.home import HomeScreen
 from hammunition.console.screens.install import InstallScreen
 from hammunition.console.screens.logs import LogsScreen
 from hammunition.console.screens.plan import PlanScreen
+from hammunition.console.screens.repeaters import LookupScreen, RepeatersScreen
 from hammunition.console.screens.station import StationScreen
 from hammunition.console.screens.update import UpdateScreen
 from hammunition.console.verbs import JSON_VERBS, verb_of
@@ -20,7 +21,9 @@ from hammunition.console.verbs import JSON_VERBS, verb_of
 from .helpers import PACKAGE_DIR, FakeContext, FakeEngine
 
 PACKAGE = PACKAGE_DIR
-READ = re.compile(r"engine\.read\(\s*\"([a-z-]+)\"(?:\s*,\s*\"([a-z-]+)\")?")
+READ = re.compile(
+    r"engine\.read\(\s*\"([a-z-]+)\"(?:\s*,\s*\"([a-z-]+)\")?(?:\s*,\s*\"([a-z-]+)\")?"
+)
 EXPECTED = {
     ("status",),
     ("doctor",),
@@ -32,6 +35,8 @@ EXPECTED = {
     ("install",),
     ("uninstall",),
     ("maps", "regions"),
+    ("maps", "areas"),
+    ("maps", "repeaters", "list"),
     ("reference", "books"),
 }
 
@@ -40,6 +45,8 @@ PER_SCREEN: dict[str, set[tuple[str, ...]]] = {
     "install": {("list",)},
     "station": {("station", "show")},
     "logs": {("logs",)},
+    "repeaters": {("maps", "areas"), ("maps", "repeaters", "list")},
+    "lookup": {("maps", "repeaters", "list")},
     "update": {("update",)},
     "update-names": {("update",)},
     "help": {("list",)},
@@ -61,7 +68,7 @@ def test_every_literal_read_in_the_package_is_a_json_verb() -> None:
 
 # Reads built from a variable. The static scan cannot see them; the dynamic test below drives each one
 # (home, update and plan) and pins its verbs. A new entry here needs the same.
-NON_LITERAL = {"home.py": 1, "update.py": 1, "plan.py": 1}
+NON_LITERAL = {"home.py": 1, "update.py": 1, "plan.py": 1, "repeaters.py": 1}
 
 
 def test_every_engine_read_is_a_literal_the_scan_can_see() -> None:
@@ -86,6 +93,8 @@ def driven() -> list[tuple[str, FakeContext, object]]:
         ctx_screen("install", InstallScreen),
         ctx_screen("station", StationScreen),
         ctx_screen("logs", LogsScreen),
+        ctx_screen("repeaters", RepeatersScreen),
+        ctx_screen("lookup", lambda c: LookupScreen(c, ["maps", "repeaters", "list"])),
         ctx_screen("update", UpdateScreen),
         ctx_screen("update-names", lambda c: UpdateScreen(c, names=["station"])),
         ctx_screen("help", HelpScreen),

@@ -27,11 +27,14 @@ treated as present; each screen that reads them shows "unknown" when they are no
 | Station | `hammunition station show` | every station field | an unset field says "not set" |
 | Station | `hammunition maps regions FILTER`, `hammunition reference books` | `regions`; `books[].id/title/licence` | the chooser shows the engine's error |
 | Secrets | `hammunition secrets status` | `doppler.*`, `secrets[].name/purpose/available/source/detail/unit/command/get_url/get_how` (never a value: the engine has none to give) | the screen shows the engine's error |
+| Repeaters | `hammunition maps repeaters list` | `layers[].id/area/active/day/rows/personal_use/unverified`, `skipped[]`, `credits`; for a lookup `rows[].callsign/output_hz/offset_hz/tone/mode/distance_km/bearing_deg/place`, `centre.source`, `within_km`, `merged` | the screen shows the engine's error |
+| Repeaters | `hammunition maps areas` | `active_areas`, `unloaded`, `areas[].area/kind/active/layers/size_bytes/day` | the screen shows the engine's error |
+| Repeaters, Secrets | `hammunition update repeaterbook-client` | the row for the unit: `state` (`not installed` or not). `list --json` carries no per-unit installed state | the fetch is offered anyway, and the engine refuses by name if the unit is missing |
 | Logs | `hammunition logs` | `directory`, `runs[].path/started/command/result/exit_code/size` | "No runs yet." A path outside `directory` is never opened |
 | Update | `hammunition update [NAMES] [--upstream]` | `counts`, `rows`, `lists_note`, `upgrade_command`, `rebuild_command`, `upstream` | without E2: the refusal is shown and a per-profile list is offered |
 | Help | `hammunition list`, `hammunition show PROFILE` | `documentation.*`, `consent.disclosure`, `suggests_one_of` | the engine's error is shown |
 
-Writes (never read as JSON): `hammunition install|uninstall NAMES`, `hammunition station set --FLAG=VALUE`, `hammunition maps repeaters fetch-repeaterbook --state STATE` (with a session secret in its environment, never its argv),
+Writes (never read as JSON): `hammunition install|uninstall NAMES`, `hammunition station set --FLAG=VALUE`, `hammunition maps repeaters fetch-repeaterbook --state STATE [--county NAME]` (with a session secret in its environment, never its argv), `hammunition maps repeaters import FILE`, `hammunition maps repeaters remove --layer ID`, `hammunition maps activate AREA...|--all|--none`,
 `hammunition hardware apply`, and the apt upgrade command the `update` report prints (run without apt's assume-yes, so apt
 asks). All of them run in a terminal pane.
 

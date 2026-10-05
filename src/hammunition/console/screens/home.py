@@ -31,6 +31,7 @@ MENU = (
     ("logs", "Logs", "what each run did"),
     ("update", "Update", "installed versus the catalog"),
     ("help", "Help", "keys, and what each profile is for"),
+    ("repeaters", "Repeaters", "your repeater layers, RepeaterBook, lookups"),
 )
 
 
@@ -293,7 +294,7 @@ class HomeScreen(Screen):
             text("Where to next (press the number, or Enter):", "dim"),
         ]
         for number, (name, label, blurb) in enumerate(MENU, 1):
-            row = Row(f" {number}  {label:<9} {blurb}", name)
+            row = Row(f" {number}  {label:<10} {blurb}", name)
             urwid.connect_signal(row, "activate", self._open_row)
             rows.append(row)
         self.set_rows(rows)
@@ -308,7 +309,7 @@ class HomeScreen(Screen):
         self.ctx.open_screen(str(row.value))
 
     def keypress(self, key: str) -> str | None:
-        if key in ("1", "2", "3", "4", "5", "6"):
+        if key in ("1", "2", "3", "4", "5", "6", "7"):
             self.ctx.open_screen(MENU[int(key) - 1][0])
             return None
         if key == "U" and engine_lag(self.docs.get("doctor")):

@@ -1,0 +1,154 @@
+{
+  "schema": "hammunition/1",
+  "kind": "repeaters-list",
+  "engine": "0.20.0",
+  "directory": "/home/user/.local/share/hammunition/overlays/repeaters",
+  "layers": [
+    {
+      "id": "repeaterbook-OH",
+      "area": "OH",
+      "active": true,
+      "name": "Repeaters (RepeaterBook OH, personal use, 2026-10-04, unverified)",
+      "description": "Repeaters (RepeaterBook OH, personal use, 2026-10-04, unverified)",
+      "day": "2026-10-04",
+      "rows": 1,
+      "sources": [
+        "repeaterbook-api"
+      ],
+      "personal_use": true,
+      "unverified": true,
+      "files": [
+        "repeaters-repeaterbook-OH.gpx"
+      ]
+    },
+    {
+      "id": "repeaterbook-MI",
+      "area": "MI",
+      "active": false,
+      "name": "Repeaters (RepeaterBook MI, personal use, 2026-10-03, unverified)",
+      "description": "Repeaters (RepeaterBook MI, personal use, 2026-10-03, unverified)",
+      "day": "2026-10-03",
+      "rows": 1,
+      "sources": [
+        "repeaterbook-api"
+      ],
+      "personal_use": true,
+      "unverified": true,
+      "files": [
+        "repeaters-repeaterbook-MI.gpx"
+      ]
+    },
+    {
+      "id": "open-repeater",
+      "area": null,
+      "active": true,
+      "name": "Repeaters (Open Repeater 2026-09-20, CC0)",
+      "description": "Repeaters (Open Repeater 2026-09-20, CC0)",
+      "day": "2026-09-20",
+      "rows": 1,
+      "sources": [
+        "open-repeater-json"
+      ],
+      "personal_use": false,
+      "unverified": false,
+      "files": [
+        "repeaters-open-repeater.gpx"
+      ]
+    }
+  ],
+  "skipped": [],
+  "rows": [
+    {
+      "callsign": "N0CALL",
+      "output_hz": 146940000,
+      "offset_hz": -600000,
+      "tone": "100.0",
+      "mode": "FM",
+      "modes": [
+        "FM"
+      ],
+      "band": "2m",
+      "digital": {},
+      "distance_km": 12.4,
+      "bearing_deg": 85.0,
+      "place": "Testville, OH",
+      "notes": "",
+      "use": "OPEN",
+      "status": "On-air",
+      "updated": "2026-09-01",
+      "label": "",
+      "lat": 41.5,
+      "lon": -72.5,
+      "source": "repeaterbook-api",
+      "also": [],
+      "layer": "repeaterbook-OH",
+      "personal_use": true
+    },
+    {
+      "callsign": "N0TST",
+      "output_hz": 444250000,
+      "offset_hz": 5000000,
+      "tone": "",
+      "mode": "FM, DMR",
+      "modes": [
+        "FM",
+        "DMR"
+      ],
+      "band": "70cm",
+      "digital": {
+        "dmr_color_code": "1"
+      },
+      "distance_km": 33.9,
+      "bearing_deg": 210.0,
+      "place": "Exampleton, MI",
+      "notes": "",
+      "use": "OPEN",
+      "status": "On-air",
+      "updated": "2026-09-01",
+      "label": "",
+      "lat": 41.9,
+      "lon": -73.1,
+      "source": "repeaterbook-api",
+      "also": [],
+      "layer": "repeaterbook-MI",
+      "personal_use": true
+    },
+    {
+      "callsign": "N0TST",
+      "output_hz": 147210000,
+      "offset_hz": 600000,
+      "tone": "88.5",
+      "mode": "FM",
+      "modes": [
+        "FM"
+      ],
+      "band": "2m",
+      "digital": {},
+      "distance_km": 58.0,
+      "bearing_deg": 12.5,
+      "place": "Sampleburg, FL",
+      "notes": "",
+      "use": "OPEN",
+      "status": "On-air",
+      "updated": "2026-09-01",
+      "label": "",
+      "lat": 42.1,
+      "lon": -72.2,
+      "source": "open-repeater-json",
+      "also": [],
+      "layer": "open-repeater",
+      "personal_use": false
+    }
+  ],
+  "merged": 0,
+  "credits": [
+    "Repeater data from RepeaterBook (https://www.repeaterbook.com), fetched with the operator's own token: personal use only, not to be shared or served.",
+    "Open Repeater list, CC0 1.0."
+  ],
+  "centre": {
+    "lat": 41.7,
+    "lon": -72.7,
+    "source": "station"
+  },
+  "within_km": null
+}

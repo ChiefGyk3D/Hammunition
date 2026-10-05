@@ -63,8 +63,15 @@ class FakeEngine:
 
     binary = "hammunition"
 
-    def __init__(self, suffix: str = "", station: str = "set", secrets: str = "none") -> None:
+    def __init__(
+        self,
+        suffix: str = "",
+        station: str = "set",
+        secrets: str = "none",
+        rbclient: str = "present",
+    ) -> None:
         self.suffix, self.station, self.secrets = suffix, station, secrets
+        self.rbclient = rbclient
         self.calls: list[tuple[str, ...]] = []
         self.timeouts: dict[tuple[str, ...], float | None] = {}
         self.refused: list[
@@ -93,7 +100,12 @@ class FakeEngine:
         if override is not None:
             return override
         answered = respond(
-            ["hammunition", *words, "--json"], FIXTURES, self.suffix, self.station, self.secrets
+            ["hammunition", *words, "--json"],
+            FIXTURES,
+            self.suffix,
+            self.station,
+            self.secrets,
+            self.rbclient,
         )
         assert answered is not None, f"no fixture maps {words}"
         return accept(parse_document(answered[0], answered[1]))

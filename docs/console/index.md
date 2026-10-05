@@ -15,7 +15,7 @@ Raspberry Pi has not been measured.
 
 ## What it is
 
-Seven screens: Home, Install, Station, Secrets, Logs, Update and Help. Every action is a command you could type yourself, and the console
+Eight screens: Home, Install, Station, Secrets, Repeaters, Logs, Update and Help. Every action is a command you could type yourself, and the console
 shows it before it runs. Hardware setup is one first-run step on Home (`hammunition hardware apply`, in a pane, with the
 engine's own prompts); everything else about hardware, and maps, is left to the CLI and to
 [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) for now.
@@ -72,7 +72,7 @@ values until you ask.
 
 | Keys | Meaning |
 |---|---|
-| `1-6` | open the screen with that number (Home) |
+| `1-7` | open the screen with that number (Home) |
 | `Enter` | open the selected row |
 | `b / Esc` | go back; changes nothing (in a text prompt only Esc: b is typed) |
 | `?` | help |
@@ -89,6 +89,11 @@ values until you ask.
 | `e` | enter the selected secret for this session only, hidden (Secrets) |
 | `x` | forget the session value of the selected secret (Secrets) |
 | `f` | run the command the selected secret unlocks (Secrets) |
+| `f` | fetch RepeaterBook by state (Repeaters) |
+| `i` | import your own repeater export (Repeaters) |
+| `a` | choose the active areas (Repeaters) |
+| `x` | remove the selected layer (Repeaters) |
+| `l` | look repeaters up near a place, by band and mode (Repeaters) |
 | `u` | also ask upstream whether the catalog's pins are current (Update) |
 | `A` | run the apt upgrade the report offers (Update) |
 | `B` | plan the rebuilds the report offers (Update) |
@@ -104,6 +109,14 @@ values until you ask.
 - **Secrets**: the keys the engine can use for downloads that need one (RepeaterBook's token first), where each would come
   from (the environment, Doppler or nowhere) and never its value. `g` says where to get one, `d` names a Doppler project and
   config through `station set`, `e` keeps a value for this console session only, and `f` runs the command it unlocks.
+- **Repeaters**: the repeater layers on this machine grouped by area (`maps repeaters list --json`), the areas and which are
+  active (`maps areas --json`), and each source's credit exactly as the engine words it. `f` fetches RepeaterBook by state
+  (and optionally one county), `i` imports your own export from a file, `a` chooses the active areas with the current set
+  filled in (`all` and `none` stand alone), `x` removes the selected layer after showing the command, and `l` looks repeaters
+  up by place, distance, band and mode into a table of callsign, output, offset, tone, mode, distance and bearing. `f` first
+  asks the engine whether `REPEATERBOOK` can be supplied and opens **Secrets** with the reason when it cannot; when the
+  `repeaterbook-client` unit is not installed it offers the install (the engine's plan, then a pane) and runs the fetch after
+  it succeeds. Choosing areas deletes nothing. The station's own position is used for distances and never printed.
 - **Logs**: each run the engine recorded, newest first; a run in progress is followed live.
 - **Update**: installed against the catalog; `u` also asks upstream.
 - **Help**: keys, what the console never does, and what each profile is for.

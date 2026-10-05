@@ -124,6 +124,8 @@ KINDS = [
     "error",
     "regions",
     "books",
+    "repeaters-list",
+    "areas",
 ]
 
 # name -> (words, run before the station is set?)

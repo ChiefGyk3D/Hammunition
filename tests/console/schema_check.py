@@ -47,9 +47,10 @@ def validate(instance: Any, schema: Mapping[str, Any]) -> list[str]:
                 raise NotImplementedError(
                     f"{path}: schema keyword {keyword!r} is not supported by schema_check"
                 )
-        if "additionalProperties" in sub and not isinstance(sub["additionalProperties"], bool):
+        extra = sub.get("additionalProperties")
+        if extra is not None and not isinstance(extra, (bool, dict)):
             raise NotImplementedError(
-                f"{path}: a non-boolean 'additionalProperties' is not supported by schema_check"
+                f"{path}: this 'additionalProperties' is not supported by schema_check"
             )
         if "type" in sub and (not isinstance(sub["type"], str) or sub["type"] not in _TYPES):
             raise NotImplementedError(
@@ -82,8 +83,10 @@ def validate(instance: Any, schema: Mapping[str, Any]) -> list[str]:
             for name, item in value.items():
                 if name in props:
                     errs += walk(item, props[name], f"{path}.{name}")
-                elif sub.get("additionalProperties") is False:
+                elif extra is False:
                     errs.append(f"{path}: unexpected field {name!r}")
+                elif isinstance(extra, dict):  # a map of one value type (`digital`)
+                    errs += walk(item, extra, f"{path}.{name}")
         return errs
 
     if isinstance(instance, dict):

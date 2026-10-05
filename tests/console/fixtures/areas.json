@@ -1,0 +1,72 @@
+{
+  "schema": "hammunition/1",
+  "kind": "areas",
+  "engine": "0.20.0",
+  "active_areas": [
+    "OH",
+    "north-america/us/ohio"
+  ],
+  "areas": [
+    {
+      "area": "OH",
+      "kind": "state",
+      "active": true,
+      "layers": [
+        {
+          "id": "repeaterbook-OH",
+          "kind": "repeaters",
+          "rows": 1,
+          "size_bytes": 2048,
+          "day": "2026-10-04",
+          "files": [
+            "repeaterbook-OH.gpx"
+          ]
+        }
+      ],
+      "size_bytes": 2048,
+      "day": "2026-10-04"
+    },
+    {
+      "area": "MI",
+      "kind": "state",
+      "active": false,
+      "layers": [
+        {
+          "id": "repeaterbook-MI",
+          "kind": "repeaters",
+          "rows": 1,
+          "size_bytes": 1024,
+          "day": "2026-10-03",
+          "files": [
+            "repeaterbook-MI.gpx"
+          ]
+        }
+      ],
+      "size_bytes": 1024,
+      "day": "2026-10-03"
+    },
+    {
+      "area": "north-america/us/ohio",
+      "kind": "region",
+      "active": true,
+      "layers": [
+        {
+          "id": "extract",
+          "kind": "extract",
+          "rows": null,
+          "size_bytes": 5242880,
+          "day": "2026-10-01",
+          "files": [
+            "ohio.osm.pbf"
+          ]
+        }
+      ],
+      "size_bytes": 5242880,
+      "day": "2026-10-01"
+    }
+  ],
+  "always_active": [
+    "open-repeater"
+  ],
+  "unloaded": []
+}

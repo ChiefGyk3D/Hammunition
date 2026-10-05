@@ -68,6 +68,27 @@ The token is what the per-state repeater fetch needs in [Load every area ahead](
 XX`, asks for the state and runs it in a pane after you confirm. Built against the engine's documents and fixtures; the
 RepeaterBook fetch behind it has not been run against the live API.
 
+## Repeaters
+
+Open **Repeaters** (`7` on Home). It lists the repeater layers on this machine grouped by area, with `[x]` for the active ones,
+their row counts and dates, a `personal use` or `unverified` mark where the engine records one, the areas with files on disk,
+and each source's credit exactly as the engine words it. Keys:
+
+- `f` fetches RepeaterBook by state: one or more codes (`OH MI`), and with exactly one state an optional county. It checks
+  through the engine that `REPEATERBOOK` can be supplied; if not, it opens **Secrets** and says why. If the
+  `repeaterbook-client` unit is not installed it offers the install first (the engine's plan, then `R` for a pane) and runs
+  the fetch straight after a successful install; backing out, or a failed install, runs nothing.
+- `i` imports your own export from a file path (`hammunition maps repeaters import FILE`), offline.
+- `a` chooses the active areas, the current set filled in; type `all` or `none` to use the engine's `--all` and `--none`. It
+  deletes nothing.
+- `x` removes the selected layer. The engine asks no question of its own, so the console shows the command and `R` is the
+  confirmation.
+- `l` looks repeaters up: a grid square or `LAT,LON` (blank uses your station's grid square, which the console never prints),
+  a distance, bands and modes. The result is the engine's list, nearest first.
+
+RepeaterBook rows are for your own use on this machine; the engine's credit is shown below the layers and the table. Not
+measured: the live RepeaterBook API behind the fetch, and any of this on the field laptop.
+
 ## What it writes on your machine
 
 Nothing, beyond what the engine's own commands write when you press `R` on a plan. A secret you enter on the Secrets screen is not among them. The one file of its own is its
