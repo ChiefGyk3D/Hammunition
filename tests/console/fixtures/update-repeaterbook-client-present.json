@@ -1,0 +1,40 @@
+{
+  "schema": "hammunition/1",
+  "kind": "update",
+  "engine": "0.20.0",
+  "target": {
+    "distro": "parrot",
+    "version": "7.4",
+    "arch": "x86_64",
+    "id_like": [
+      "debian"
+    ],
+    "pretty_name": "Parrot Security 7.4 (echo)",
+    "description": "Parrot Security 7.4 (echo) (ID=parrot, version=7.4, arch=x86_64)",
+    "debian_family": true
+  },
+  "from_log": false,
+  "rows": [
+    {
+      "unit": "repeaterbook-client",
+      "state": "up to date",
+      "detail": "repeaterbook-client 0.13.0 (venv)",
+      "strategy": "reinstall",
+      "upgradable": []
+    }
+  ],
+  "counts": {
+    "up_to_date": 1,
+    "candidate_differs": 0,
+    "behind_pin": 0,
+    "not_installed": 0,
+    "unknown": 0,
+    "on_install": 0,
+    "manual": 0
+  },
+  "lists_note": "last refreshed 2026-10-02 22:58 EDT (`sudo apt-get update` refreshes them; this report does not)",
+  "upgrade_command": null,
+  "rebuild_command": null,
+  "upstream_declared": [],
+  "upstream": null
+}

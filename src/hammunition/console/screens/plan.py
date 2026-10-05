@@ -5,7 +5,7 @@ groups it, hidden when empty, shown before any real command can run."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -230,8 +230,16 @@ def removal_sections(view: Mapping[str, Any]) -> list[Section]:
 class PlanScreen(Screen):
     name = "plan"
 
-    def __init__(self, ctx: Context, action: str, names: Sequence[str]) -> None:
+    def __init__(
+        self,
+        ctx: Context,
+        action: str,
+        names: Sequence[str],
+        *,
+        after_success: Callable[[], None] | None = None,
+    ) -> None:
         super().__init__(ctx)
+        self._after_success = after_success
         self.action = action
         self.names = list(names)
         self.title = f"Plan: {action} {' '.join(self.names)}"
@@ -309,6 +317,12 @@ class PlanScreen(Screen):
         return key
 
     def _after_pane(self, code: int | None) -> None:
+        if code == 0 and self._after_success is not None:
+            # A caller that queued something behind this install (#344): back out of the pane
+            # and this plan, then hand over. A failed or cut-off run shows its result instead.
+            self.ctx.pop(2)
+            self._after_success()
+            return
         self.ctx.replace(ResultScreen(self.ctx, self.action, self.names, code))
 
 
