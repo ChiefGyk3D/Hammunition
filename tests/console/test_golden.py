@@ -12,6 +12,7 @@ import pytest
 from hammunition.console.screens.home import HomeScreen
 from hammunition.console.screens.install import InstallScreen
 from hammunition.console.screens.plan import PlanScreen
+from hammunition.console.screens.secrets import SecretsScreen
 from hammunition.console.screens.update import UpdateScreen
 
 from .fixture_scan import findings
@@ -49,6 +50,11 @@ def drawn(screen: object) -> str:
             lambda: InstallScreen(FakeContext(engine=FakeEngine(suffix="-without"))),
         ),
         ("plan-station", lambda: PlanScreen(FakeContext(), "install", ["station"])),
+        ("secrets-none", lambda: SecretsScreen(FakeContext())),
+        (
+            "secrets-doppler",
+            lambda: SecretsScreen(FakeContext(engine=FakeEngine(secrets="doppler"))),
+        ),
         ("update-with-e2", lambda: UpdateScreen(FakeContext())),
         (
             "update-without-e2",

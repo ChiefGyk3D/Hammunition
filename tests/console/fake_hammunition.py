@@ -36,7 +36,11 @@ def _read(fixtures: Path, name: str) -> tuple[str, int] | None:
 
 
 def respond(
-    argv: Sequence[str], fixtures: Path = FIXTURES, suffix: str = "", station: str = "set"
+    argv: Sequence[str],
+    fixtures: Path = FIXTURES,
+    suffix: str = "",
+    station: str = "set",
+    secrets: str = "none",
 ) -> tuple[str, int] | None:
     """The stdout and exit code for a `--json` read, or None when nobody mapped it."""
     words = [w for w in argv[1:] if w != "--json"]
@@ -49,6 +53,8 @@ def respond(
         return _read(fixtures, "logs")
     if words[:1] == ["list"]:
         return _read(fixtures, f"list-all{suffix}")
+    if words[:2] == ["secrets", "status"]:
+        return _read(fixtures, f"secrets-{secrets}")
     if words[:2] == ["station", "show"]:
         return _read(fixtures, "station-set" if station == "set" else "station-none")
     if words[:1] == ["update"]:
@@ -126,6 +132,8 @@ def main(argv: list[str]) -> int:
             "env": sorted(
                 k for k in os.environ if k.startswith("HAMMUNITION_") or k.endswith("_CONSENT")
             ),
+            # only whether a registered secret's variable is present, never its value
+            "secrets_present": [k for k in ("REPEATERBOOK",) if k in os.environ],
         }
         with open(log, "a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry) + "\n")
@@ -135,7 +143,8 @@ def main(argv: list[str]) -> int:
     suffix = os.environ.get("FAKE_HAMMUNITION_SUFFIX", "")
     station = os.environ.get("FAKE_HAMMUNITION_STATION", "set")
     if "--json" in argv:
-        answered = respond(["hammunition", *argv], FIXTURES, suffix, station)
+        secrets = "environment" if os.environ.get("REPEATERBOOK") else "none"
+        answered = respond(["hammunition", *argv], FIXTURES, suffix, station, secrets)
         if answered is None:
             print(f"FAKE: unmapped argv {argv!r}", file=sys.stderr)
             return 99
@@ -153,6 +162,9 @@ def main(argv: list[str]) -> int:
     if argv[:2] == ["hardware", "apply"]:
         print("plan: write udev rules, add groups")
         return _ask("Type 'yes' to apply: ")
+    if argv[:3] == ["maps", "repeaters", "fetch-repeaterbook"]:
+        print("fetched")
+        return 0
     if argv[:2] == ["station", "set"]:
         print("saved")
         return 0

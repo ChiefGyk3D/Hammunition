@@ -127,11 +127,12 @@ class PromptScreen(Screen):
         on_submit: Callable[[str], None],
         *,
         note: str = "",
+        mask: str | None = None,
     ) -> None:
         super().__init__(ctx)
         self.title = title
         self._on_submit = on_submit
-        self._edit = urwid.Edit(label)
+        self._edit = urwid.Edit(label, mask=mask)
         rows: list[urwid.Widget] = [
             text(note),
             self._edit,
@@ -145,6 +146,7 @@ class PromptScreen(Screen):
     def keypress(self, key: str) -> str | None:
         if key == "enter":
             value = self._edit.edit_text.strip()
+            self._edit.set_edit_text("")  # a masked value does not outlive its submission
             self.ctx.pop()
             self._on_submit(value)
             return None

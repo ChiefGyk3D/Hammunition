@@ -50,9 +50,27 @@ engine each time, so the list is always true. `D` dismisses it for good.
    happen, and every consent gate. Nothing has changed while you read it. Press `R` and the real command runs in a terminal
    pane; you type any `yes` yourself.
 
+## Keys for downloads that need one
+
+Some downloads need a token of your own; RepeaterBook's is the first. Open **Secrets** (`3` on Home). It lists each key the
+engine can use, says whether a source would answer now (the environment variable, Doppler or nowhere) and never shows a value:
+the engine's `hammunition secrets status` has none to give. Three ways to supply one, all in the same screen:
+
+- `g` says where to get one (for RepeaterBook, App #114 on your own account at
+  `https://www.repeaterbook.com/user/api_apps.php`). The console opens no browser.
+- `d` asks for a Doppler project and config name and runs `hammunition station set --doppler-project=P --doppler-config=C` in
+  a pane. Names only, never a token; the engine reads the secret from Doppler when a command needs it.
+- `e` asks for the value, hidden, and keeps it in this console's memory for the engine commands it starts, in their
+  environment and never their arguments. It is written nowhere, appears in no log and is cleared when you quit; `x` forgets it
+  sooner. Reading the screen again afterwards shows the variable as set, because for the engine it is.
+
+When a source answers, `f` offers the first command the key unlocks, `hammunition maps repeaters fetch-repeaterbook --state
+XX`, asks for the state and runs it in a pane after you confirm. Built against the engine's documents and fixtures; the
+RepeaterBook fetch behind it has not been run against the live API.
+
 ## What it writes on your machine
 
-Nothing, beyond what the engine's own commands write when you press `R` on a plan. The one file of its own is its
+Nothing, beyond what the engine's own commands write when you press `R` on a plan. A secret you enter on the Secrets screen is not among them. The one file of its own is its
 configuration, `~/.config/hammunition-console/config.toml`, created when it first runs: the last screen, the colour theme and
 whether you dismissed the checklist. Never a station value. A crash writes `crash.log` beside it with the exception's type and
 frames, never a message. Inspect with `ls -l ~/.config/hammunition-console/`; remove with `rm -r ~/.config/hammunition-console`.

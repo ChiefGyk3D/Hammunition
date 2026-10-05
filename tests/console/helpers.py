@@ -19,6 +19,7 @@ from hammunition.console import guard
 from hammunition.console.config import Config
 from hammunition.console.context import Shared
 from hammunition.console.engine import Document, accept, parse_document
+from hammunition.console.session import SessionSecrets
 from hammunition.console.verbs import require_json_verb
 from hammunition.console.worker import Background, SyncBackground
 
@@ -62,8 +63,8 @@ class FakeEngine:
 
     binary = "hammunition"
 
-    def __init__(self, suffix: str = "", station: str = "set") -> None:
-        self.suffix, self.station = suffix, station
+    def __init__(self, suffix: str = "", station: str = "set", secrets: str = "none") -> None:
+        self.suffix, self.station, self.secrets = suffix, station, secrets
         self.calls: list[tuple[str, ...]] = []
         self.timeouts: dict[tuple[str, ...], float | None] = {}
         self.refused: list[
@@ -91,7 +92,9 @@ class FakeEngine:
             raise override
         if override is not None:
             return override
-        answered = respond(["hammunition", *words, "--json"], FIXTURES, self.suffix, self.station)
+        answered = respond(
+            ["hammunition", *words, "--json"], FIXTURES, self.suffix, self.station, self.secrets
+        )
         assert answered is not None, f"no fixture maps {words}"
         return accept(parse_document(answered[0], answered[1]))
 
@@ -117,6 +120,7 @@ class FakeContext:
     config: Config = field(default_factory=Config)
     bg: Background = field(default_factory=SyncBackground)
     shared: Shared = field(default_factory=Shared)
+    session: SessionSecrets = field(default_factory=SessionSecrets)
     pushed: list[Any] = field(default_factory=list)
     replaced: list[Any] = field(default_factory=list)
     opened: list[tuple[str, dict[str, Any]]] = field(default_factory=list)

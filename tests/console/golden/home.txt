@@ -15,10 +15,10 @@ Behind the pin: 1; retired in the catalog: 1
 Where to next (press the number, or Enter):
  1  Install   pick a profile or unit, read the plan, run it
  2  Station   your callsign, grid square, maps and rig
- 3  Logs      what each run did
- 4  Update    installed versus the catalog
- 5  Help      keys, and what each profile is for
-
+ 3  Secrets   keys for downloads that need one, never shown
+ 4  Logs      what each run did
+ 5  Update    installed versus the catalog
+ 6  Help      keys, and what each profile is for
 
 
 

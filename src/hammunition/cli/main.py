@@ -471,6 +471,24 @@ def cmd_station_show(args: argparse.Namespace) -> int:
 
 
 @envelope.json_capable()
+def cmd_secrets_status(args: argparse.Namespace) -> int:
+    """Where each secret the engine knows would come from; never a value.  D-081."""
+    from hammunition.interface.secrets import build_secrets, render_secrets
+
+    try:
+        station: Station | None = load_station(owner=operator(args) or None)
+    except StationError:
+        station = None
+    doc = build_secrets(env=os.environ, station=station)
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_secrets(doc):
+        print(line)
+    return EXIT_OK
+
+
+@envelope.json_capable()
 def cmd_station_set(args: argparse.Namespace) -> int:
     return _cmd_station_set(args, json_output=envelope.wanted(args))
 
@@ -8770,6 +8788,14 @@ def build_parser() -> argparse.ArgumentParser:
             help="print the helper call, then stop",
         )
         p_service_verb.set_defaults(func=cmd_services_act, action=service_verb)
+
+    p_secrets = sub.add_parser("secrets", help="keys for downloads that need one (D-081)")
+    secrets_sub = p_secrets.add_subparsers(dest="secrets_command", required=True)
+    p_secrets_status = secrets_sub.add_parser(
+        "status", help="where each secret would come from; never its value"
+    )
+    p_secrets_status.add_argument("--user", default=None, help="whose station to read")
+    p_secrets_status.set_defaults(func=cmd_secrets_status)
 
     p_station = sub.add_parser("station", help="the values only you can supply")
     station_sub = p_station.add_subparsers(dest="station_command", required=True)

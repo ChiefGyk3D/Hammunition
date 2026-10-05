@@ -17,7 +17,7 @@ it never answers a consent prompt for you. Needs a terminal at least 80x24."""
 # (keys, meaning). Every key listed here is handled somewhere; the README's
 # keys table is generated from this tuple's content by hand and a test checks it.
 KEYS: tuple[tuple[str, str], ...] = (
-    ("1-5", "open the screen with that number (Home)"),
+    ("1-6", "open the screen with that number (Home)"),
     ("Enter", "open the selected row"),
     ("b / Esc", "go back; changes nothing (in a text prompt only Esc: b is typed)"),
     ("?", "help"),
@@ -29,6 +29,11 @@ KEYS: tuple[tuple[str, str], ...] = (
     ("i", "the selected profile's documentation (Install)"),
     ("v", "reveal or hide station values (Station)"),
     ("c", "clear the selected value, where the engine can (Station)"),
+    ("g", "where to get the selected secret (Secrets)"),
+    ("d", "name a Doppler project and config for the selected secret (Secrets)"),
+    ("e", "enter the selected secret for this session only, hidden (Secrets)"),
+    ("x", "forget the session value of the selected secret (Secrets)"),
+    ("f", "run the command the selected secret unlocks (Secrets)"),
     ("u", "also ask upstream whether the catalog's pins are current (Update)"),
     ("A", "run the apt upgrade the report offers (Update)"),
     ("B", "plan the rebuilds the report offers (Update)"),
@@ -72,6 +77,12 @@ _RAW_HELP: dict[str, tuple[str, ...]] = {
         "until you press v. Enter changes one by running the engine's own station set command; the console keeps no "
         "copy and writes the value nowhere itself.",
     ),
+    "secrets": (
+        "Secrets lists the keys the engine can use for downloads that need one, and where each would come from: "
+        "the environment, Doppler, or nowhere yet. It never shows a value. g says where to get one; d names a "
+        "Doppler project and config (names only) through the engine's station set; e keeps a value in this console's "
+        "memory for the engine commands it starts, writes it nowhere and forgets it when you quit.",
+    ),
     "logs": (
         "Logs lists every run the engine recorded, newest first, with its result in the engine's own words. Enter opens "
         "the file; a run that is still going is followed live.",
@@ -95,6 +106,7 @@ SCREEN_HELP: dict[str, tuple[str, ...]] = {
 NEVER: tuple[str, ...] = (
     "It never answers a consent prompt for you: you type yes into the engine's own prompt, in the pane.",
     "It never runs anything but the engine's own commands (and the apt upgrade the engine's update report offers).",
+    "It never writes a secret anywhere: one you enter lives in its memory for the engine commands it starts and is cleared when you quit.",
     "It never stores your callsign, grid square or any station value; the engine's station file is the only copy.",
     "It never fetches anything from the network itself; the engine does, and it asks GitHub, git hosts and PyPI only when you press u on Update.",
 )

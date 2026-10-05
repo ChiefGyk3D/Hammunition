@@ -95,7 +95,9 @@ def test_digits_open_the_screens_in_order() -> None:
     ctx = FakeContext()
     home = HomeScreen(ctx)
     home.on_show()
-    for digit, name in zip("12345", ("install", "station", "logs", "update", "help"), strict=True):
+    for digit, name in zip(
+        "123456", ("install", "station", "secrets", "logs", "update", "help"), strict=True
+    ):
         assert home.keypress(digit) is None
         assert ctx.opened[-1] == (name, {})
     assert home.keypress("9") == "9"

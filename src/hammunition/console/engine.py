@@ -19,6 +19,7 @@ from typing import Any
 
 from hammunition.console import guard, verbs
 from hammunition.console.launch import engine_argv
+from hammunition.console.session import SessionSecrets
 
 SUPPORTED_SCHEMA = "hammunition/1"
 INSTALL_PAGE = "https://chiefgyk3d.github.io/Hammunition/getting-started/install/"
@@ -99,10 +100,12 @@ class Engine:
         argv0: Sequence[str] | None = None,
         environ: Mapping[str, str] | None = None,
         run: Runner = subprocess.run,
+        session: SessionSecrets | None = None,
     ) -> None:
         self.argv0 = list(engine_argv() if argv0 is None else argv0)
         self._environ = environ
         self._run = run
+        self._session = session
 
     def command(self, *words: str) -> list[str]:
         return [*self.argv0, *words]
@@ -113,7 +116,8 @@ class Engine:
         verbs.require_json_verb(words)
         guard.assert_clean_read(words)
         argv = [*self.argv0, *words, "--json"]
-        env = guard.scrubbed_environ(os.environ if self._environ is None else self._environ)
+        base = os.environ if self._environ is None else self._environ
+        env = guard.scrubbed_environ(self._session.overlay(base) if self._session else base)
         try:
             done = self._run(
                 argv,

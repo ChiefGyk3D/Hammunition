@@ -2342,6 +2342,20 @@ from a checkout, and both when the venv lags it:
 and `doctor` carries an `engine version` check whose fix is
 `["hammunition", "self-update"]`. The console's Home offers it with `U`.
 
+### `hammunition secrets status [--user NAME] [--json]`
+
+Where each secret the engine knows would come from, and never what it is (**D-081**, issue #321). One entry per secret in the
+engine's registry (`hammunition.secrets.REGISTRY`; today `REPEATERBOOK`, RepeaterBook's API token for
+`maps repeaters fetch-repeaterbook`): its purpose, whether a source would answer now, which (`environment`, `doppler` or
+`none`), the unit and command it goes with, where to get one, and the exact ways to provide it: `export REPEATERBOOK=...` for
+the shell, or `hammunition station set --doppler-project PROJECT --doppler-config CONFIG`. Also whether the station names a
+Doppler project and config, and whether `doppler` is on `PATH`.
+
+It prints **no value, no prefix of one and no length**, and a test sets a fake token and asserts its absence from the text and
+the JSON. It does not run `doppler`: `doppler` as the source means the station names a project and config and the CLI is
+installed, and the command that needs the secret asks. `--json` prints a `secrets` document
+([json-interface.md](json-interface.md#secrets)); the console's Secrets screen reads it. Read-only; no run log.
+
 ### `hammunition logs [--last] [--path] [--user NAME] [--json]`
 
 The log each run that changed something left behind (**D-077**), newest first:
