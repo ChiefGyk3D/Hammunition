@@ -1,0 +1,1 @@
+- The Semgrep suppression on the active-area links directory sits on the lines it covers (the previous-line form was not honoured); no behaviour change.
