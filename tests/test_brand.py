@@ -41,6 +41,21 @@ def has_transparency(path: Path) -> bool:
     return colour in (4, 6) or b"tRNS" in path.read_bytes()
 
 
+def comment_bodies(text: str) -> list[str]:
+    """The text inside each <!-- ... --> pair, found by scanning, never by regex."""
+    bodies: list[str] = []
+    pos = 0
+    while True:
+        start = text.find("<!--", pos)
+        if start < 0:
+            return bodies
+        end = text.find("-->", start + 4)
+        if end < 0:
+            return bodies
+        bodies.append(text[start + 4 : end])
+        pos = end + 3
+
+
 def test_there_are_marks_to_check() -> None:
     assert {m.name for m in MARKS} == {"mark.svg", "mark-light.svg", "mark-mono.svg"}
 
@@ -59,9 +74,11 @@ def test_every_mark_carries_its_licence_and_a_label(svg: Path) -> None:
         f"{svg.name}: the marks are CC0 like the catalog"
     )
     assert "<title>Hammunition</title>" in text
-    assert "--" not in re.sub(r"<!--|-->", "", text), (
-        f"{svg.name}: a double hyphen inside a comment breaks the parse"
-    )
+    # XML forbids "--" inside a comment, and the parse above already enforces it;
+    # this names the trap in the failure message. Scanned, not matched by regex:
+    # CodeQL (py/bad-tag-filter) is right that a regex for "-->" is not a parser.
+    for body in comment_bodies(text):
+        assert "--" not in body, f"{svg.name}: a double hyphen inside a comment breaks the parse"
 
 
 def test_the_marks_agree_on_geometry() -> None:
