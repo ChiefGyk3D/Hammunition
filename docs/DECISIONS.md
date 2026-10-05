@@ -10630,3 +10630,99 @@ enforced, every required check kept (the fuzz gate and, on Hammunition, the
 seven distro jobs, the docs links, repo hygiene and the site build). The
 2026-10-04 protection script had set `required_pull_request_reviews` to null
 and dropped the pull-request requirement for a day; both scripts now carry it.
+## D-084 — Targets are releases their distribution still supports in full; the uConsole image is the one exception to "no custom ISO", and only if Debian 13 cannot be documented onto the device
+
+**Date:** 2026-10-05. **Status:** accepted (the maintainer's ruling of
+2026-10-05; the image itself is **proposed, not designed**, epic #372).
+**Depends on:** D-002 (ARM is a day-one target), D-023 (the licence split),
+D-038 (resolve from the release the machine installs from), D-039 (a member a
+target lacks is deferred), D-041 (kernel subsystems are measured, never built),
+Q-003 (`debian-13-arm64`, Pi untested until verified on uConsole hardware).
+**Overrides:** the "no distribution, custom ISO or derivative" line of the
+rejected list, for one device, under the conditions below. Everything else on
+that list stands.
+
+**Two rulings, one reason.**
+
+### 1. Supported targets
+
+Hammunition builds against operating systems in **regular support**: the
+release's own security team still publishes advisories for the whole archive.
+The targets are Parrot 7, Debian 13 (amd64 and arm64), Ubuntu 24.04 and 26.04
+(the LTS line; interim Ubuntu releases are not added), Linux Mint 22.3 on
+Ubuntu's LTS, and Kali rolling. A release **leaves** the matrix when its
+distribution ends regular support, and it **never enters** it under long-term
+support alone: LTS is a volunteer subset of the archive, not the archive, and a
+catalog resolved against it would claim coverage the security team no longer
+gives.
+
+**Debian 12 is not planned.** Regular support ended in 2026 and LTS ends in
+2028; the one test target that ever named it (hammunition-bunker's `debian:12`
+container row) is that project's to decide and is not a declared Hammunition
+target. **Rolling releases are carried as best effort** ("your mileage may
+vary"): Kali's archive moves under the catalog between releases, so a Kali
+failure is reported and fixed when it can be, and never holds a release. The
+preference, where there is a choice, is the LTS or stable release of a
+distribution, because that is what an operator installs on a machine meant to
+work for years.
+
+### 2. The uConsole image
+
+The ClockworkPi uConsole with the Hacker Gadgets AIO v2 is owned, is Skid
+Finder's target hardware (the foxhunt side), and is the one machine in the
+hardware list that ships from its vendor on an image Hammunition may not be
+able to build against: what the current official images are based on, per
+core, is **unmeasured** and is the first thing #372 measures. Ruling 1 says
+Hammunition does not meet the device on a Debian 12 derivative. Two routes, in
+order:
+
+- **Route 1, preferred: document.** A page under `docs/hardware/uconsole.md`
+  that takes a stock CM4 uConsole to Debian 13 (Raspberry Pi OS trixie, or
+  Debian arm64 with ClockworkPi's kernel and device tree, whichever measures
+  as workable) and then runs `hammunition install uconsole`. If every step
+  can be written and reproduced from the page, **no image is built**.
+  **The first candidate to measure is
+  [crossplatformdev/uConsole-Image-Builder](https://github.com/crossplatformdev/uConsole-Image-Builder)**
+  (named by the maintainer 2026-10-05; read, not run). As read on that date:
+  GPL-3.0, head 2026-02-27, releases of Debian 13 trixie images for the CM4
+  and CM5 dated 2026-01-14 (plus bookworm and Ubuntu 22.04, which ruling 1
+  excludes), built with Raspberry Pi's own `rpi-image-gen`; the kernel is
+  ClockworkPi's prebuilt package from `github.com/clockworkpi/apt`, with an
+  optional build mode of `rpi-6.12.y` plus ak-rex's uConsole commits. If a
+  stock trixie image from it boots the CM4 with the AIO v2 enumerating, route
+  1 is "flash that image, then `hammunition install uconsole`", and the
+  project builds nothing. Three things the page would have to say about it:
+  the ClockworkPi archive key is fetched from a raw GitHub URL without a
+  pinned fingerprint (D-040 pins one; the page gives it); the images ship a
+  default `uconsole`/`uconsole` account with passwordless sudo and SSH on,
+  which the operator changes before the radio goes on the air; and a kernel
+  with out-of-tree commits is still not ours to maintain, only to pin and
+  measure.
+- **Route 2, only if route 1 fails: build.** An image, in its own repository
+  with its own catalog unit like every separable component, built by a
+  reproducible script with every input pinned by sha256, signed and verified
+  like any other artifact. Debian 13 arm64 base; the image **is Debian 13 with
+  the engine run once**: the `uconsole` profile installed through
+  `hammunition install`, transaction log and all, never a parallel install
+  path. The AIO v2 setup is **optional**, because not every uConsole has the
+  board.
+
+**What the exception does not relax.** No custom kernel: the image pins a
+packaged or published ClockworkPi kernel by commit and measures it, and never
+maintains one (D-041's rule for subsystems applies to the whole kernel). No
+mirror of upstream packages, no fork. An installation medium for one device,
+never a general distribution, never offered for the laptop targets. The CM4
+core only; A06 and R01 are not targets until someone owns one.
+
+**The Skid Finder overlap is accepted, with one owner per layer.** Hardware
+bring-up for the AIO v2 (udev, power, display, audio) is written once, in
+Hammunition's hardware catalog (`catalog/hardware/devices/uconsole.yaml`,
+which today says "not characterised"), and Skid Finder stays the catalog unit
+it already is (`catalog/packages/skid-finder.yaml`). The image carries both;
+neither re-implements the other's half.
+
+**Consequences.** `docs/SCOPE.md` gains stage 15 and a targets paragraph;
+`CLAUDE.md`'s rejected list names the exception; the README's targets
+paragraph states the policy in one sentence; `docs/hardware/uconsole.md`
+points at the epic. The `uconsole` profile named in SCOPE since D-003 is
+defined as part of #372. Nothing in the engine changes under this decision.

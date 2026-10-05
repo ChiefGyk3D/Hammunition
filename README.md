@@ -26,7 +26,9 @@ question or reading a forum thread.
 Security 7.4), then Debian 13, Ubuntu 24.04 and 26.04, Kali and Linux Mint
 22.3, each tested in a container, plus a Debian 13 arm64 target for Raspberry
 Pi OS. Pop!_OS 24.04 passed the VM campaign but is not declared yet. Parrot with KDE Plasma comes first for the desktop tray;
-[what works on which desktop](docs/desktops.md) says the rest.
+[what works on which desktop](docs/desktops.md) says the rest. Targets are releases their distribution
+still supports in full: Debian 12 is not planned, and rolling releases such as
+Kali are best effort (D-084).
 
 ## How much disk you need
 

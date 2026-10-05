@@ -288,6 +288,16 @@ Ordered by coverage-per-effort, not by source.
     always shows the source article, never a bare answer. Content choice,
     the packaged runtime, field-laptop and Pi performance, and model licences
     are measured before anything is written
+15. **A uConsole image** — post-1.0, the one exception to "no custom ISO"
+    (**D-084**, epic #372), and conditional: first a documented route from a
+    stock CM4 uConsole to Debian 13 and `hammunition install uconsole`; an
+    image, in its own repository, only if that route cannot be written;
+    the first candidate for that route is crossplatformdev's
+    uConsole-Image-Builder (GPL-3.0, trixie images for CM4/CM5, read on
+    2026-10-05, not yet run). The
+    Hacker Gadgets AIO v2 setup is optional. Overlaps Skid Finder's foxhunt
+    side on purpose: hardware bring-up lives here once, Skid Finder stays a
+    catalog unit
 
 **1.0 = stages 1 through 6.** That is already more coverage than any single
 existing project, and it is achievable. Stages 7 through 10 are where "one stop
@@ -300,6 +310,13 @@ a low-powered machine can run the project, and a unit for one desktop is
 deferred on the others rather than dragging that desktop in (**D-060**).
 `docs/desktops.md` records what is measured on each and says *unmeasured*
 everywhere else.
+
+**Targets are releases in regular support** (**D-084**). A release leaves the
+matrix when its distribution's security team stops covering the whole archive,
+and never enters it under long-term support alone. Debian 12 is not planned
+(regular support ended in 2026, LTS ends in 2028). Rolling releases such as
+Kali are carried as best effort; LTS and stable releases are what the project
+builds against.
 
 ---
 
