@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Keeps the Renegade-Penguin suite board (organization project 1) in step with
+# this repository's issues and pull requests: adds each one, sets its status,
+# stamps the done date on close or merge, and reconciles weekly. The job lives
+# in ChiefGyk3D/git-your-ship-together; this file only says which board and
+# which Area. It reads two repository variables, PROJECTS_APP_ID and
+# DOPPLER_IDENTITY_ID; the GitHub App key comes from Doppler over OIDC.
+# pull_request_target is safe here: the job has no checkout and never reads a
+# pull request's title or body.
+name: Project sync
+
+on:
+  issues:
+    types: [opened, reopened, closed, edited]
+  # zizmor: ignore[dangerous-triggers] -- no checkout, no run step, the inlined
+  # script reads the event payload as JSON and never the pull request's text.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
+    types: [opened, reopened, ready_for_review, converted_to_draft, closed]
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: project-sync-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/project-sync.yml@fde2a491de5107c4edb953c8d24f04835c11cb0a # v1.13.0
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      project-url: https://github.com/orgs/Renegade-Penguin/projects/1
+      app-id: ${{ vars.PROJECTS_APP_ID }}
+      default-area-field: Area
+      default-area: Engine
+      doppler-project: ci
+      doppler-config: ci
+      doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}
+      doppler-trusted-refs-only: false   # required for pull_request_target; the job has no checkout
+      egress-policy: block
