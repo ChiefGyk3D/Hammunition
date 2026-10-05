@@ -692,6 +692,7 @@ CHECKED_GENERATORS: list[tuple[str, list[str], list[Path]]] = [
     ("gen_device_naming.py", ["docs/reference/device-naming.md"], []),
     ("gen_hardware_gaps.py", ["docs/reference/hardware-gaps.md"], []),
     ("gen_json_reference.py", ["docs/reference/json-interface.md"], []),
+    ("gen_console_coverage.py", ["docs/reference/console-coverage.md"], []),
     ("gen_station_settings.py", ["docs/guides/station-settings.md"], []),
     ("gen_projects_page.py", ["docs/projects.md"], []),
     ("gen_application_directory.py", ["docs/applications.md"], []),
