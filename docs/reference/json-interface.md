@@ -1989,12 +1989,13 @@ One layer this import wrote, or found empty.
 
 | field | type | meaning |
 |---|---|---|
-| `layer_id` | string | `osm-medical`, `osm-responders`, `osm-supply`, `osm-shelter-candidates`, `osm-transport`, `osm-power`, `osm-telecom`, `osm-water`, `faa-airports`, `eia-plants`, `wri-plants`, `fcc-towers` or `nwr` |
+| `layer_id` | string | a theme (`osm-medical`, `osm-responders`, `osm-supply`, `osm-shelter-candidates`, `osm-transport`, `osm-power`, `osm-telecom`, `osm-water`, `faa-airports`, `eia-plants`, `wri-plants`, `fcc-towers` or `nwr`) followed by `-` and the region's file slug for a per-region layer, the theme alone for a merged one |
 | `name` | string | the layer's name, as QMapShack and the browser map show it |
 | `written` | integer | points in the layer; 0 when this import found none |
 | `files` | list of string | the files written, mode 0600: GPX, POI, Navit textfile, GeoJSON; empty when none |
 | `removed` | list of string | an earlier version's files, deleted because this import found no point for it |
-| `active` | boolean | whether the layer's area is active (D-082): true for every layer today, each theme being one file across every region, and while the station's `active_areas` is unset |
+| `active` | boolean | whether the layer's area is active (D-082): true for a merged layer, which has no area, and while the station's `active_areas` is unset |
+| `area` | string or null | the region the layer is for, as its extract's file slug (D-082, #327); null for a merged layer across every region |
 
 <details><summary>JSON Schema</summary>
 
@@ -2059,6 +2060,17 @@ One layer this import wrote, or found empty.
         "active": {
           "title": "Active",
           "type": "boolean"
+        },
+        "area": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Area"
         }
       },
       "required": [
@@ -2067,7 +2079,8 @@ One layer this import wrote, or found empty.
         "written",
         "files",
         "removed",
-        "active"
+        "active",
+        "area"
       ],
       "title": "InfraLayerView",
       "type": "object"

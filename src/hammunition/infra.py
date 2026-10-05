@@ -8,7 +8,9 @@ out of the OpenStreetMap extracts the station already has (medical,
 responders, supply, shelter candidates, transport, power, telecom, water),
 and one each from FAA NASR, EIA-860M, WRI's plant list, FCC ASR and NOAA
 Weather Radio (:mod:`hammunition.infra_sources`). Each layer is four files
-in ``$XDG_DATA_HOME/hammunition/overlays/infra/``: a GPX for QMapShack's
+in ``$XDG_DATA_HOME/hammunition/overlays/infra/``, one set per installed
+region (the extract's file slug ends the id, issue #327), or one across every
+region with ``--merged``: a GPX for QMapShack's
 File > Load and phones, a Mapsforge ``.poi`` QMapShack keeps as a POI
 collection, a Navit textfile, and a GeoJSON the browser map draws (D-071).
 
@@ -66,6 +68,10 @@ __all__ = [
     "geojson_text",
     "gpx_text",
     "in_boxes",
+    "is_layer_id",
+    "known_layers",
+    "layer_area",
+    "layer_base",
     "layer_files",
     "navit_text",
     "osm_layer_name",
@@ -74,6 +80,9 @@ __all__ = [
     "present_layers",
     "read_osm_xml",
     "region_boxes",
+    "region_boxes_by_slug",
+    "region_layer",
+    "region_layer_id",
     "remove_layer",
     "write_layer",
 ]
@@ -601,6 +610,29 @@ def region_boxes(prefix: Path) -> tuple[list[Box], list[str]]:
     return boxes, notes
 
 
+def region_boxes_by_slug(prefix: Path) -> tuple[dict[str, Box], list[str]]:
+    """Each installed extract's header box keyed by the extract's file slug
+    (``north-america-us-delaware``: the slug :mod:`hammunition.areas` and the
+    per-region layers carry), and a note for each one left out, named by its
+    number, never by its name."""
+    pbfs = sorted(extracts_dir(prefix).glob("*.osm.pbf"))
+    boxes: dict[str, Box] = {}
+    notes: list[str] = []
+    for number, path in enumerate(pbfs, start=1):
+        label = f"region extract {number} of {len(pbfs)}"
+        try:
+            bbox = osm_pbf.header_bbox(path)
+        except (OSError, osm_pbf.OsmPbfError):
+            notes.append(f"{label} could not be read; left out")
+            continue
+        if bbox is None:
+            notes.append(f"{label} has no bounding box in its header; left out")
+            continue
+        left, right, top, bottom = bbox
+        boxes[path.name.removesuffix(".osm.pbf")] = (left, bottom, right, top)
+    return boxes, notes
+
+
 def in_boxes(lat: float, lon: float, boxes: Sequence[Box], pad: float = 0.0) -> bool:
     """Whether (*lat*, *lon*) is in any box, each grown by *pad* degrees."""
     for west, south, east, north in boxes:
@@ -617,13 +649,61 @@ def in_boxes(lat: float, lon: float, boxes: Sequence[Box], pad: float = 0.0) -> 
 # --- writing -----------------------------------------------------------------------
 
 
-def _layer_spec(layer_id: str) -> LayerSpec:
-    try:
-        return LAYERS[layer_id]
-    except KeyError:
+#: A region's slug as an extract's file name carries it: ``north-america-us-delaware``.
+_SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,127}")
+
+
+def layer_base(layer_id: str) -> str:
+    """The theme of *layer_id*: itself for one of :data:`LAYERS`, the theme in
+    front of the region for a per-region id (``osm-medical-<slug>``). ValueError
+    when it is neither."""
+    split = _split(layer_id)
+    if split is None:
         raise ValueError(
-            f"no infrastructure layer {layer_id!r}; the layers are {', '.join(LAYERS)}"
-        ) from None
+            f"no infrastructure layer {layer_id!r}; the layers are {', '.join(LAYERS)}, "
+            f"each also as <layer>-<region> (for example osm-medical-north-america-us-delaware)"
+        )
+    return split[0]
+
+
+def _split(layer_id: str) -> tuple[str, str | None] | None:
+    if layer_id in LAYERS:
+        return layer_id, None
+    for base in sorted(LAYERS, key=len, reverse=True):
+        if layer_id.startswith(base + "-") and _SLUG.fullmatch(layer_id[len(base) + 1 :]):
+            return base, layer_id[len(base) + 1 :]
+    return None
+
+
+def is_layer_id(layer_id: str) -> bool:
+    return _split(layer_id) is not None
+
+
+def region_layer_id(base: str, slug: str) -> str:
+    """The id of theme *base* for the region whose extract has file slug *slug*."""
+    if base not in LAYERS:
+        raise ValueError(f"no infrastructure layer {base!r}; the layers are {', '.join(LAYERS)}")
+    if not _SLUG.fullmatch(slug):
+        raise ValueError(f"{slug!r} is not a region file slug")
+    return f"{base}-{slug}"
+
+
+def _layer_spec(layer_id: str) -> LayerSpec:
+    return LAYERS[layer_base(layer_id)]
+
+
+def region_layer(layer: InfraLayer, slug: str, points: Sequence[Point]) -> InfraLayer:
+    """*layer* for one region: its own id, its region in the name (two
+    collections of one theme must be told apart in QMapShack's dock), only
+    *points*."""
+    return InfraLayer(
+        region_layer_id(layer.layer_id, slug),
+        f"{layer.name} [{slug}]",
+        layer.licence,
+        layer.source,
+        layer.day,
+        tuple(points),
+    )
 
 
 def gpx_text(layer: InfraLayer) -> str:
@@ -703,15 +783,39 @@ def layer_files(layer_id: str) -> tuple[str, str, str, str]:
 
 
 def layer_area(layer_id: str) -> str | None:
-    """The region an infrastructure layer is for, as a Geofabrik region path
-    or a file slug, or None when it holds every region (D-082).
-
-    Every layer is None today: one file per theme spans all the station's
-    regions. When issue #327 splits them per region this names the region, and
-    ``maps activate`` (:mod:`hammunition.areas`) takes only the active regions'
-    files into QMapShack, Navit and the browser map with no other change."""
+    """The region an infrastructure layer is for: the file slug of its extract
+    (``north-america-us-delaware``), which the area switch reads as that map
+    region (D-082), or None for a layer that holds every region (the merged
+    shape of D-075 as first written, or ``--merged``)."""
     _layer_spec(layer_id)
-    return None
+    split = _split(layer_id)
+    return None if split is None else split[1]
+
+
+def _region_ids_on_disk(where: Path) -> tuple[str, ...]:
+    """Per-region layer ids with any file in *where*, by theme then region."""
+    found: set[str] = set()
+    try:
+        names = [p.name for p in where.iterdir()]
+    except OSError:
+        return ()
+    for name in names:
+        if not name.startswith("infra-"):
+            continue
+        for suffix in SUFFIXES:
+            if name.endswith(suffix):
+                stem = name[len("infra-") : -len(suffix)]
+                split = _split(stem)
+                if split is not None and split[1] is not None:
+                    found.add(stem)
+    order = list(LAYERS)
+    return tuple(sorted(found, key=lambda i: (order.index(_split(i)[0]), i)))  # type: ignore[index]
+
+
+def known_layers(where: Path) -> tuple[str, ...]:
+    """Every layer id that may have files in *where*: the merged themes in
+    :data:`LAYERS` order, then each theme's per-region layers by region."""
+    return (*LAYERS, *_region_ids_on_disk(where))
 
 
 def write_layer(where: Path, layer: InfraLayer) -> tuple[Path, ...]:
@@ -766,14 +870,15 @@ def write_layer(where: Path, layer: InfraLayer) -> tuple[Path, ...]:
 
 
 def present_layers(where: Path) -> tuple[str, ...]:
-    """The layers whose GPX is in *where*, in :data:`LAYERS` order."""
-    return tuple(i for i in LAYERS if (where / layer_files(i)[0]).is_file())
+    """The layers whose GPX is in *where*: :data:`LAYERS` order, then the
+    per-region layers."""
+    return tuple(i for i in known_layers(where) if (where / layer_files(i)[0]).is_file())
 
 
 def layer_paths(where: Path, index: int) -> list[Path]:
     """Every present layer's file *index* (1, the ``.poi``; 2, the Navit
     textfile; 3, the GeoJSON), in layer order."""
-    paths = [where / layer_files(i)[index] for i in LAYERS]
+    paths = [where / layer_files(i)[index] for i in known_layers(where)]
     return [p for p in paths if p.is_file()]
 
 
@@ -782,11 +887,12 @@ _LEFTOVER = re.compile(r"^\.infra-")
 
 def remove_layer(where: Path, layer_id: str | None) -> tuple[Path, ...]:
     """Delete *layer_id*'s files, or every layer's when it is None, and
-    *where* when it is left empty; the files removed, in order. Anything
-    else in the directory stays."""
+    *where* when it is left empty; the files removed, in order. A theme's
+    id removes only the merged layer and a per-region id only that region's;
+    anything else in the directory stays."""
     if where.is_symlink():
         raise OSError(f"{where} is a symbolic link; left as it is")
-    ids = [layer_id] if layer_id is not None else list(LAYERS)
+    ids = [layer_id] if layer_id is not None else list(known_layers(where))
     names = [n for i in ids for n in layer_files(i)]
     removed: list[Path] = []
     for name in names:

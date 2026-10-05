@@ -49,7 +49,7 @@ In short:
 - [ ] Install the profiles you will use, plan first (`--dry-run`), then `hardware apply`.
 - [ ] Choose map regions covering the whole route, then `install navigation`.
 - [ ] Choose reference books; `install kiwix-library ics-forms`.
-- [ ] Build the infrastructure and repeater layers (after the regions).
+- [ ] Build the infrastructure and repeater layers (after the regions): `maps infra import --from-osm` writes one set per region you loaded, so `maps activate` can draw only the area you are in.
 - [ ] **Fetch every state and region on the possible roster, here, at home**: you will not have the network where you are sent. A state or region is loaded once and drawn only when it is the active one ([Offline navigation](offline-navigation.md#19-load-every-area-ahead-activate-where-you-are)). `hammunition maps areas` lists what is loaded.
 - [ ] Register Pat over the internet and fetch the gateway list.
 - [ ] Download these documents ([section 7](../getting-started/before-deployment.md#7-this-documentation)) and keep a copy on a second device and on paper.
@@ -97,9 +97,9 @@ refreshing it does.
 | Street maps (`osm-regions`, `osm-navit`) | OpenStreetMap through Geofabrik | Only the regions you chose | `hammunition update`, then reinstall | [Offline navigation](offline-navigation.md) |
 | Trail and terrain maps, routing, browser map | Built here from the same extracts; Copernicus elevation | Your regions | Reinstall | same |
 | US topo sheets | USGS, Forest Service | Within `topo_radius_km` of your grid square | Reinstall | same |
-| Medical, responders, supply, shelter candidates, transport, power, telecom, water | OpenStreetMap, from the installed extracts | Your regions | `maps infra import --from-osm` | same |
+| Medical, responders, supply, shelter candidates, transport, power, telecom, water | OpenStreetMap, from the installed extracts | Your regions, one layer per region | `maps infra import --from-osm` | same |
 | Airports, power plants | FAA NASR, EIA, WRI | US airports; US plants from EIA, plants outside the US from WRI | Reinstall after the pin moves | same |
-| Towers, Weather Radio | FCC, NOAA, fetched on request | Your regions | Run again; **unverified** | same |
+| Towers, Weather Radio | FCC, NOAA, fetched on request | Your regions, one layer per region | Run again; **unverified** | same |
 | Repeaters | Your own export, Open Repeater, hearham, ETCC, Brandmeister, OSM | Varies | Import again | same |
 | Books, dictionaries, ICS forms | Kiwix, FEMA | What you chose | `update --upstream` online | [Offline reference](offline-reference.md) |
 

@@ -587,7 +587,7 @@ def test_infra_import_document_carries_active(
 ) -> None:
     from hammunition.interface.infra import InfraLayerView
 
-    view = InfraLayerView("osm-medical", "Medical", 1, (), (), True)
+    view = InfraLayerView("osm-medical", "Medical", 1, (), (), True, None)
     assert view.active is True
     assert cli._layer_active(infra.layer_area("osm-medical")) is True
     assert cli.main(["maps", "activate", "--none"]) == 0

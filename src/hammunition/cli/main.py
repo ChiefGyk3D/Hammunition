@@ -1932,7 +1932,7 @@ def _poi_wants(
     if active is None:
         active = _active_station()[0]
     repeater_dir, infra_dir = overlay_dir(), infra.overlay_dir()
-    plan = plan_poi_links(overlays_root(), repeater_dir, infra_dir, active)
+    plan = plan_poi_links(overlays_root(), repeater_dir, infra_dir, active, _active_station()[1])
     if sync:
         sync_poi_links(plan)
     if active.everything:
@@ -2418,9 +2418,10 @@ def _overlay_navit_maps(active: Active | None = None) -> list[Path]:
         active = _active_station()[0]
     directory = infra.overlay_dir()
     found = _repeater_files(overlay_dir(), 2, active)
-    for layer_id in infra.LAYERS:
+    universe = _active_station()[1]
+    for layer_id in infra.known_layers(directory):
         path = directory / infra.layer_files(layer_id)[2]
-        if path.is_file() and active.area(infra.layer_area(layer_id)):
+        if path.is_file() and active.area(infra.layer_area(layer_id), universe):
             found.append(path)
     return found
 
@@ -3443,6 +3444,7 @@ def _write_infra(gathered: Gathered, args: argparse.Namespace) -> int:
                         tuple(map(str, files)),
                         (),
                         _layer_active(infra.layer_area(layer.layer_id)),
+                        infra.layer_area(layer.layer_id),
                     )
                 )
             else:
@@ -3455,6 +3457,7 @@ def _write_infra(gathered: Gathered, args: argparse.Namespace) -> int:
                         (),
                         tuple(map(str, gone)),
                         _layer_active(infra.layer_area(layer.layer_id)),
+                        infra.layer_area(layer.layer_id),
                     )
                 )
     except (OSError, sqlite3.Error, ValueError) as exc:
@@ -3469,7 +3472,7 @@ def _write_infra(gathered: Gathered, args: argparse.Namespace) -> int:
         skipped=tuple(SkipView(r, c, f) for r, c, f in gathered.skipped),
         outside=gathered.outside,
         merged=gathered.merged,
-        notes=gathered.notes,
+        notes=(*gathered.notes, *_infra_migration_notes(directory, gathered)),
         layers=tuple(views),
         directory=str(directory),
         registered=registered,
@@ -3483,9 +3486,37 @@ def _write_infra(gathered: Gathered, args: argparse.Namespace) -> int:
     return code
 
 
-def _infra_from_osm(layers: str | None) -> Gathered:
+def _infra_migration_notes(directory: Path, gathered: Gathered) -> tuple[str, ...]:
+    """Said once, with the write that makes it true: a theme now written per
+    region whose merged layer from before the split (D-075, #327) is still on
+    disk and registered. Nothing is deleted here.  Mirrors #335's note for the
+    merged RepeaterBook layer."""
+    from hammunition import infra
+
+    bases = dict.fromkeys(
+        infra.layer_base(layer.layer_id)
+        for layer in gathered.layers
+        if layer.points and infra.layer_area(layer.layer_id) is not None
+    )
+    old = [b for b in bases if (directory / infra.layer_files(b)[0]).is_file()]
+    if not old:
+        return ()
+    ids = ", ".join(old)
+    return (
+        f"the earlier merged layers ({ids}) are still in {directory} and still registered: "
+        f"they hold every region together, so a point is drawn twice and they stay on "
+        f"whichever area is active. Remove each with `hammunition maps infra remove "
+        f"--layer ID` once its per-region layers are in; nothing was deleted.",
+    )
+
+
+def _infra_from_osm(layers: str | None, *, merged_layers: bool = False) -> Gathered:
     """The eight OpenStreetMap layers, or those *layers* names, filtered by
-    osmium out of every installed extract as the operator.  D-075."""
+    osmium out of every installed extract as the operator.  D-075, #327.
+
+    One layer per theme and region (the extract's file slug in the id), or
+    with *merged_layers* one per theme across every region, where points two
+    neighbouring extracts both hold are kept once."""
     from hammunition import infra
     from hammunition import repeater_sources as rs
 
@@ -3505,6 +3536,7 @@ def _infra_from_osm(layers: str | None) -> Gathered:
             f"fetches your regions, and this filters the layers out of them"
         )
     points: dict[str, list[infra.Point]] = {key: [] for key in wanted}
+    by_region: dict[str, dict[str, list[infra.Point]]] = {}
     seen: set[tuple[str, str, str, float, float]] = set()
     skipped: dict[str, list[int]] = {}
     read = merged = 0
@@ -3515,6 +3547,9 @@ def _infra_from_osm(layers: str | None) -> Gathered:
             read += one.read
             for reason, numbers in one.skipped.items():
                 skipped.setdefault(reason, []).extend(numbers)
+            if not merged_layers:
+                by_region[pbf.name.removesuffix(".osm.pbf")] = one.points
+                continue
             for key, found in one.points.items():
                 for point in found:
                     # Neighbouring extracts overlap at their edges.
@@ -3525,6 +3560,23 @@ def _infra_from_osm(layers: str | None) -> Gathered:
                     seen.add(mark)
                     points[key].append(point)
     day = rs.extracts_date(extracts)
+    made = [
+        infra.InfraLayer(
+            f"osm-{key}",
+            infra.osm_layer_name(key, day),
+            infra.OSM_LICENCE,
+            infra.OSM_SOURCE,
+            day,
+            tuple(points[key]),
+        )
+        for key in wanted
+    ]
+    if not merged_layers:
+        made = [
+            infra.region_layer(layer, slug, by_region[slug].get(key, []))
+            for key, layer in zip(wanted, made, strict=True)
+            for slug in by_region
+        ]
     return infra.Gathered(
         route="osm",
         licences=(infra.OSM_LICENCE,),
@@ -3533,17 +3585,7 @@ def _infra_from_osm(layers: str | None) -> Gathered:
         inputs=((str(folder), "osm-extract", ""),),
         read=read,
         skipped=infra.skip_counts(skipped, numbered=len(extracts) == 1),
-        layers=tuple(
-            infra.InfraLayer(
-                f"osm-{key}",
-                infra.osm_layer_name(key, day),
-                infra.OSM_LICENCE,
-                infra.OSM_SOURCE,
-                day,
-                tuple(points[key]),
-            )
-            for key in wanted
-        ),
+        layers=tuple(made),
         merged=merged,
         notes=(
             "filtered on this machine from the region extracts already here; nothing downloaded",
@@ -3551,11 +3593,12 @@ def _infra_from_osm(layers: str | None) -> Gathered:
     )
 
 
-def _infra_boxes() -> tuple[list[tuple[float, float, float, float]], list[str]]:
-    """The installed extracts' boxes, or InfraInputError naming the unit."""
+def _infra_boxes() -> tuple[dict[str, tuple[float, float, float, float]], list[str]]:
+    """The installed extracts' boxes by region slug, or InfraInputError naming
+    the unit."""
     from hammunition import infra
 
-    boxes, notes = infra.region_boxes(DEFAULT_PREFIX)
+    boxes, notes = infra.region_boxes_by_slug(DEFAULT_PREFIX)
     if not boxes:
         raise infra.InfraInputError(
             f"no map region with a bounding box is installed in "
@@ -3573,7 +3616,7 @@ def _file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _infra_from_file(route: str) -> Gathered:
+def _infra_from_file(route: str, *, merged: bool = False) -> Gathered:
     """``--from-nasr``, ``--from-eia`` or ``--from-wri``: the installed data
     unit's file, kept to the regions' boxes.  D-075."""
     from hammunition import infra
@@ -3586,9 +3629,11 @@ def _infra_from_file(route: str) -> Gathered:
             f"no {unit.what} at {path}: `hammunition install {unit.unit}` installs it "
             f"({unit.size}, {unit.licence_short})"
         )
-    boxes, notes = _infra_boxes()
-    found = unit.read(path, boxes)
-    return _gathered(route, found, str(path), unit.format, _file_sha256(path), notes)
+    regions, notes = _infra_boxes()
+    found = unit.read(path, list(regions.values()))
+    return _gathered(
+        route, found, str(path), unit.format, _file_sha256(path), notes, None if merged else regions
+    )
 
 
 def _gathered(
@@ -3598,20 +3643,35 @@ def _gathered(
     fmt: str,
     sha256: str,
     notes: Sequence[str],
+    regions: Mapping[str, tuple[float, float, float, float]] | None = None,
 ) -> Gathered:
+    """*found* as layers: one per installed region, each the points inside that
+    region's box (a point in two overlapping boxes is in both), or with
+    *regions* None the one layer over every region.  #327."""
     from hammunition import infra
 
+    whole = infra.InfraLayer(
+        found.layer_id, found.name, found.licence, found.source, found.day, found.points
+    )
+    layers = (
+        (whole,)
+        if regions is None
+        else tuple(
+            infra.region_layer(
+                whole,
+                slug,
+                [p for p in found.points if infra.in_boxes(p.lat, p.lon, [box])],
+            )
+            for slug, box in regions.items()
+        )
+    )
     return infra.Gathered(
         route=route,
         licences=(found.licence,),
         inputs=((where, fmt, sha256),),
         read=found.read,
         skipped=infra.skip_counts(found.skipped),
-        layers=(
-            infra.InfraLayer(
-                found.layer_id, found.name, found.licence, found.source, found.day, found.points
-            ),
-        ),
+        layers=layers,
         outside=found.outside,
         notes=(*notes, *found.notes),
     )
@@ -3643,7 +3703,12 @@ def cmd_maps_infra_import(args: argparse.Namespace) -> int:
         )
         return EXIT_FAILED
     try:
-        gathered = _infra_from_osm(args.layers) if route == "osm" else _infra_from_file(route)
+        merged = bool(getattr(args, "merged", False))
+        gathered = (
+            _infra_from_osm(args.layers, merged_layers=merged)
+            if route == "osm"
+            else _infra_from_file(route, merged=merged)
+        )
     except infra.InfraInputError as exc:
         print(f"error: {exc}\nNothing was changed in {infra.overlay_dir()}.", file=sys.stderr)
         return EXIT_FAILED
@@ -3669,7 +3734,7 @@ def _fetch_infra(
     if _refuse_root("infrastructure overlays"):
         return EXIT_FAILED
     try:
-        boxes, notes = _infra_boxes()
+        regions, notes = _infra_boxes()
     except infra.InfraInputError as exc:
         print(f"error: {exc}. Nothing was fetched.", file=sys.stderr)
         return EXIT_FAILED
@@ -3680,13 +3745,16 @@ def _fetch_infra(
         print(f"error: {exc}. Nothing was written.", file=sys.stderr)
         return EXIT_FAILED
     try:
-        found = parse(body, url, boxes, fetched=when, sha256=digest)
+        found = parse(body, url, list(regions.values()), fetched=when, sha256=digest)
     except infra.InfraInputError as exc:
         print(f"error: {exc}. Nothing was written.", file=sys.stderr)
         return EXIT_FAILED
     finally:
         del body  # never kept: FCC's archive carries owners' contact details
-    return _write_infra(_gathered(route, found, url, fmt, digest, notes), args)
+    merged = bool(getattr(args, "merged", False))
+    return _write_infra(
+        _gathered(route, found, url, fmt, digest, notes, None if merged else regions), args
+    )
 
 
 def cmd_maps_infra_fetch_fcc_asr(args: argparse.Namespace) -> int:
@@ -3753,6 +3821,7 @@ def cmd_maps_infra_remove(args: argparse.Namespace) -> int:
     if _refuse_root("infrastructure overlays"):
         return EXIT_FAILED
     directory = infra.overlay_dir()
+    every = infra.known_layers(directory)
     try:
         removed = infra.remove_layer(directory, args.layer)
     except OSError as exc:
@@ -3761,7 +3830,7 @@ def cmd_maps_infra_remove(args: argparse.Namespace) -> int:
     registered = _register_overlays(directory, present=bool(infra.layer_paths(directory, 1)))
     doc = InfraRemovedDocument(
         directory=str(directory),
-        layers=(args.layer,) if args.layer else tuple(infra.LAYERS),
+        layers=(args.layer,) if args.layer else every,
         removed=tuple(str(p) for p in removed),
         unregistered=registered,
     )
@@ -3882,7 +3951,8 @@ def cmd_maps_activate(args: argparse.Namespace) -> int:
     notes = [
         (
             "Layers that belong to no area (your own import, ACMA, OpenStreetMap's, "
-            "the infrastructure themes) stay registered whichever areas are active."
+            "the merged infrastructure themes) stay registered whichever areas are active; "
+            "per-region infrastructure follows its region."
         ),
         (
             "A running QMapShack writes its own list back when it exits, and `hammunition "
@@ -8384,6 +8454,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     from hammunition import infra as infra_layers
 
+    def _infra_layer_id(text: str) -> str:
+        if not infra_layers.is_layer_id(text):
+            raise argparse.ArgumentTypeError(
+                f"no infrastructure layer {text!r}; the layers are "
+                f"{', '.join(infra_layers.LAYERS)}, each also as <layer>-<region slug>"
+            )
+        return text
+
     p_maps_infra = maps_sub.add_parser(
         "infra",
         help="infrastructure and EMCOMM points on the map, one layer per source (D-075)",
@@ -8423,11 +8501,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="with --from-osm, only these: medical, responders, supply, shelter-candidates, "
         "transport, power, telecom, water",
     )
+    p_inf_import.add_argument(
+        "--merged",
+        action="store_true",
+        help="one layer per source across every region, as before the per-region split; "
+        "default: one per region, so `maps activate` can choose which are drawn",
+    )
     p_inf_import.set_defaults(func=cmd_maps_infra_import)
     p_inf_fcc = infra_sub.add_parser(
         "fetch-fcc-asr",
         help="fetch the FCC's antenna structure registrations now (38 MB) and keep your "
         "regions' towers; recorded as unverified",
+    )
+    p_inf_fcc.add_argument(
+        "--merged",
+        action="store_true",
+        help="keep one layer across every region instead of one per region",
     )
     p_inf_fcc.set_defaults(func=cmd_maps_infra_fetch_fcc_asr)
     p_inf_nwr = infra_sub.add_parser(
@@ -8435,15 +8524,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="fetch NOAA Weather Radio's transmitter list now; live status dropped, recorded "
         "as unverified",
     )
+    p_inf_nwr.add_argument(
+        "--merged",
+        action="store_true",
+        help="keep one layer across every region instead of one per region",
+    )
     p_inf_nwr.set_defaults(func=cmd_maps_infra_fetch_nwr)
     p_inf_remove = infra_sub.add_parser(
         "remove", help="delete infrastructure layers and take them out of QMapShack and Navit"
     )
     p_inf_remove.add_argument(
         "--layer",
-        choices=tuple(infra_layers.LAYERS),
+        type=_infra_layer_id,
+        metavar="ID",
         default=None,
-        help="remove only this layer (default: every layer)",
+        help="remove only this layer: a theme such as osm-medical (the merged layer) or one "
+        f"region's, <theme>-<region slug> ({', '.join(infra_layers.LAYERS)}; default: every "
+        "layer)",
     )
     p_inf_remove.set_defaults(func=cmd_maps_infra_remove)
 

@@ -126,12 +126,12 @@ def find_overlays(
     regular file, not a link, under :data:`OVERLAY_LIMIT`, a FeatureCollection
     naming itself and its licence. Anything else is left out, and so is a
     layer of an area that is not active (D-082; *active* None is everything)."""
-    from .infra import LAYERS, layer_area, layer_files
+    from .infra import known_layers, layer_area, layer_files
 
     if where is None or not where.is_dir() or where.is_symlink():
         return ()
     found: list[Overlay] = []
-    for layer_id in LAYERS:
+    for layer_id in known_layers(where):
         if active is not None and not active.area(layer_area(layer_id), universe):
             continue
         path = where / layer_files(layer_id)[3]
