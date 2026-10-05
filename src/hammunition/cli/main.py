@@ -3880,10 +3880,14 @@ def cmd_maps_activate(args: argparse.Namespace) -> int:
     shown = tuple(t for t in stems if slugs is None or t in slugs)
     shelf = find_map(data, overlays=infra_dir, active=active, universe=station.map_regions)
     notes = [
-        "Layers that belong to no area (your own import, ACMA, OpenStreetMap's, "
-        "the infrastructure themes) stay registered whichever areas are active.",
-        "A running QMapShack writes its own list back when it exits, and `hammunition reference "
-        "serve` reads the list when it starts: restart either to see this.",
+        (
+            "Layers that belong to no area (your own import, ACMA, OpenStreetMap's, "
+            "the infrastructure themes) stay registered whichever areas are active."
+        ),
+        (
+            "A running QMapShack writes its own list back when it exits, and `hammunition "
+            "reference serve` reads the list when it starts: restart either to see this."
+        ),
     ]
     doc = ActivateDocument(
         dry_run=bool(args.dry_run),

@@ -212,12 +212,14 @@ def test_a_state_and_its_region_are_the_same_ground() -> None:
     assert active.state("OH") and active.state("FL") and active.state("MI")
     assert not active.state("TX")
     universe = (OHIO, MICHIGAN, FLORIDA)
-    assert active.region_slugs(universe) == {
-        "north-america-us-ohio",
-        "north-america-us-florida",
-        "north-america-us-michigan",
-        "florida",
-    }
+    assert active.region_slugs(universe) == frozenset(
+        {
+            "north-america-us-ohio",
+            "north-america-us-florida",
+            "north-america-us-michigan",
+            "florida",
+        }
+    )
     assert active.region(OHIO) and not active.region("north-america/us/texas")
     assert active.area(None) and Active(()).area(None)  # no area: always
     assert Active().area("TX") and Active().region_slugs() is None

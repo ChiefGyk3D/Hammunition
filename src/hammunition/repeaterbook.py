@@ -166,7 +166,11 @@ _US: dict[str, tuple[str, str]] = {
 
 #: Postal code to name, for the area switch (D-082): ``OH`` is Geofabrik's
 #: ``north-america/us/ohio``, so activating one covers the other.
-US_STATE_NAMES: dict[str, str] = {code: name for name, (code, _fips) in _US.items()}
+def _state_names() -> dict[str, str]:
+    return {code: name for name, (code, _fips) in _US.items()}
+
+
+US_STATE_NAMES: dict[str, str] = _state_names()
 
 
 def resolve_state(country: str, state: str) -> str:

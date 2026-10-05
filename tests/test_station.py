@@ -556,6 +556,8 @@ def test_rig_fields_are_template_variables() -> None:
         ("reference_books", "7"),
         ("topo_regions", "1"),
         ("map_regions", "{a: 1}"),
+        ("active_areas", "3"),
+        ("active_areas", "OH"),
     ],
 )
 def test_a_list_valued_key_that_is_not_a_list_is_a_station_error(
