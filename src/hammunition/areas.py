@@ -214,8 +214,8 @@ def sync_poi_links(plan: PoiLinks) -> None:
     if plan.wanted and not directory.exists():
         # A deliberate private mode: the links directory is the operator's alone. Semgrep
         # reads a suppression only on the line it covers, so the marker sits on each.
-        directory.mkdir(parents=True, mode=0o700)  # nosemgrep: deliberate 0700
-        os.chmod(directory, 0o700)  # nosemgrep: deliberate 0700
+        directory.mkdir(parents=True, mode=0o700)  # nosemgrep
+        os.chmod(directory, 0o700)  # nosemgrep
     for name in (*plan.drop, *(n for n in plan.add if (directory / n).is_symlink())):
         with contextlib.suppress(FileNotFoundError):
             (directory / name).unlink()
