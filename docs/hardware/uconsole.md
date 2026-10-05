@@ -28,17 +28,8 @@ Display rotation, audio routing and power management all need configuration beyo
 
 ## What is not yet known
 
-Not a USB peripheral. The uConsole is a host computer, so it has no VID:PID to record and does not fit the device model the rest of this catalog uses. It is here because its display, audio routing and power management need configuration that no ham or SDR project ships, and because the Hacker Gadgets AIO expansion board attached to it may present USB devices that do need entries. None of that has been characterised here.
+Not a USB peripheral. The uConsole is a host computer, so it has no VID:PID to record and does not fit the device model the rest of this catalog uses. It is here because its display, audio routing and power management need configuration that no ham or SDR project ships, and because the Hacker Gadgets AIO expansion board attached to it may present USB devices that do need entries. None of that has been characterised here. It is also the one device Hammunition may build an image for (D-084, epic #372): first a documented route from a stock CM4 uConsole to Debian 13 and `hammunition install uconsole`, and an image only if that route cannot be written.
 
 *Who can close it:* nothing to capture; the gap is documentation, not measurement.
 
 **Upstream:** <https://www.clockworkpi.com/uconsole>
-
-## A Debian 13 route, or an image
-
-The uConsole is the one device Hammunition may build an image for (**D-084**).
-The plan, in order: document how a stock CM4 uConsole gets to Debian 13 and
-`hammunition install uconsole`, and only if that cannot be written, publish an
-image that is Debian 13 with the engine run once, the AIO v2 setup optional.
-Nothing here is measured yet; the work and its measurements are tracked in
-[epic #372](https://github.com/Renegade-Penguin/Hammunition/issues/372).
