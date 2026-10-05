@@ -60,8 +60,11 @@ theme:
   # documentation tarball (release.yml) must read with no network. The system's
   # own fonts are used; tests/test_site.py holds this.
   font: false
+  # The compass-rose mark from brand/ (docs/contributing/branding.md);
+  # tests/test_brand.py asserts these two files are byte-identical to brand/'s.
+  logo: images/mark.svg
+  favicon: images/favicon.png
   icon:
-    logo: material/radio-tower
     repo: fontawesome/brands/github
   palette:
     - media: "(prefers-color-scheme: light)"
@@ -296,3 +299,4 @@ nav:
       - Continuous integration: contributing/ci.md
       - Releasing: contributing/releasing.md
       - The docs sweep: contributing/docs-sweep.md
+      - Branding: contributing/branding.md

@@ -74,3 +74,14 @@ path = ["LICENSE", "catalog/LICENSE", "LICENSES/**", "src/hammunition/map_style/
 precedence = "override"
 SPDX-FileCopyrightText = "NONE"
 SPDX-License-Identifier = "CC0-1.0"
+
+# The logo and the marks are CC0 like the catalog (docs/contributing/branding.md):
+# they are data about the project, and a downstream that carries the catalog may
+# carry the mark that goes with it. The SVG marks say so in their own header; the
+# PNGs cannot, and docs/images/ otherwise inherits the GPL from docs/** above, so
+# this later entry names them.
+[[annotations]]
+path = ["brand/**", "docs/images/logo.png", "docs/images/logo-256.png", "docs/images/mark.svg", "docs/images/favicon.png"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright (C) 2026 Renegade Penguin LLC"
+SPDX-License-Identifier = "CC0-1.0"

@@ -1,0 +1,19 @@
+{
+  "_comment": [
+    "The Hammunition palette. Every value is sampled from the logo artwork",
+    "(docs/images/logo.png), not chosen beside it: brand and brand-ink are the",
+    "most common purple and amber among its opaque pixels, brand-deep is the",
+    "aubergine ink the whole drawing is outlined in (its single most common",
+    "colour), and paper is the cream of the lettering. Hammunition Hill's",
+    "palette (brand/palette.json there) was sampled from its own artwork the",
+    "same way and sits a few units away; each repository publishes what its",
+    "artwork measures, and the family is the shared hue, not an identical hex.",
+    "tests/test_brand.py holds the marks to these values."
+  ],
+  "brand": {
+    "brand": "#972883",
+    "brand-ink": "#f99412",
+    "brand-deep": "#280423",
+    "paper": "#faedd6"
+  }
+}

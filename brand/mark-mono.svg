@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SPDX-License-Identifier: CC0-1.0
+
+  The Hammunition mark: the compass rose from the logo's own base, set in the
+  sunset disc. Not a shrunk logo: at 16 to 32 px the full illustration (a
+  penguin, a rig, a mast, a stack of manuals) is mud, so the mark is the one
+  element of it that survives being small. Variants reuse these paths; do not
+  redraw one by hand.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Hammunition" fill="currentColor">
+  <title>Hammunition</title>
+  <path d="M32 1 A31 31 0 1 1 31.99 1 Z M32 5 A27 27 0 1 0 32.01 5 Z" fill-rule="evenodd"/>
+  <path d="M32 11 A21 21 0 1 1 31.99 11 Z M32 15 A17 17 0 1 0 32.01 15 Z" fill-rule="evenodd"/>
+  <path d="M41.90 22.10 L36.50 32.00 L41.90 41.90 L32.00 36.50 L22.10 41.90 L27.50 32.00 L22.10 22.10 L32.00 27.50 Z"/>
+  <path d="M32.00 8.00 L36.60 27.40 L56.00 32.00 L36.60 36.60 L32.00 56.00 L27.40 36.60 L8.00 32.00 L27.40 27.40 Z"/>
+</svg>

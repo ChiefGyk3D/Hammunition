@@ -5,6 +5,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Hacker's Ham Shack
 
+<p align="center">
+  <img src="images/logo.png" alt="Hammunition" width="320">
+</p>
+
 **Hammunition** turns a Debian-family computer you already have into an
 amateur radio, software-defined radio and RF workstation. Parrot OS is the
 primary target; Debian 13, Ubuntu, Kali and Raspberry Pi OS are supported
