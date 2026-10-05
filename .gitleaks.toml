@@ -1,0 +1,18 @@
+# gitleaks configuration (GYST security workflow runs `gitleaks git` from the repo root
+# and picks this file up by name).
+#
+# The one allowlisted shape is an OpenPGP v4 key fingerprint: 40 hex digits naming an
+# archive signing key. D-040 pins every third-party apt repository by its fingerprint in
+# the manifest (`key_fingerprint:`), tests and docs quote the same values, and a
+# fingerprint is a public identifier of a public key, never a credential.
+# Everything else stays at gitleaks' defaults.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "OpenPGP v4 key fingerprints (D-040 archive key pins) are public identifiers"
+regexTarget = "match"
+regexes = [
+  '''(?i)(key_fingerprint|subkey,)\W{0,4}[0-9A-F]{40}\b''',
+]
