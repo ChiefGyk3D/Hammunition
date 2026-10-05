@@ -1,0 +1,4 @@
+# Every path is the maintainer's. A single maintainer cannot approve their own pull
+# request, so main requires a pull request and zero approvals (D-083); this file
+# names who answers for the tree and is revisited when a second maintainer joins.
+* @ChiefGyk3D
