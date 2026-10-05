@@ -10637,6 +10637,23 @@ order:
   Debian arm64 with ClockworkPi's kernel and device tree, whichever measures
   as workable) and then runs `hammunition install uconsole`. If every step
   can be written and reproduced from the page, **no image is built**.
+  **The first candidate to measure is
+  [crossplatformdev/uConsole-Image-Builder](https://github.com/crossplatformdev/uConsole-Image-Builder)**
+  (named by the maintainer 2026-10-05; read, not run). As read on that date:
+  GPL-3.0, head 2026-02-27, releases of Debian 13 trixie images for the CM4
+  and CM5 dated 2026-01-14 (plus bookworm and Ubuntu 22.04, which ruling 1
+  excludes), built with Raspberry Pi's own `rpi-image-gen`; the kernel is
+  ClockworkPi's prebuilt package from `github.com/clockworkpi/apt`, with an
+  optional build mode of `rpi-6.12.y` plus ak-rex's uConsole commits. If a
+  stock trixie image from it boots the CM4 with the AIO v2 enumerating, route
+  1 is "flash that image, then `hammunition install uconsole`", and the
+  project builds nothing. Three things the page would have to say about it:
+  the ClockworkPi archive key is fetched from a raw GitHub URL without a
+  pinned fingerprint (D-040 pins one; the page gives it); the images ship a
+  default `uconsole`/`uconsole` account with passwordless sudo and SSH on,
+  which the operator changes before the radio goes on the air; and a kernel
+  with out-of-tree commits is still not ours to maintain, only to pin and
+  measure.
 - **Route 2, only if route 1 fails: build.** An image, in its own repository
   with its own catalog unit like every separable component, built by a
   reproducible script with every input pinned by sha256, signed and verified

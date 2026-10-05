@@ -291,7 +291,10 @@ Ordered by coverage-per-effort, not by source.
 15. **A uConsole image** — post-1.0, the one exception to "no custom ISO"
     (**D-084**, epic #372), and conditional: first a documented route from a
     stock CM4 uConsole to Debian 13 and `hammunition install uconsole`; an
-    image, in its own repository, only if that route cannot be written. The
+    image, in its own repository, only if that route cannot be written;
+    the first candidate for that route is crossplatformdev's
+    uConsole-Image-Builder (GPL-3.0, trixie images for CM4/CM5, read on
+    2026-10-05, not yet run). The
     Hacker Gadgets AIO v2 setup is optional. Overlaps Skid Finder's foxhunt
     side on purpose: hardware bring-up lives here once, Skid Finder stays a
     catalog unit
