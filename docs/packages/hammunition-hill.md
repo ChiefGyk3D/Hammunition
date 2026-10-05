@@ -4,7 +4,7 @@
 
 **Local-first ham radio dashboard — the Hammunition family's own**
 
-- **Version recorded:** 1.2.0
+- **Version recorded:** 1.3.0
 - **Categories:** `dashboards`
 - **Upstream:** <https://github.com/ChiefGyk3D/hammunition-hill>
 
@@ -22,7 +22,7 @@ A browser on this machine. An internet connection for the fetched tiers (space w
 
 ## How it installs
 
-- prebuilt deb from https://github.com/ChiefGyk3D/hammunition-hill/releases/download/v1.2.0/hammunition-hill_1.2.0_all.deb
+- prebuilt deb from https://github.com/ChiefGyk3D/hammunition-hill/releases/download/v1.3.0/hammunition-hill_1.3.0_all.deb
   - The .deb's postinst creates the `hamhill` system user, enables `hammunition-hill.service` and starts it. That is a running service from the moment the install completes; see known_problems for what it listens on and how to stop it.
 
 ## Known problems

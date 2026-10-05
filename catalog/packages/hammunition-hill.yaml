@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: hammunition-hill
-version: "1.2.0"
+version: "1.3.0"
 summary: Local-first ham radio dashboard — the Hammunition family's own
 categories: [dashboards]
 
@@ -33,10 +33,11 @@ install:
   - install:
       method: binary
       artifact:
-        url: https://github.com/ChiefGyk3D/hammunition-hill/releases/download/v1.2.0/hammunition-hill_1.2.0_all.deb
-        # v1.2.0 (2026-10-04): the digest read from the release's SHA256SUMS and confirmed against
-        # the downloaded file (456,848 bytes); 1.2.0 adds the repeaters panel (hill #83, #85).
-        sha256: 088f87de2ee1ad72e2465a3adc0c849cedd0024592725c31c35d6528869ce687
+        url: https://github.com/ChiefGyk3D/hammunition-hill/releases/download/v1.3.0/hammunition-hill_1.3.0_all.deb
+        # v1.3.0 (2026-10-04): the digest read from the release's SHA256SUMS and confirmed against
+        # the downloaded file (462,788 bytes); 1.3.0 adds the repeaters panel's area selector
+        # (hill #90, D-082), the Atheris fuzz targets (hill #89) and the security sweep (hill #88).
+        sha256: 3b7904377c378c7d84ee5fcf6f78380d314dc95b9768b22c29fb5562406ad6b6
       format: deb
       deb_package: hammunition-hill  # dpkg-deb -f: control name matches the filename
     note: >-
