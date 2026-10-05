@@ -10585,3 +10585,48 @@ QMapShack, which writes its list back when it exits, keeps the list this wrote.
 `docs/reference/cli.md`, `docs/reference/json-interface.md`. Tests:
 `tests/test_areas.py`, `tests/test_qmapshack_config.py`. Siblings: #327 (per-region
 infrastructure), #329, hammunition-hill#87 (the area selector).
+
+## D-083 — Review policy under one maintainer: a pull request is required on `main` with zero approvals, a CODEOWNERS file names the maintainer, administrators are not enforced, and the OpenSSF Scorecard's Code-Review score stays 0 by record rather than by trick
+
+**Date:** 2026-10-05. **Status:** accepted (maintainer's ruling, issue #333, the
+day the suite moved to the Renegade-Penguin organization, #357).
+**Depends on:** the git workflow of 2026-09-02 (feature branches, pull requests,
+the maintainer merges), D-025 (a claim is re-verified when it becomes decisive).
+
+**The question.** The weekly OpenSSF Scorecard run leaves two policy findings
+open on every suite repository: *Branch-Protection* wants approving reviewers
+and a code-owner review, and *Code-Review* scores 0 because none of the last
+twelve merged changesets carried an approval. Both are true. The project has
+one maintainer, and GitHub does not let an author approve their own pull
+request.
+
+**The options, as put to the maintainer.** (A) keep zero required approvals,
+add a `CODEOWNERS` file, record the state; (B) require one approval and merge
+every pull request with an administrator bypass, which raises the
+Branch-Protection tier while Code-Review stays 0 and every merge becomes a
+recorded bypass; (C) require one approval once a second human reviews, which is
+not a choice available today; (D) a second account or an App approving, which
+is gaming the metric and was not offered as a serious option.
+
+**The ruling.** **A.** A pull request is required on `main` with
+`required_approving_review_count: 0` and stale reviews dismissed; force-push
+and deletion are blocked; `.github/CODEOWNERS` names the maintainer for every
+path; `enforce_admins` stays **off**, because the maintainer is the only member
+and chose to keep the administrator path open for now. The Code-Review score is
+0 and the record says why; the two Scorecard alerts are dismissed as *won't
+fix* with this decision as the reason, and the auto-filed issues close against
+#333. **Revisit** when the organization gains a second member: C becomes
+available, and `enforce_admins` is reconsidered at the same time. The OpenSSF
+best-practices badge is pursued separately (the registration is the
+maintainer's login; nothing in it is untrue of the repository).
+
+**Why not B.** It buys a tier with a lie in it: the number says reviewers are
+required, the merge log says every one was bypassed. The project's rule is that
+a check nobody trusts is worse than none.
+
+**Measured.** Protection on all five suite repositories on 2026-10-05 after the
+move: pull request required, approvals 0, dismiss stale on, admins not
+enforced, every required check kept (the fuzz gate and, on Hammunition, the
+seven distro jobs, the docs links, repo hygiene and the site build). The
+2026-10-04 protection script had set `required_pull_request_reviews` to null
+and dropped the pull-request requirement for a day; both scripts now carry it.
