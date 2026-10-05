@@ -161,6 +161,7 @@ nav:
           - Propagation: guides/propagation.md
       - In the field:
           - EMCOMM preparation and field use: guides/emcomm-field.md
+          - Load every area ahead, activate where you are: guides/area-of-operations.md
           - Offline navigation: guides/offline-navigation.md
           - Offline reference: guides/offline-reference.md
           - A LAN mirror for map and reference data: guides/lan-mirror.md

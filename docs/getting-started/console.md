@@ -64,7 +64,7 @@ the engine's `hammunition secrets status` has none to give. Three ways to supply
   environment and never their arguments. It is written nowhere, appears in no log and is cleared when you quit; `x` forgets it
   sooner. Reading the screen again afterwards shows the variable as set, because for the engine it is.
 
-When a source answers, `f` offers the first command the key unlocks, `hammunition maps repeaters fetch-repeaterbook --state
+The token is what the per-state repeater fetch needs in [Load every area ahead](../guides/area-of-operations.md). When a source answers, `f` offers the first command the key unlocks, `hammunition maps repeaters fetch-repeaterbook --state
 XX`, asks for the state and runs it in a pane after you confirm. Built against the engine's documents and fixtures; the
 RepeaterBook fetch behind it has not been run against the live API.
 

@@ -61,6 +61,8 @@ hammunition install kiwix-library ics-forms
 [Offline reference](../guides/offline-reference.md) names the book ids and what
 the forms are.
 
+If you may be sent to several states, [Load every area ahead](../guides/area-of-operations.md) is the one walk through sections 2, 4 and 5 and the switch you use on arrival.
+
 ## 4. Infrastructure layers
 
 ```sh

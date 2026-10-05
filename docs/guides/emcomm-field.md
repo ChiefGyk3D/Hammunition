@@ -50,7 +50,7 @@ In short:
 - [ ] Choose map regions covering the whole route, then `install navigation`.
 - [ ] Choose reference books; `install kiwix-library ics-forms`.
 - [ ] Build the infrastructure and repeater layers (after the regions): `maps infra import --from-osm` writes one set per region you loaded, so `maps activate` can draw only the area you are in.
-- [ ] **Fetch every state and region on the possible roster, here, at home**: you will not have the network where you are sent. A state or region is loaded once and drawn only when it is the active one ([Offline navigation](offline-navigation.md#19-load-every-area-ahead-activate-where-you-are)). `hammunition maps areas` lists what is loaded.
+- [ ] **Fetch every state and region on the possible roster, here, at home**: you will not have the network where you are sent. A state or region is loaded once and drawn only when it is the active one ([Load every area ahead](area-of-operations.md), which walks it step by step). `hammunition maps areas` lists what is loaded.
 - [ ] Register Pat over the internet and fetch the gateway list.
 - [ ] Download these documents ([section 7](../getting-started/before-deployment.md#7-this-documentation)) and keep a copy on a second device and on paper.
 - [ ] If you run a Bunker, point the laptop at it and keep a verified copy: [LAN mirror](lan-mirror.md).
@@ -82,7 +82,7 @@ rehearsal. The pieces are in the guides linked below.
 
 ### On arrival
 
-- [ ] Make where you are the active area: `hammunition maps activate OH`. The next day, `hammunition maps activate MI`. Nothing is deleted; `maps activate --all` brings everything back.
+- [ ] Make where you are the active area: `hammunition maps activate OH` ([how](area-of-operations.md#part-2-on-arrival-activate-where-you-are)). The next day, `hammunition maps activate MI`. Nothing is deleted; `maps activate --all` brings everything back.
 - [ ] `hammunition hardware list` shows what is attached; `hammunition hardware wake NAME` for a parked device ([Tray controls](tray-controls.md)).
 - [ ] The GPS has a fix; the clock is right (FT8 stops decoding at about a second off).
 - [ ] Rig control up ([Rig control](rig-control.md)); audio levels set ([Radio audio](audio-routing.md)).
@@ -92,16 +92,16 @@ rehearsal. The pieces are in the guides linked below.
 Every layer states a source and, in its name, a date. Using it needs no internet;
 refreshing it does.
 
-| Dataset | Source | Coverage | Update | Guide |
-|---|---|---|---|---|
-| Street maps (`osm-regions`, `osm-navit`) | OpenStreetMap through Geofabrik | Only the regions you chose | `hammunition update`, then reinstall | [Offline navigation](offline-navigation.md) |
-| Trail and terrain maps, routing, browser map | Built here from the same extracts; Copernicus elevation | Your regions | Reinstall | same |
-| US topo sheets | USGS, Forest Service | Within `topo_radius_km` of your grid square | Reinstall | same |
-| Medical, responders, supply, shelter candidates, transport, power, telecom, water | OpenStreetMap, from the installed extracts | Your regions, one layer per region | `maps infra import --from-osm` | same |
-| Airports, power plants | FAA NASR, EIA, WRI | US airports; US plants from EIA, plants outside the US from WRI | Reinstall after the pin moves | same |
-| Towers, Weather Radio | FCC, NOAA, fetched on request | Your regions, one layer per region | Run again; **unverified** | same |
-| Repeaters | Your own export, Open Repeater, hearham, ETCC, Brandmeister, OSM | Varies | Import again | same |
-| Books, dictionaries, ICS forms | Kiwix, FEMA | What you chose | `update --upstream` online | [Offline reference](offline-reference.md) |
+| Dataset | Source | Coverage | Update | Per area? | Guide |
+|---|---|---|---|---|---|
+| Street maps (`osm-regions`, `osm-navit`) | OpenStreetMap through Geofabrik | Only the regions you chose | `hammunition update`, then reinstall | Navit and the browser map: yes, by region | [Offline navigation](offline-navigation.md) |
+| Trail and terrain maps, routing, browser map | Built here from the same extracts; Copernicus elevation | Your regions | Reinstall | Browser map: yes. QMapShack's trail and terrain maps stay listed | same |
+| US topo sheets | USGS, Forest Service | Within `topo_radius_km` of your grid square | Reinstall | No; radius of your grid square | same |
+| Medical, responders, supply, shelter candidates, transport, power, telecom, water | OpenStreetMap, from the installed extracts | Your regions, one layer per region | `maps infra import --from-osm` | Yes, by region | same |
+| Airports, power plants | FAA NASR, EIA, WRI | US airports; US plants from EIA, plants outside the US from WRI | Reinstall after the pin moves | Yes, clipped per region | same |
+| Towers, Weather Radio | FCC, NOAA, fetched on request | Your regions, one layer per region | Run again; **unverified** | Yes, clipped per region | same |
+| Repeaters | Your own export, Open Repeater, hearham, ETCC, Brandmeister, OSM | Varies | Import again | Yes: RepeaterBook by state; your own and open layers always drawn | same |
+| Books, dictionaries, ICS forms | Kiwix, FEMA | What you chose | `update --upstream` online | No | [Offline reference](offline-reference.md) |
 
 Dates, counts and licences are printed in each plan and are not repeated here.
 `hammunition update` shows installed versus the catalog's pins and never fetches.

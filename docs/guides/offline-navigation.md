@@ -1233,7 +1233,7 @@ of ours (the limits are unpublished). A `401`, `403` or `429` stops the run
 at once, is never retried, and writes nothing. Rows off the air, without a
 position, without a callsign or without a frequency are skipped and counted.
 
-It writes **one layer per state**, `repeaterbook-OH` (`repeaterbook-CA01` for
+It writes **one layer per state**, so each state is an area you can switch ([Load every area ahead](area-of-operations.md)), `repeaterbook-OH` (`repeaterbook-CA01` for
 a Canadian `state_id`), each its own `repeaters-repeaterbook-OH.gpx`, `.poi`,
 `.navit.txt` and `.rows.json`, titled *Repeaters (RepeaterBook OH, personal
 use, YYYY-MM-DD, unverified)*. A second state is a second layer. Fetching a
@@ -2423,6 +2423,8 @@ not yet looked at on the laptop.
 ---
 
 ## 19. Load every area ahead, activate where you are
+
+The step-by-step version, from "I might be sent to any of these states" to a verified laptop, is [Load every area ahead, activate where you are](area-of-operations.md); this section is the reference.
 
 An EMCOMM team can be sent anywhere on its roster: Ohio one day, Michigan the
 next, then Florida. The data has to be loaded at home, and there is a great deal
