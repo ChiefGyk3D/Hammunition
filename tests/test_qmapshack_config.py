@@ -298,3 +298,20 @@ def test_selecting_the_database_refuses_a_file_it_cannot_read() -> None:
 
 def test_a_negative_index_on_a_last_line_without_a_newline_gains_none() -> None:
     assert select_database("[Route]\nroutino\\database=-1") == "[Route]\nroutino\\database=0"
+
+
+def test_a_path_can_be_swapped_for_another_under_the_same_key() -> None:
+    """The area switch (D-082) takes one poiPaths directory out and puts
+    another in, in one edit."""
+    from hammunition.qmapshack_config import Wanted, ensure_paths
+
+    key = ("Canvas", "poiPaths")
+    text = "[Canvas]\npoiPaths=/a/links\nmapPath=/m\n"
+    out = ensure_paths(text, [Wanted(*key, ("/a/layers",))], remove=[Wanted(*key, ("/a/links",))])
+    assert out == "[Canvas]\npoiPaths=/a/layers\nmapPath=/m\n"
+    both = ensure_paths(
+        "[Canvas]\npoiPaths=/a/links, /b\n",
+        [Wanted(*key, ("/a/layers",))],
+        remove=[Wanted(*key, ("/a/links",))],
+    )
+    assert both == "[Canvas]\npoiPaths=/b, /a/layers\n"

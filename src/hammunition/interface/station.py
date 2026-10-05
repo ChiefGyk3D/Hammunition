@@ -113,6 +113,10 @@ class StationDocument(Strict):
     topo_all: bool = described(
         "whether every sheet of every region is selected, as before the bound; false when unset"
     )
+    active_areas: tuple[str, ...] | None = described(
+        "the areas drawn and registered (D-082): US state codes and map region names; null "
+        "when unset, which means everything loaded is active; an empty list means none is"
+    )
     secrets_doppler_project: str | None = described(
         "the Doppler project a keyed download's key is read from when its environment "
         "variable is not set (D-081); a name, never a token; null when not set"
@@ -142,6 +146,7 @@ def build_station(path: Path, station: Station) -> StationDocument:
         topo_radius_km=station.topo_radius,
         topo_regions=station.topo_regions,
         topo_all=bool(station.topo_all),
+        active_areas=station.active_areas,
         secrets_doppler_project=station.secrets_doppler_project,
         secrets_doppler_config=station.secrets_doppler_config,
     )
@@ -166,6 +171,7 @@ def render_station(doc: StationDocument) -> list[str]:
         and doc.topo_radius_km == 100
         and not doc.topo_regions
         and not doc.topo_all
+        and doc.active_areas is None
         and doc.secrets_doppler_project is None
         and doc.secrets_doppler_config is None
     ):
@@ -198,6 +204,10 @@ def render_station(doc: StationDocument) -> list[str]:
         f"  {'topo regions':<14} {f'{len(doc.topo_regions)} set' if doc.topo_regions else '(not set)'}"
     )
     lines.append(f"  {'topo all':<14} {'yes' if doc.topo_all else 'no'}")
+    # A count, like the regions: the areas say where the operator may be sent.
+    # Shown only when set, so a station that never chose reads as it always has.
+    if doc.active_areas is not None:
+        lines.append(f"  {'active areas':<14} {len(doc.active_areas)} set")
     if doc.secrets_doppler_project or doc.secrets_doppler_config:
         lines.append(
             f"  {'doppler':<14} {doc.secrets_doppler_project}/{doc.secrets_doppler_config}"
@@ -235,6 +245,11 @@ def render_station_set(doc: StationSetDocument, station: Station, fields: list[s
             lines.append(f"  {field:<14} {len(station.topo_regions)} set")
         elif field == "topo_all":
             lines.append(f"  {field:<14} {'yes' if station.topo_all else 'no'}")
+        elif field == "active_areas":
+            count = None if station.active_areas is None else len(station.active_areas)
+            lines.append(
+                f"  {field:<14} {'(cleared: everything loaded)' if count is None else f'{count} set'}"
+            )
         elif field in ("secrets_doppler_project", "secrets_doppler_config"):
             lines.append(f"  {field:<24} {getattr(station, field) or '(cleared)'}")
         else:

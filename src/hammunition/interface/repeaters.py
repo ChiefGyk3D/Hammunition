@@ -179,6 +179,11 @@ class LayerView(Strict):
         "the `<AREA>` of a per-state layer (`OH`, `CA01`), null for every other layer, so a "
         "front end can group by it"
     )
+    active: bool = described(
+        "whether the layer's area is active (D-082): true for a layer that belongs to no "
+        "area, and for every layer while the station's `active_areas` is unset. A front end "
+        "draws only active layers by default"
+    )
     name: str = described("the layer's name, as QMapShack's project shows it")
     description: str = described("the layer's description, which carries each source's licence")
     day: str = described("YYYY-MM-DD: the layer's date")

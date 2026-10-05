@@ -702,6 +702,18 @@ def layer_files(layer_id: str) -> tuple[str, str, str, str]:
     return gpx, poi, navit, geojson
 
 
+def layer_area(layer_id: str) -> str | None:
+    """The region an infrastructure layer is for, as a Geofabrik region path
+    or a file slug, or None when it holds every region (D-082).
+
+    Every layer is None today: one file per theme spans all the station's
+    regions. When issue #327 splits them per region this names the region, and
+    ``maps activate`` (:mod:`hammunition.areas`) takes only the active regions'
+    files into QMapShack, Navit and the browser map with no other change."""
+    _layer_spec(layer_id)
+    return None
+
+
 def write_layer(where: Path, layer: InfraLayer) -> tuple[Path, ...]:
     """The layer's four files in *where*, each written to a temporary name
     and renamed over the old one, mode 0600; on any failure nothing of this

@@ -31,8 +31,9 @@ The examples below use Vermont and New Hampshire. Use your own regions.
 terrain and routing in QMapShack: 9, and its BRouter router. Your position in
 QMapShack (the GPS tether, as a login service): 11 and 12. Repeaters on the
 map: 13. Phone maps: 14. Official US topo: 15. The map in a browser, with
-GraphHopper routes: 16. CoMaps: 17. Infrastructure and EMCOMM points: 18. Disk
-planning, the LAN mirror, troubleshooting and removal are after 18, and the
+GraphHopper routes: 16. CoMaps: 17. Infrastructure and EMCOMM points: 18. Loading many
+states and regions and switching between them: 19. Disk
+planning, the LAN mirror, troubleshooting and removal are after 19, and the
 page ends with what has and has not been measured.
 
 ---
@@ -2400,6 +2401,92 @@ real `fetch-fcc-asr` and `fetch-nwr` from this engine, and the imports over
 a station's own regions are owed to the bench. The tiles' infrastructure
 layer was built by tilemaker on Delaware and drawn by a headless browser,
 not yet looked at on the laptop.
+
+---
+
+## 19. Load every area ahead, activate where you are
+
+An EMCOMM team can be sent anywhere on its roster: Ohio one day, Michigan the
+next, then Florida. The data has to be loaded at home, and there is a great deal
+of it, so what you load and what you *draw* are two different things (**D-082**).
+Load every state and region on the possible roster; on arrival make **that**
+area the active one, and the next day another. Nothing is deleted by switching.
+
+**An area** is a US state code (`OH`; a RepeaterBook `state_id` such as `CA01`
+outside the US) or a map region (`north-america/us/ohio`, or its last word,
+`ohio`). A state and the region that is the same ground are one: `OH` and
+`north-america/us/ohio` switch together, through the postal-code table the
+RepeaterBook fetch already uses. Nothing else is inferred: a region that merely
+contains a state (a Geofabrik `midwest`) is activated by its own name, and
+`west-virginia` is not `virginia`.
+
+### Load ahead
+
+```sh
+hammunition maps regions ohio                  # the region paths
+hammunition station set --map-regions north-america/us/ohio,north-america/us/michigan,north-america/us/florida
+hammunition install navigation                 # the maps, terrain and routing
+hammunition maps repeaters fetch-repeaterbook --state OH   # one layer per state
+hammunition maps repeaters fetch-repeaterbook --state MI
+hammunition maps repeaters fetch-repeaterbook --state FL
+hammunition maps infra import --from-osm       # the infrastructure themes
+```
+
+### See what is loaded
+
+```sh
+hammunition maps areas
+```
+
+lists every state and region with files on this machine: its layers, their sizes
+as the engine measures them (a file's size on disk, not a promise), their dates,
+and whether each is active. With nothing chosen, everything loaded is active,
+which is how the engine behaved before this existed. `--json` prints the same
+as one document (`areas`) for the console and Hammunition Hill.
+
+### Activate where you are
+
+```sh
+hammunition maps activate OH                   # Ohio only
+hammunition maps activate OH MI                # two at once
+hammunition maps activate OH --dry-run         # say what would change, write nothing
+hammunition maps activate --all                # everything loaded again (the default)
+hammunition maps activate --none               # no area; layers with no area stay
+```
+
+It writes the station value `active_areas` (`hammunition station set
+--active-areas OH MI` and `--clear-active-areas` set it by hand), then
+re-registers:
+
+| Program | What it is told |
+|---|---|
+| QMapShack | `[Canvas] poiPaths` names `~/.local/share/hammunition/overlays/active-poi`, a directory of links to the active areas' `.poi` files, in place of the layer directories. The same writer as `maps qmapshack`, so the launcher keeps it |
+| Navit | Your own copy of its configuration (the one `maps navit` opens) lists only the active regions' converted maps and the active layers |
+| Browser map | `reference serve` lists and serves only the active regions and layers, read when it starts: restart it |
+| `--json` documents | `maps repeaters list --json` and the infrastructure documents carry `active` on every layer |
+
+It prints what changed, is safe to run again, and says so for an area it cannot
+find loaded: that is accepted with a note, since you may fetch it next.
+
+**What stays registered whatever you pick.** A layer that belongs to no area
+cannot be switched off by one: your own import (`maps repeaters import`), the
+ACMA, OpenStreetMap, Open Repeater and other source layers, and every
+infrastructure theme today (each is one file across all your regions). `maps
+areas` lists them as *Always active*. When the infrastructure layers are split
+per region (issue #327), the same switch takes the active regions' files only.
+
+**Nothing is deleted.** `--none` leaves every file where it was, the links are
+the only thing `activate` removes (never the files they point at), and `--all`
+brings it all back. A QMapShack that is open when you switch writes its own list
+back when it exits, so close it first, or run `hammunition maps qmapshack` to
+put the list back.
+
+**Measured and not.** Built and tested against synthetic layers: the station
+value, the configuration QMapShack is given, Navit's map set, the browser's list
+and the documents' flag. **Not measured:** QMapShack listing a POI collection
+through a link in a `poiPaths` directory (the first bench run settles it; if it
+does not, the route is to copy the active files there instead), Navit and the
+browser drawing the result, and a switch on the field laptop.
 
 ---
 

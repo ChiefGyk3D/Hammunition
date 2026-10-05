@@ -258,6 +258,7 @@ from hammunition.ustopo import bucket_probe as ustopo_probe
 from hammunition.ustopo import load_index as load_ustopo_index
 
 if TYPE_CHECKING:
+    from hammunition.areas import Active, PoiLinks
     from hammunition.geoclue import GeoClueGrants, GeoClueState
     from hammunition.hardware.power import KeptEntry, Parkable
     from hammunition.infra import Gathered
@@ -648,6 +649,32 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
             topo_regions = kept
             accepted["topo_regions"] = kept
 
+    if args.clear_active_areas:
+        if args.active_areas is not None:
+            refuse(
+                "active_areas",
+                " ".join(args.active_areas),
+                "--clear-active-areas makes everything loaded active; do not give "
+                "--active-areas with it.",
+            )
+        else:
+            requested["active_areas"] = None
+            accepted["active_areas"] = None
+    elif args.active_areas is not None:
+        requested["active_areas"] = tuple(args.active_areas)
+        try:
+            candidate = Station(active_areas=tuple(args.active_areas))
+        except StationError as exc:
+            refuse("active_areas", " ".join(args.active_areas), str(exc))
+        else:
+            accepted["active_areas"] = candidate.active_areas
+            unloaded = _unloaded_areas(candidate.active_areas or (), current)
+            if unloaded:
+                print(
+                    f"note: not loaded yet, accepted all the same: {', '.join(unloaded)}",
+                    file=sys.stderr if json_output else sys.stdout,
+                )
+
     rig_flags = {
         "rig": args.rig,
         "rig_device": args.rig_device,
@@ -717,6 +744,7 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
             "--node-alias, --map-regions, --map-freshness, --reference-books, --mirror, "
             "--clear-mirror, --doppler-project, --doppler-config, --clear-doppler, --dem-source, --topo-radius-km, --topo-regions, --topo-all, "
+            "--active-areas, --clear-active-areas, "
             "--rig, --rig-device, --rig-baud, --rig-ptt-line, --rig-owner, --clear-rig, "
             "--unattended."
         )
@@ -753,6 +781,9 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
             topo_radius_km=cast(int, accepted.get("topo_radius_km", current.topo_radius_km)),
             topo_regions=cast(tuple[str, ...], accepted.get("topo_regions", topo_regions)),
             topo_all=cast(bool | None, accepted.get("topo_all", current.topo_all)),
+            active_areas=cast(
+                tuple[str, ...] | None, accepted.get("active_areas", current.active_areas)
+            ),
             secrets_doppler_project=cast(
                 str | None,
                 accepted.get("secrets_doppler_project", current.secrets_doppler_project),
@@ -783,6 +814,7 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
         "topo_radius_km",
         "topo_regions",
         "topo_all",
+        "active_areas",
         "secrets_doppler_project",
         "secrets_doppler_config",
     )
@@ -844,6 +876,21 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
         if "rig" in text_fields and station.rig is not None:
             print("  → run `hammunition install rig-service` to apply this to the running service")
     return EXIT_UNPLANNABLE if refused else code
+
+
+def _unloaded_areas(tokens: tuple[str, ...], station: Station) -> tuple[str, ...]:
+    """The *tokens* that match no state layer or region on disk.  D-082."""
+    from hammunition import infra
+    from hammunition.areas import Active, collect
+    from hammunition.repeaters import overlay_dir
+
+    loaded, _ = collect(
+        overlay_dir(), infra.overlay_dir(), data_root(DEFAULT_PREFIX), station.map_regions
+    )
+    return Active(tokens).unloaded(
+        [e.area for e in loaded if e.kind == "state"],
+        [e.area for e in loaded if e.kind == "region"],
+    )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1831,38 +1878,87 @@ def _replace_atomically(path: Path, text: str, mode: int | None) -> None:
 
 
 def _repeater_poi_paths(text: str) -> tuple[str, bool]:
-    """*text* with each of the operator's overlay directories (repeaters,
-    D-064; infrastructure, D-075) in ``[Canvas] poiPaths`` while it holds a
-    ``.poi``, and out of it while not; and whether any does.
+    """*text* with the operator's overlay POI directories (repeaters, D-064;
+    infrastructure, D-075) in ``[Canvas] poiPaths`` while they hold a ``.poi``
+    and out of it while not; and whether any does.
 
-    A QMapShack open during an import writes its own list back when it
-    exits, so the launcher puts the paths back before each start (D-064).
-    Raises :class:`~hammunition.qmapshack_config.QmsConfigError` like
+    With areas active (D-082) the directory registered is instead
+    ``overlays/active-poi``, links to the active areas' ``.poi`` files, which is
+    brought up to date here. A QMapShack open during an import writes its own
+    list back when it exits, so the launcher puts the paths back before each
+    start (D-064). Raises
+    :class:`~hammunition.qmapshack_config.QmsConfigError` like
     :func:`~hammunition.qmapshack_config.ensure_paths`."""
-    from hammunition import infra
     from hammunition.qmapshack_config import Wanted, ensure_paths
-    from hammunition.repeaters import overlay_dir
 
-    keep: list[str] = []
-    drop: list[str] = []
-    for directory, present in (
-        (overlay_dir(), bool(_repeater_files(overlay_dir(), 1))),
-        (infra.overlay_dir(), bool(infra.layer_paths(infra.overlay_dir(), 1))),
-    ):
-        (keep if present else drop).append(str(directory))
+    keep, drop, _ = _poi_wants()
     # One Wanted per key each way: ensure_paths edits a key's line once.
-    wants = [Wanted("Canvas", "poiPaths", tuple(keep))] if keep else []
-    gone = [Wanted("Canvas", "poiPaths", tuple(drop))] if drop else []
+    wants = [Wanted("Canvas", "poiPaths", tuple(map(str, keep)))] if keep else []
+    gone = [Wanted("Canvas", "poiPaths", tuple(map(str, drop)))] if drop else []
     return ensure_paths(text, wants, remove=gone), bool(keep)
 
 
-def _repeater_files(directory: Path, index: int) -> list[Path]:
+def _active_station() -> tuple[Active, tuple[str, ...]]:
+    """The active areas the station holds (None: everything), and its map
+    regions. An unreadable station file is everything active, as unset.  D-082."""
+    from hammunition.areas import Active
+
+    try:
+        station = load_station(owner=operator(argparse.Namespace()) or None)
+    except StationError:
+        return Active(), ()
+    return Active.from_station(station), station.map_regions
+
+
+def _layer_active(area: str | None) -> bool:
+    """Whether a layer of *area* (None: of no area) is drawn right now."""
+    active, universe = _active_station()
+    return active.area(area, universe)
+
+
+def _poi_wants(
+    active: Active | None = None, *, sync: bool = True
+) -> tuple[list[Path], list[Path], PoiLinks]:
+    """The directories ``[Canvas] poiPaths`` should name and the ones it should
+    not, and the links directory's plan (made, when *sync*).  D-082.
+
+    Everything active: the layer directories that hold a ``.poi``, as before
+    the switch. Otherwise only ``overlays/active-poi``, which QMapShack reads as
+    a directory and which holds links to the active areas' files."""
+    from hammunition import infra
+    from hammunition.areas import plan_poi_links, sync_poi_links
+    from hammunition.repeaters import overlay_dir, overlays_root
+
+    if active is None:
+        active = _active_station()[0]
+    repeater_dir, infra_dir = overlay_dir(), infra.overlay_dir()
+    plan = plan_poi_links(overlays_root(), repeater_dir, infra_dir, active)
+    if sync:
+        sync_poi_links(plan)
+    if active.everything:
+        present = (
+            (repeater_dir, bool(_repeater_files(repeater_dir, 1))),
+            (infra_dir, bool(infra.layer_paths(infra_dir, 1))),
+        )
+        keep = [d for d, here in present if here]
+        drop = [d for d, here in present if not here] + [plan.directory]
+    else:
+        keep = [plan.directory] if plan.wanted else []
+        drop = [repeater_dir, infra_dir] + ([] if plan.wanted else [plan.directory])
+    return keep, drop, plan
+
+
+def _repeater_files(directory: Path, index: int, active: Active | None = None) -> list[Path]:
     """Every repeater layer's file *index* (1, the ``.poi``; 2, the Navit
     textfile) present in *directory*, in layer order: one layer per source
-    since D-074."""
-    from hammunition.repeaters import known_layers, layer_files
+    since D-074; with *active*, only the layers of an active area (D-082)."""
+    from hammunition.repeaters import known_layers, layer_area, layer_files
 
-    paths = [directory / layer_files(i)[index] for i in known_layers(directory)]
+    paths = [
+        directory / layer_files(i)[index]
+        for i in known_layers(directory)
+        if active is None or active.area(layer_area(i))
+    ]
     return [p for p in paths if p.is_file()]
 
 
@@ -2259,8 +2355,13 @@ def _generated_navit_config() -> Path:
 
 
 def _qmapshack_poi_path(directory: Path, *, present: bool) -> RegistrationView:
-    """``[Canvas] poiPaths`` in QMapShack's file holding *directory* when
-    *present*, not holding it otherwise; nothing else changed.  D-064.
+    """``[Canvas] poiPaths`` in QMapShack's file holding the overlay POI
+    directories that hold a ``.poi`` and none that does not; nothing else
+    changed.  D-064. *directory* is the one the caller changed and *present*
+    what it expects of it; the disk decides, as it does for ``maps qmapshack``.
+
+    With areas active (D-082) it holds ``overlays/active-poi`` instead, in step
+    with them, and neither layer directory.
 
     The same editor and the same refusals as ``maps qmapshack``: a symbolic
     link, anything but a regular file, or a line it cannot read is named and
@@ -2269,20 +2370,25 @@ def _qmapshack_poi_path(directory: Path, *, present: bool) -> RegistrationView:
     from hammunition.qmapshack_config import QmsConfigError, Wanted, config_path, ensure_paths
 
     path = config_path()
-    want = Wanted("Canvas", "poiPaths", (str(directory),))
+    # Both overlay directories follow the disk, as `maps qmapshack` keeps them.
+    keep, drop, _ = _poi_wants()
+    here = bool(keep)
+    target = keep[0] if keep else directory
+    wants = [Wanted("Canvas", "poiPaths", tuple(map(str, keep)))] if keep else []
+    gone = [Wanted("Canvas", "poiPaths", tuple(map(str, drop)))] if drop else []
     try:
         text, mode = _read_config_nofollow(path)
-        updated = ensure_paths(text, (want,) if present else (), remove=() if present else (want,))
+        updated = ensure_paths(text, wants, remove=gone)
     except (OSError, QmsConfigError) as exc:
         return RegistrationView(
             program="qmapshack",
             config=str(path),
             outcome="refused",
-            detail=f"{path}: {exc}; add {directory} under POI paths in QMapShack's setup",
+            detail=f"{path}: {exc}; add {target} under POI paths in QMapShack's setup",
         )
     if updated == text:
-        if present:
-            detail = f"{directory} already in [Canvas] poiPaths in {path}"
+        if here:
+            detail = f"{target} already in [Canvas] poiPaths in {path}"
             return RegistrationView("qmapshack", str(path), "already there", detail)
         return RegistrationView(
             "qmapshack", str(path), "not there", f"nothing to take out of {path}"
@@ -2294,20 +2400,29 @@ def _qmapshack_poi_path(directory: Path, *, present: bool) -> RegistrationView:
         return RegistrationView(
             "qmapshack", str(path), "refused", f"cannot write {path}: {exc.strerror or exc}"
         )
-    if present:
-        detail = f"added {directory} to [Canvas] poiPaths in {path}"
+    if here:
+        detail = f"added {target} to [Canvas] poiPaths in {path}"
         return RegistrationView("qmapshack", str(path), "added", detail)
     detail = f"took {directory} out of [Canvas] poiPaths in {path}"
     return RegistrationView("qmapshack", str(path), "removed", detail)
 
 
-def _overlay_navit_maps() -> list[Path]:
+def _overlay_navit_maps(active: Active | None = None) -> list[Path]:
     """Every overlay layer's Navit textfile, repeaters first (D-064, D-074),
-    then infrastructure (D-075): the operator's one Navit copy carries all."""
+    then infrastructure (D-075): the operator's one Navit copy carries all of
+    the active areas' (D-082) and every layer that belongs to no area."""
     from hammunition import infra
     from hammunition.repeaters import overlay_dir
 
-    return _repeater_files(overlay_dir(), 2) + infra.layer_paths(infra.overlay_dir(), 2)
+    if active is None:
+        active = _active_station()[0]
+    directory = infra.overlay_dir()
+    found = _repeater_files(overlay_dir(), 2, active)
+    for layer_id in infra.LAYERS:
+        path = directory / infra.layer_files(layer_id)[2]
+        if path.is_file() and active.area(infra.layer_area(layer_id)):
+            found.append(path)
+    return found
 
 
 def _register_repeaters(directory: Path) -> tuple[RegistrationView, RegistrationView]:
@@ -2328,10 +2443,12 @@ def _register_overlays(
     from hammunition.repeaters import overlays_root
 
     user = overlays_root() / "navit.xml"
-    maps = _overlay_navit_maps()
+    active, universe = _active_station()
+    maps = _overlay_navit_maps(active)
+    keep = active.region_slugs(universe)
     qmapshack = _qmapshack_poi_path(directory, present=present)
-    if maps:
-        return qmapshack, _navit_user_config(maps, user, _generated_navit_config())
+    if maps or keep is not None:
+        return qmapshack, _navit_user_config(maps, user, _generated_navit_config(), keep)
     try:
         user.unlink()
         navit = RegistrationView("navit", str(user), "removed", f"deleted {user}")
@@ -2342,9 +2459,16 @@ def _register_overlays(
     return qmapshack, navit
 
 
-def _navit_user_config(overlays: Sequence[Path], user: Path, generated: Path) -> RegistrationView:
+def _navit_user_config(
+    overlays: Sequence[Path],
+    user: Path,
+    generated: Path,
+    keep_regions: frozenset[str] | None = None,
+) -> RegistrationView:
     """The operator's copy of *generated* with each of *overlays* in its
-    mapset, at *user*, mode 0600.  D-064; one map per layer since D-074."""
+    mapset, at *user*, mode 0600.  D-064; one map per layer since D-074.
+    *keep_regions*, the active regions' file slugs (D-082), leaves the other
+    converted maps out of the copy; None keeps them all."""
     from hammunition.interface.repeaters import RegistrationView
 
     if not generated.is_file():
@@ -2357,6 +2481,7 @@ def _navit_user_config(overlays: Sequence[Path], user: Path, generated: Path) ->
         )
     try:
         body = navit_config.add_maps(generated.read_text(encoding="utf-8"), list(overlays))
+        body = navit_config.select_regions(body, keep_regions)
         _read_config_nofollow(user)  # refuses a link or a non-file in its place
         user.parent.mkdir(parents=True, exist_ok=True)
         _replace_atomically(user, body, 0o600)
@@ -3150,6 +3275,7 @@ def cmd_maps_repeaters_list(args: argparse.Namespace) -> int:
             LayerView(
                 id=layer_id,
                 area=layer_area(layer_id),
+                active=_layer_active(layer_area(layer_id)),
                 name=layer.name,
                 description=layer.description,
                 day=layer.day.isoformat(),
@@ -3311,13 +3437,25 @@ def _write_infra(gathered: Gathered, args: argparse.Namespace) -> int:
                 files = infra.write_layer(directory, layer)
                 views.append(
                     InfraLayerView(
-                        layer.layer_id, layer.name, len(layer.points), tuple(map(str, files)), ()
+                        layer.layer_id,
+                        layer.name,
+                        len(layer.points),
+                        tuple(map(str, files)),
+                        (),
+                        _layer_active(infra.layer_area(layer.layer_id)),
                     )
                 )
             else:
                 gone = infra.remove_layer(directory, layer.layer_id)
                 views.append(
-                    InfraLayerView(layer.layer_id, layer.name, 0, (), tuple(map(str, gone)))
+                    InfraLayerView(
+                        layer.layer_id,
+                        layer.name,
+                        0,
+                        (),
+                        tuple(map(str, gone)),
+                        _layer_active(infra.layer_area(layer.layer_id)),
+                    )
                 )
     except (OSError, sqlite3.Error, ValueError) as exc:
         print(f"error: cannot write the layers in {directory}: {exc}", file=sys.stderr)
@@ -3636,6 +3774,149 @@ def cmd_maps_infra_remove(args: argparse.Namespace) -> int:
     return code
 
 
+@envelope.json_capable()
+def cmd_maps_areas(args: argparse.Namespace) -> int:
+    """Every state and region with files on disk, and whether it is active.
+    D-082, D-059. Read-only: nothing is written, fetched or registered."""
+    from hammunition import infra
+    from hammunition.areas import collect
+    from hammunition.interface.areas import build_areas, render_areas
+    from hammunition.repeaters import overlay_dir
+
+    try:
+        station = load_station(owner=operator(args))
+    except StationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    loaded, always = collect(
+        overlay_dir(), infra.overlay_dir(), data_root(DEFAULT_PREFIX), station.map_regions
+    )
+    doc = build_areas(station.active_areas, loaded, always, station.map_regions)
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_areas(doc):
+        print(line)
+    return EXIT_OK
+
+
+@envelope.json_capable()
+def cmd_maps_activate(args: argparse.Namespace) -> int:
+    """Make some states and regions the active ones, or all, or none, and tell
+    QMapShack, Navit and the browser map.  D-082.
+
+    Writes the station's ``active_areas``, then re-registers: QMapShack's
+    ``[Canvas] poiPaths`` (the same writer ``maps qmapshack`` uses) names a
+    directory of links to the active areas' ``.poi`` files, Navit's own copy of
+    its configuration lists only the active regions' converted maps and
+    layers, and ``reference serve`` lists only the active regions and layers
+    the next time it starts. A layer that belongs to no area stays registered
+    always. Nothing is deleted: the data stays on disk and ``--all`` brings it
+    back. Idempotent; ``--dry-run`` writes nothing."""
+    from hammunition import infra
+    from hammunition.areas import Active, collect
+    from hammunition.interface.areas import (
+        ActivateDocument,
+        BrowserView,
+        render_activate,
+    )
+    from hammunition.map_page import find_map
+    from hammunition.repeaters import overlay_dir
+
+    if _refuse_root("area settings"):
+        return EXIT_FAILED
+    chosen = [bool(args.areas), bool(args.all), bool(args.none)]
+    if sum(chosen) != 1:
+        print(
+            "error: name the areas to activate (`maps activate OH MI`), or give --all or --none.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    user = operator(args)
+    try:
+        station = load_station(owner=user)
+        after: tuple[str, ...] | None
+        if args.all:
+            after = None
+        elif args.none:
+            after = ()
+        else:
+            after = Station(active_areas=tuple(args.areas)).active_areas
+    except StationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    before = station.active_areas
+    changed = after != before
+    active = Active(after)
+    repeater_dir, infra_dir, data = overlay_dir(), infra.overlay_dir(), data_root(DEFAULT_PREFIX)
+    registered: tuple[RegistrationView, ...] = ()
+    keep, _, plan = _poi_wants(active, sync=False)  # before the links are changed
+    if not args.dry_run:
+        try:
+            if changed:
+                save_station(dataclasses.replace(station, active_areas=after), owner=user)
+            registered = _register_overlays(
+                repeater_dir, present=bool(_repeater_files(repeater_dir, 1))
+            )
+        except OSError as exc:
+            print(f"error: cannot write the station file: {exc}", file=sys.stderr)
+            return EXIT_FAILED
+    poi_files = (
+        [*_repeater_files(repeater_dir, 1), *infra.layer_paths(infra_dir, 1)]
+        if active.everything
+        else list(plan.wanted.values())
+    )
+    loaded, _always = collect(repeater_dir, infra_dir, data, station.map_regions)
+    unloaded = active.unloaded(
+        [e.area for e in loaded if e.kind == "state"],
+        [e.area for e in loaded if e.kind == "region"],
+    )
+    stems: tuple[str, ...] = ()
+    generated = _generated_navit_config()
+    if generated.is_file():
+        with contextlib.suppress(OSError):
+            stems = navit_config.binfile_stems(generated.read_text(encoding="utf-8"))
+    slugs = active.region_slugs(station.map_regions)
+    shown = tuple(t for t in stems if slugs is None or t in slugs)
+    shelf = find_map(data, overlays=infra_dir, active=active, universe=station.map_regions)
+    notes = [
+        (
+            "Layers that belong to no area (your own import, ACMA, OpenStreetMap's, "
+            "the infrastructure themes) stay registered whichever areas are active."
+        ),
+        (
+            "A running QMapShack writes its own list back when it exits, and `hammunition "
+            "reference serve` reads the list when it starts: restart either to see this."
+        ),
+    ]
+    doc = ActivateDocument(
+        dry_run=bool(args.dry_run),
+        before=before,
+        after=after,
+        changed=changed,
+        unloaded=unloaded,
+        poi_files=tuple(map(str, poi_files)),
+        poi_paths=tuple(map(str, keep)),
+        links_added=plan.add,
+        links_dropped=plan.drop,
+        navit_overlays=tuple(str(p) for p in _overlay_navit_maps(active)),
+        navit_regions=shown,
+        navit_left_out=tuple(t for t in stems if t not in shown),
+        browser=BrowserView(
+            regions=shelf.regions, overlays=tuple(o.layer_id for o in shelf.overlays)
+        ),
+        registered=registered,
+        notes=tuple(notes),
+    )
+    code = EXIT_FAILED if any(r.outcome == "refused" for r in registered) else EXIT_OK
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return code
+    for line in render_activate(doc):
+        print(line)
+    return code
+
+
 def cmd_maps_navit(args: argparse.Namespace) -> int:
     """Start Navit on the offline maps, with the operator's overlays.  D-064.
 
@@ -3657,10 +3938,12 @@ def cmd_maps_navit(args: argparse.Namespace) -> int:
         return EXIT_FAILED
     target = generated
     if os.geteuid() != 0:
-        overlays = _overlay_navit_maps()
+        active, universe = _active_station()
+        overlays = _overlay_navit_maps(active)
+        keep_regions = active.region_slugs(universe)
         user = overlays_root() / "navit.xml"
-        if overlays:
-            view = _navit_user_config(overlays, user, generated)
+        if overlays or keep_regions is not None:
+            view = _navit_user_config(overlays, user, generated, keep_regions)
             if view.outcome != "written":
                 print(f"error: {view.detail}. Navit was not started.", file=sys.stderr)
                 return EXIT_FAILED
@@ -3783,7 +4066,11 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
     from hammunition import infra
 
     # D-071; the operator's infrastructure layers as overlays, D-075.
-    map_shelf = find_map(data_root(DEFAULT_PREFIX), overlays=infra.overlay_dir())
+    # D-082: only the active areas' regions and layers are listed.
+    active, universe = _active_station()
+    map_shelf = find_map(
+        data_root(DEFAULT_PREFIX), overlays=infra.overlay_dir(), active=active, universe=universe
+    )
     # tar1090 (D-071, amended 2026-10-02): its page from the installed tree,
     # reading readsb's JSON, with the offline map behind it when there is one.
     aircraft = None
@@ -7900,6 +8187,35 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_maps_navit.set_defaults(func=cmd_maps_navit)
 
+    p_maps_areas = maps_sub.add_parser(
+        "areas",
+        help="every state and region loaded on this machine: its layers, size, date, and "
+        "whether it is active (D-082; read-only)",
+    )
+    p_maps_areas.set_defaults(func=cmd_maps_areas)
+    p_maps_activate = maps_sub.add_parser(
+        "activate",
+        help="make these states and regions the active ones in QMapShack, Navit and the "
+        "browser map; nothing is deleted, --all brings everything back (D-082)",
+    )
+    p_maps_activate.add_argument(
+        "areas",
+        nargs="*",
+        metavar="CODE|REGION",
+        help="US state codes (OH) and map region names (north-america/us/ohio); one that is "
+        "not loaded is accepted, with a note",
+    )
+    p_maps_activate.add_argument(
+        "--all", action="store_true", help="every loaded area is active (the default)"
+    )
+    p_maps_activate.add_argument(
+        "--none", action="store_true", help="no area is active; layers with no area stay"
+    )
+    p_maps_activate.add_argument(
+        "--dry-run", action="store_true", help="print what would change and write nothing"
+    )
+    p_maps_activate.set_defaults(func=cmd_maps_activate)
+
     p_maps_rep = maps_sub.add_parser(
         "repeaters",
         help="repeaters on the map, one layer per source, converted on this machine (D-064, D-074)",
@@ -8540,6 +8856,20 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="select every sheet of every region, as before the bound; the install states "
         "the size and asks a typed yes that --yes does not answer",
+    )
+    p_station_set.add_argument(
+        "--active-areas",
+        nargs="+",
+        default=None,
+        metavar="CODE|REGION",
+        help="the areas drawn and registered (D-082): US state codes (OH) and map region "
+        "names (north-america/us/ohio), several at once; nothing is deleted. "
+        "`maps activate` sets this and re-registers QMapShack, Navit and the browser map",
+    )
+    p_station_set.add_argument(
+        "--clear-active-areas",
+        action="store_true",
+        help="remove --active-areas, so everything loaded is active again",
     )
     p_station_set.add_argument(
         "--rig",

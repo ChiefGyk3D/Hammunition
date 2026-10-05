@@ -95,6 +95,7 @@ __all__ = [
     "gpx_text",
     "hearham_layer_name",
     "hearham_licence",
+    "is_area_code",
     "is_layer_id",
     "known_layers",
     "layer_area",
@@ -182,6 +183,12 @@ ALL_SOURCES = "repeaters-all.gpx"
 AREA_LAYER_PREFIX = "repeaterbook-"
 _AREA = re.compile(r"[A-Z]{2}[0-9]{0,4}|[0-9]{2,6}")
 _AREA_STEM = "repeaters-repeaterbook-"
+
+
+def is_area_code(text: str) -> bool:
+    """Whether *text* has the shape of an area code: a US two-letter code, a
+    RepeaterBook ``state_id`` (``CA01``, ``07``). Upper case only."""
+    return _AREA.fullmatch(text) is not None
 
 
 def area_layer_id(area: str) -> str:

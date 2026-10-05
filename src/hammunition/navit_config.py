@@ -176,3 +176,45 @@ def add_maps(text: str, overlays: Sequence[Path]) -> str:
         body += "\n"
     new_block = body + "".join(lines) + indent + block[close:]
     return text[: mapset.start()] + new_block + text[mapset.end() :]
+
+
+_BINFILE = re.compile(r"""[ \t]*<map type="binfile"[^>]*?\sdata=(["'])(.*?)\1[^>]*/>[ \t]*\n?""")
+
+
+def select_regions(text: str, keep: frozenset[str] | None) -> str:
+    """*text* with only the converted maps whose file stem is in *keep* left
+    in its one enabled mapset; None keeps all of them and returns *text* as
+    it is.  D-082.
+
+    A map is ``<slug>.bin`` where the slug is the Geofabrik region path with
+    ``/`` as ``-``. The overlays (``textfile`` maps) are not touched: which of
+    them are present is decided where they are listed. Nothing is deleted from
+    disk; the entry is only left out of the operator's copy, so a later
+    ``maps activate`` puts it back."""
+    if keep is None:
+        return text
+    mapsets = list(_ENABLED_MAPSET.finditer(text))
+    if len(mapsets) != 1:
+        raise NavitConfigError(
+            f"the generated Navit configuration has {len(mapsets)} enabled <mapset> "
+            f"elements, need exactly 1"
+        )
+    (mapset,) = mapsets
+
+    def drop(match: re.Match[str]) -> str:
+        stem = Path(match.group(2)).name.removesuffix(".bin")
+        return match.group() if stem in keep else ""
+
+    block = _BINFILE.sub(drop, mapset.group())
+    return text[: mapset.start()] + block + text[mapset.end() :]
+
+
+def binfile_stems(text: str) -> tuple[str, ...]:
+    """The file stems (region slugs) of the converted maps in *text*'s one
+    enabled mapset, in order; empty when there is no such mapset."""
+    mapsets = list(_ENABLED_MAPSET.finditer(text))
+    if len(mapsets) != 1:
+        return ()
+    return tuple(
+        Path(m.group(2)).name.removesuffix(".bin") for m in _BINFILE.finditer(mapsets[0].group())
+    )

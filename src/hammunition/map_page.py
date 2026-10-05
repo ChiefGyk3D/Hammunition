@@ -39,10 +39,13 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 from . import map_style
+
+if TYPE_CHECKING:
+    from .areas import Active
 
 KIT_UNIT = "vector-map-kit"
 TILES_UNIT = "osm-pmtiles"
@@ -116,16 +119,21 @@ def _plain_files(root: Path) -> list[Path]:
     return sorted(p for p in root.rglob("*") if p.is_file() and not p.is_symlink())
 
 
-def find_overlays(where: Path | None) -> tuple[Overlay, ...]:
+def find_overlays(
+    where: Path | None, active: Active | None = None, universe: Sequence[str] = ()
+) -> tuple[Overlay, ...]:
     """The infrastructure layers' GeoJSON in *where*, in layer order: each a
     regular file, not a link, under :data:`OVERLAY_LIMIT`, a FeatureCollection
-    naming itself and its licence. Anything else is left out."""
-    from .infra import LAYERS, layer_files
+    naming itself and its licence. Anything else is left out, and so is a
+    layer of an area that is not active (D-082; *active* None is everything)."""
+    from .infra import LAYERS, layer_area, layer_files
 
     if where is None or not where.is_dir() or where.is_symlink():
         return ()
     found: list[Overlay] = []
     for layer_id in LAYERS:
+        if active is not None and not active.area(layer_area(layer_id), universe):
+            continue
         path = where / layer_files(layer_id)[3]
         try:
             if path.is_symlink() or not path.is_file() or path.stat().st_size > OVERLAY_LIMIT:
@@ -150,9 +158,17 @@ def overlays_json(shelf: MapShelf) -> bytes:
     return (json.dumps(rows, ensure_ascii=False) + "\n").encode("utf-8")
 
 
-def find_map(data: Path, overlays: Path | None = None) -> MapShelf:
+def find_map(
+    data: Path,
+    overlays: Path | None = None,
+    active: Active | None = None,
+    universe: Sequence[str] = (),
+) -> MapShelf:
     """The kit's page files and the installed region maps under *data*, and
-    the operator's infrastructure layers in *overlays* (D-075)."""
+    the operator's infrastructure layers in *overlays* (D-075). With *active*
+    (D-082), only the active regions' maps and layers are listed and served;
+    *universe* is the station's map regions, which a bare region name is read
+    against. None lists everything installed."""
     kit = data / KIT_UNIT
     files: dict[str, Path] = {}
     for sub in SERVED:
@@ -166,9 +182,11 @@ def find_map(data: Path, overlays: Path | None = None) -> MapShelf:
     tiles = sorted(
         p for p in (data / TILES_UNIT).glob("*.pmtiles") if p.is_file() and not p.is_symlink()
     )
+    if active is not None:
+        tiles = [p for p in tiles if active.region_slug(p.name.removesuffix(".pmtiles"), universe)]
     for path in tiles:
         files[TILES + path.name] = path
-    layers = find_overlays(overlays)
+    layers = find_overlays(overlays, active, universe)
     for overlay in layers:
         files[OVERLAY + overlay.path.name] = overlay.path
     if map_style.NOTICE.is_file():

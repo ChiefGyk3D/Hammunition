@@ -190,6 +190,12 @@ def ensure_paths(text: str, wants: Sequence[Wanted], *, remove: Sequence[Wanted]
         at = keys.get((want.section, want.key))
         if at is not None:
             raw = lines[at]
+            if not raw:
+                # Emptied by a removal above, which is how the area switch swaps one
+                # directory for another under the same key (D-082).
+                lines[at] = f"{want.key}={', '.join(want.paths)}\n"
+                changed = True
+                continue
             value = raw.split("=", 1)[1]
             items = _items(value, want.section, want.key)
             missing = [p for p in want.paths if p not in items]

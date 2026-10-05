@@ -62,6 +62,7 @@ __all__ = [
     "StationError",
     "config_path",
     "load_station",
+    "parse_area",
     "prompt_for",
     "save_station",
 ]
@@ -105,9 +106,33 @@ _NOT_TEMPLATES = _MAP_FIELDS | {
     "topo_radius_km",
     "topo_regions",
     "topo_all",
+    "active_areas",
     "secrets_doppler_project",
     "secrets_doppler_config",
 }
+
+
+def parse_area(text: str) -> str:
+    """One ``active_areas`` entry, normalised, or :class:`StationError`.
+
+    A US state code (``oh`` or ``OH`` becomes ``OH``; RepeaterBook's ``CA01`` and
+    a bare ``state_id`` pass) or a map region name (``north-america/us/ohio``, or
+    the last word of one, ``ohio``). The two cannot be mistaken: a code is two
+    letters with up to four digits, or digits alone, and a region is a lowercase
+    path. The names are not checked against what is loaded: the operator may
+    fetch them next (D-082)."""
+    from hammunition.repeaters import is_area_code
+
+    value = text.strip()
+    if "/" not in value and is_area_code(value.upper()):
+        return value.upper()
+    if REGION.fullmatch(value):
+        return value
+    raise StationError(
+        f"active area {text!r} is neither a US state code such as OH nor a map region "
+        f"such as north-america/us/ohio. `hammunition maps areas` lists what is loaded."
+    )
+
 
 #: A Doppler project or config name: a slug that cannot read as an option
 #: (it is an argv element of the one `doppler` command, D-081).
@@ -234,6 +259,11 @@ class Station:
     topo_all: bool | None = None
     """Every sheet of every region, as before the bound; always disclosed with
     its size and asked for by a typed ``yes``."""
+    active_areas: tuple[str, ...] | None = None
+    """The areas drawn and registered (D-082): US state codes (``OH``, or a RepeaterBook
+    ``state_id``) and map region names. None, the default, means everything loaded is
+    active, as before the switch; an empty tuple means none is (``maps activate --none``).
+    Nothing is deleted either way."""
     secrets_doppler_project: str | None = None
     """The Doppler project a keyed download's secret is read from
     (:func:`hammunition.secrets.resolve_secret`, D-081). A name, never a token."""
@@ -371,6 +401,12 @@ class Station:
         object.__setattr__(self, "topo_regions", topo)
         if self.topo_all is not None and not isinstance(self.topo_all, bool):
             raise StationError(f"topo_all {self.topo_all!r} must be true or false")
+        if self.active_areas is not None:
+            object.__setattr__(
+                self,
+                "active_areas",
+                tuple(dict.fromkeys(parse_area(a) for a in self.active_areas)),
+            )
         for label, doppler_name in (
             ("doppler project", self.secrets_doppler_project),
             ("doppler config", self.secrets_doppler_config),
@@ -472,6 +508,8 @@ class Station:
             result["topo_regions"] = list(self.topo_regions)
         if self.topo_all is not None:
             result["topo_all"] = self.topo_all
+        if self.active_areas is not None:
+            result["active_areas"] = list(self.active_areas)
         return result
 
 
@@ -594,6 +632,9 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
     topo_all = data.get("topo_all")
     if topo_all is not None and not isinstance(topo_all, bool):
         raise StationError(f"{target}: topo_all {topo_all!r} must be true or false")
+    active_areas = data.get("active_areas")
+    if active_areas is not None and not isinstance(active_areas, list):
+        raise StationError(f"{target}: active_areas {active_areas!r} must be a list")
     return Station(
         callsign=_str("callsign"),
         grid_square=_str("grid_square"),
@@ -611,6 +652,7 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         topo_radius_km=topo_radius,
         topo_regions=_str_list("topo_regions"),
         topo_all=topo_all,
+        active_areas=tuple(str(a) for a in active_areas) if active_areas is not None else None,
         secrets_doppler_project=_str("secrets_doppler_project"),
         secrets_doppler_config=_str("secrets_doppler_config"),
     )
@@ -666,6 +708,7 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
                     topo_radius_km=station.topo_radius_km,
                     topo_regions=station.topo_regions,
                     topo_all=station.topo_all,
+                    active_areas=station.active_areas,
                     secrets_doppler_project=station.secrets_doppler_project,
                     secrets_doppler_config=station.secrets_doppler_config,
                     **{**values, variable: answer},
@@ -685,6 +728,7 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
         topo_radius_km=station.topo_radius_km,
         topo_regions=station.topo_regions,
         topo_all=station.topo_all,
+        active_areas=station.active_areas,
         secrets_doppler_project=station.secrets_doppler_project,
         secrets_doppler_config=station.secrets_doppler_config,
         **values,
