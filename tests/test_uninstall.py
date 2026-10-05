@@ -113,6 +113,57 @@ def test_successful_install_commands_attribute_their_packages(tmp_path: Path) ->
     assert installed_by_hammunition(log) == {"flrig", "gpsd"}
 
 
+def test_the_commands_the_engine_actually_writes_attribute_their_packages(
+    tmp_path: Path,
+) -> None:
+    """The engine writes `apt-get -o Acquire::Retries=3 install ...` (#236). The
+    attribution read `argv[1]` as the verb, saw `-o`, and attributed nothing, so
+    `uninstall` left every apt package behind as "not installed by Hammunition"
+    (found 2026-10-05, installing and uninstalling `meshtasticd` in a Debian 13
+    container). Neither this suite nor any other used the real argv."""
+    log = write_log(
+        tmp_path,
+        [
+            command_end(
+                [
+                    "apt-get",
+                    "-o",
+                    "Acquire::Retries=3",
+                    "install",
+                    "--yes",
+                    "--no-remove",
+                    "--",
+                    "flrig",
+                ]
+            ),
+            command_end(["apt-get", "-o", "Acquire::Retries=3", "update"]),
+        ],
+    )
+    assert installed_by_hammunition(log) == {"flrig"}
+
+
+def test_a_simulated_install_attributes_nothing(tmp_path: Path) -> None:
+    """D-040's pre-flight `install --simulate` exits 0 and installs nothing."""
+    log = write_log(
+        tmp_path,
+        [
+            command_end(
+                [
+                    "apt-get",
+                    "-o",
+                    "Acquire::Retries=3",
+                    "install",
+                    "--simulate",
+                    "--yes",
+                    "--",
+                    "flrig",
+                ]
+            )
+        ],
+    )
+    assert installed_by_hammunition(log) == frozenset()
+
+
 def test_a_failed_apt_command_attributes_nothing(tmp_path: Path) -> None:
     log = write_log(
         tmp_path,
