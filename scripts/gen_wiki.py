@@ -58,8 +58,8 @@ from hammunition.manifest.schema import Status  # noqa: E402
 from hammunition.menus import load_vocabulary  # noqa: E402
 
 DOCS = REPO_ROOT / "docs"
-REPO_URL = "https://github.com/ChiefGyk3D/Hammunition"
-SITE_URL = "https://chiefgyk3d.github.io/Hammunition/"
+REPO_URL = "https://github.com/Renegade-Penguin/Hammunition"
+SITE_URL = "https://renegade-penguin.github.io/Hammunition/"
 REF = "main"
 
 ACTIVITY_PAGE = "Software-by-activity"

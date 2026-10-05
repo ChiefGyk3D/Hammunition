@@ -95,7 +95,7 @@ ones you can reach: `pat-winlink rmslist --mode packet --sort-distance`. See
 ## 7. This documentation
 
 Each release publishes `hammunition-docs-VERSION.tar.gz` on the repository's
-[releases page](https://github.com/ChiefGyk3D/Hammunition/releases): the whole
+[releases page](https://github.com/Renegade-Penguin/Hammunition/releases): the whole
 site, built by `mkdocs build --strict`. A `hammunition-docs` catalog unit that
 serves it from `hammunition reference serve` is planned and does not exist yet.
 To build it yourself instead: `pip install -e ".[docs]"`, then

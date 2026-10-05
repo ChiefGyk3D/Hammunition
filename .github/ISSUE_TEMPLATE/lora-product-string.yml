@@ -25,7 +25,7 @@ body:
         Only somebody with the board in front of them does.
 
         **Which boards are worth it** is in
-        [`docs/reference/lora-inventory.md`](https://github.com/ChiefGyk3D/Hammunition/blob/main/docs/reference/lora-inventory.md#which-product-strings-are-worth-asking-for),
+        [`docs/reference/lora-inventory.md`](https://github.com/Renegade-Penguin/Hammunition/blob/main/docs/reference/lora-inventory.md#which-product-strings-are-worth-asking-for),
         generated, with the reasoning. Short version: **nRF52840 boards
         (`239a:*`, `2886:*`) yes, ESP32-S3 boards using native USB no.** The
         ESP32-S3's `303a:1001` was captured three times here on unrelated

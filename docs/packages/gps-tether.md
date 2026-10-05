@@ -6,7 +6,7 @@
 
 - **Version recorded:** 0.1.1
 - **Categories:** `gps-gnss`, `navigation-maps`
-- **Upstream:** <https://github.com/ChiefGyk3D/hammunition-gps-tether>
+- **Upstream:** <https://github.com/Renegade-Penguin/hammunition-gps-tether>
 - **Needs first:** `gpsd`, `python3`
 
 ## What it does
@@ -23,7 +23,7 @@ gpsd running with a receiver that has a fix (the `station` profile's gpsd is soc
 
 ## How it installs
 
-- prebuilt tarball from https://github.com/ChiefGyk3D/hammunition-gps-tether/archive/refs/tags/v0.1.1.tar.gz
+- prebuilt tarball from https://github.com/Renegade-Penguin/hammunition-gps-tether/archive/refs/tags/v0.1.1.tar.gz
   - The tag's source tree, installed to /usr/local/share/hammunition/gps-tether and handed to the operator. Nothing is built; nothing runs as root but the copy. The tree is the operator's, so anything running as you can change the program the service runs.
 
 ## What it changes on your machine
@@ -38,7 +38,7 @@ gpsd running with a receiver that has a fix (the `station` profile's gpsd is soc
 
 ## Keeping it current
 
-- probe: github release (`ChiefGyk3D/hammunition-gps-tether`)
+- probe: github release (`Renegade-Penguin/hammunition-gps-tether`)
 - strategy: reinstall
 - Tagged releases, no release assets yet. A tag is a new tarball URL and a new digest; re-pin both (and the tag in the comment).
 

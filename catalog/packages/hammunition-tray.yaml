@@ -42,7 +42,7 @@ install:
   - install:
       method: binary
       artifact:
-        url: https://github.com/ChiefGyk3D/hammunition-tray/archive/refs/tags/v0.5.0.tar.gz
+        url: https://github.com/Renegade-Penguin/hammunition-tray/archive/refs/tags/v0.5.0.tar.gz
         sha256: 614148fb4241e88ca007885d01ef97d0752c8cd47b6e57337e2ee12ab3bfc438
       format: tarball
       placement_dirs:
@@ -121,7 +121,7 @@ install:
 update:
   probe:
     method: github_release
-    repo: ChiefGyk3D/hammunition-tray
+    repo: Renegade-Penguin/hammunition-tray
   strategy: reinstall
   cadence_hint: >-
     Tagged releases with a .deb and SHA256SUMS attached to each. A release is
@@ -173,7 +173,7 @@ documentation:
     repository's uninstall.sh once after switching to this package. After
     installing, add *Hammunition Devices* to the panel or set it to shown in
     the System Tray's settings: nothing places it for you.
-  upstream_url: https://github.com/ChiefGyk3D/hammunition-tray
+  upstream_url: https://github.com/Renegade-Penguin/hammunition-tray
   upstream_support: >-
     Issues on the GitHub repository. For "the switch does nothing", run
     `hammunition hardware state` first: the applet shows what that command

@@ -13,7 +13,7 @@ tray or from a terminal, and what each switch asks of you.
 
 Everything here is a front end for one small root helper,
 `/usr/local/libexec/hammunition-devctl`, which belongs to
-[hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray). The tray,
+[hammunition-tray](https://github.com/Renegade-Penguin/hammunition-tray). The tray,
 `hammunition hardware park`, `hammunition services` and the generated menu
 entries all call that same helper through the same polkit action, so they
 cannot disagree. Why that is safe, and what it writes, is

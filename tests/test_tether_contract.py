@@ -162,7 +162,7 @@ def test_ci_reads_the_tether_tag_from_the_manifest() -> None:
     workflow = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert "test-command: bash scripts/ci-test.sh" in workflow
     text = CI_SCRIPT.read_text(encoding="utf-8")
-    assert "ChiefGyk3D/hammunition-gps-tether" in text
+    assert "Renegade-Penguin/hammunition-gps-tether" in text
     assert "HAMMUNITION_REQUIRE_TETHER=1" in text
     assert '--branch "$tag"' in text
     assert not re.search(r"--branch\s+v?[0-9]", text), "a hard-coded tether tag in ci-test.sh"

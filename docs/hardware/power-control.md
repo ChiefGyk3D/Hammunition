@@ -197,7 +197,7 @@ interpreter's own venv, so the hijack import fails instead of succeeding. The
  "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
 <policyconfig>
   <vendor>Hammunition</vendor>
-  <vendor_url>https://github.com/ChiefGyk3D/Hammunition</vendor_url>
+  <vendor_url>https://github.com/Renegade-Penguin/Hammunition</vendor_url>
   <action id="com.chiefgyk3d.hammunition.devctl">
     <description>Park or wake a radio device, set the clock's time source, control a system service Hammunition manages, or keep your services running after you log out</description>
     <message>Authentication is required to change a radio device's power state, the clock's time source, a system service Hammunition manages, or whether your services keep running after you log out</message>
@@ -389,7 +389,7 @@ foreign line to a file of its own and try again.
 ## The helper is moving to hammunition-tray (D-056, amended 2026-10-02)
 
 The helper's code is leaving this engine for
-[`hammunition-tray`](https://github.com/ChiefGyk3D/hammunition-tray), which
+[`hammunition-tray`](https://github.com/Renegade-Penguin/hammunition-tray), which
 owns everything device-shaped. Three things follow, all already in this
 engine:
 
@@ -615,7 +615,7 @@ measured recovery.
 
 A Plasma system-tray applet, and for Xfce, LXQt, LXDE, MATE and Cinnamon a Qt
 tray icon, live in a separate repository,
-[`hammunition-tray`](https://github.com/ChiefGyk3D/hammunition-tray), not in
+[`hammunition-tray`](https://github.com/Renegade-Penguin/hammunition-tray), not in
 this one. Each is a client of the engine exactly as the CLI and the generated
 menu entries are: it calls the same `pkexec
 /usr/local/libexec/hammunition-devctl park|wake|state` through the same one

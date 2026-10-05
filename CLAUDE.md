@@ -297,7 +297,7 @@ machine that is not written down.
 (authoritative decision record), `PARITY-POLICY.md` (per-unit disposition and M5
 exit criteria), `DESIGN.md` (reasoning), `why-hammunition.md` (public rationale).
 
-**The site** is <https://chiefgyk3d.github.io/Hammunition/>, built from `docs/`
+**The site** is <https://renegade-penguin.github.io/Hammunition/>, built from `docs/`
 by MkDocs 1.6.1 and Material 9.7.7, pinned exactly, with `--strict`
 (**D-065**). `mkdocs.yml` holds the nav; `tests/test_site.py` builds it on
 every test run, fails on any page that is in no nav and not a package page,
@@ -348,7 +348,7 @@ recorded once and applying from here on — it does not need asking about again.
 This repository already largely does this: eight CI jobs, `mypy --strict` as a
 gate, container-based target tests, and a docs link checker. What follows is
 the reasoning behind the rule, learned the hard way in the sibling project
-[hammunition-hill](https://github.com/ChiefGyk3D/hammunition-hill), so that it
+[hammunition-hill](https://github.com/Renegade-Penguin/hammunition-hill), so that it
 survives contact with the next repository rather than living in one person's
 head.
 

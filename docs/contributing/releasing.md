@@ -285,7 +285,7 @@ points at them.
 ## Verifying a release as an operator
 
 ```sh
-git clone https://github.com/ChiefGyk3D/Hammunition
+git clone https://github.com/Renegade-Penguin/Hammunition
 cd Hammunition
 git config gpg.ssh.allowedSignersFile "$PWD/.github/allowed_signers"
 git verify-tag v0.8.0

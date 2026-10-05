@@ -18,7 +18,7 @@ Raspberry Pi has not been measured.
 Eight screens: Home, Install, Station, Secrets, Repeaters, Logs, Update and Help. Every action is a command you could type yourself, and the console
 shows it before it runs. Hardware setup is one first-run step on Home (`hammunition hardware apply`, in a pane, with the
 engine's own prompts); everything else about hardware, and maps, is left to the CLI and to
-[hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) for now.
+[hammunition-tray](https://github.com/Renegade-Penguin/hammunition-tray) for now.
 
 ## Requirements
 

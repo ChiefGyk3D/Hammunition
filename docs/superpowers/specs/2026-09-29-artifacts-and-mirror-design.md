@@ -3,7 +3,7 @@
 Status: the engine half of Hammunition Bunker, approved in conversation
 2026-09-29 as the section "The engine side" of
 the Bunker repository's design spec, 2026-09-29
-(<https://github.com/ChiefGyk3D/hammunition-bunker>).
+(<https://github.com/Renegade-Penguin/hammunition-bunker>).
 This document restates that section in this repository's terms: the modules
 it touches, the names it adds, and the rulings taken where the Bunker spec
 left a choice. Decision number assigned: **D-070**.
@@ -137,7 +137,7 @@ under Unreleased; `docs/reference/cli.md` (a new `artifacts` section, the
 station and install flags); `docs/reference/transaction-log.md` (the
 `action_end` facts); `docs/reference/json-interface.md` regenerated;
 `docs/guides/lan-mirror.md`, pointing at
-<https://github.com/ChiefGyk3D/hammunition-bunker> for the server side.
+<https://github.com/Renegade-Penguin/hammunition-bunker> for the server side.
 
 ## Testing
 

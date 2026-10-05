@@ -10,7 +10,7 @@
 
 **Spec:** `/home/chiefgyk3d/src/Hammunition/docs/superpowers/specs/2026-10-03-console-design.md` (on branch `console-spec`; read with `git -C /home/chiefgyk3d/src/Hammunition show origin/console-spec:docs/superpowers/specs/2026-10-03-console-design.md`). Read it and `docs/reference/json-interface.md` and `docs/reference/cli.md` in the Hammunition repo before Task 3. The maintainer's rulings are spec section 12: name `hammunition-console`, toolkit urwid, first release = Home, Install, Station, Logs, Update, Help (Hardware and Maps deferred), a `hammunition console` engine subcommand only after the first release (not in this plan).
 
-**Two repositories.** Tasks 1-19 happen in a new repository, `ChiefGyk3D/hammunition-console`, cloned to `/home/chiefgyk3d/src/hammunition-console` in Task 1 (the plan does not create it; the executor does). Task 20 happens in `/home/chiefgyk3d/src/Hammunition`. Commands name the directory they run in.
+**Two repositories.** Tasks 1-19 happen in a new repository, `Renegade-Penguin/hammunition-console`, cloned to `/home/chiefgyk3d/src/hammunition-console` in Task 1 (the plan does not create it; the executor does). Task 20 happens in `/home/chiefgyk3d/src/Hammunition`. Commands name the directory they run in.
 
 **Not run when written.** Neither urwid nor the engine's branch `profile-state` was available while this plan was written, so no code below has been executed. Every test is real code and every command has an Expected line, but the first run of each task may need small corrections (an urwid signature, an import). Fix the code, never the test's intent, and never weaken an assertion to get green.
 
@@ -114,10 +114,10 @@ ghwho
 Expected: the personal account (ChiefGyk3D) is the active one. If it is not, run `ghsw`, then `ghwho` again.
 
 ```bash
-gh repo create ChiefGyk3D/hammunition-console --public --description "A terminal front end for the Hammunition engine: install, station, logs and updates in one full-screen program" --clone --license gpl-3.0 -- /home/chiefgyk3d/src/hammunition-console
+gh repo create Renegade-Penguin/hammunition-console --public --description "A terminal front end for the Hammunition engine: install, station, logs and updates in one full-screen program" --clone --license gpl-3.0 -- /home/chiefgyk3d/src/hammunition-console
 cd /home/chiefgyk3d/src/hammunition-console && git config user.email 19499446+ChiefGyk3D@users.noreply.github.com && git checkout -b first-release && git log --oneline | head -3
 ```
-Expected: the repository exists, cloned, with GitHub's initial commit, and `git branch --show-current` prints `first-release`. If `gh repo create` refuses the `-- <path>` form in the installed version, run `gh repo create ChiefGyk3D/hammunition-console --public --description "..." --license gpl-3.0 --clone` from `/home/chiefgyk3d/src`.
+Expected: the repository exists, cloned, with GitHub's initial commit, and `git branch --show-current` prints `first-release`. If `gh repo create` refuses the `-- <path>` form in the installed version, run `gh repo create Renegade-Penguin/hammunition-console --public --description "..." --license gpl-3.0 --clone` from `/home/chiefgyk3d/src`.
 
 - [ ] **Step 2: Replace GitHub's licence with the tray's text and write the ignore file and tool config**
 
@@ -2101,7 +2101,7 @@ from hammunition_console import guard, verbs
 
 ENGINE_FLOOR: tuple[int, int, int] = (0, 19, 0)
 SUPPORTED_SCHEMA = "hammunition/1"
-INSTALL_PAGE = "https://chiefgyk3d.github.io/Hammunition/getting-started/install/"
+INSTALL_PAGE = "https://renegade-penguin.github.io/Hammunition/getting-started/install/"
 
 
 class EngineError(Exception):
@@ -6776,7 +6776,7 @@ the last screen, the colour theme and whether the first\-run checklist was dismi
 the exception type and its frames after a crash; never a message, a station value or a plan.
 .SH SEE ALSO
 .BR hammunition (1)
-and https://chiefgyk3d.github.io/Hammunition/getting\-started/console/
+and https://renegade-penguin.github.io/Hammunition/getting\-started/console/
 ```
 
 - [ ] **Step 6: Run the tests; commit**
@@ -8248,7 +8248,7 @@ Create `README.md`:
 ````markdown
 # hammunition-console
 
-A full-screen terminal front end for the [Hammunition](https://github.com/ChiefGyk3D/Hammunition) engine. It shows what is
+A full-screen terminal front end for the [Hammunition](https://github.com/Renegade-Penguin/Hammunition) engine. It shows what is
 installed, what is wrong and what to do next, and runs the engine's own commands for you, so a licensed operator can get from
 a fresh machine to a working station without remembering the CLI's verbs. It works over SSH and on a Pi.
 
@@ -8258,7 +8258,7 @@ It is a client of the engine, not part of it: it has no install logic, no packag
 
 Six screens: Home, Install, Station, Logs, Update and Help. Every action is a command you could type yourself, and the console
 shows it before it runs. Hardware and maps are left to the CLI and to
-[hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) for now.
+[hammunition-tray](https://github.com/Renegade-Penguin/hammunition-tray) for now.
 
 ## Requirements
 
@@ -8486,7 +8486,7 @@ def test_the_digest_is_a_real_release_digest_not_the_draft_zeros() -> None:
 def test_the_pin_is_the_version_the_manifest_declares() -> None:
     data = load()
     url = data["install"][0]["install"]["artifact"]["url"]
-    assert url == f"https://github.com/ChiefGyk3D/hammunition-console/archive/refs/tags/v{data['version']}.tar.gz"
+    assert url == f"https://github.com/Renegade-Penguin/hammunition-console/archive/refs/tags/v{data['version']}.tar.gz"
 
 
 def test_it_depends_on_the_archives_urwid_and_nothing_is_fetched_by_pip() -> None:
@@ -8540,7 +8540,7 @@ install:
   - install:
       method: binary
       artifact:
-        url: https://github.com/ChiefGyk3D/hammunition-console/archive/refs/tags/v0.1.0.tar.gz
+        url: https://github.com/Renegade-Penguin/hammunition-console/archive/refs/tags/v0.1.0.tar.gz
         sha256: "0000000000000000000000000000000000000000000000000000000000000000"
       format: tarball
       install_tree: true
@@ -8564,7 +8564,7 @@ launchers:
 update:
   probe:
     method: github_release
-    repo: ChiefGyk3D/hammunition-console
+    repo: Renegade-Penguin/hammunition-console
   strategy: reinstall
   cadence_hint: >-
     Tagged releases; each is a new source-archive digest. Re-pin the URL and the digest
@@ -8599,7 +8599,7 @@ documentation:
     copy placed by the console repository's own install.sh (~/.local/bin/hammunition-console)
     shadows or conflicts with this unit's launcher; run that repository's uninstall.sh once
     before installing the unit. It refuses to start without a terminal, with TERM=dumb, or as root.
-  upstream_url: https://github.com/ChiefGyk3D/hammunition-console
+  upstream_url: https://github.com/Renegade-Penguin/hammunition-console
   upstream_support: >-
     Issues on the hammunition-console repository for the console itself; the engine's own
     docs and `hammunition doctor` for anything the engine reports.
@@ -8624,7 +8624,7 @@ Create `docs/getting-started/console.md`:
 `hammunition-console` is a full-screen terminal program for the same commands this documentation describes. It shows what is
 installed, what is wrong and what to do next, and runs the engine's own commands for you, so you can walk from a fresh install
 to a working station without remembering the verbs. It works over SSH and on a Pi. It is its own project, with its own
-releases, at <https://github.com/ChiefGyk3D/hammunition-console>.
+releases, at <https://github.com/Renegade-Penguin/hammunition-console>.
 
 It is a client of the engine. It has no install logic and no package names of its own; it asks the engine, and everything it
 does is a command you could type, which it shows you first. It is the alternative to typing them, not a replacement for the
@@ -8731,14 +8731,14 @@ Expected: a draft PR URL. Rename the fragment: `git mv changelog.d/console-unit.
 - [ ] **Step 6: Produce the pin from the published tag, twice, and compare with the release notes**
 
 ```bash
-cd /home/chiefgyk3d/src/Hammunition && T=$(mktemp -d) && git ls-remote https://github.com/ChiefGyk3D/hammunition-console 'refs/tags/v0.1.0' 'refs/tags/v0.1.0^{}'
+cd /home/chiefgyk3d/src/Hammunition && T=$(mktemp -d) && git ls-remote https://github.com/Renegade-Penguin/hammunition-console 'refs/tags/v0.1.0' 'refs/tags/v0.1.0^{}'
 ```
 Expected: one or two lines; the last is the tag's commit. Record that commit for the manifest comment.
 
 ```bash
-URL=https://github.com/ChiefGyk3D/hammunition-console/archive/refs/tags/v0.1.0.tar.gz
+URL=https://github.com/Renegade-Penguin/hammunition-console/archive/refs/tags/v0.1.0.tar.gz
 curl -fsSL "$URL" -o "$T/a.tgz" && curl -fsSL "$URL" -o "$T/b.tgz" && cmp "$T/a.tgz" "$T/b.tgz" && sha256sum "$T/a.tgz" && stat -c %s "$T/a.tgz" && tar -tzf "$T/a.tgz" | head -3
-gh release view v0.1.0 --repo ChiefGyk3D/hammunition-console --json body --jq .body | grep -E '^(sha256|bytes):'
+gh release view v0.1.0 --repo Renegade-Penguin/hammunition-console --json body --jq .body | grep -E '^(sha256|bytes):'
 ```
 Expected: `cmp` prints nothing (identical); `sha256sum` prints a 64-hex digest and the size; the archive has exactly one top-level directory (`hammunition-console-0.1.0/`); the release notes' `sha256:` and `bytes:` lines equal what you measured. If they differ, stop: GitHub regenerated the archive or the workflow hashed the wrong file; investigate before pinning.
 

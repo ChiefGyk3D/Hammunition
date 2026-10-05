@@ -15,12 +15,12 @@ links to it, so a copy here cannot drift from the project.
 
 | Project | What it is | Status | Needs the engine? |
 |---|---|---|---|
-| [Hammunition](https://github.com/ChiefGyk3D/Hammunition) | The engine and the catalog: installs, configures and documents the software | Pre-1.0 (v0.21.0 in this tree) | It *is* the engine |
-| [Hammunition Tray](https://github.com/ChiefGyk3D/hammunition-tray) | System-tray switches to park GPS, modem, Bluetooth and camera and to start services | v0.5.0 pinned; the Qt tray is built, not yet run on any desktop it lists | Yes |
-| [Hammunition Hill](https://github.com/ChiefGyk3D/hammunition-hill) | A ham-radio dashboard in your browser | v1.3.0 pinned by the catalog (the repeaters panel with the area selector); upstream may be newer | No |
-| [Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker) | A LAN server that keeps verified copies of the offline data | 0.1.0, unreleased: tested against a fake engine, never run on a NAS | Yes |
+| [Hammunition](https://github.com/Renegade-Penguin/Hammunition) | The engine and the catalog: installs, configures and documents the software | Pre-1.0 (v0.21.0 in this tree) | It *is* the engine |
+| [Hammunition Tray](https://github.com/Renegade-Penguin/hammunition-tray) | System-tray switches to park GPS, modem, Bluetooth and camera and to start services | v0.5.0 pinned; the Qt tray is built, not yet run on any desktop it lists | Yes |
+| [Hammunition Hill](https://github.com/Renegade-Penguin/hammunition-hill) | A ham-radio dashboard in your browser | v1.3.0 pinned by the catalog (the repeaters panel with the area selector); upstream may be newer | No |
+| [Hammunition Bunker](https://github.com/Renegade-Penguin/hammunition-bunker) | A LAN server that keeps verified copies of the offline data | 0.1.0, unreleased: tested against a fake engine, never run on a NAS | Yes |
 | Hammunition Console | A full-screen terminal front end for the engine | Part of the engine since v0.21.0 (#302); the old repository is archived. Not yet run through a real install | It is part of the engine |
-| [Hammunition GPS Tether](https://github.com/ChiefGyk3D/hammunition-gps-tether) | Your gpsd position as NMEA and as a browser stream, on this machine only | v0.1.1 pinned; measured on the field laptop as a service, including across a reboot ([bench session 13](reference/bench-verification-5430.md)) | Needs gpsd; the engine installs it |
+| [Hammunition GPS Tether](https://github.com/Renegade-Penguin/hammunition-gps-tether) | Your gpsd position as NMEA and as a browser stream, on this machine only | v0.1.1 pinned; measured on the field laptop as a service, including across a reboot ([bench session 13](reference/bench-verification-5430.md)) | Needs gpsd; the engine installs it |
 
 "Pinned" is the version `catalog/packages/` installs; a project's repository
 may be ahead of it. **If a status here disagrees with the project's own README,
@@ -62,7 +62,7 @@ suite's runtime.
 
 ## Hammunition (the engine)
 
-- **Repository and details:** <https://github.com/ChiefGyk3D/Hammunition#readme>;
+- **Repository and details:** <https://github.com/Renegade-Penguin/Hammunition#readme>;
   the [command reference](reference/cli.md) owns commands and flags.
 - **Platforms:** Parrot OS first; Debian 13, Ubuntu 24.04 and 26.04, Kali and
   Linux Mint 22.3 tested in containers; see [desktops](desktops.md).
@@ -70,12 +70,12 @@ suite's runtime.
 - **Example:** `hammunition station set --callsign N0CALL --grid-square FN31pr`
   then `hammunition install station --dry-run`; read the plan, then run it
   without `--dry-run`. `hammunition status` lists what was installed.
-- **Report problems:** [issues](https://github.com/ChiefGyk3D/Hammunition/issues);
+- **Report problems:** [issues](https://github.com/Renegade-Penguin/Hammunition/issues);
   attach `hammunition logs --last` with your callsign and grid removed.
 
 ## Hammunition Tray
 
-- **Repository and install specifics:** <https://github.com/ChiefGyk3D/hammunition-tray#readme>.
+- **Repository and install specifics:** <https://github.com/Renegade-Penguin/hammunition-tray#readme>.
 - **Platforms:** `hammunition-tray` for KDE Plasma 6; `hammunition-tray-qt` for
   Xfce, LXQt, LXDE, MATE, Cinnamon. Not for GNOME or COSMIC: use the terminal
   commands.
@@ -85,12 +85,12 @@ suite's runtime.
   or run `hammunition hardware park NAME`; `hammunition hardware wake NAME`
   brings it back. How-to: [the tray's Controls panel](guides/tray-controls.md).
 - **Not yet measured:** the Qt tray on any listed desktop.
-- **Report problems:** [issues](https://github.com/ChiefGyk3D/hammunition-tray/issues);
+- **Report problems:** [issues](https://github.com/Renegade-Penguin/hammunition-tray/issues);
   run `hammunition hardware state` first.
 
 ## Hammunition Hill
 
-- **Repository and install specifics:** <https://github.com/ChiefGyk3D/hammunition-hill#readme>,
+- **Repository and install specifics:** <https://github.com/Renegade-Penguin/hammunition-hill#readme>,
   which also keeps its feature status table.
 - **Platforms:** targets whose archive has Python 3.11 or later; Ubuntu 22.04 and
   Pop!_OS 22.04 are refused at plan time.
@@ -98,11 +98,11 @@ suite's runtime.
 - **Example:** `hammunition install hammunition-hill`, then open
   <http://127.0.0.1:8073/>. Its fetched panels need an internet connection; the
   [package page](packages/hammunition-hill.md) says which tiers do. `hamhill check --fetch` names a source that broke.
-- **Report problems:** [issues](https://github.com/ChiefGyk3D/hammunition-hill/issues).
+- **Report problems:** [issues](https://github.com/Renegade-Penguin/hammunition-hill/issues).
 
 ## Hammunition Bunker
 
-- **Repository and install specifics:** <https://github.com/ChiefGyk3D/hammunition-bunker#readme>.
+- **Repository and install specifics:** <https://github.com/Renegade-Penguin/hammunition-bunker#readme>.
 - **Status: experimental.** Tested against a fake engine and a publisher on
   loopback; the image has never been built and no NAS has run it.
 - **Depends on:** a NAS or home server with a container runtime (Synology
@@ -111,7 +111,7 @@ suite's runtime.
 - **Use:** on the laptop, `hammunition station set --mirror http://NAS-ADDRESS:8080/`;
   later data installs name the mirror first and fall back to the publisher,
   with the same digest check. [A LAN mirror](guides/lan-mirror.md) owns the engine side.
-- **Report problems:** [issues](https://github.com/ChiefGyk3D/hammunition-bunker/issues).
+- **Report problems:** [issues](https://github.com/Renegade-Penguin/hammunition-bunker/issues).
 
 ## Hammunition Console
 
@@ -131,11 +131,11 @@ suite's runtime.
   [the console reference](console/index.md).
 - **Not yet measured:** a real install driven from it. Hardware and maps
   screens are not in it yet.
-- **Report problems:** [issues on the Hammunition repository](https://github.com/ChiefGyk3D/Hammunition/issues).
+- **Report problems:** [issues on the Hammunition repository](https://github.com/Renegade-Penguin/Hammunition/issues).
 
 ## Hammunition GPS Tether
 
-- **Repository and install specifics:** <https://github.com/ChiefGyk3D/hammunition-gps-tether#readme>.
+- **Repository and install specifics:** <https://github.com/Renegade-Penguin/hammunition-gps-tether#readme>.
 - **Depends on:** gpsd and a receiver with a fix. It listens on 127.0.0.1 only:
   NMEA on 10110, a browser event stream on 10111.
 - **Example:** `hammunition install gps-tether`, then
@@ -143,7 +143,7 @@ suite's runtime.
   it writes `$GPRMC` and `$GPGGA` sentences on 127.0.0.1:10110. QMapShack steps:
   [Offline navigation](guides/offline-navigation.md#11-your-position-in-qmapshack-the-gps-tether).
 - **Measured:** installed, enabled and active on both ports on the field laptop, and still active at login after a reboot (bench, 2026-10-03). **Not yet measured:** a suspend and resume with it running.
-- **Report problems:** [issues](https://github.com/ChiefGyk3D/hammunition-gps-tether/issues);
+- **Report problems:** [issues](https://github.com/Renegade-Penguin/hammunition-gps-tether/issues);
   `cgps` for a receiver with no fix.
 
 ## Who owns which detail

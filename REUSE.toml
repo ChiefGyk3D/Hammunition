@@ -1,7 +1,7 @@
 version = 1
 SPDX-PackageName = "hammunition"
 SPDX-PackageSupplier = "Renegade Penguin LLC"
-SPDX-PackageDownloadLocation = "https://github.com/ChiefGyk3D/Hammunition"
+SPDX-PackageDownloadLocation = "https://github.com/Renegade-Penguin/Hammunition"
 
 # The copyright holder is Renegade Penguin LLC, a legal person -- a handle cannot
 # enforce a licence. That is separate from attribution, which uses handles

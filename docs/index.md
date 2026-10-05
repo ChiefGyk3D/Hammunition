@@ -15,7 +15,7 @@ These pages are the manual. The standard they are written to: a licensed
 ham with moderate Linux experience gets from a fresh install to a working
 digital-modes station **without asking anyone a question or reading a forum
 thread**. A step that needs knowledge these pages do not give is a bug in
-them, and worth [an issue](https://github.com/ChiefGyk3D/Hammunition/issues).
+them, and worth [an issue](https://github.com/Renegade-Penguin/Hammunition/issues).
 
 ## Start here, in this order
 
@@ -46,7 +46,7 @@ are](guides/area-of-operations.md)**.
 The short form of step 1, for someone who has done this before:
 
 ```sh
-git clone https://github.com/ChiefGyk3D/Hammunition.git
+git clone https://github.com/Renegade-Penguin/Hammunition.git
 cd Hammunition
 ./bootstrap.sh
 hammunition install station --dry-run

@@ -613,7 +613,7 @@ while QMapShack is open.
 
 ### Run it as a service
 
-The tether is its own project now, [hammunition-gps-tether](https://github.com/ChiefGyk3D/hammunition-gps-tether),
+The tether is its own project now, [hammunition-gps-tether](https://github.com/Renegade-Penguin/hammunition-gps-tether),
 and `hammunition install gps-tether` installs it: the project's v0.1.1 source
 (pure Python, nothing to build), checked against a pinned sha256 and unpacked
 to `/usr/local/share/hammunition/gps-tether`, and a systemd **user** service, `hammunition-gps-tether.service`, written to
@@ -2621,7 +2621,7 @@ at 4 GB, and a region much larger than Delaware has not been tried.
 ## Taking the downloads from your own network
 
 If a machine on your LAN keeps a copy of the regions and tiles
-([Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker)),
+([Hammunition Bunker](https://github.com/Renegade-Penguin/hammunition-bunker)),
 `hammunition station set --mirror http://bunker.lan:8080/` makes every map
 and terrain download ask it first, checked against the same digests as the
 publisher's, and fall back to the publisher on any failure (**D-070**).

@@ -23,7 +23,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DOCS = REPO_ROOT / "docs"
-REPO_URL = "https://github.com/ChiefGyk3D/Hammunition"
+REPO_URL = "https://github.com/Renegade-Penguin/Hammunition"
 
 
 def _hooks() -> ModuleType:

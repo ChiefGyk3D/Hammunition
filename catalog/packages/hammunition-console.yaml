@@ -44,7 +44,7 @@ install:
   - install:
       method: binary
       artifact:
-        url: https://github.com/ChiefGyk3D/hammunition-console/releases/download/v0.1.0/hammunition-console-0.1.0.tar.gz
+        url: https://github.com/Renegade-Penguin/hammunition-console/releases/download/v0.1.0/hammunition-console-0.1.0.tar.gz
         sha256: "78764a19e7225db3f2adfbc3637055c97de73eac170d44c060768462838c3ca2"
       format: tarball
       install_tree: true
@@ -62,7 +62,7 @@ depends: [python3, python3-urwid]
 update:
   probe:
     method: github_release
-    repo: ChiefGyk3D/hammunition-console
+    repo: Renegade-Penguin/hammunition-console
   strategy: reinstall
   cadence_hint: >-
     Tagged releases; each is a new source-archive digest. Re-pin the URL and the digest
@@ -88,7 +88,7 @@ documentation:
     repository's per-user install.sh) keeps working until you uninstall it, and
     `hammunition-console` is not `hammunition console`: remove the old one with
     `hammunition uninstall hammunition-console` (or that repository's uninstall.sh).
-  upstream_url: https://github.com/ChiefGyk3D/hammunition-console
+  upstream_url: https://github.com/Renegade-Penguin/hammunition-console
   upstream_support: >-
     The old repository is archived. Issues about `hammunition console` go to the
     Hammunition repository.

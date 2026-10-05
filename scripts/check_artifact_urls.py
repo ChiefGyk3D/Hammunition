@@ -35,7 +35,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from hammunition.manifest.load import load_catalog  # noqa: E402
 from hammunition.manifest.schema import PackageManifest, RemoteArtifact  # noqa: E402
 
-USER_AGENT = "hammunition-url-sweep/1 (+https://github.com/ChiefGyk3D/Hammunition)"
+USER_AGENT = "hammunition-url-sweep/1 (+https://github.com/Renegade-Penguin/Hammunition)"
 
 
 def artifact_urls(catalog: dict[str, PackageManifest]) -> list[tuple[str, str]]:

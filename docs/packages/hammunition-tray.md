@@ -6,7 +6,7 @@
 
 - **Version recorded:** 0.5.0
 - **Categories:** `device-support`
-- **Upstream:** <https://github.com/ChiefGyk3D/hammunition-tray>
+- **Upstream:** <https://github.com/Renegade-Penguin/hammunition-tray>
 - **Needs first:** `plasma-workspace`, `qml6-module-org-kde-plasma-plasma5support`, `qml6-module-org-kde-kirigami`, `qml6-module-org-kde-notifications`, `pkexec`
 - **Desktops:** KDE Plasma only — read from the session files at plan time; deferred from a profile on a machine with none of them, refused by name (see [desktops](../desktops.md)); elsewhere, [`hammunition-tray-qt`](hammunition-tray-qt.md)
 
@@ -24,7 +24,7 @@ KDE Plasma 6. This unit installs the device helper and the polkit action the swi
 
 ## How it installs
 
-- prebuilt tarball from https://github.com/ChiefGyk3D/hammunition-tray/archive/refs/tags/v0.5.0.tar.gz
+- prebuilt tarball from https://github.com/Renegade-Penguin/hammunition-tray/archive/refs/tags/v0.5.0.tar.gz
   - Spreads the applet over /usr/share/plasma/plasmoids/com.chiefgyk3d.hammunition.devices and its icon into /usr/share/icons/hicolor (each file printed in the plan), and installs the device helper the switches call: the code under /usr/local/lib/hammunition-devctl, the wrapper at /usr/local/libexec/hammunition-devctl and the polkit action (the plan names the interpreter the wrapper runs as root, and says when another installer's helper is already there and is left alone). The applet runs nothing as root itself. Whether Plasma lists an applet placed this way without a .deb is unmeasured: a bench item, not yet run.
 
 ## Known problems
@@ -33,7 +33,7 @@ KDE Plasma 6. This unit installs the device helper and the polkit action the swi
 
 ## Keeping it current
 
-- probe: github release (`ChiefGyk3D/hammunition-tray`)
+- probe: github release (`Renegade-Penguin/hammunition-tray`)
 - strategy: reinstall
 - Tagged releases with a .deb and SHA256SUMS attached to each. A release is a new digest; re-pin both. The v0.5.0 release's .deb assets were not published when this was pinned, so the pin is the tag's own source archive.
 

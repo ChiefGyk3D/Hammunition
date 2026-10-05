@@ -1894,7 +1894,7 @@ def policy_xml() -> str:
  "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
 <policyconfig>
   <vendor>Hammunition</vendor>
-  <vendor_url>https://github.com/ChiefGyk3D/Hammunition</vendor_url>
+  <vendor_url>https://github.com/Renegade-Penguin/Hammunition</vendor_url>
   <action id="{ACTION_ID}">
     <description>Park or wake a radio device</description>
     <message>Authentication is required to change a device's power state</message>
