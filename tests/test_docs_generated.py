@@ -696,6 +696,14 @@ CHECKED_GENERATORS: list[tuple[str, list[str], list[Path]]] = [
     ("gen_projects_page.py", ["docs/projects.md"], []),
     ("gen_application_directory.py", ["docs/applications.md"], []),
     (
+        "gen_activity_hubs.py",
+        [
+            f"docs/activities/{p}.md"
+            for p in ("gps-time", "aprs", "meshtastic", "reticulum", "meshcore")
+        ],
+        [],
+    ),
+    (
         "gen_geofabrik_countries.py",
         ["catalog/data/geofabrik-countries.yaml"],
         [REFERENCE / "geofabrik" / "index-v1-nogeom.json"],
