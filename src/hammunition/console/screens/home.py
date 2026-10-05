@@ -27,6 +27,7 @@ READS: dict[str, tuple[str, ...]] = {
 MENU = (
     ("install", "Install", "pick a profile or unit, read the plan, run it"),
     ("station", "Station", "your callsign, grid square, maps and rig"),
+    ("secrets", "Secrets", "keys for downloads that need one, never shown"),
     ("logs", "Logs", "what each run did"),
     ("update", "Update", "installed versus the catalog"),
     ("help", "Help", "keys, and what each profile is for"),
@@ -307,7 +308,7 @@ class HomeScreen(Screen):
         self.ctx.open_screen(str(row.value))
 
     def keypress(self, key: str) -> str | None:
-        if key in ("1", "2", "3", "4", "5"):
+        if key in ("1", "2", "3", "4", "5", "6"):
             self.ctx.open_screen(MENU[int(key) - 1][0])
             return None
         if key == "U" and engine_lag(self.docs.get("doctor")):

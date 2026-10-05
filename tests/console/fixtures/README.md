@@ -22,6 +22,12 @@ JSON Schema (`schemas/`) by `test_fixtures.py`:
   is the proposal in that issue. Replace with a recording when #239 lands.
 - `update-all-without.json` + `.exit`: engine 0.19.0 refusing `update` with exit 2 when the log names retired
   units. The message text is representative, not recorded.
+- `secrets-none.json`, `secrets-environment.json`, `secrets-doppler.json`: `hammunition secrets status` (issue #321) did not
+  exist in the engine when the console fixtures were recorded; written by hand from `SecretsDocument` and validated against
+  `schemas/secrets.json`, which is extracted from the generated `json-interface.md`. Replace with recordings on the next capture.
+- `secrets-none.json`, `secrets-environment.json`, `secrets-doppler.json`: `hammunition secrets status` (issue #321) did not
+  exist in the engine when the console fixtures were recorded; written by hand from `SecretsDocument` and validated against
+  `schemas/secrets.json`, which is extracted from the generated `json-interface.md`. Replace with recordings on the next capture.
 - `plan-station-size-consent.json`: `plan-station` with a hand-authored `maps.terrain.topo.size_consent` (engine PR #260, topo-bound,
   not yet recorded); the published schema predates it, so `test_fixtures.py` exempts it (`AHEAD_OF_SCHEMA`).
 

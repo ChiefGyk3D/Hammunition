@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from hammunition.console.config import Config
 from hammunition.console.engine import Document
+from hammunition.console.session import SessionSecrets
 from hammunition.console.worker import Background
 
 if TYPE_CHECKING:
@@ -43,6 +44,7 @@ class Context(Protocol):
     config: Config
     bg: Background
     shared: Shared
+    session: SessionSecrets
 
     def push(self, screen: Screen) -> None: ...
     def pop(self, count: int = 1) -> None: ...

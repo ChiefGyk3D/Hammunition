@@ -15,7 +15,7 @@ Raspberry Pi has not been measured.
 
 ## What it is
 
-Six screens: Home, Install, Station, Logs, Update and Help. Every action is a command you could type yourself, and the console
+Seven screens: Home, Install, Station, Secrets, Logs, Update and Help. Every action is a command you could type yourself, and the console
 shows it before it runs. Hardware setup is one first-run step on Home (`hammunition hardware apply`, in a pane, with the
 engine's own prompts); everything else about hardware, and maps, is left to the CLI and to
 [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) for now.
@@ -59,6 +59,7 @@ bootstrap-linked `~/.local/bin/hammunition` and a packaged install each drive th
 
 - It never answers a consent prompt for you: you type yes into the engine's own prompt, in the pane.
 - It never runs anything but the engine's own commands (and the apt upgrade the engine's update report offers).
+- It never writes a secret anywhere: one you enter lives in its memory for the engine commands it starts and is cleared when you quit.
 - It never stores your callsign, grid square or any station value; the engine's station file is the only copy.
 - It never fetches anything from the network itself; the engine does, and it asks GitHub, git hosts and PyPI only when you press u on Update.
 
@@ -71,7 +72,7 @@ values until you ask.
 
 | Keys | Meaning |
 |---|---|
-| `1-5` | open the screen with that number (Home) |
+| `1-6` | open the screen with that number (Home) |
 | `Enter` | open the selected row |
 | `b / Esc` | go back; changes nothing (in a text prompt only Esc: b is typed) |
 | `?` | help |
@@ -83,6 +84,11 @@ values until you ask.
 | `i` | the selected profile's documentation (Install) |
 | `v` | reveal or hide station values (Station) |
 | `c` | clear the selected value, where the engine can (Station) |
+| `g` | where to get the selected secret (Secrets) |
+| `d` | name a Doppler project and config for the selected secret (Secrets) |
+| `e` | enter the selected secret for this session only, hidden (Secrets) |
+| `x` | forget the session value of the selected secret (Secrets) |
+| `f` | run the command the selected secret unlocks (Secrets) |
 | `u` | also ask upstream whether the catalog's pins are current (Update) |
 | `A` | run the apt upgrade the report offers (Update) |
 | `B` | plan the rebuilds the report offers (Update) |
@@ -95,6 +101,9 @@ values until you ask.
   checklist (set the station, apply the hardware rules, pick a profile, install it).
 - **Install**: profiles, and with `Tab` single units; the plan; the run.
 - **Station**: the saved values, changed by running the engine's own `station set`.
+- **Secrets**: the keys the engine can use for downloads that need one (RepeaterBook's token first), where each would come
+  from (the environment, Doppler or nowhere) and never its value. `g` says where to get one, `d` names a Doppler project and
+  config through `station set`, `e` keeps a value for this console session only, and `f` runs the command it unlocks.
 - **Logs**: each run the engine recorded, newest first; a run in progress is followed live.
 - **Update**: installed against the catalog; `u` also asks upstream.
 - **Help**: keys, what the console never does, and what each profile is for.

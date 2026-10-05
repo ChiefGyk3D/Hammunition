@@ -18,6 +18,7 @@ JSON_VERBS: frozenset[tuple[str, ...]] = frozenset(
         ("logs",),
         ("update",),
         ("station", "show"),
+        ("secrets", "status"),
         ("install",),
         ("uninstall",),
         ("maps", "regions"),

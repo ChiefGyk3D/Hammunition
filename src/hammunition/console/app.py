@@ -22,6 +22,7 @@ from hammunition.console.context import EngineLike, Shared
 from hammunition.console.engine import Engine
 from hammunition.console.fmt import clean
 from hammunition.console.screens.base import MessageScreen, Screen
+from hammunition.console.session import SessionSecrets
 from hammunition.console.worker import Background, ThreadBackground
 from hammunition.interface.envelope import engine_version as _engine_version
 
@@ -31,6 +32,7 @@ SCREEN_CLASSES = {
     "home": "hammunition.console.screens.home:HomeScreen",
     "install": "hammunition.console.screens.install:InstallScreen",
     "station": "hammunition.console.screens.station:StationScreen",
+    "secrets": "hammunition.console.screens.secrets:SecretsScreen",
     "logs": "hammunition.console.screens.logs:LogsScreen",
     "update": "hammunition.console.screens.update:UpdateScreen",
     "help": "hammunition.console.screens.help:HelpScreen",
@@ -97,7 +99,9 @@ class Shell:
         after: Callable[[float, Callable[[], None]], None],
         registry: Mapping[str, Callable[..., Screen]] | None = None,
         save: Callable[[Config], Any] | None = None,
+        session: SessionSecrets | None = None,
     ) -> None:
+        self.session = SessionSecrets() if session is None else session
         self.engine = engine
         self.config = config
         self.bg = bg
@@ -243,7 +247,8 @@ def write_crash_log(exc: BaseException, directory: Path, engine_version: str = "
 
 def run(environ: Mapping[str, str], engine: EngineLike | None = None) -> int:
     cfg = config_mod.load(config_mod.config_path(environ))
-    engine = Engine(environ=environ) if engine is None else engine
+    session = SessionSecrets()
+    engine = Engine(environ=environ, session=session) if engine is None else engine
     bg = ThreadBackground()
     loop_box: list[urwid.MainLoop] = []
 
@@ -255,7 +260,9 @@ def run(environ: Mapping[str, str], engine: EngineLike | None = None) -> int:
     ) -> Screen:
         # pane.py arrives in a later task; resolved by name until then.
         pane_class = importlib.import_module("hammunition.console.pane").PaneScreen
-        screen: Screen = pane_class(shell, argv, title, on_exit, loop=loop_box[0], environ=environ)
+        screen: Screen = pane_class(
+            shell, argv, title, on_exit, loop=loop_box[0], environ=session.overlay(environ)
+        )
         return screen
 
     shell = Shell(
@@ -266,6 +273,7 @@ def run(environ: Mapping[str, str], engine: EngineLike | None = None) -> int:
         after=after,
         registry=build_registry(),
         save=lambda c: config_mod.save(c, config_mod.config_path(environ)),
+        session=session,
     )
     loop = urwid.MainLoop(shell.root, palette(cfg.theme), unhandled_input=shell.handle_key)
     loop_box.append(loop)
@@ -278,7 +286,10 @@ def run(environ: Mapping[str, str], engine: EngineLike | None = None) -> int:
             shell.open_screen(cfg.last_screen)
 
     loop.set_alarm_in(0, start)  # the first on_show runs under the live loop
-    return run_guarded(loop.run, environ, shell)
+    try:
+        return run_guarded(loop.run, environ, shell)
+    finally:
+        session.clear()  # entered secrets die with the console, whichever way it ends
 
 
 def run_guarded(body: Callable[[], object], environ: Mapping[str, str], shell: Shell) -> int:

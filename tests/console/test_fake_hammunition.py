@@ -147,6 +147,7 @@ def test_hardware_apply_asks_on_a_tty_and_logs_its_argv(
     monkeypatch.setenv("FAKE_HAMMUNITION_LOG", str(log))
     # The assertion measures what the fake's caller adds, so what this test process
     # inherited (CI exports HAMMUNITION_REQUIRE_TETHER=1) is taken out first.
+    monkeypatch.delenv("REPEATERBOOK", raising=False)
     for key in list(os.environ):
         if key.startswith("HAMMUNITION_") or key.endswith("_CONSENT"):
             monkeypatch.delenv(key)
@@ -156,6 +157,7 @@ def test_hardware_apply_asks_on_a_tty_and_logs_its_argv(
         "argv": ["hardware", "apply"],
         "tty": True,
         "env": [],
+        "secrets_present": [],
     }
 
 

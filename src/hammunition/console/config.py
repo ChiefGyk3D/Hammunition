@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 CONFIG_DIR_NAME = "hammunition-console"
-SCREENS = ("home", "install", "station", "logs", "update", "help")
+SCREENS = ("home", "install", "station", "secrets", "logs", "update", "help")
 THEMES = ("dark", "light")
 
 

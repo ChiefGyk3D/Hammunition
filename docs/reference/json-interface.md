@@ -62,6 +62,7 @@ their text follows.
 - `hammunition maps repeaters list`
 - `hammunition maps repeaters remove`
 - `hammunition reference books`
+- `hammunition secrets status`
 - `hammunition self update` (with `--dry-run` only)
 - `hammunition services`
 - `hammunition show PROFILE` (profile document); `hammunition show UNIT --json` (unit document)
@@ -97,6 +98,7 @@ their text follows.
 | `repeaters` | [`RepeatersDocument`](#repeaters) |
 | `repeaters-list` | [`RepeatersListDocument`](#repeaters-list) |
 | `repeaters-removed` | [`RepeatersRemovedDocument`](#repeaters-removed) |
+| `secrets` | [`SecretsDocument`](#secrets) |
 | `self-update` | [`SelfUpdateDocument`](#self-update) |
 | `services` | [`ServicesDocument`](#services) |
 | `station` | [`StationDocument`](#station) |
@@ -6525,6 +6527,195 @@ error: every list is then empty.
     "all_sources"
   ],
   "title": "RepeatersRemovedDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### secrets
+
+The secrets the engine knows and whether each is available now. Never a
+value, a prefix of one or its length.
+
+| field | type | meaning |
+|---|---|---|
+| `doppler` | [`DopplerView`](#dopplerview) | the Doppler side of the answer |
+| `secrets` | list of [`SecretView`](#secretview) | one entry per secret in the engine's registry |
+
+#### `DopplerView`
+
+Whether Doppler could answer: names set in the station and the CLI present.
+
+| field | type | meaning |
+|---|---|---|
+| `project` | string or null | the station's Doppler project name; null when not set |
+| `config` | string or null | the station's Doppler config name; null when not set |
+| `configured` | boolean | both names are set in the station |
+| `cli_on_path` | boolean | the `doppler` command is on PATH |
+
+#### `SecretView`
+
+One secret: its state now, how it would be answered and how to provide it.
+
+| field | type | meaning |
+|---|---|---|
+| `name` | string | the environment variable and the Doppler secret name |
+| `purpose` | string | what the secret is for, in a sentence |
+| `available` | boolean | a source would answer: the variable is set, or Doppler is named and its CLI is present |
+| `source` | string | `environment`, `doppler` (named and installed; not asked here) or `none` |
+| `detail` | string | one sentence on why `source` is what it is |
+| `unit` | string or null | the catalog unit that must be installed to use it, if any |
+| `command` | string | the first command the secret unlocks |
+| `get_url` | string | where to get one |
+| `get_how` | string | what to ask for there |
+| `doc` | string | the repository page that explains it |
+| `ways` | list of string | the exact ways to provide it, as commands to run |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "DopplerView": {
+      "additionalProperties": false,
+      "description": "Whether Doppler could answer: names set in the station and the CLI present.",
+      "properties": {
+        "project": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Project"
+        },
+        "config": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Config"
+        },
+        "configured": {
+          "title": "Configured",
+          "type": "boolean"
+        },
+        "cli_on_path": {
+          "title": "Cli On Path",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "project",
+        "config",
+        "configured",
+        "cli_on_path"
+      ],
+      "title": "DopplerView",
+      "type": "object"
+    },
+    "SecretView": {
+      "additionalProperties": false,
+      "description": "One secret: its state now, how it would be answered and how to provide it.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "purpose": {
+          "title": "Purpose",
+          "type": "string"
+        },
+        "available": {
+          "title": "Available",
+          "type": "boolean"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unit"
+        },
+        "command": {
+          "title": "Command",
+          "type": "string"
+        },
+        "get_url": {
+          "title": "Get Url",
+          "type": "string"
+        },
+        "get_how": {
+          "title": "Get How",
+          "type": "string"
+        },
+        "doc": {
+          "title": "Doc",
+          "type": "string"
+        },
+        "ways": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Ways",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "purpose",
+        "available",
+        "source",
+        "detail",
+        "unit",
+        "command",
+        "get_url",
+        "get_how",
+        "doc",
+        "ways"
+      ],
+      "title": "SecretView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The secrets the engine knows and whether each is available now. Never a\nvalue, a prefix of one or its length.",
+  "properties": {
+    "doppler": {
+      "$ref": "#/$defs/DopplerView"
+    },
+    "secrets": {
+      "items": {
+        "$ref": "#/$defs/SecretView"
+      },
+      "title": "Secrets",
+      "type": "array"
+    }
+  },
+  "required": [
+    "doppler",
+    "secrets"
+  ],
+  "title": "SecretsDocument",
   "type": "object"
 }
 ```

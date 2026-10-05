@@ -24,15 +24,51 @@ import re
 import shutil
 import subprocess
 from collections.abc import Mapping
+from dataclasses import dataclass
 
 from . import runlog
 from .station import Station
 
-__all__ = ["SecretUnavailable", "resolve_secret"]
+__all__ = ["REGISTRY", "KnownSecret", "SecretUnavailable", "known_secret", "resolve_secret"]
 
 #: An environment variable name: it becomes a Doppler secret name and an
 #: argv element, so it can never look like an option.
 _NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+@dataclass(frozen=True)
+class KnownSecret:
+    """One secret the engine resolves: what it is for and where to get one.
+
+    Facts about the *kind* of secret, never a value. ``hammunition secrets
+    status`` and the console's Secrets screen are rendered from this table."""
+
+    name: str  # the environment variable and the Doppler secret name
+    purpose: str
+    get_url: str
+    get_how: str  # what to ask for at get_url, in a sentence
+    unit: str | None  # the catalog unit that must be installed first
+    command: str  # the first command it unlocks, with placeholders in capitals
+    doc: str  # the repo path of the page that explains it
+
+
+#: Every secret a ``resolve_secret(`` call in the engine asks for. A test reads
+#: those calls and fails on one this table lacks.
+REGISTRY: tuple[KnownSecret, ...] = (
+    KnownSecret(
+        name="REPEATERBOOK",
+        purpose="RepeaterBook's API token: repeater listings for your own station (D-081)",
+        get_url="https://www.repeaterbook.com/user/api_apps.php",
+        get_how="generate a token for App #114 (RepeaterBook Python Client) on your own account",
+        unit="repeaterbook-client",
+        command="hammunition maps repeaters fetch-repeaterbook --state XX",
+        doc="docs/guides/offline-navigation.md",
+    ),
+)
+
+
+def known_secret(name: str) -> KnownSecret | None:
+    return next((s for s in REGISTRY if s.name == name), None)
 
 
 class SecretUnavailable(Exception):
