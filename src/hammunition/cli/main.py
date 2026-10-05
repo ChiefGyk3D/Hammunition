@@ -34,9 +34,11 @@ import dataclasses
 import hashlib
 import io
 import os
+import shlex
 import shutil
 import sqlite3
 import stat
+import subprocess
 import sys
 import tempfile
 import textwrap
@@ -1529,6 +1531,133 @@ def cmd_logs(args: argparse.Namespace) -> int:
         return EXIT_OK
     for line in render_logs(doc):
         print(line)
+    return EXIT_OK
+
+
+def _stream_step(argv: Sequence[str], cwd: Path) -> int:
+    """Run one self-update step, its output printed line by line (so the run log
+    has it) and its command and exit code recorded."""
+    from hammunition import runlog
+
+    run = runlog.current()
+    began = run.command_start(argv) if run else 0.0
+    proc = subprocess.Popen(
+        list(argv),
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        errors="replace",
+    )
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        print(line.rstrip("\n"))
+    code = proc.wait()
+    if run:
+        run.command_end(argv, code, began)
+    return code
+
+
+@envelope.json_capable(dry_run_only=True)
+def cmd_self_update(args: argparse.Namespace) -> int:
+    """Pull the engine's own checkout and re-run bootstrap.  #303.
+
+    Touches the checkout and its venv only: never apt, the catalog's installs or
+    the station. A dirty tree, a branch other than main (without --release) and
+    a non-fast-forward are refused with a sentence; nothing is reset.
+    """
+    from hammunition import selfupdate
+    from hammunition.interface.selfupdate import (
+        SelfUpdateDocument,
+        StepView,
+        render_self_update,
+    )
+
+    root = selfupdate.find_checkout()
+    if root is None:
+        print(
+            "error: this engine is not running from a git checkout with a bootstrap.sh "
+            "(a packaged install updates through its package manager); nothing to update.",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+    dry = bool(args.dry_run)
+    if not dry and os.geteuid() == 0:
+        print(
+            "error: self-update runs as the account that owns the checkout, never as root; "
+            "run it without sudo (bootstrap asks for sudo itself, only when it must).",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+    try:
+        selfupdate.preflight(root, release=args.release)
+        planned = selfupdate.steps(root, release=args.release)
+        if not envelope.wanted(args):
+            print(f"Engine checkout: {root}")
+            print("Steps (each is printed before it runs):")
+            for number, step in enumerate(planned, 1):
+                print(f"  {number}. {step.description}")
+                print(f"       $ {shlex.join(step.argv)}")
+            print(
+                "Never touched: apt, installed units, station config. "
+                "The fetch below runs even under --dry-run; it changes no file in the tree."
+            )
+            print()
+            print(f"$ {shlex.join(planned[0].argv)}")
+        selfupdate.fetch(root)
+        resolved = selfupdate.resolve(root, release=args.release)
+    except selfupdate.Refused as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    before_checkout = selfupdate.checkout_version(root)
+    before_installed = selfupdate.installed_version()
+    final = selfupdate.steps(root, release=args.release, target=resolved.target)
+    doc = SelfUpdateDocument(
+        checkout=str(root),
+        release=bool(args.release),
+        target=resolved.target,
+        up_to_date=resolved.up_to_date,
+        checkout_version=before_checkout,
+        installed_version=before_installed,
+        arriving=resolved.arriving,
+        steps=tuple(StepView(s.description, s.argv) for s in final),
+        dry_run=dry,
+    )
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    print()
+    for line in render_self_update(doc):
+        print(line)
+    if dry:
+        print("\nDry run: nothing was merged and bootstrap did not run.")
+        return EXIT_OK
+    if not args.yes and not _prompt("\nProceed with the steps above?"):
+        print("Not confirmed; nothing was merged and bootstrap did not run.")
+        return EXIT_CONSENT
+    to_run = final[1:] if not resolved.up_to_date else final[2:]
+    for step in to_run:
+        print(f"\n$ {shlex.join(step.argv)}")
+        code = _stream_step(step.argv, root)
+        if code != 0:
+            print(
+                f"error: `{shlex.join(step.argv)}` exited {code}; stopping here. "
+                "The checkout is as that step left it; run `git status` to see.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+    after_checkout = selfupdate.checkout_version(root)
+    after_installed = selfupdate.installed_version_in(root)
+    print()
+    print(f"Version before: {selfupdate.mismatch_detail(before_checkout or '?', before_installed)}")
+    print(f"Version after:  {selfupdate.mismatch_detail(after_checkout or '?', after_installed)}")
+    if after_checkout is not None and after_installed != after_checkout:
+        print(
+            "warning: the installed version still differs from the checkout's; "
+            "run `hammunition doctor` to see why.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
     return EXIT_OK
 
 
@@ -7265,6 +7394,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     from hammunition.hardware import RULES_PATH, plan_hardware, rules_file
     from hammunition.manifest.load import load_hardware
     from hammunition.paths import state_dir
+    from hammunition.selfupdate import version_pair as selfupdate_versions
 
     classes: dict[str, DeviceClass] = {}
     devices: dict[str, DeviceManifest] = {}
@@ -7423,6 +7553,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         engine_found_in_local_bin=engine_found_in_local_bin,
         engine_found_link=engine_found_link,
         engine_linked_in_local_bin=engine_linked_in_local_bin,
+        engine_versions=selfupdate_versions(),
         kept_attached=kept_attached,
         kept_absent=kept_absent,
         desktops_installed=sessions.desktops,
@@ -7458,8 +7589,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 
 def _engine_version() -> str:
-    """The installed package version, or a marker when running uninstalled."""
-    return envelope.engine_version()
+    """What ``--version`` prints: the checkout's version, and both when the venv lags (#311)."""
+    from hammunition.selfupdate import version_line
+
+    return version_line()
 
 
 def _add_json_flag(parser: argparse.ArgumentParser, *, top: bool) -> None:
@@ -7688,6 +7821,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="do not serve GeoClue's socket, even where `hardware apply` has set it up",
     )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
+
+    p_self_update = sub.add_parser(
+        "self-update",
+        help="pull the engine's own checkout and re-run bootstrap.sh (touches no apt, unit or station)",
+    )
+    p_self_update.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="fetch, then print the steps and the commits that would arrive; change nothing",
+    )
+    p_self_update.add_argument("--yes", action="store_true", help="skip the confirmation")
+    p_self_update.add_argument(
+        "--release",
+        action="store_true",
+        help="fast-forward to the newest v* tag reachable from origin/main, from any branch",
+    )
+    p_self_update.set_defaults(func=cmd_self_update)
 
     p_logs = sub.add_parser(
         "logs",
@@ -8463,7 +8613,7 @@ def _loggable(args: argparse.Namespace) -> bool:
         return False  # a front end polling `update --json` must not evict real logs
     if words[0] == "services":
         return getattr(args, "action", None) is not None  # the list is a readout
-    if words[0] in ("install", "uninstall", "update", "menus", "maps"):
+    if words[0] in ("install", "uninstall", "update", "menus", "maps", "self-update"):
         return True
     if words[0] == "hardware":
         return len(words) > 1 and words[1] in ("apply", "unapply", "park", "wake")
@@ -8514,14 +8664,9 @@ def _dispatch(args: argparse.Namespace) -> int:
     """Run the chosen command inside its run log, when it gets one."""
     if not _loggable(args):
         return _dispatch_command(args)
-    from importlib import metadata
-
     from hammunition import runlog
 
-    try:
-        version = metadata.version("hammunition")
-    except metadata.PackageNotFoundError:  # pragma: no cover - installed editable
-        version = "unknown"
+    version = envelope.engine_version()
     with runlog.session(
         command=envelope.command_name(args),
         argv=["hammunition", *_RUN_ARGV],

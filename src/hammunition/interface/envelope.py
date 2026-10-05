@@ -28,7 +28,7 @@ import json
 import pkgutil
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, is_dataclass
-from importlib import import_module, metadata
+from importlib import import_module
 from typing import Any, ClassVar, TextIO
 
 from pydantic import ConfigDict
@@ -75,11 +75,16 @@ def described(doc: str) -> Any:
 
 
 def engine_version() -> str:
-    """The installed package version, or a marker when running uninstalled."""
-    try:
-        return metadata.version("hammunition")
-    except metadata.PackageNotFoundError:
-        return "0+uninstalled"
+    """The version this engine is: the checkout's ``pyproject.toml`` when the package
+    is imported from a git work tree, else the installed metadata, else a marker.
+
+    An editable install's metadata keeps the version it was installed at until
+    bootstrap re-runs it, so it lags the tree after a release bump (#311);
+    ``--version`` and ``doctor`` say when the two differ."""
+    from hammunition.selfupdate import version_pair
+
+    checkout, installed = version_pair()
+    return checkout or installed or "0+uninstalled"
 
 
 @dataclass(frozen=True)

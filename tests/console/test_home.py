@@ -192,3 +192,55 @@ def test_null_fields_degrade_to_unknown() -> None:
     assert ctx.shared.doctor is None
     screen = ChecksScreen(ctx, [{"name": None, "status": None, "detail": None, "fix": None}])
     assert "None" not in render(screen.widget(), 100, 10)
+
+
+def lagging_doctor() -> Any:
+    return document(
+        "doctor",
+        {
+            "checks": [
+                {
+                    "name": "engine version",
+                    "status": "warn",
+                    "detail": "0.20.0 (checkout), 0.19.0 (installed): the venv lags the tree",
+                    "fix": "hammunition self-update",
+                    "fix_argv": ["hammunition", "self-update"],
+                }
+            ],
+            "fails": 0,
+            "warns": 1,
+            "healthy": 0,
+        },
+    )
+
+
+def test_home_offers_the_engine_update_when_doctor_reports_the_lag() -> None:
+    engine = FakeEngine()
+    engine.set(("doctor",), lagging_doctor())
+    ctx = FakeContext(engine=engine)
+    out = shown(ctx)
+    assert "0.20.0 (checkout), 0.19.0 (installed)" in out
+    assert "Press U to run `hammunition self-update`" in out
+
+
+def test_u_confirms_then_runs_self_update_in_a_pane() -> None:
+    engine = FakeEngine()
+    engine.set(("doctor",), lagging_doctor())
+    ctx = FakeContext(engine=engine)
+    home = HomeScreen(ctx)
+    home.on_show()
+    assert home.keypress("U") is None
+    confirm = ctx.pushed[-1]
+    assert "hammunition self-update" in render(confirm.widget(), 100, 20)
+    assert ctx.panes == []  # nothing runs until the operator confirms
+    confirm.keypress("R")
+    assert ctx.panes[-1].argv == ["hammunition", "self-update"]
+    assert "--yes" not in ctx.panes[-1].argv
+
+
+def test_no_offer_and_u_is_inert_when_the_versions_agree() -> None:
+    ctx = FakeContext()
+    home = HomeScreen(ctx)
+    home.on_show()
+    assert "self-update" not in render(home.widget(), 100, 30)
+    assert home.keypress("U") == "U" and ctx.pushed == []

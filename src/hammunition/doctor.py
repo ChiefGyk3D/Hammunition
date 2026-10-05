@@ -268,6 +268,7 @@ def run_checks(
     engine_found_in_local_bin: bool,
     engine_found_link: str | None,
     engine_linked_in_local_bin: bool = False,
+    engine_versions: tuple[str | None, str | None] | None = None,
     kept_attached: tuple[str, ...] = (),
     kept_absent: tuple[str, ...] = (),
     desktops_installed: frozenset[Desktop] | None = None,
@@ -410,6 +411,25 @@ def run_checks(
                 "move it aside yourself, then re-run ./bootstrap.sh",
             )
         )
+
+    # The venv's installed version against the checkout's pyproject (#311): an
+    # editable install keeps the version it was installed at until bootstrap
+    # re-runs, so a release bump leaves it behind and the console refuses to start.
+    if engine_versions is not None and engine_versions[0] is not None:
+        tree, installed = engine_versions
+        if installed == tree:
+            checks.append(Check("engine version", "ok", f"{tree}, installed and checkout agree"))
+        else:
+            checks.append(
+                Check(
+                    "engine version",
+                    "warn",
+                    f"{tree} (checkout), {installed or 'not installed'} (installed): "
+                    "the venv lags the tree",
+                    "hammunition self-update",
+                    ["hammunition", "self-update"],
+                )
+            )
 
     if tools.get("cc", False):
         checks.append(Check("compiler", "ok", "a C toolchain is present for source builds"))

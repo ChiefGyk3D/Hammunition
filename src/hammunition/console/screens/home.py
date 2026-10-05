@@ -96,6 +96,26 @@ def behind_text(doc: Document | None, error: str | None) -> str:
     return "Behind the pin: checking..."
 
 
+UPDATE_FIX = ["hammunition", "self-update"]
+
+
+def engine_lag(doc: Document | None) -> str | None:
+    """The doctor's own sentence when the venv lags the checkout (#311), else None.
+
+    Found by the fix doctor attaches (argv, #245), not by the check's name."""
+    checks = doc.body.get("checks") if doc is not None else None
+    if not isinstance(checks, list):
+        return None
+    for check in checks:
+        if (
+            isinstance(check, dict)
+            and check.get("fix_argv") == UPDATE_FIX
+            and check.get("status") != "ok"
+        ):
+            return _s(check.get("detail"), "the installed engine lags the checkout")
+    return None
+
+
 class ChecksScreen(Screen):
     name = "checks"
     title = "Doctor checks"
@@ -211,6 +231,32 @@ class HomeScreen(Screen):
         elif step.key == "install":
             self.ctx.push(PlanScreen(self.ctx, "install", [STARTER]))
 
+    def _offer_update(self) -> None:
+        self.ctx.push(
+            ConfirmScreen(
+                self.ctx,
+                "Update the engine",
+                [
+                    "This runs: hammunition self-update",
+                    "",
+                    "It fetches this checkout, fast-forwards it and re-runs bootstrap.sh, "
+                    "printing each step first and asking its own confirmation in the pane. "
+                    "It never touches apt, installed units or your station.",
+                ],
+                self._run_update,
+            )
+        )
+
+    def _run_update(self) -> None:
+        self.ctx.run_pane(self.ctx.engine.command("self-update"), "self-update", self._after_update)
+
+    def _after_update(self, code: int | None) -> None:
+        self.note = (
+            "" if code == 0 else f"self-update exited {code}; its own words were in the pane."
+        )
+        self.ctx.pop()
+        self.on_show()  # re-read: the version, and doctor, have changed
+
     def _run_hardware(self) -> None:
         self.ctx.run_pane(
             self.ctx.engine.command("hardware", "apply"), "hardware apply", self._after_hardware
@@ -233,6 +279,10 @@ class HomeScreen(Screen):
         rows += self._walkthrough_rows()
         doctor = Row(doctor_text(doc("doctor"), err("doctor")), "doctor")
         urwid.connect_signal(doctor, "activate", self._open_checks)
+        lag = engine_lag(doc("doctor"))
+        if lag:
+            rows.append(text(f"Engine: {lag}", "warn"))
+            rows.append(text("  Press U to run `hammunition self-update`.", "key"))
         rows += [
             doctor,
             text(station_text(doc("station"), err("station"))),
@@ -259,6 +309,9 @@ class HomeScreen(Screen):
     def keypress(self, key: str) -> str | None:
         if key in ("1", "2", "3", "4", "5"):
             self.ctx.open_screen(MENU[int(key) - 1][0])
+            return None
+        if key == "U" and engine_lag(self.docs.get("doctor")):
+            self._offer_update()
             return None
         if key == "D":
             self.ctx.config.walkthrough_dismissed = True

@@ -68,7 +68,13 @@ If you installed the standalone `hammunition-console` unit before v0.21.0, it st
 
 It never answers a consent prompt for you and never passes the engine's assume-yes flag ([D-021](../reference/cli.md)); it
 removes any scripted-consent variable you exported from the environment of everything it starts. It never fetches anything
-from the network itself (the engine does, and asks upstream only when you press `u` on Update). It never runs a `doctor` fix. Every read is `hammunition <verb> --json` ([D-059](../reference/json-interface.md)).
+from the network itself (the engine does, and asks upstream only when you press `u` on Update). It never runs a `doctor` fix on its own; the one it offers, `hammunition self-update` when `doctor` reports that the venv lags the checkout, runs only when you press `U` on Home and confirm, in a terminal pane where the engine prints each step and asks its own question. Every read is `hammunition <verb> --json` ([D-059](../reference/json-interface.md)).
+
+## Updating the engine
+
+When the engine's installed version lags the checkout (a release bump the venv has not caught up with, which
+is what makes the console refuse to start), Home shows the two versions and offers `U`. The same thing from a shell is
+`hammunition self-update --dry-run`, then `hammunition self-update`.
 
 ## What was measured, and what was not
 
