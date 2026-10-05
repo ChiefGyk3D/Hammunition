@@ -113,9 +113,7 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Repo:
     monkeypatch.setattr(selfupdate, "PACKAGE_FILE", r.work / "src" / "hammunition" / "x.py")
     monkeypatch.setattr(selfupdate, "installed_version", lambda: "1.0.0")
     # what a real bootstrap's editable install does: the venv now reports the tree's version
-    monkeypatch.setattr(
-        selfupdate, "installed_version_in", lambda root: selfupdate.checkout_version(root)
-    )
+    monkeypatch.setattr(selfupdate, "installed_version_in", selfupdate.checkout_version)
     return r
 
 
