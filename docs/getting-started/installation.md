@@ -135,7 +135,7 @@ Hammunition is a Python engine plus a catalog of YAML manifests. The supported
 way to run it is from a git checkout:
 
 ```sh
-git clone https://github.com/ChiefGyk3D/Hammunition.git
+git clone https://github.com/Renegade-Penguin/Hammunition.git
 cd Hammunition
 ./bootstrap.sh
 ```
@@ -202,7 +202,7 @@ found` even though the command works without `sudo`.
 If you would rather not run a script:
 
 ```sh
-git clone https://github.com/ChiefGyk3D/Hammunition.git
+git clone https://github.com/Renegade-Penguin/Hammunition.git
 cd Hammunition
 python3 -m venv .venv
 .venv/bin/pip install -e .

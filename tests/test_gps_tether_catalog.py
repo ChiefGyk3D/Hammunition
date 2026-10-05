@@ -46,7 +46,7 @@ def test_it_is_the_tags_tarball_pinned_by_sha256_and_installed_as_a_tree() -> No
     assert block.format == "tarball" and block.install_tree
     assert block.tree_marker == "src/hammunition_gps_tether/__main__.py"
     assert block.artifact.url == (
-        "https://github.com/ChiefGyk3D/hammunition-gps-tether/archive/refs/tags/v0.1.1.tar.gz"
+        "https://github.com/Renegade-Penguin/hammunition-gps-tether/archive/refs/tags/v0.1.1.tar.gz"
     )
     assert re.fullmatch(r"[0-9a-f]{64}", block.artifact.sha256)
     assert not is_unpinned(), "the placeholder digest is still in the manifest"
@@ -99,7 +99,7 @@ def test_the_docs_say_the_service_and_a_foreground_run_cannot_share_the_port() -
     assert docs.known_problems is not None
     assert "10110" in docs.known_problems
     assert "foreground" in docs.known_problems
-    assert docs.upstream_url == "https://github.com/ChiefGyk3D/hammunition-gps-tether"
+    assert docs.upstream_url == "https://github.com/Renegade-Penguin/hammunition-gps-tether"
     assert docs.prerequisites is not None and "gpsd" in docs.prerequisites
 
 

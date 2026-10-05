@@ -8,7 +8,7 @@
 
 - **Version recorded:** 0.1.0
 - **Categories:** `workstation`
-- **Upstream:** <https://github.com/ChiefGyk3D/hammunition-console>
+- **Upstream:** <https://github.com/Renegade-Penguin/hammunition-console>
 - **Needs first:** `python3`, `python3-urwid`
 - **Not a recommended default** — installed only when asked for.
 
@@ -26,7 +26,7 @@ None for the unit, which cannot be installed. `hammunition console` needs the en
 
 ## How it installs
 
-- prebuilt tarball from https://github.com/ChiefGyk3D/hammunition-console/releases/download/v0.1.0/hammunition-console-0.1.0.tar.gz
+- prebuilt tarball from https://github.com/Renegade-Penguin/hammunition-console/releases/download/v0.1.0/hammunition-console-0.1.0.tar.gz
   - The tag's source tree, installed to /usr/local/share/hammunition/hammunition-console and handed to the operator, with a launcher named hammunition-console in ~/.local/bin and a terminal menu entry. Nothing is built and nothing runs as root but the copy. The console's own configuration, ~/.config/hammunition-console/, is created by the program when it first runs and is left in place on uninstall.
 
 ## What it changes on your machine
@@ -41,7 +41,7 @@ A copy of the standalone console on PATH (the old unit's tree, or the old reposi
 
 ## Keeping it current
 
-- probe: github release (`ChiefGyk3D/hammunition-console`)
+- probe: github release (`Renegade-Penguin/hammunition-console`)
 - strategy: reinstall
 - Tagged releases; each is a new source-archive digest. Re-pin the URL and the digest together at every tag, never from a branch.
 

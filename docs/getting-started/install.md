@@ -17,7 +17,7 @@ configuring.
 ## The one-command way
 
 ```sh
-git clone https://github.com/ChiefGyk3D/Hammunition
+git clone https://github.com/Renegade-Penguin/Hammunition
 cd Hammunition
 ./bootstrap.sh
 ```
@@ -75,7 +75,7 @@ sudo the full path in that case.
 ## Or by hand
 
 ```sh
-git clone https://github.com/ChiefGyk3D/Hammunition
+git clone https://github.com/Renegade-Penguin/Hammunition
 cd Hammunition
 python3 -m venv .venv
 .venv/bin/pip install -e .

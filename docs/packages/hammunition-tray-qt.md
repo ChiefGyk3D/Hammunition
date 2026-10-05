@@ -6,7 +6,7 @@
 
 - **Version recorded:** 0.5.0
 - **Categories:** `device-support`
-- **Upstream:** <https://github.com/ChiefGyk3D/hammunition-tray>
+- **Upstream:** <https://github.com/Renegade-Penguin/hammunition-tray>
 - **Needs first:** `python3-pyqt6`, `pkexec`
 - **Desktops:** Xfce, LXQt, LXDE, MATE, Cinnamon only — read from the session files at plan time; deferred from a profile on a machine with none of them, refused by name (see [desktops](../desktops.md)); elsewhere, [`hammunition-tray`](hammunition-tray.md)
 
@@ -24,7 +24,7 @@ Xfce, LXQt, LXDE, MATE or Cinnamon, with a panel that has a system tray (Xfce's 
 
 ## How it installs
 
-- prebuilt tarball from https://github.com/ChiefGyk3D/hammunition-tray/archive/refs/tags/v0.5.0.tar.gz
+- prebuilt tarball from https://github.com/Renegade-Penguin/hammunition-tray/archive/refs/tags/v0.5.0.tar.gz
   - Spreads the tray over /usr/share/hammunition-tray-qt, /usr/local/bin, /usr/share/applications, /etc/xdg/autostart (not shown in Plasma) and /usr/share/icons/hicolor (each file printed in the plan), and installs the device helper the menu calls, through /usr/bin/pkexec: the code under /usr/local/lib/hammunition-devctl, the wrapper at /usr/local/libexec/hammunition-devctl and the polkit action (the plan names the interpreter the wrapper runs as root, and says when another installer's helper is already there and is left alone). It runs nothing as root itself.
 
 ## Known problems
@@ -33,7 +33,7 @@ Xfce, LXQt, LXDE, MATE or Cinnamon, with a panel that has a system tray (Xfce's 
 
 ## Keeping it current
 
-- probe: github release (`ChiefGyk3D/hammunition-tray`)
+- probe: github release (`Renegade-Penguin/hammunition-tray`)
 - strategy: reinstall
 - Released together with hammunition-tray: one tag, both .debs and one SHA256SUMS. A release is a new digest for each; re-pin both units. The v0.5.0 release's .deb assets were not published when this was pinned, so the pin is the tag's own source archive.
 

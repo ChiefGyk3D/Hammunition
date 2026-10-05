@@ -33,7 +33,7 @@ def test_d070_is_recorded_under_its_assigned_title_and_nothing_after_it_is_older
 
 def test_the_guide_points_at_the_bunker_and_says_lan_only() -> None:
     guide = _flat("docs/guides/lan-mirror.md")
-    assert "https://github.com/ChiefGyk3D/hammunition-bunker" in guide
+    assert "https://github.com/Renegade-Penguin/hammunition-bunker" in guide
     assert "never reachable from the internet" in guide
     assert "station set --mirror" in guide and "--no-mirror" in guide
 

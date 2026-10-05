@@ -19,7 +19,7 @@ test -n "$tag"
 dest=../hammunition-gps-tether
 if [ ! -d "$dest" ]; then
   git clone --quiet --depth 1 --branch "$tag" \
-    https://github.com/ChiefGyk3D/hammunition-gps-tether "$dest"
+    https://github.com/Renegade-Penguin/hammunition-gps-tether "$dest"
 fi
 
 HAMMUNITION_REQUIRE_TETHER=1 exec python -m pytest

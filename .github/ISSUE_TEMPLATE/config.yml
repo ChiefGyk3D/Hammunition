@@ -4,12 +4,12 @@
 blank_issues_enabled: true
 contact_links:
   - name: What we do and do not store about your hardware
-    url: https://github.com/ChiefGyk3D/Hammunition/blob/main/docs/contributing/hardware.md
+    url: https://github.com/Renegade-Penguin/Hammunition/blob/main/docs/contributing/hardware.md
     about: >-
       Read this before pasting anything. Serial numbers are per-unit and we
       record whether one exists, never the value.
   - name: The measured inventories
-    url: https://github.com/ChiefGyk3D/Hammunition/tree/main/docs/reference
+    url: https://github.com/Renegade-Penguin/Hammunition/tree/main/docs/reference
     about: >-
       Corrections to these are the most valuable issue you can file. Several of
       our own claims have already turned out to be wrong.

@@ -19,7 +19,7 @@ surfaces that all run the same privileged helper:
 |---|---|
 | `hammunition hardware park NAME` / `wake NAME` / `state` | prints the exact writes, runs the helper, exits by the CLI's existing codes |
 | two generated menu entries per parkable attached device | `Park GPS receiver (hammunition hardware park gps-receiver)`, `Wake …`; under the device's first category |
-| a Plasma 6 applet, `com.chiefgyk3d.hammunition.devices`, in its own repository `ChiefGyk3D/hammunition-tray` | one switch per parkable attached device; polls `state`; flips run the helper |
+| a Plasma 6 applet, `com.chiefgyk3d.hammunition.devices`, in its own repository `Renegade-Penguin/hammunition-tray` | one switch per parkable attached device; polls `state`; flips run the helper |
 
 Parked state is **not** persisted. A reboot resets sysfs, every device wakes, and
 `state` reports the truth from sysfs. There is nothing to reconcile.
@@ -133,7 +133,7 @@ path with the D-054 title shape, `Exec=` the CLI verb, placed under the
 entry's first category (`gps-gnss` for the receiver, beside `cgps`). No
 vocabulary change. GNOME gets the same two entries in the group folder.
 
-**Plasma applet.** Its own repository, `ChiefGyk3D/hammunition-tray`
+**Plasma applet.** Its own repository, `Renegade-Penguin/hammunition-tray`
 (GPL-3.0-or-later, same author), mirroring `dell-battery-balance`'s layout:
 `plasmoid/package/`, `install.sh`/`uninstall.sh` that run `kpackagetool6
 --type Plasma/Applet` as the invoking user (never root), a package test, a
@@ -200,7 +200,7 @@ never touches sysfs and never runs as root.
 
 1. **Hammunition** (this branch): schema, `hardware.power`, the helper, apply
    and uninstall changes, CLI verbs, menu entries, tests, docs, D-056.
-2. **hammunition-tray** (`ChiefGyk3D/hammunition-tray`, created empty
+2. **hammunition-tray** (`Renegade-Penguin/hammunition-tray`, created empty
    2026-09-22): the applet, installer, package test, CI, README. Depends on
    1 being installed on the machine; developed against it, second.
 

@@ -301,7 +301,7 @@ each region, the Copernicus tiles each region's outline touches, and each
 Kiwix book given (**D-066**, the 2026-10-01 amendment of D-070). It
 reads no station file and nothing installed on this machine, and installs
 nothing; the answer is the same on every machine. It is what
-[Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker), a
+[Hammunition Bunker](https://github.com/Renegade-Penguin/hammunition-bunker), a
 LAN mirror of this data, asks to learn what to keep.
 
 ```
@@ -464,7 +464,7 @@ bench owes.
 What the `gps-tether` launcher ran (**D-061**), and now the way to run it
 once by hand. **The tether is its own project** (D-071 note, 2026-10-02):
 `hammunition install gps-tether` installs `hammunition-gps-tether` from
-<https://github.com/ChiefGyk3D/hammunition-gps-tether> and a systemd user
+<https://github.com/Renegade-Penguin/hammunition-gps-tether> and a systemd user
 service for it. With that tree installed (or a `hammunition-gps-tether` on the PATH or in
 `~/.local/bin`), this verb **runs it in its place**, passing every option given through, and prints on
 stderr where it is running from; root is refused first. Without it, the verb

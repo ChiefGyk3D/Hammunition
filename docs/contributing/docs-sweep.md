@@ -25,7 +25,7 @@ The GitHub wiki is generated from `docs/`, never written. On every push to
 `main`, `.github/workflows/wiki.yml` (a GYST `wiki-publish.yml` caller) runs `scripts/gen_wiki.py` and replaces
 every wiki page with its output, so an edit made in the wiki is lost at the
 next push. Corrections go to `docs/` by pull request, like any other. The
-canonical site stays <https://chiefgyk3d.github.io/Hammunition/>.
+canonical site stays <https://renegade-penguin.github.io/Hammunition/>.
 
 To see what the wiki will contain:
 

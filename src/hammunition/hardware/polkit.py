@@ -107,7 +107,7 @@ def policy_xml() -> str:
  "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
 <policyconfig>
   <vendor>Hammunition</vendor>
-  <vendor_url>https://github.com/ChiefGyk3D/Hammunition</vendor_url>
+  <vendor_url>https://github.com/Renegade-Penguin/Hammunition</vendor_url>
   <action id="{ACTION_ID}">
     <description>Park or wake a radio device, set the clock's time source, control a system service Hammunition manages, or keep your services running after you log out</description>
     <message>Authentication is required to change a radio device's power state, the clock's time source, a system service Hammunition manages, or whether your services keep running after you log out</message>

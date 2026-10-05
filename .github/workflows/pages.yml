@@ -5,7 +5,7 @@
 # A caller of GYST's docs-pages.yml: it builds with the same --strict build
 # tests/test_site.py runs on every pull request, and deploys only from main.
 #
-# The site is https://chiefgyk3d.github.io/Hammunition/. It needs one setting
+# The site is https://renegade-penguin.github.io/Hammunition/. It needs one setting
 # the repository owner makes once: Settings -> Pages -> Build and deployment
 # -> Source: "GitHub Actions". Until then the deploy job fails with a message
 # naming that setting, and nothing else in CI is affected.

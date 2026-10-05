@@ -365,7 +365,9 @@ def render(rows: Sequence[UpstreamRow]) -> str:
 def http_get(url: str, *, timeout: float = 15.0, token: str | None = None) -> str:
     import urllib.request
 
-    headers = {"User-Agent": "hammunition-update (+https://github.com/ChiefGyk3D/Hammunition)"}
+    headers = {
+        "User-Agent": "hammunition-update (+https://github.com/Renegade-Penguin/Hammunition)"
+    }
     if token and url.startswith(GITHUB_API):
         headers["Authorization"] = f"Bearer {token}"
         headers["X-GitHub-Api-Version"] = "2022-11-28"

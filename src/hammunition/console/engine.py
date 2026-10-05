@@ -22,7 +22,7 @@ from hammunition.console.launch import engine_argv
 from hammunition.console.session import SessionSecrets
 
 SUPPORTED_SCHEMA = "hammunition/1"
-INSTALL_PAGE = "https://chiefgyk3d.github.io/Hammunition/getting-started/install/"
+INSTALL_PAGE = "https://renegade-penguin.github.io/Hammunition/getting-started/install/"
 
 
 class EngineError(Exception):

@@ -33,7 +33,7 @@ install:
   - install:
       method: binary
       artifact:
-        url: https://github.com/ChiefGyk3D/hammunition-hill/releases/download/v1.3.0/hammunition-hill_1.3.0_all.deb
+        url: https://github.com/Renegade-Penguin/hammunition-hill/releases/download/v1.3.0/hammunition-hill_1.3.0_all.deb
         # v1.3.0 (2026-10-04): the digest read from the release's SHA256SUMS and confirmed against
         # the downloaded file (462,788 bytes); 1.3.0 adds the repeaters panel's area selector
         # (hill #90, D-082), the Atheris fuzz targets (hill #89) and the security sweep (hill #88).
@@ -66,7 +66,7 @@ launchers:
 update:
   probe:
     method: github_release
-    repo: ChiefGyk3D/hammunition-hill
+    repo: Renegade-Penguin/hammunition-hill
   strategy: reinstall
   cadence_hint: >-
     Tagged releases with a .deb and SHA256SUMS attached to each. A release
@@ -114,7 +114,7 @@ documentation:
     the .deb at plan time, and that refusal is correct. 1.0 is US-first --
     band plans, exam pools and weather severity are US; other regulators'
     allocations are contributions upstream welcomes.
-  upstream_url: https://github.com/ChiefGyk3D/hammunition-hill
+  upstream_url: https://github.com/Renegade-Penguin/hammunition-hill
   upstream_support: >-
     Issues on the GitHub repository. `hamhill check --fetch` exercises every
     configured source and is the first thing to run when a panel is blank.

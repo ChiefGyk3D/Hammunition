@@ -76,7 +76,7 @@ FCC_ASR_URL = "https://data.fcc.gov/download/pub/uls/complete/r_tower.zip"
 FCC_ASR_LIMIT = 128 * 1024 * 1024
 #: Sent by both fetches: data.fcc.gov answered a HEAD with this 200 and with
 #: a bare ``hammunition`` 403 (one request each, 2026-10-01).
-USER_AGENT = "hammunition (+https://github.com/ChiefGyk3D/Hammunition)"
+USER_AGENT = "hammunition (+https://github.com/Renegade-Penguin/Hammunition)"
 #: The data behind NWS's station tables: 754,735 B on 2026-10-01.
 NWR_URL = "https://www.weather.gov/source/nwr/JS/ccl-data.js"
 NWR_LIMIT = 8 * 1024 * 1024

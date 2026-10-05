@@ -7139,7 +7139,7 @@ links every upstream project the catalog installs.
 
 ### What is published, where
 
-**https://chiefgyk3d.github.io/Hammunition/**, by GitHub Pages from `main`
+**https://renegade-penguin.github.io/Hammunition/**, by GitHub Pages from `main`
 (`.github/workflows/pages.yml`). No domain is bought: the `github.io` address
 costs nothing, and a custom domain can be pointed at the same site later
 with one `CNAME` file and a DNS record, which is a decision about money and
@@ -8443,7 +8443,7 @@ fetch, never a second verifier.
 rebuilt or its regions change: gigabytes of Geofabrik extracts and
 Copernicus tiles over whatever connection it has. The maintainer's NAS sits
 on the same LAN. Hammunition Bunker
-(<https://github.com/ChiefGyk3D/hammunition-bunker>, spec approved
+(<https://github.com/Renegade-Penguin/hammunition-bunker>, spec approved
 2026-09-29) keeps a verified copy of that data there and serves it. It holds
 no pins and no verifier of its own; it needs the engine to tell it what to
 keep, and the engine to take from it without trusting it.
@@ -8730,7 +8730,7 @@ operator's page is `docs/guides/offline-navigation.md`, section 16.
 **Note 2026-10-02: the tether's new home.** The position listener on
 127.0.0.1:10111, and the NMEA server beside it, no longer live in this engine's
 source as the thing to run: they are `hammunition-gps-tether`
-(<https://github.com/ChiefGyk3D/hammunition-gps-tether>, GPL-3.0-or-later, its
+(<https://github.com/Renegade-Penguin/hammunition-gps-tether>, GPL-3.0-or-later, its
 own releases and tests), installed by the `gps-tether` catalog unit and run as a
 systemd user service (D-073, amended 2026-10-02). Nothing about the decision
 changes: the same two loopback ports, the same `GET /position` stream, the
@@ -9623,7 +9623,7 @@ pipeline. Measured again on this branch:
 - **HEADs, 2026-10-01:** nfdc.faa.gov answered a HEAD of the pinned NASR
   file with 503 twice while serving it by GET. data.fcc.gov answered a HEAD
   of `r_tower.zip` from User-Agent `hammunition` with 403, from curl and
-  from `hammunition (+https://github.com/ChiefGyk3D/Hammunition)` with 200
+  from `hammunition (+https://github.com/Renegade-Penguin/Hammunition)` with 200
   (37,810,019 bytes, Last-Modified 2026-09-27); one request each, so the
   User-Agent is the observed difference, not a proven cause. weather.gov
   served `ccl-data.js` with 200, no length, Last-Modified that day,

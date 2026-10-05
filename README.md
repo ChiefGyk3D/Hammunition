@@ -38,7 +38,7 @@ of every data download before it asks you to agree.
 ## Quick start
 
 ```sh
-git clone https://github.com/ChiefGyk3D/Hammunition.git
+git clone https://github.com/Renegade-Penguin/Hammunition.git
 cd Hammunition
 ./bootstrap.sh                                  # engine, PATH link, then `hammunition doctor`
 hammunition install station --dry-run           # read the whole plan; nothing changes
@@ -64,7 +64,7 @@ Every command and flag is in [the CLI reference](docs/reference/cli.md).
 - **I want the facts behind a claim:** [the reference](docs/reference/cli.md)
   and [the decision record](docs/DECISIONS.md).
 
-The whole manual is at <https://chiefgyk3d.github.io/Hammunition/>. The
+The whole manual is at <https://renegade-penguin.github.io/Hammunition/>. The
 projects this stands on are credited in full [below](#credit): Andy's Ham
 Radio Linux, 73Linux, Skywave Linux, DragonOS, EmComm Tools OS Community and
 the Debian Hamradio Blend.
@@ -135,11 +135,11 @@ exactly where things stand:
 | pipx / CPAN backends | ⚪ re-measured to **zero users** and dropped from 1.0 (D-014 amendment) |
 | Templated config files, from station values | ✅ working — a missing value defers one file, not the transaction |
 | Third-party apt repos | ✅ working — manifest pins the key fingerprint, consent is that fingerprint and `--yes` cannot give it, both files reversed by `uninstall` (D-040); `code`/`codium` in the opt-in `editors` profile |
-| Device power control: park and wake a catalogued device (D-056) | ✅ working — `hammunition hardware park`/`wake`, generated menu entries, and the [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) Plasma applet, all through one root helper behind one polkit action; measured on the field laptop's GPS receiver 2026-09-27; staying parked across a reboot (one udev rule per device, D-056 amended) is built; reboot not yet measured |
+| Device power control: park and wake a catalogued device (D-056) | ✅ working — `hammunition hardware park`/`wake`, generated menu entries, and the [hammunition-tray](https://github.com/Renegade-Penguin/hammunition-tray) Plasma applet, all through one root helper behind one polkit action; measured on the field laptop's GPS receiver 2026-09-27; staying parked across a reboot (one udev rule per device, D-056 amended) is built; reboot not yet measured |
 | Offline navigation: Navit over your own OpenStreetMap regions (D-057) | 🟡 built, not yet measured on hardware end to end — regions from station config; each download checked by a sha256 Hammunition pinned (the 50 US states and DC) or by Geofabrik's MD5, and the plan says which; converted for Navit as the operator; post-1.0 `navigation` profile, [guide](docs/guides/offline-navigation.md) |
 | Offline trails and terrain: QMapShack, routing on foot, Copernicus elevation (D-061) | 🟡 built, not yet measured on hardware — Garmin maps and one Routino database built from your regions as the operator; elevation tiles checked by a sha256 Hammunition pinned or by the object's MD5 (no tile pinned yet), and the plan says which; contours at 20 m; `gps-tether` serves the position on 127.0.0.1 only; post-1.0 `navigation` profile, [guide](docs/guides/offline-navigation.md) |
 | Offline reference: Kiwix books, dictionaries, ICS forms (D-066) | 🟡 built, not yet measured on hardware — books chosen by id in station config from a 27-book list with each licence stated, each pinned by size and sha256 from Kiwix's `.meta4` and printed in the plan; dictd on 127.0.0.1; FEMA's 39 ICS forms by Hammunition's own sha256; `hammunition reference serve` on 127.0.0.1 only; post-1.0 `reference` profile, [guide](docs/guides/offline-reference.md) |
-| A LAN mirror for offline data, and `hammunition artifacts` (D-070) | 🟡 built, not yet measured on hardware — `station set --mirror` names a machine on your own network; each data download asks it first and its publisher on any failure, the same digest checked either way; `artifacts --json` lists what to mirror for [Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker), [guide](docs/guides/lan-mirror.md) |
+| A LAN mirror for offline data, and `hammunition artifacts` (D-070) | 🟡 built, not yet measured on hardware — `station set --mirror` names a machine on your own network; each data download asks it first and its publisher on any failure, the same digest checked either way; `artifacts --json` lists what to mirror for [Hammunition Bunker](https://github.com/Renegade-Penguin/hammunition-bunker), [guide](docs/guides/lan-mirror.md) |
 | The rig as station data: `station set --rig`, one shared `rigctld` (D-073) | 🟡 built, not yet run against a radio — a `rig` hardware class and five station values; `rig-service` (in `station`) renders one `rigctld` as a systemd user service on 127.0.0.1:4632 behind a loopback filter on 4532 that drops a browser's HTTP request (a browser POST keyed hamlib's dummy, measured); flrig stays the other route; `--unattended` is opt-in; the FT-991A and UV-50PRO benches are owed; [guide](docs/guides/rig-control.md) |
 | GPS time: the clock follows the GPS when the network is gone (D-058) | 🟡 built and tested in containers and fakes, not yet run on the bench — four modes, `auto` by default, ntpsec only (a `chrony` unit covers the rest, D-072); `hammunition time`, [guide](docs/guides/gps-time.md) |
 | The terminal console: `hammunition console` (D-059 amended 2026-10-04) | 🟡 built and tested against recorded engine documents, a fake engine and a real pseudo-terminal; part of the engine since v0.21.0 (#302), no version floor; not yet run on the field laptop or through a real install — [reference](docs/console/index.md) |
@@ -200,9 +200,9 @@ this project's own maintainer.
 
 | Project | What it is | How you get it |
 |---|---|---|
-| [Hammunition Hill](https://github.com/ChiefGyk3D/hammunition-hill) | A local-first operating-position dashboard — clocks, band plan, solar and propagation dials, DX spots coloured by your log, satellites, a CW trainer — served from your own machine to your own browser on loopback. | [`hammunition-hill`](docs/packages/hammunition-hill.md), in the `station` profile: a digest-pinned `.deb`. |
+| [Hammunition Hill](https://github.com/Renegade-Penguin/hammunition-hill) | A local-first operating-position dashboard — clocks, band plan, solar and propagation dials, DX spots coloured by your log, satellites, a CW trainer — served from your own machine to your own browser on loopback. | [`hammunition-hill`](docs/packages/hammunition-hill.md), in the `station` profile: a digest-pinned `.deb`. |
 | [Skid Finder](https://github.com/ChiefGyk3D/Skid-Finder) | A passive detector for BLE-spam and Wi-Fi attacks, built for foxhunting at a con. It listens and never transmits. Upstream is alpha. | [`skid-finder`](docs/packages/skid-finder.md), in the `rf-security` profile: a sha256-pinned tag tarball. |
-| [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) | A KDE Plasma tray applet: a switch per parkable device, and a Controls panel for services and radios, calling the helper this project installs (D-056). | [`hammunition-tray`](docs/packages/hammunition-tray.md), in the `station` profile: the release's source archive, digest-pinned, installing the helper too (0.5.0 published no `.deb`); `hammunition-tray-qt` is the same for Xfce, LXQt, LXDE, MATE and Cinnamon. KDE Plasma 6 only, deferred from `station` on a machine with no Plasma session ([desktops](docs/desktops.md)); run `hammunition hardware apply` first. |
+| [hammunition-tray](https://github.com/Renegade-Penguin/hammunition-tray) | A KDE Plasma tray applet: a switch per parkable device, and a Controls panel for services and radios, calling the helper this project installs (D-056). | [`hammunition-tray`](docs/packages/hammunition-tray.md), in the `station` profile: the release's source archive, digest-pinned, installing the helper too (0.5.0 published no `.deb`); `hammunition-tray-qt` is the same for Xfce, LXQt, LXDE, MATE and Cinnamon. KDE Plasma 6 only, deferred from `station` on a machine with no Plasma session ([desktops](docs/desktops.md)); run `hammunition hardware apply` first. |
 
 **There is one thing you can help with right now**, and it needs no code:
 [contributing hardware identifiers](docs/contributing/hardware.md). Nineteen of
@@ -401,14 +401,14 @@ requirements, not aspirations:
 
 ## Documentation
 
-**Read it at <https://chiefgyk3d.github.io/Hammunition/>** — the
+**Read it at <https://renegade-penguin.github.io/Hammunition/>** — the
 documentation site, *Hacker's Ham Shack*: getting started, step-by-step
 guides (rig control, audio, the clock, FT8, Winlink, APRS, SDR, satellites),
 every profile, package and device, and [every project we
 install](docs/projects.md), linked to its home. It is built from `docs/` by
 `mkdocs build --strict` and published from `main` (**D-065**).
 
-The [GitHub wiki](https://github.com/ChiefGyk3D/Hammunition/wiki) is a mirror of the same pages, generated from `docs/` on every push to `main`; edit `docs/`, never the wiki.
+The [GitHub wiki](https://github.com/Renegade-Penguin/Hammunition/wiki) is a mirror of the same pages, generated from `docs/` on every push to `main`; edit `docs/`, never the wiki.
 
 The decision record and the policies below were written before the code
 they describe, deliberately; the reference pages are generated from the

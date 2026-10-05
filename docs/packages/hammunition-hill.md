@@ -6,7 +6,7 @@
 
 - **Version recorded:** 1.3.0
 - **Categories:** `dashboards`
-- **Upstream:** <https://github.com/ChiefGyk3D/hammunition-hill>
+- **Upstream:** <https://github.com/Renegade-Penguin/hammunition-hill>
 
 ## What it does
 
@@ -22,7 +22,7 @@ A browser on this machine. An internet connection for the fetched tiers (space w
 
 ## How it installs
 
-- prebuilt deb from https://github.com/ChiefGyk3D/hammunition-hill/releases/download/v1.3.0/hammunition-hill_1.3.0_all.deb
+- prebuilt deb from https://github.com/Renegade-Penguin/hammunition-hill/releases/download/v1.3.0/hammunition-hill_1.3.0_all.deb
   - The .deb's postinst creates the `hamhill` system user, enables `hammunition-hill.service` and starts it. That is a running service from the moment the install completes; see known_problems for what it listens on and how to stop it.
 
 ## Known problems
@@ -31,7 +31,7 @@ A browser on this machine. An internet connection for the fetched tiers (space w
 
 ## Keeping it current
 
-- probe: github release (`ChiefGyk3D/hammunition-hill`)
+- probe: github release (`Renegade-Penguin/hammunition-hill`)
 - strategy: reinstall
 - Tagged releases with a .deb and SHA256SUMS attached to each. A release is a new digest; re-pin both.
 

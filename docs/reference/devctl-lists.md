@@ -2,7 +2,7 @@
 
 The privileged helper that parks and wakes devices, sets the clock's time
 source and starts and stops services lives in
-[hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray)
+[hammunition-tray](https://github.com/Renegade-Penguin/hammunition-tray)
 (**D-056**, amended 2026-10-02). The device and service catalogs stay in this
 engine, so `hammunition hardware apply` writes two data files the helper reads
 instead of importing the engine. A third, per user, is written by the install of

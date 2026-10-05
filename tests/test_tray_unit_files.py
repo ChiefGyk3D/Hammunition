@@ -29,7 +29,7 @@ from hammunition.manifest.schema import BinaryInstall, PackageManifest
 
 CATALOG = Path(__file__).resolve().parent.parent / "catalog"
 UNITS = ("hammunition-tray", "hammunition-tray-qt")
-TAG_URL = "https://github.com/ChiefGyk3D/hammunition-tray/archive/refs/tags/v0.5.0.tar.gz"
+TAG_URL = "https://github.com/Renegade-Penguin/hammunition-tray/archive/refs/tags/v0.5.0.tar.gz"
 TAG_SHA = "614148fb4241e88ca007885d01ef97d0752c8cd47b6e57337e2ee12ab3bfc438"
 
 

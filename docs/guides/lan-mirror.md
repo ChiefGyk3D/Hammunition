@@ -16,7 +16,7 @@ take it from there instead, in seconds rather than hours, and with the
 same checks it would have made against the publisher (**D-070**).
 
 The server side is a separate project,
-[Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker): a
+[Hammunition Bunker](https://github.com/Renegade-Penguin/hammunition-bunker): a
 container for a NAS that asks the engine which artifacts to keep, keeps
 them fresh on a schedule, and serves them on the LAN. This page is the
 engine side: what to set, what the plan will say, and what is and is not

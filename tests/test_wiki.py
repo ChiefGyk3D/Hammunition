@@ -83,7 +83,7 @@ def test_every_relative_link_resolves_to_an_output_page(files: dict[str, str]) -
 def test_home_has_the_banner_and_the_sidebar_exists(files: dict[str, str]) -> None:
     home = files["Home.md"]
     assert "generated" in home.split("\n")[0]
-    assert "https://chiefgyk3d.github.io/Hammunition/" in home.split("\n\n")[0]
+    assert "https://renegade-penguin.github.io/Hammunition/" in home.split("\n\n")[0]
     sidebar = files["_Sidebar.md"]
     assert "(Getting-Started-Install)" in sidebar
     assert "(Software-by-activity)" in sidebar
@@ -109,7 +109,7 @@ def test_a_link_to_an_excluded_record_goes_to_github(files: dict[str, str]) -> N
         "a link to DECISIONS.md was left relative"
     )
     assert any(
-        "](https://github.com/ChiefGyk3D/Hammunition/blob/main/docs/DECISIONS.md" in b
+        "](https://github.com/Renegade-Penguin/Hammunition/blob/main/docs/DECISIONS.md" in b
         for b in files.values()
     )
 

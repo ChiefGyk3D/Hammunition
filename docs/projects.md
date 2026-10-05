@@ -71,7 +71,7 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 | Project | What it is | Its home |
 |---|---|---|
 | [hamclock-next](packages/hamclock-next.md) | Maintained SDL2 rewrite of HamClock — grey line, propagation, DX cluster | [github.com/k4drw/hamclock-next](https://github.com/k4drw/hamclock-next) |
-| [hammunition-hill](packages/hammunition-hill.md) | Local-first ham radio dashboard — the Hammunition family's own | [github.com/ChiefGyk3D/hammunition-hill](https://github.com/ChiefGyk3D/hammunition-hill) |
+| [hammunition-hill](packages/hammunition-hill.md) | Local-first ham radio dashboard — the Hammunition family's own | [github.com/Renegade-Penguin/hammunition-hill](https://github.com/Renegade-Penguin/hammunition-hill) |
 | [openhamclock](packages/openhamclock.md) | Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites | [github.com/accius/openhamclock](https://github.com/accius/openhamclock) |
 | [sunclock](packages/sunclock.md) | World map showing the day-night terminator and where the sun is now | [github.com/nongiach/Sunclock](https://github.com/nongiach/Sunclock) |
 
@@ -112,7 +112,7 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 | [eia-860m](packages/eia-860m.md) | EIA's monthly inventory of US power plants (EIA-860M), for the infrastructure layers | [eia.gov/electricity/data/eia860m](https://www.eia.gov/electricity/data/eia860m/) |
 | [faa-nasr-airports](packages/faa-nasr-airports.md) | The FAA's airport, heliport and seaplane base list (NASR), for the infrastructure layers | [faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription](https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/) |
 | [gdal-bin](packages/gdal-bin.md) | GDAL's command-line tools for rasters and elevation data | [gdal.org](https://gdal.org/) |
-| [gps-tether](packages/gps-tether.md) | Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service | [github.com/ChiefGyk3D/hammunition-gps-tether](https://github.com/ChiefGyk3D/hammunition-gps-tether) |
+| [gps-tether](packages/gps-tether.md) | Your GPS position on 127.0.0.1 for QMapShack, the browser map and GeoClue, as a user service | [github.com/Renegade-Penguin/hammunition-gps-tether](https://github.com/Renegade-Penguin/hammunition-gps-tether) |
 | [graphhopper](packages/graphhopper.md) | GraphHopper, the offline router behind the browser map's car, bike, foot and hiking routes | [github.com/graphhopper/graphhopper](https://github.com/graphhopper/graphhopper) |
 | [graphhopper-graph](packages/graphhopper-graph.md) | GraphHopper's route graph built from your own regions, for routes on the browser map | [github.com/graphhopper/graphhopper](https://github.com/graphhopper/graphhopper) |
 | [mapsforge-map](packages/mapsforge-map.md) | Mapsforge vector maps of your OpenStreetMap regions, for phone map apps | [github.com/mapsforge/mapsforge](https://github.com/mapsforge/mapsforge) |
@@ -541,8 +541,8 @@ Antenna design and analysers, spectrum analysers, electronics, radio memories, f
 |---|---|---|
 | [baycomepp](packages/baycomepp.md) | Driver for the HB9JNX parallel-port packet modem | [tracker.debian.org/pkg/baycomepp](https://tracker.debian.org/pkg/baycomepp) — *Debian package page* |
 | [baycomusb](packages/baycomusb.md) | Driver for the HB9JNX USB packet modem | [tracker.debian.org/pkg/baycomusb](https://tracker.debian.org/pkg/baycomusb) — *Debian package page* |
-| [hammunition-tray](packages/hammunition-tray.md) | KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own | [github.com/ChiefGyk3D/hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) |
-| [hammunition-tray-qt](packages/hammunition-tray-qt.md) | Tray switches for parking and waking radio devices on Xfce, LXQt, LXDE, MATE and Cinnamon — the Hammunition family's own | [github.com/ChiefGyk3D/hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) |
+| [hammunition-tray](packages/hammunition-tray.md) | KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own | [github.com/Renegade-Penguin/hammunition-tray](https://github.com/Renegade-Penguin/hammunition-tray) |
+| [hammunition-tray-qt](packages/hammunition-tray-qt.md) | Tray switches for parking and waking radio devices on Xfce, LXQt, LXDE, MATE and Cinnamon — the Hammunition family's own | [github.com/Renegade-Penguin/hammunition-tray](https://github.com/Renegade-Penguin/hammunition-tray) |
 | [pciutils](packages/pciutils.md) | lspci — for the SDRs and capture cards that are not on USB | [mj.ucw.cz/sw/pciutils](https://mj.ucw.cz/sw/pciutils/) |
 | [qpwgraph](packages/qpwgraph.md) | PipeWire patchbay -- see and change which program is connected to which sound card | [gitlab.freedesktop.org/rncbc/qpwgraph](https://gitlab.freedesktop.org/rncbc/qpwgraph) |
 | [usbutils](packages/usbutils.md) | lsusb — step one of every hardware problem in this catalog | [github.com/gregkh/usbutils](https://github.com/gregkh/usbutils) |
@@ -657,7 +657,7 @@ The machine the station runs on.
 | [code](packages/code.md) | Microsoft's Visual Studio Code build — optional alternative to the VSCodium your distro ships | [code.visualstudio.com](https://code.visualstudio.com/) |
 | [codium](packages/codium.md) | VSCodium — Microsoft's VS Code source, built without their telemetry or branding | [vscodium.com](https://vscodium.com/) |
 | [git](packages/git.md) | Distributed version control — the tool this project is distributed with | [git-scm.com](https://git-scm.com/) |
-| [hammunition-console](packages/hammunition-console.md) *(retired)* | A terminal front end for the engine -- install, station, logs and updates in one full-screen program | [github.com/ChiefGyk3D/hammunition-console](https://github.com/ChiefGyk3D/hammunition-console) |
+| [hammunition-console](packages/hammunition-console.md) *(retired)* | A terminal front end for the engine -- install, station, logs and updates in one full-screen program | [github.com/Renegade-Penguin/hammunition-console](https://github.com/Renegade-Penguin/hammunition-console) |
 | [pipx](packages/pipx.md) | Installs Python applications in their own environments, on the PATH | [github.com/pypa/pipx](https://github.com/pypa/pipx) |
 | [screen](packages/screen.md) | Terminal multiplexer, and the serial console of last resort | [gnu.org/software/screen](https://www.gnu.org/software/screen/) |
 | [tmux](packages/tmux.md) | Terminal multiplexer for sessions that outlive the connection | [github.com/tmux/tmux](https://github.com/tmux/tmux) |

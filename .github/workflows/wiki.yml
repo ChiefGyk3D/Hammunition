@@ -6,7 +6,7 @@
 #
 # The wiki is a generated mirror of the MkDocs site (scripts/gen_wiki.py), never
 # a place to write: the publish replaces every page in it. The canonical site is
-# https://chiefgyk3d.github.io/Hammunition/ (pages.yml).
+# https://renegade-penguin.github.io/Hammunition/ (pages.yml).
 #
 # It needs one thing the repository owner does once: a wiki git remote does not
 # exist until the first page is created in the GitHub UI. Until then the publish

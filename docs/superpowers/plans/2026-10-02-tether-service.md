@@ -31,7 +31,7 @@ machine; nothing is run as root; `nice -n 19` throughout.
 ## Task 2 - the `gps-tether` catalog unit
 
 - `catalog/packages/gps-tether.yaml`, profile `navigation`: a `git` build at
-  the tag of `ChiefGyk3D/hammunition-gps-tether`, a `user_services` block for
+  the tag of `Renegade-Penguin/hammunition-gps-tether`, a `user_services` block for
   `hammunition-gps-tether.service` listening on 127.0.0.1:10110 and :10111.
 - Until the tag exists the unit carries an explicit unpinned marker that a
   test recognises as "not installable".

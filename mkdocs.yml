@@ -14,9 +14,9 @@ site_name: Hammunition
 site_description: >-
   Hacker's Ham Shack: turn an existing Debian-family install into an amateur
   radio, SDR and RF workstation, and learn to use what it installs.
-site_url: https://chiefgyk3d.github.io/Hammunition/
-repo_url: https://github.com/ChiefGyk3D/Hammunition
-repo_name: ChiefGyk3D/Hammunition
+site_url: https://renegade-penguin.github.io/Hammunition/
+repo_url: https://github.com/Renegade-Penguin/Hammunition
+repo_name: Renegade-Penguin/Hammunition
 # No "edit this page" button: half the site is generated, and an edit to a
 # generated page is reverted by its generator (tests/test_docs_generated.py).
 edit_uri: ""

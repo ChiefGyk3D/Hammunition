@@ -35,7 +35,7 @@ install:
   - install:
       method: binary
       artifact:
-        url: https://github.com/ChiefGyk3D/hammunition-gps-tether/archive/refs/tags/v0.1.1.tar.gz
+        url: https://github.com/Renegade-Penguin/hammunition-gps-tether/archive/refs/tags/v0.1.1.tar.gz
         sha256: 8d2c78b760a622bf682ecd3616af5b807e6653fd1bb05fd6fa28a5761ef456f6
       format: tarball
       install_tree: true
@@ -80,7 +80,7 @@ user_services:
 update:
   probe:
     method: github_release
-    repo: ChiefGyk3D/hammunition-gps-tether
+    repo: Renegade-Penguin/hammunition-gps-tether
   strategy: reinstall
   cadence_hint: >-
     Tagged releases, no release assets yet. A tag is a new tarball URL and a new
@@ -133,7 +133,7 @@ documentation:
     (2026-10-03); a suspend and resume with it running is not yet measured. A change to the tether's options means editing the unit by hand
     or running it yourself — the engine renders the unit with no arguments
     and replaces it whole on a reinstall.
-  upstream_url: https://github.com/ChiefGyk3D/hammunition-gps-tether
+  upstream_url: https://github.com/Renegade-Penguin/hammunition-gps-tether
   upstream_support: >-
     Issues on the hammunition-gps-tether repository for the tether itself;
     gpsd's own mailing list and `gpsmon` / `cgps` for a receiver that has no
