@@ -7,17 +7,15 @@
 # in ChiefGyk3D/git-your-ship-together; this file only says which board and
 # which Area. It reads two repository variables, PROJECTS_APP_ID and
 # DOPPLER_IDENTITY_ID; the GitHub App key comes from Doppler over OIDC.
-# pull_request_target is safe here: the job has no checkout and never reads a
-# pull request's title or body.
 name: Project sync
 
 on:
   issues:
     types: [opened, reopened, closed, edited]
-  # zizmor: ignore[dangerous-triggers] -- no checkout, no run step, the inlined
-  # script reads the event payload as JSON and never the pull request's text.
-  pull_request_target: # zizmor: ignore[dangerous-triggers]
-    types: [opened, reopened, ready_for_review, converted_to_draft, closed]
+  # No pull_request or pull_request_target trigger: Doppler's OIDC identity
+  # cannot cover a pull-request subject, so the App key fetch fails on every
+  # pull request event (git-your-ship-together#93). Pull requests reach the
+  # board through the weekly reconcile below and the maintainer's board tooling.
   schedule:
     - cron: '17 5 * * 1'
   workflow_dispatch:
@@ -43,5 +41,4 @@ jobs:
       doppler-project: ci
       doppler-config: ci
       doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}
-      doppler-trusted-refs-only: false   # required for pull_request_target; the job has no checkout
       egress-policy: block
