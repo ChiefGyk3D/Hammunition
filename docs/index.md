@@ -37,7 +37,9 @@ Also: **[The Hammunition suite](suite.md)** (the engine, Tray, Hill, Bunker,
 Console and GPS Tether, and how they fit), **[Applications by
 activity](applications.md)**, **[EMCOMM preparation and field
 use](guides/emcomm-field.md)** and **[what to download before a
-deployment](getting-started/before-deployment.md)**.
+deployment](getting-started/before-deployment.md)**, and **[load every area
+ahead, activate where you
+are](guides/area-of-operations.md)**.
 
 ## Five minutes to a plan
 

@@ -57,6 +57,8 @@ Then, when you want to switch things off and on:
 
 ## In the field
 
+- **[Load every area ahead, activate where you are](area-of-operations.md)** — fetch every state and region you might be sent to while you have a network, then one command makes where you are the active area.
+- **[Load every area ahead, activate where you are](area-of-operations.md)** — fetch every state and region you might be sent to while you have a network, then one command makes where you are the active area.
 - **[Offline navigation](offline-navigation.md)** — maps, routing and terrain
   with no network at all.
 - **[Offline reference](offline-reference.md)** — Wikipedia, WikiMed, a
