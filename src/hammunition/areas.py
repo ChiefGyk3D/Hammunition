@@ -25,10 +25,11 @@ symbolic links to the active areas' files, ``overlays/active-poi``. The links
 are derived state, written and removed only by this module, and the files they
 point at are never touched.
 
-Infrastructure layers have no region in their file names today
-(``infra-osm-medical.poi`` holds every region). When they are split per region
-(issue #327), :func:`hammunition.infra.layer_area` names the region of a layer
-and the rule here picks them up with no other change."""
+Infrastructure layers are kept per region (D-075, amended for #327): the file
+name carries the extract's slug (``infra-osm-medical-north-america-us-ohio.poi``)
+and :func:`hammunition.infra.layer_area` names it, so the rule here takes
+exactly the active regions' files. A merged layer, written before the split or
+with ``--merged``, has no area and is always active."""
 
 from __future__ import annotations
 
@@ -174,7 +175,9 @@ class PoiLinks:
     kept: tuple[str, ...]
 
 
-def _poi_targets(repeater_dir: Path, infra_dir: Path, active: Active) -> dict[str, Path]:
+def _poi_targets(
+    repeater_dir: Path, infra_dir: Path, active: Active, universe: Sequence[str] = ()
+) -> dict[str, Path]:
     from . import infra, repeaters
 
     found: dict[str, Path] = {}
@@ -182,19 +185,25 @@ def _poi_targets(repeater_dir: Path, infra_dir: Path, active: Active) -> dict[st
         poi = repeater_dir / repeaters.layer_files(layer_id)[1]
         if poi.is_file() and active.area(repeaters.layer_area(layer_id)):
             found[poi.name] = poi
-    for layer_id in infra.LAYERS:
+    for layer_id in infra.known_layers(infra_dir):
         poi = infra_dir / infra.layer_files(layer_id)[1]
-        if poi.is_file() and active.area(infra.layer_area(layer_id)):
+        if poi.is_file() and active.area(infra.layer_area(layer_id), universe):
             found[poi.name] = poi
     return found
 
 
-def plan_poi_links(overlays: Path, repeater_dir: Path, infra_dir: Path, active: Active) -> PoiLinks:
+def plan_poi_links(
+    overlays: Path,
+    repeater_dir: Path,
+    infra_dir: Path,
+    active: Active,
+    universe: Sequence[str] = (),
+) -> PoiLinks:
     """What :func:`sync_poi_links` would do. Reads, writes nothing. With
     everything active no link is wanted: QMapShack is pointed at the layer
     directories themselves, as before the switch."""
     directory = poi_links_dir(overlays)
-    wanted = {} if active.everything else _poi_targets(repeater_dir, infra_dir, active)
+    wanted = {} if active.everything else _poi_targets(repeater_dir, infra_dir, active, universe)
     have: dict[str, str] = {}
     with contextlib.suppress(OSError):
         for entry in directory.iterdir():
@@ -286,6 +295,7 @@ def collect(
     from . import infra, repeaters
 
     by_area: dict[tuple[str, str], list[LoadedLayer]] = {}
+    names_of = {_slug(r): r for r in map_regions}
     always: list[str] = []
     for layer_id in repeaters.present_layers(repeater_dir):
         area = repeaters.layer_area(layer_id)
@@ -312,10 +322,11 @@ def collect(
             continue
         files = [infra_dir / n for n in infra.layer_files(layer_id) if (infra_dir / n).is_file()]
         kind = "state" if is_area_code(area) else "region"
+        if kind == "region":
+            area = names_of.get(area, area)
         by_area.setdefault((area, kind), []).append(
             LoadedLayer(layer_id, "infra", None, _size(files), None, tuple(map(str, files)))
         )
-    names_of = {_slug(r): r for r in map_regions}
     slugs: dict[str, list[LoadedLayer]] = {}
     for unit, suffix, kind in REGION_FILES:
         folder = data / unit
@@ -329,7 +340,7 @@ def collect(
                 LoadedLayer(kind, kind, None, _size([path]), _day_of(path), (str(path),))
             )
     for slug, layers in slugs.items():
-        by_area[(names_of.get(slug, slug), "region")] = layers
+        by_area.setdefault((names_of.get(slug, slug), "region"), []).extend(layers)
     states = sorted(k for k in by_area if k[1] == "state")
     regions = sorted(k for k in by_area if k[1] == "region")
     return (

@@ -9809,6 +9809,25 @@ own extracts; FCC ASR's bytes across a weekly rollover.
 `tests/test_map_style.py`, `tests/test_map_overlays.py`; the
 offline-navigation guide's section 18, `docs/guides/lan-mirror.md` and
 `docs/reference/cli.md`.
+**Amendment, 2026-10-04 (issue #327, epic #326; D-082).** The layers are kept
+per region. `maps infra import` and the two fetches write one layer per theme
+and installed region, the extract's file slug (the slug `hammunition.areas`
+derives, `north-america-us-ohio`) ending the layer id and the four file names;
+`infra.layer_area()` returns it, so D-082's rule takes the active regions'
+files into QMapShack, Navit and the browser map with no other switch. The
+OpenStreetMap themes split by the extract they are filtered from; the FAA,
+EIA, WRI, FCC and NOAA lists, all of which carry coordinates, by clipping to
+each region's header box as `--from-acma` does (a point in two overlapping boxes
+is in both). `--merged` keeps the earlier shape, one layer across every region
+with no area, always drawn. A merged file from before the split is left alone
+and a note says once, in the import's `notes`, that it is still registered and
+draws each point twice; the engine deletes nothing, `maps infra remove --layer
+ID` does, and accepts a theme's id (the merged layer) or `<theme>-<region>`.
+The documents' layer views carry `area`. The earlier ruling that no layer view,
+path or name carries a region is withdrawn for these layers: their names and
+paths name the regions, as the repeater layers' name their states. Tests:
+`tests/test_infra_regions.py`.
+
 ---
 
 ## D-076 — GraphHopper routes on the browser map: a pinned jar, one graph built here from the station's regions, started by `reference serve` on loopback and reached only through its Host-checked `/map/route`; installed by name, never in a profile
@@ -10539,12 +10558,12 @@ import, ACMA, the OpenStreetMap and other source layers of D-074, and every
 infrastructure theme today. They are not Ohio's or Michigan's, so no area can
 switch them off; the guides say so.
 
-**Infrastructure per region.** Each infrastructure theme is one file across
-every region today (D-075), so none is an area's. Issue #327 splits them per
-region. `infra.layer_area()` is the hook: it returns None for every layer now,
-and when it names a region the same rule, in `hammunition.areas`, takes only
-the active regions' files into QMapShack, Navit and the browser map with no
-other change.
+**Infrastructure per region.** Each infrastructure theme was one file across
+every region (D-075), so none was an area's. Issue #327 split them per region
+(D-075's 2026-10-04 amendment): `infra.layer_area()` names the region of a
+per-region layer, and the same rule, in `hammunition.areas`, takes only the
+active regions' files into QMapShack, Navit and the browser map. A merged layer
+(from before the split, or `--merged`) has no area and is always active.
 
 **Rejected.** Deleting on deactivation (the principle is the opposite).
 Moving files between directories (breaks the layer commands and a Bunker's

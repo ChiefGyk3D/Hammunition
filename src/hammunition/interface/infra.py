@@ -4,9 +4,10 @@
 """``maps infra import`` and ``maps infra remove`` as data.  D-075, D-059.
 
 Counts, paths, layer names and licence lines only, D-074's shape. Neither
-document carries a place's name or position, a region, a region's box or
-an extract's digest: the layers say where the operator is, and these are
-the kind of output that gets pasted into an issue."""
+document carries a place's name or position, a region's box or an extract's
+digest. Since #327 the layers are per region, so a layer's id, name, file
+paths and ``area`` name its region, as the repeater layers' name their
+states; the documents are still for local programs, not for pasting."""
 
 from __future__ import annotations
 
@@ -49,9 +50,10 @@ class InfraLayerView(Strict):
     """One layer this import wrote, or found empty."""
 
     layer_id: str = described(
-        "`osm-medical`, `osm-responders`, `osm-supply`, `osm-shelter-candidates`, "
+        "a theme (`osm-medical`, `osm-responders`, `osm-supply`, `osm-shelter-candidates`, "
         "`osm-transport`, `osm-power`, `osm-telecom`, `osm-water`, `faa-airports`, "
-        "`eia-plants`, `wri-plants`, `fcc-towers` or `nwr`"
+        "`eia-plants`, `wri-plants`, `fcc-towers` or `nwr`) followed by `-` and the region's "
+        "file slug for a per-region layer, the theme alone for a merged one"
     )
     name: str = described("the layer's name, as QMapShack and the browser map show it")
     written: int = described("points in the layer; 0 when this import found none")
@@ -62,8 +64,12 @@ class InfraLayerView(Strict):
         "an earlier version's files, deleted because this import found no point for it"
     )
     active: bool = described(
-        "whether the layer's area is active (D-082): true for every layer today, each theme "
-        "being one file across every region, and while the station's `active_areas` is unset"
+        "whether the layer's area is active (D-082): true for a merged layer, which has no "
+        "area, and while the station's `active_areas` is unset"
+    )
+    area: str | None = described(
+        "the region the layer is for, as its extract's file slug (D-082, #327); null for a "
+        "merged layer across every region"
     )
 
 

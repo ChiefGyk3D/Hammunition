@@ -919,7 +919,7 @@ With `--json`, prints a `repeaters-removed` document
 ([json-interface.md](json-interface.md)): the layers asked for, the files
 deleted, what each program was told and the all-sources file.
 
-### `hammunition maps infra import (--from-osm [--layers LAYER,LAYER] | --from-nasr | --from-eia | --from-wri)`
+### `hammunition maps infra import (--from-osm [--layers LAYER,LAYER] | --from-nasr | --from-eia | --from-wri) [--merged]`
 
 Infrastructure and EMCOMM points on your maps, one layer per source
 (**D-075**). Each layer is four files in
@@ -928,6 +928,22 @@ each renamed into place): a GPX (`infra-<id>.gpx`) for QMapShack's File >
 Load and phones, a Mapsforge `.poi` QMapShack keeps as a POI collection, a
 Navit textfile, and a GeoJSON the browser map draws. One import writes its
 own layers and leaves every other layer as it is. Refused as root.
+
+**One layer per region** (issue #327, **D-082**). Every theme is written once
+for each installed region extract, the extract's file slug ending the layer id
+and the file names: `osm-medical-north-america-us-ohio`,
+`infra-osm-medical-north-america-us-ohio.poi`. That slug is the one `maps
+areas` and `maps activate` read, so activating a region draws that region's
+infrastructure in QMapShack, Navit and the browser map with no other switch.
+`--merged` keeps the shape from before the split: one layer per theme across
+every region, which has no area and is always drawn. A data source's layer
+(`--from-nasr`, `--from-eia`, `--from-wri`, `fetch-fcc-asr`, `fetch-nwr`) is
+clipped to each installed region's header box, so a point inside two
+overlapping boxes is in both regions' layers. Every source carries
+coordinates, so none stays region-less except under `--merged`. When a
+merged layer from an earlier version is still on disk, the import says once
+that it is still registered and draws each point a second time; nothing is
+deleted until you run `maps infra remove --layer ID`.
 
 - `--from-osm` filters the region extracts installed here with osmium, as
   you, into eight layers: `osm-medical` (hospitals, clinics and doctors,
@@ -977,9 +993,12 @@ With `--json`, prints an `infra` document
 ([json-interface.md](json-interface.md)): the route, the licence lines,
 what was read (the extracts' directory with no digest), counts and skips,
 each layer's name, count and files, and what QMapShack and Navit were told.
-It carries no place's name or position, no region and no box.
+It carries no place's name or position and no box. Each layer view carries
+`area` (the region's file slug, null for a merged layer) and `active`; the
+layer names and file paths name the regions, as the repeater layers' name
+their states.
 
-### `hammunition maps infra fetch-fcc-asr`
+### `hammunition maps infra fetch-fcc-asr [--merged]`
 
 Fetches the FCC's weekly Antenna Structure Registration file,
 `https://data.fcc.gov/download/pub/uls/complete/r_tower.zip` (37,810,019
@@ -997,7 +1016,7 @@ line `FCC Antenna Structure Registration, US Government work, public
 domain`; the sha256 of what arrived is printed and recorded. No `--json`
 form.
 
-### `hammunition maps infra fetch-nwr`
+### `hammunition maps infra fetch-nwr [--merged]`
 
 Fetches NOAA Weather Radio's transmitter list,
 `https://www.weather.gov/source/nwr/JS/ccl-data.js` (754,735 bytes on
@@ -1012,11 +1031,13 @@ transmitter serving Delaware's and Vermont's counties. Licence line
 
 ### `hammunition maps infra remove [--layer ID]`
 
-Deletes every infrastructure layer's files, and the directory when it is
-left empty; anything else you put there stays. With `--layer` (`osm-medical`,
-`osm-responders`, `osm-supply`, `osm-shelter-candidates`, `osm-transport`,
-`osm-power`, `osm-telecom`, `osm-water`, `faa-airports`, `eia-plants`,
-`wri-plants`, `fcc-towers` or `nwr`) it deletes that layer only. QMapShack's
+Deletes every infrastructure layer's files, merged and per-region, and the
+directory when it is left empty; anything else you put there stays. With
+`--layer` (a theme: `osm-medical`, `osm-responders`, `osm-supply`,
+`osm-shelter-candidates`, `osm-transport`, `osm-power`, `osm-telecom`,
+`osm-water`, `faa-airports`, `eia-plants`, `wri-plants`, `fcc-towers` or `nwr`,
+which is the merged layer only; or `<theme>-<region slug>`, one region's) it
+deletes that layer only. QMapShack's
 `poiPaths` and your Navit copy follow the overlay layers that remain,
 repeaters included. Nothing to remove is exit 0.
 

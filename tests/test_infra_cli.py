@@ -124,7 +124,7 @@ def test_from_osm_writes_the_eight_layers_and_registers_them(
 ) -> None:
     station.install_navit()
     station.install_region()
-    code, out, err = _run(["maps", "infra", "import", "--from-osm"], capsys)
+    code, out, err = _run(["maps", "infra", "import", "--from-osm", "--merged"], capsys)
     assert code == 0, err
     assert len(osmium) == 1
     assert infra.OSM_LICENCE in out
@@ -146,10 +146,10 @@ def test_layers_picks_some_and_leaves_the_others(
     station: Station, capsys: pytest.CaptureFixture[str], osmium: list[list[str]]
 ) -> None:
     station.install_region()
-    assert cli.main(["maps", "infra", "import", "--from-osm"]) == 0
+    assert cli.main(["maps", "infra", "import", "--from-osm", "--merged"]) == 0
     capsys.readouterr()
     code, out, _ = _run(
-        ["maps", "infra", "import", "--from-osm", "--layers", "medical,water"], capsys
+        ["maps", "infra", "import", "--from-osm", "--merged", "--layers", "medical,water"], capsys
     )
     assert code == 0
     assert "nwr/amenity=hospital,clinic,doctors,pharmacy" in osmium[-1]
@@ -163,7 +163,8 @@ def test_an_unknown_layer_is_refused_by_name(
 ) -> None:
     station.install_region()
     code, _, err = _run(
-        ["maps", "infra", "import", "--from-osm", "--layers", "medical,shelters"], capsys
+        ["maps", "infra", "import", "--from-osm", "--merged", "--layers", "medical,shelters"],
+        capsys,
     )
     assert code == cli.EXIT_FAILED
     assert "no OpenStreetMap layer 'shelters'" in err and "shelter-candidates" in err
@@ -171,7 +172,9 @@ def test_an_unknown_layer_is_refused_by_name(
 
 
 def test_layers_only_with_from_osm(station: Station, capsys: pytest.CaptureFixture[str]) -> None:
-    code, _, err = _run(["maps", "infra", "import", "--from-nasr", "--layers", "medical"], capsys)
+    code, _, err = _run(
+        ["maps", "infra", "import", "--from-nasr", "--merged", "--layers", "medical"], capsys
+    )
     assert code == cli.EXIT_FAILED and "--layers picks OpenStreetMap layers" in err
 
 
@@ -182,7 +185,7 @@ def test_a_layer_that_empties_is_removed_and_said(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     station.install_region()
-    assert cli.main(["maps", "infra", "import", "--from-osm"]) == 0
+    assert cli.main(["maps", "infra", "import", "--from-osm", "--merged"]) == 0
     capsys.readouterr()
     no_water = OSM.read_text().replace('v="water_tower"', 'v="nothing"')
     no_water = no_water.replace('v="wastewater_plant"', 'v="nothing"')
@@ -192,7 +195,7 @@ def test_a_layer_that_empties_is_removed_and_said(
         return subprocess.CompletedProcess(argv, 0, "", "")
 
     monkeypatch.setattr(infra, "_run", run)
-    code, out, _ = _run(["maps", "infra", "import", "--from-osm", "--json"], capsys)
+    code, out, _ = _run(["maps", "infra", "import", "--from-osm", "--merged", "--json"], capsys)
     assert code == 0
     doc = parse_one(out)
     water = next(v for v in doc["layers"] if v["layer_id"] == "osm-water")
@@ -208,7 +211,7 @@ def test_an_import_that_finds_nothing_changes_nothing(
     osmium: list[list[str]],
 ) -> None:
     station.install_region()
-    assert cli.main(["maps", "infra", "import", "--from-osm"]) == 0
+    assert cli.main(["maps", "infra", "import", "--from-osm", "--merged"]) == 0
     capsys.readouterr()
 
     def empty(argv: list[str]) -> subprocess.CompletedProcess[str]:
@@ -216,7 +219,7 @@ def test_an_import_that_finds_nothing_changes_nothing(
         return subprocess.CompletedProcess(argv, 0, "", "")
 
     monkeypatch.setattr(infra, "_run", empty)
-    code, _, err = _run(["maps", "infra", "import", "--from-osm"], capsys)
+    code, _, err = _run(["maps", "infra", "import", "--from-osm", "--merged"], capsys)
     assert code == cli.EXIT_FAILED and "Nothing was changed" in err
     assert len(infra.present_layers(station.layer)) == 8
 
@@ -226,7 +229,7 @@ def test_overlapping_extracts_keep_a_place_once(
 ) -> None:
     station.install_region("a-testville")
     station.install_region("b-testville")
-    code, out, _ = _run(["maps", "infra", "import", "--from-osm", "--json"], capsys)
+    code, out, _ = _run(["maps", "infra", "import", "--from-osm", "--merged", "--json"], capsys)
     assert code == 0 and len(osmium) == 2
     doc = parse_one(out)
     assert doc["merged"] == 20
@@ -237,7 +240,7 @@ def test_overlapping_extracts_keep_a_place_once(
 def test_from_osm_with_no_region_installed_says_what_to_install(
     station: Station, capsys: pytest.CaptureFixture[str], osmium: list[list[str]]
 ) -> None:
-    code, _, err = _run(["maps", "infra", "import", "--from-osm"], capsys)
+    code, _, err = _run(["maps", "infra", "import", "--from-osm", "--merged"], capsys)
     assert code == cli.EXIT_FAILED and "hammunition install osm-regions" in err
 
 
@@ -250,7 +253,7 @@ def test_a_failing_osmium_names_the_extract_by_number(
         return subprocess.CompletedProcess(argv, 1, "", f"Open failed for '{path}'")
 
     monkeypatch.setattr(infra, "_run", fails)
-    code, out, err = _run(["maps", "infra", "import", "--from-osm"], capsys)
+    code, out, err = _run(["maps", "infra", "import", "--from-osm", "--merged"], capsys)
     assert code == cli.EXIT_FAILED and "region extract 1 of 1" in err
     _no_private(out + err)
 
@@ -259,7 +262,7 @@ def test_the_json_document_validates_and_carries_nothing_private(
     station: Station, capsys: pytest.CaptureFixture[str], osmium: list[list[str]]
 ) -> None:
     station.install_region()
-    code = cli.main(["maps", "infra", "import", "--from-osm", "--json"])
+    code = cli.main(["maps", "infra", "import", "--from-osm", "--merged", "--json"])
     raw = capsys.readouterr().out
     assert code == 0
     doc = parse_one(raw)
@@ -269,7 +272,7 @@ def test_the_json_document_validates_and_carries_nothing_private(
     (only,) = doc["inputs"]
     assert only["path"].endswith("osm-regions") and only["sha256"] == ""
     _no_private(raw)
-    assert cli.main(["maps", "infra", "import", "--from-osm"]) == 0
+    assert cli.main(["maps", "infra", "import", "--from-osm", "--merged"]) == 0
     text = capsys.readouterr().out
     assert_text_values_in_json(text, doc, render_infra)
 
@@ -291,7 +294,7 @@ def test_remove_one_layer_then_all_idempotently(
 ) -> None:
     station.install_navit()
     station.install_region()
-    assert cli.main(["maps", "infra", "import", "--from-osm"]) == 0
+    assert cli.main(["maps", "infra", "import", "--from-osm", "--merged"]) == 0
     capsys.readouterr()
     code, out, _ = _run(["maps", "infra", "remove", "--layer", "osm-medical", "--json"], capsys)
     assert code == 0
@@ -322,7 +325,7 @@ def test_repeater_and_infra_layers_share_the_navit_copy_and_both_stay(
         "N0CALL,146.940,-0.6,100.0,FM,38.7,-75.5,Test,\n"
     )
     assert cli.main(["maps", "repeaters", "import", str(hand)]) == 0
-    assert cli.main(["maps", "infra", "import", "--from-osm"]) == 0
+    assert cli.main(["maps", "infra", "import", "--from-osm", "--merged"]) == 0
     navit = station.user_navit.read_text()
     assert repeaters.FILES[2] in navit and "infra-osm-power.navit.txt" in navit
     conf = station.qms.read_text()
@@ -331,7 +334,7 @@ def test_repeater_and_infra_layers_share_the_navit_copy_and_both_stay(
     navit = station.user_navit.read_text()
     assert repeaters.FILES[2] in navit and "infra-" not in navit
     assert str(station.repeaters) in station.qms.read_text()
-    assert cli.main(["maps", "infra", "import", "--from-osm", "--layers", "power"]) == 0
+    assert cli.main(["maps", "infra", "import", "--from-osm", "--merged", "--layers", "power"]) == 0
     assert cli.main(["maps", "repeaters", "remove"]) == 0
     navit = station.user_navit.read_text()
     assert "infra-osm-power.navit.txt" in navit and repeaters.FILES[2] not in navit
@@ -342,7 +345,7 @@ def test_maps_qmapshack_keeps_both_directories(
     station: Station, capsys: pytest.CaptureFixture[str], osmium: list[list[str]]
 ) -> None:
     station.install_region()
-    assert cli.main(["maps", "infra", "import", "--from-osm"]) == 0
+    assert cli.main(["maps", "infra", "import", "--from-osm", "--merged"]) == 0
     station.qms.write_text("[Canvas]\nmapPath=/elsewhere\n")
     assert cli.main(["maps", "qmapshack", "--configure-only"]) == 0
     assert str(station.layer) in station.qms.read_text()
@@ -365,7 +368,7 @@ def test_from_nasr_reads_the_installed_unit_into_its_own_layer(
 ) -> None:
     station.install_region()
     _install_unit(station, "nasr", sources_test._nasr(tmp_path, sources_test.NASR_ROWS))
-    code, out, err = _run(["maps", "infra", "import", "--from-nasr"], capsys)
+    code, out, err = _run(["maps", "infra", "import", "--from-nasr", "--merged"], capsys)
     assert code == 0, err
     assert "FAA NASR 2026-10-01, public domain" in out
     assert "Airports and heliports (FAA NASR 2026-10-01): 3 points" in out
@@ -380,7 +383,7 @@ def test_from_nasr_skips_an_extract_without_a_box_and_names_it_by_number(
     station.install_region("a-testville")
     station.install_region("b-boxless", box=None)
     _install_unit(station, "nasr", sources_test._nasr(tmp_path, sources_test.NASR_ROWS))
-    code, out, err = _run(["maps", "infra", "import", "--from-nasr"], capsys)
+    code, out, err = _run(["maps", "infra", "import", "--from-nasr", "--merged"], capsys)
     assert code == 0, err
     assert "region extract 2 of 2 has no bounding box in its header; left out" in out
     assert infra.present_layers(station.layer) == ("faa-airports",)
@@ -393,7 +396,7 @@ def test_from_nasr_json_notes_an_extract_without_a_box(
     station.install_region("a-testville")
     station.install_region("b-boxless", box=None)
     _install_unit(station, "nasr", sources_test._nasr(tmp_path, sources_test.NASR_ROWS))
-    code, out, err = _run(["maps", "infra", "import", "--from-nasr", "--json"], capsys)
+    code, out, err = _run(["maps", "infra", "import", "--from-nasr", "--merged", "--json"], capsys)
     assert code == 0, err
     doc = parse_one(out)
     validate(doc)
@@ -414,7 +417,7 @@ def test_a_unit_not_installed_is_named(
     flag: str, unit: str, station: Station, capsys: pytest.CaptureFixture[str]
 ) -> None:
     station.install_region()
-    code, _, err = _run(["maps", "infra", "import", flag], capsys)
+    code, _, err = _run(["maps", "infra", "import", flag, "--merged"], capsys)
     assert code == cli.EXIT_FAILED and f"hammunition install {unit}" in err
     assert not station.layer.exists()
 
@@ -424,7 +427,7 @@ def test_a_data_import_needs_a_region_with_a_box(
 ) -> None:
     station.install_region(box=None)
     _install_unit(station, "nasr", sources_test._nasr(tmp_path, sources_test.NASR_ROWS))
-    code, _, err = _run(["maps", "infra", "import", "--from-nasr"], capsys)
+    code, _, err = _run(["maps", "infra", "import", "--from-nasr", "--merged"], capsys)
     assert code == cli.EXIT_FAILED and "hammunition install osm-regions" in err
 
 
@@ -433,7 +436,7 @@ def test_from_eia_and_wri_json_validate_and_say_what_covers_the_us(
 ) -> None:
     station.install_region()
     _install_unit(station, "eia", sources_test._xlsx(tmp_path, sources_test.EIA_ROWS))
-    assert cli.main(["maps", "infra", "import", "--from-eia", "--json"]) == 0
+    assert cli.main(["maps", "infra", "import", "--from-eia", "--merged", "--json"]) == 0
     doc = parse_one(capsys.readouterr().out)
     validate(doc)
     assert doc["route"] == "eia" and doc["layers"][0]["written"] == 1
@@ -445,7 +448,7 @@ def test_from_eia_and_wri_json_validate_and_say_what_covers_the_us(
         ["USA,United States of America,Testville Dam,USA1,5.0,38.9,-75.4,Hydro,,,,1950,X,src"],
     )
     _install_unit(station, "wri", wri)
-    code, _, err = _run(["maps", "infra", "import", "--from-wri"], capsys)
+    code, _, err = _run(["maps", "infra", "import", "--from-wri", "--merged"], capsys)
     assert code == cli.EXIT_FAILED and "Nothing was changed" in err
     assert infra.present_layers(station.layer) == ("eia-plants",)
 
@@ -490,7 +493,7 @@ def test_fetch_fcc_asr_discloses_first_and_carries_no_owner_contact(
     station.install_navit()
     station.install_region()
     served.bodies["/r_tower.zip"] = sources_test.ASR
-    code, out, err = _run(["maps", "infra", "fetch-fcc-asr"], capsys)
+    code, out, err = _run(["maps", "infra", "fetch-fcc-asr", "--merged"], capsys)
     assert code == 0, err
     assert out.index("This fetches the FCC's") < out.index("FCC Antenna Structure Registration,")
     assert "FCC towers (unverified, 2026-09-27): 2 points" in out
@@ -504,7 +507,7 @@ def test_fetch_nwr_drops_the_live_status(
 ) -> None:
     station.install_region()
     served.bodies["/ccl-data.js"] = sources_test.NWR
-    code, out, err = _run(["maps", "infra", "fetch-nwr"], capsys)
+    code, out, err = _run(["maps", "infra", "fetch-nwr", "--merged"], capsys)
     assert code == 0, err
     assert "NOAA/NWS, public domain, not an official NWS product" in out
     text = station.text()
@@ -516,7 +519,7 @@ def test_fetch_nwr_drops_the_live_status(
 def test_a_fetch_with_no_region_fetches_nothing(
     station: Station, served: type[_Handler], capsys: pytest.CaptureFixture[str]
 ) -> None:
-    code, _, err = _run(["maps", "infra", "fetch-nwr"], capsys)
+    code, _, err = _run(["maps", "infra", "fetch-nwr", "--merged"], capsys)
     assert code == cli.EXIT_FAILED and "Nothing was fetched" in err
     assert served.asked == []
 
@@ -526,7 +529,7 @@ def test_a_fetch_that_answers_wrong_writes_nothing(
 ) -> None:
     station.install_region()
     served.bodies["/r_tower.zip"] = b"<html>maintenance</html>"
-    code, _, err = _run(["maps", "infra", "fetch-fcc-asr"], capsys)
+    code, _, err = _run(["maps", "infra", "fetch-fcc-asr", "--merged"], capsys)
     assert code == cli.EXIT_FAILED and "not a zip" in err
     assert not station.layer.exists()
 
@@ -565,7 +568,7 @@ def test_the_fetches_send_a_descriptive_user_agent(
     )
     station.install_region()
     try:
-        assert cli.main(["maps", "infra", "fetch-nwr"]) == 0
+        assert cli.main(["maps", "infra", "fetch-nwr", "--merged"]) == 0
     finally:
         server.shutdown()
         server.server_close()

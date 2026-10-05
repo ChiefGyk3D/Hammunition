@@ -2248,6 +2248,20 @@ files of yours: a GPX, a QMapShack POI collection, a Navit map and a
 GeoJSON for the browser map. Writing one source's layers leaves the others
 alone. Nothing here runs as root.
 
+**One set per region.** Every layer is written once for each region you
+installed, with the region in the file name
+(`infra-osm-medical-north-america-us-ohio.poi`) and in the layer's name in
+QMapShack's dock, so a region's set can be ticked on and off and
+`hammunition maps activate` (section 19) draws only the active regions'.
+Every source here carries coordinates, so every layer is split: the
+OpenStreetMap themes by the extract they were filtered from, and the FAA,
+EIA, WRI, FCC and NOAA lists by clipping to each region's box (a point inside
+two overlapping boxes is in both). `--merged` on any import or fetch keeps
+one layer per source across every region, which belongs to no area and is
+always drawn. If you imported before the split, those merged files stay where
+they are, still registered, until you remove them: the import tells you so,
+once, and a point is drawn twice meanwhile.
+
 ### From the regions you already have
 
 ```
@@ -2373,7 +2387,11 @@ is *not an official NWS product*.
 ```
 hammunition maps infra remove
 hammunition maps infra remove --layer fcc-towers
+hammunition maps infra remove --layer osm-medical-north-america-us-ohio
 ```
+
+A theme's own id removes the merged layer only, which is how you clear what an
+older import left; a `<theme>-<region>` id removes that region's.
 
 ### Not carried, and why
 
@@ -2470,10 +2488,11 @@ find loaded: that is accepted with a note, since you may fetch it next.
 
 **What stays registered whatever you pick.** A layer that belongs to no area
 cannot be switched off by one: your own import (`maps repeaters import`), the
-ACMA, OpenStreetMap, Open Repeater and other source layers, and every
-infrastructure theme today (each is one file across all your regions). `maps
-areas` lists them as *Always active*. When the infrastructure layers are split
-per region (issue #327), the same switch takes the active regions' files only.
+ACMA, OpenStreetMap, Open Repeater and other source layers, and any merged
+infrastructure layer (from before the per-region split, or `--merged`). `maps
+areas` lists them as *Always active*. Infrastructure written per region
+(section 18) is its region's: the same switch takes the active regions' files
+only, and `maps areas` lists it under the region.
 
 **Nothing is deleted.** `--none` leaves every file where it was, the links are
 the only thing `activate` removes (never the files they point at), and `--all`
