@@ -22,6 +22,8 @@ JSON_VERBS: frozenset[tuple[str, ...]] = frozenset(
         ("install",),
         ("uninstall",),
         ("maps", "regions"),
+        ("maps", "areas"),
+        ("maps", "repeaters", "list"),
         ("reference", "books"),
     }
 )
@@ -33,7 +35,7 @@ class NotAJsonVerb(Exception):
 
 
 def verb_of(words: Sequence[str]) -> tuple[str, ...]:
-    for n in (2, 1):
+    for n in (3, 2, 1):
         head = tuple(words[:n])
         if len(head) == n and head in JSON_VERBS:
             return head

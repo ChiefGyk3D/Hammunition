@@ -1,0 +1,158 @@
+{
+  "$defs": {
+    "AreaLayerView": {
+      "additionalProperties": false,
+      "description": "One thing loaded for an area.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Rows"
+        },
+        "size_bytes": {
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "day": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Day"
+        },
+        "files": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Files",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "rows",
+        "size_bytes",
+        "day",
+        "files"
+      ],
+      "title": "AreaLayerView",
+      "type": "object"
+    },
+    "AreaView": {
+      "additionalProperties": false,
+      "description": "One state or region with files on disk.",
+      "properties": {
+        "area": {
+          "title": "Area",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "active": {
+          "title": "Active",
+          "type": "boolean"
+        },
+        "layers": {
+          "items": {
+            "$ref": "#/$defs/AreaLayerView"
+          },
+          "title": "Layers",
+          "type": "array"
+        },
+        "size_bytes": {
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "day": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Day"
+        }
+      },
+      "required": [
+        "area",
+        "kind",
+        "active",
+        "layers",
+        "size_bytes",
+        "day"
+      ],
+      "title": "AreaView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Every area with files on disk, whether it is active, and what is\nalways active. Read-only: nothing is written or fetched.",
+  "properties": {
+    "active_areas": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Active Areas"
+    },
+    "areas": {
+      "items": {
+        "$ref": "#/$defs/AreaView"
+      },
+      "title": "Areas",
+      "type": "array"
+    },
+    "always_active": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Always Active",
+      "type": "array"
+    },
+    "unloaded": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unloaded",
+      "type": "array"
+    }
+  },
+  "required": [
+    "active_areas",
+    "areas",
+    "always_active",
+    "unloaded"
+  ],
+  "title": "AreasDocument",
+  "type": "object"
+}

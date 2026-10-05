@@ -9,7 +9,8 @@ with input() ONLY when stdin is a tty, prints a prompt, exits 0 on `yes` and 3
 otherwise (the engine's "consent declined or not presented"). Nothing here ever
 reads the environment for consent. Environment knobs: FAKE_HAMMUNITION_FIXTURES,
 FAKE_HAMMUNITION_SUFFIX ("" or "-without": the engine with or without E1/E2),
-FAKE_HAMMUNITION_STATION ("set" or "none"), FAKE_HAMMUNITION_LOG (a file that
+FAKE_HAMMUNITION_STATION ("set" or "none"), FAKE_HAMMUNITION_RBCLIENT ("present" or
+"absent": whether `update repeaterbook-client` reports the unit installed), FAKE_HAMMUNITION_LOG (a file that
 gets one JSON line per invocation: argv, whether stdin is a tty, and the names
 of any HAMMUNITION_ variables it saw).
 """
@@ -41,6 +42,7 @@ def respond(
     suffix: str = "",
     station: str = "set",
     secrets: str = "none",
+    rbclient: str = "present",
 ) -> tuple[str, int] | None:
     """The stdout and exit code for a `--json` read, or None when nobody mapped it."""
     words = [w for w in argv[1:] if w != "--json"]
@@ -59,7 +61,13 @@ def respond(
         return _read(fixtures, "station-set" if station == "set" else "station-none")
     if words[:1] == ["update"]:
         names = [w for w in words[1:] if not w.startswith("-")]
+        if names == ["repeaterbook-client"]:
+            return _read(fixtures, f"update-repeaterbook-client-{rbclient}")
         return _read(fixtures, f"update-all{suffix}" if not names else "update-profile")
+    if words[:3] == ["maps", "repeaters", "list"]:
+        return _read(fixtures, "repeaters-list")
+    if words[:2] == ["maps", "areas"]:
+        return _read(fixtures, "areas")
     if words[:2] == ["maps", "regions"]:
         return _read(fixtures, "regions")
     if words[:2] == ["reference", "books"]:
@@ -144,7 +152,8 @@ def main(argv: list[str]) -> int:
     station = os.environ.get("FAKE_HAMMUNITION_STATION", "set")
     if "--json" in argv:
         secrets = "environment" if os.environ.get("REPEATERBOOK") else "none"
-        answered = respond(["hammunition", *argv], FIXTURES, suffix, station, secrets)
+        rbclient = os.environ.get("FAKE_HAMMUNITION_RBCLIENT", "present")
+        answered = respond(["hammunition", *argv], FIXTURES, suffix, station, secrets, rbclient)
         if answered is None:
             print(f"FAKE: unmapped argv {argv!r}", file=sys.stderr)
             return 99
@@ -164,6 +173,12 @@ def main(argv: list[str]) -> int:
         return _ask("Type 'yes' to apply: ")
     if argv[:3] == ["maps", "repeaters", "fetch-repeaterbook"]:
         print("fetched")
+        return 0
+    if argv[:3] in (
+        ["maps", "repeaters", "import"],
+        ["maps", "repeaters", "remove"],
+    ) or argv[:2] == ["maps", "activate"]:
+        print("done")
         return 0
     if argv[:2] == ["station", "set"]:
         print("saved")

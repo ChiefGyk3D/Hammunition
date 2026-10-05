@@ -1,0 +1,24 @@
+Read-only, from the layers on this machine: hammunition maps repeaters list
+Nearest first from your station's grid square
+
+Callsign   Output    Offset Tone   Mode             Dist  Brg  Place
+N0CALL     146.9400    -0.6 100.0  FM            12.4 km   85  Testville, OH
+N0TST      444.2500    +5.0 -      FM, DMR       33.9 km  210  Exampleton, MI
+N0TST      147.2100    +0.6 88.5   FM            58.0 km   12  Sampleburg, FL
+
+3 repeaters (0 merged across sources)
+
+Repeater data from RepeaterBook (https://www.repeaterbook.com), fetched with the
+operator's own token: personal use only, not to be shared or served.
+Open Repeater list, CC0 1.0.
+
+
+
+
+
+
+
+
+
+
+

@@ -55,7 +55,7 @@ def test_the_envelope_names() -> None:
         {"pattern": "x"},
         {"type": ["string", "null"]},
         {"type": "float"},
-        {"type": "object", "additionalProperties": {"type": "string"}},
+        {"type": "object", "additionalProperties": "yes"},
     ],
 )
 def test_an_unsupported_keyword_or_shape_fails_loudly(sub: dict[str, Any]) -> None:
@@ -65,3 +65,9 @@ def test_an_unsupported_keyword_or_shape_fails_loudly(sub: dict[str, Any]) -> No
 
 def test_annotations_are_ignored() -> None:
     assert validate("x", {"title": "T", "description": "d", "type": "string"}) == []
+
+
+def test_a_map_of_one_value_type_is_checked_per_value() -> None:
+    schema = {"type": "object", "additionalProperties": {"type": "string"}}
+    assert validate({"a": "x", "b": "y"}, schema) == []
+    assert validate({"a": 1}, schema) == ["$.a: expected string, got int"]

@@ -38,7 +38,7 @@ def test_the_keys_table_lists_every_key_in_the_help() -> None:
 
 
 def test_the_reference_names_every_screen_and_counts_them_right() -> None:
-    assert len(SCREENS) == 7
+    assert len(SCREENS) == 8
     for screen in SCREENS:
         assert f"**{screen.capitalize()}**" in INDEX, screen
 

@@ -47,6 +47,9 @@ WRITE_VERBS: frozenset[tuple[str, ...]] = frozenset(
         ("hardware", "apply"),
         ("self-update",),
         ("maps", "repeaters", "fetch-repeaterbook"),
+        ("maps", "repeaters", "import"),
+        ("maps", "repeaters", "remove"),
+        ("maps", "activate"),
     }
 )
 

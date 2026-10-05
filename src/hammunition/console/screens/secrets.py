@@ -13,6 +13,7 @@ from typing import Any
 
 import urwid
 
+from hammunition.console import repeaterbook
 from hammunition.console.context import Context
 from hammunition.console.engine import Document
 from hammunition.console.fmt import clean
@@ -39,10 +40,10 @@ class SecretsScreen(Screen):
     name = "secrets"
     title = "Secrets"
 
-    def __init__(self, ctx: Context) -> None:
+    def __init__(self, ctx: Context, note: str = "") -> None:
         super().__init__(ctx)
         self._doc: Document | None = None
-        self.note = ""
+        self.note = note
         self._project = ""
 
     def on_show(self) -> None:
@@ -272,6 +273,10 @@ class SecretsScreen(Screen):
         self._confirm([*words[:slot], value, *words[slot + 1 :]])
 
     def _confirm(self, words: list[str]) -> None:
+        if repeaterbook.is_fetch(words):
+            # The fetch needs its unit: one function, shared with the Repeaters screen (#344).
+            repeaterbook.run_fetch(self.ctx, words, self._after_run)
+            return
         argv = self.ctx.engine.command(*words)
         self.ctx.push(
             ConfirmScreen(

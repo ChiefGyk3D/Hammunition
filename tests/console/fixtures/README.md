@@ -28,6 +28,13 @@ JSON Schema (`schemas/`) by `test_fixtures.py`:
 - `secrets-none.json`, `secrets-environment.json`, `secrets-doppler.json`: `hammunition secrets status` (issue #321) did not
   exist in the engine when the console fixtures were recorded; written by hand from `SecretsDocument` and validated against
   `schemas/secrets.json`, which is extracted from the generated `json-interface.md`. Replace with recordings on the next capture.
+- `repeaters-list.json`, `areas.json`, `update-repeaterbook-client-present.json`, `update-repeaterbook-client-absent.json`: the
+  Repeaters screen's reads (issue #322, #344), written by hand from `RepeatersListDocument`, `AreasDocument` and
+  `UpdateDocument`, validated against `schemas/repeaters-list.json`, `schemas/areas.json` and `schemas/update.json`. Two states
+  (`OH` active, `MI` not), an open layer with no area, the personal-use credit exactly as the engine words it; placeholder
+  callsigns and places only. The two `update-repeaterbook-client-*` files are what `hammunition update repeaterbook-client --json`
+  prints with the unit installed and not (`list --json` carries no per-unit installed state; `update` compares the machine).
+  Replace with recordings on the next capture.
 - `plan-station-size-consent.json`: `plan-station` with a hand-authored `maps.terrain.topo.size_consent` (engine PR #260, topo-bound,
   not yet recorded); the published schema predates it, so `test_fixtures.py` exempts it (`AHEAD_OF_SCHEMA`).
 

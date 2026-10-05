@@ -33,6 +33,7 @@ SCREEN_CLASSES = {
     "install": "hammunition.console.screens.install:InstallScreen",
     "station": "hammunition.console.screens.station:StationScreen",
     "secrets": "hammunition.console.screens.secrets:SecretsScreen",
+    "repeaters": "hammunition.console.screens.repeaters:RepeatersScreen",
     "logs": "hammunition.console.screens.logs:LogsScreen",
     "update": "hammunition.console.screens.update:UpdateScreen",
     "help": "hammunition.console.screens.help:HelpScreen",

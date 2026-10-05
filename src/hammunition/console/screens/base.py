@@ -128,11 +128,12 @@ class PromptScreen(Screen):
         *,
         note: str = "",
         mask: str | None = None,
+        initial: str = "",
     ) -> None:
         super().__init__(ctx)
         self.title = title
         self._on_submit = on_submit
-        self._edit = urwid.Edit(label, mask=mask)
+        self._edit = urwid.Edit(label, edit_text=initial, mask=mask)
         rows: list[urwid.Widget] = [
             text(note),
             self._edit,

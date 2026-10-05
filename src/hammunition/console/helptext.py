@@ -17,7 +17,7 @@ it never answers a consent prompt for you. Needs a terminal at least 80x24."""
 # (keys, meaning). Every key listed here is handled somewhere; the README's
 # keys table is generated from this tuple's content by hand and a test checks it.
 KEYS: tuple[tuple[str, str], ...] = (
-    ("1-6", "open the screen with that number (Home)"),
+    ("1-7", "open the screen with that number (Home)"),
     ("Enter", "open the selected row"),
     ("b / Esc", "go back; changes nothing (in a text prompt only Esc: b is typed)"),
     ("?", "help"),
@@ -34,6 +34,11 @@ KEYS: tuple[tuple[str, str], ...] = (
     ("e", "enter the selected secret for this session only, hidden (Secrets)"),
     ("x", "forget the session value of the selected secret (Secrets)"),
     ("f", "run the command the selected secret unlocks (Secrets)"),
+    ("f", "fetch RepeaterBook by state (Repeaters)"),
+    ("i", "import your own repeater export (Repeaters)"),
+    ("a", "choose the active areas (Repeaters)"),
+    ("x", "remove the selected layer (Repeaters)"),
+    ("l", "look repeaters up near a place, by band and mode (Repeaters)"),
     ("u", "also ask upstream whether the catalog's pins are current (Update)"),
     ("A", "run the apt upgrade the report offers (Update)"),
     ("B", "plan the rebuilds the report offers (Update)"),
@@ -82,6 +87,18 @@ _RAW_HELP: dict[str, tuple[str, ...]] = {
         "the environment, Doppler, or nowhere yet. It never shows a value. g says where to get one; d names a "
         "Doppler project and config (names only) through the engine's station set; e keeps a value in this console's "
         "memory for the engine commands it starts, writes it nowhere and forgets it when you quit.",
+    ),
+    "repeaters": (
+        "Repeaters shows the repeater layers on this machine grouped by area, which areas are active, and the "
+        "engine's credit for each source. f fetches RepeaterBook by state (it needs your own token: Secrets opens "
+        "first when none answers, and the repeaterbook-client unit is offered when it is missing); i imports your "
+        "own export from a file; a chooses the active areas, which deletes nothing; x removes the selected layer; "
+        "l looks repeaters up near a place by distance, band and mode. Each is the engine's own command, shown "
+        "before it runs.",
+    ),
+    "lookup": (
+        "The lookup lists the repeaters the layers on this machine hold, nearest first when a position is known. "
+        "RepeaterBook rows are for your own use on this machine; the credit below the table is the engine's.",
     ),
     "logs": (
         "Logs lists every run the engine recorded, newest first, with its result in the engine's own words. Enter opens "

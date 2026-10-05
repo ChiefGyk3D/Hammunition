@@ -1,0 +1,350 @@
+{
+  "$defs": {
+    "CentreView": {
+      "additionalProperties": false,
+      "description": "The point distances and bearings are measured from.",
+      "properties": {
+        "lat": {
+          "title": "Lat",
+          "type": "number"
+        },
+        "lon": {
+          "title": "Lon",
+          "type": "number"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lat",
+        "lon",
+        "source"
+      ],
+      "title": "CentreView",
+      "type": "object"
+    },
+    "LayerSkipView": {
+      "additionalProperties": false,
+      "description": "A layer the all-sources file could not read.",
+      "properties": {
+        "layer": {
+          "title": "Layer",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "layer",
+        "reason"
+      ],
+      "title": "LayerSkipView",
+      "type": "object"
+    },
+    "LayerView": {
+      "additionalProperties": false,
+      "description": "One layer read from the overlay directory.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "area": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Area"
+        },
+        "active": {
+          "title": "Active",
+          "type": "boolean"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "day": {
+          "title": "Day",
+          "type": "string"
+        },
+        "rows": {
+          "title": "Rows",
+          "type": "integer"
+        },
+        "sources": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "personal_use": {
+          "title": "Personal Use",
+          "type": "boolean"
+        },
+        "unverified": {
+          "title": "Unverified",
+          "type": "boolean"
+        },
+        "files": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Files",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "area",
+        "active",
+        "name",
+        "description",
+        "day",
+        "rows",
+        "sources",
+        "personal_use",
+        "unverified",
+        "files"
+      ],
+      "title": "LayerView",
+      "type": "object"
+    },
+    "RowView": {
+      "additionalProperties": false,
+      "description": "One repeater, after the layers were joined.",
+      "properties": {
+        "callsign": {
+          "title": "Callsign",
+          "type": "string"
+        },
+        "output_hz": {
+          "title": "Output Hz",
+          "type": "integer"
+        },
+        "offset_hz": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Offset Hz"
+        },
+        "tone": {
+          "title": "Tone",
+          "type": "string"
+        },
+        "mode": {
+          "title": "Mode",
+          "type": "string"
+        },
+        "modes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Modes",
+          "type": "array"
+        },
+        "band": {
+          "title": "Band",
+          "type": "string"
+        },
+        "digital": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Digital",
+          "type": "object"
+        },
+        "distance_km": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Distance Km"
+        },
+        "bearing_deg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bearing Deg"
+        },
+        "place": {
+          "title": "Place",
+          "type": "string"
+        },
+        "notes": {
+          "title": "Notes",
+          "type": "string"
+        },
+        "use": {
+          "title": "Use",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "updated": {
+          "title": "Updated",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "lat": {
+          "title": "Lat",
+          "type": "number"
+        },
+        "lon": {
+          "title": "Lon",
+          "type": "number"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "also": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Also",
+          "type": "array"
+        },
+        "layer": {
+          "title": "Layer",
+          "type": "string"
+        },
+        "personal_use": {
+          "title": "Personal Use",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "callsign",
+        "output_hz",
+        "offset_hz",
+        "tone",
+        "mode",
+        "modes",
+        "band",
+        "digital",
+        "distance_km",
+        "bearing_deg",
+        "place",
+        "notes",
+        "use",
+        "status",
+        "updated",
+        "label",
+        "lat",
+        "lon",
+        "source",
+        "also",
+        "layer",
+        "personal_use"
+      ],
+      "title": "RowView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The repeater layers on this machine, read back, for a program. Read-only:\nnothing is written, fetched or rebuilt. A layer that cannot be read is in\n`skipped` and the rest is returned, with exit 0; an empty directory is an\nempty document. Carries every row, so it is for local programs, not for\npasting. D-074 (amended 2026-10-04).",
+  "properties": {
+    "directory": {
+      "title": "Directory",
+      "type": "string"
+    },
+    "layers": {
+      "items": {
+        "$ref": "#/$defs/LayerView"
+      },
+      "title": "Layers",
+      "type": "array"
+    },
+    "skipped": {
+      "items": {
+        "$ref": "#/$defs/LayerSkipView"
+      },
+      "title": "Skipped",
+      "type": "array"
+    },
+    "rows": {
+      "items": {
+        "$ref": "#/$defs/RowView"
+      },
+      "title": "Rows",
+      "type": "array"
+    },
+    "merged": {
+      "title": "Merged",
+      "type": "integer"
+    },
+    "credits": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Credits",
+      "type": "array"
+    },
+    "centre": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CentreView"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "within_km": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Within Km"
+    }
+  },
+  "required": [
+    "directory",
+    "layers",
+    "skipped",
+    "rows",
+    "merged",
+    "credits",
+    "centre",
+    "within_km"
+  ],
+  "title": "RepeatersListDocument",
+  "type": "object"
+}

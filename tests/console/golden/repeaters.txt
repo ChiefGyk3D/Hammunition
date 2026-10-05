@@ -1,0 +1,24 @@
+f fetch RepeaterBook by state   i import your own export   a choose active areas
+  x remove the selected layer   l look repeaters up
+Each is the engine's own command, shown before it runs. Nothing is deleted
+silently; choosing areas deletes nothing.
+
+Areas
+Active: OH, north-america/us/ohio
+ OH                         state  active     1 layers  2.0 KiB  2026-10-04
+ MI                         state  not active 1 layers  1.0 KiB  2026-10-03
+ north-america/us/ohio      region active     1 layers  5.0 MiB  2026-10-01
+
+Layers (grouped by area; [x] is active)
+OH
+ [x] repeaterbook-OH        1 rows  2026-10-04  personal use  unverified
+MI
+ [ ] repeaterbook-MI        1 rows  2026-10-03  personal use  unverified
+No area (always active)
+ [x] open-repeater          1 rows  2026-09-20
+
+Repeater data from RepeaterBook (https://www.repeaterbook.com), fetched with the
+operator's own token: personal use only, not to be shared or served.
+Open Repeater list, CC0 1.0.
+
+
