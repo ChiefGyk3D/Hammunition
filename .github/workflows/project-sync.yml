@@ -14,7 +14,9 @@ name: Project sync
 on:
   issues:
     types: [opened, reopened, closed, edited]
-  pull_request_target:
+  # zizmor: ignore[dangerous-triggers] -- no checkout, no run step, the inlined
+  # script reads the event payload as JSON and never the pull request's text.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [opened, reopened, ready_for_review, converted_to_draft, closed]
   schedule:
     - cron: '17 5 * * 1'
