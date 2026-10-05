@@ -1,1 +1,0 @@
-- Code scanning tail: the last `side-effect-in-assert` in the OSM header test and the digest refresher's token parse (no download piped into an interpreter) are fixed; the one remaining CodeQL note is a re-export two modules import and is dismissed with that reason.

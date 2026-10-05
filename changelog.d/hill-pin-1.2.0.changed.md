@@ -1,1 +1,0 @@
-- `hammunition-hill` pinned to v1.2.0 (the repeaters panel with any-centre lookup and mode filters, hill #83/#85), its digest from the release's SHA256SUMS; the suite page's status row follows (#314).
