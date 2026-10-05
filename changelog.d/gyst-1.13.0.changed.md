@@ -1,0 +1,1 @@
+- CI: the security workflow pins GYST v1.13.0, which runs gitleaks as a sha256-pinned binary instead of the licence-gated action; Security runs are green again under the organization (#362)
