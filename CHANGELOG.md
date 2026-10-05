@@ -14,6 +14,84 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 Nothing yet.
 
+## v0.21.0 — 2026-10-04
+
+- The console's **Repeaters** screen (`7` on Home, #322): the repeater layers grouped by area with the active mark, the areas, and keys to fetch RepeaterBook by state (opening Secrets first when `REPEATERBOOK` cannot be supplied), import an export, choose the active areas, remove a layer and look repeaters up by place, distance, band and mode; and, from both it and Secrets, an offer to install `repeaterbook-client` when it is missing, the fetch running after a successful install (#344). D-059, D-064, D-074, D-081, D-082.
+
+- `hammunition secrets status [--json]` says where each secret the engine knows would come from (the environment, Doppler or nowhere), the unit and first command it unlocks and the exact ways to provide it, and never a value, a prefix or a length; the console gains a Secrets screen (`3` on Home) that reads it, names a Doppler project and config through `station set`, keeps a value entered for the session in the console's memory only (handed to the engine commands it starts, written nowhere, cleared on exit) and runs `maps repeaters fetch-repeaterbook` once a source answers. Built against fixtures and the fake engine; not yet run against the live RepeaterBook API or on the field laptop (#321, D-081, D-059).
+
+- **`hammunition-console` is a catalog unit** (**D-059**, **D-021**; branch `console-unit`): a terminal front end in its own repository, pinned by its tag's source-archive sha256 like the tray, installed by name and in no profile, with a terminal menu entry. It reads only `--json` documents and runs every change in a pane where a person types any consent. `docs/getting-started/console.md` walks the first run. Rename this fragment to `<PR number>.added.md` when the pull request has a number. Superseded within this same release: the console moved into the engine as `hammunition console` (#302, below) and the unit is retired.
+
+- **Atheris fuzz targets for the parsers, run by GYST's `python-fuzz.yml`** (part of #333; branch `fuzz-targets`): `fuzz/` holds six targets (manifest loaders, repeater imports, Maidenhead, gpsd JSON, `os-release`, station config); a `fuzz` job in `ci.yml` runs them 30 s each on a pull request and 600 s on the weekly schedule; `tests/test_fuzz_targets.py` keeps them runnable. Found and fixed: a bare carriage return in a CSV row escaped `maps repeaters import` and the ETCC and Direwolf readers as `csv.Error` instead of a `RepeaterInputError`, and a station file with a non-text key died with a `TypeError` instead of a `StationError`. Rename this fragment to `<PR number>.added.md` when the pull request has a number.
+
+- `hammunition hardware gps-resume-report` (read-only, `--json` as a `gps-resume-report` document) shows whether the installed GPS resume step matches the engine's, the unit's last result, gpsd's device list and a data check, the receiver's USB facts and the step's last run's lines; the step now keeps those lines in `/run/hammunition/gps-resume.log` through a third file `hardware apply` writes (`/etc/tmpfiles.d/hammunition-gps-resume.conf`), so no `systemd-journal` membership is needed. `hammunition time measure --minutes N [--pps]` samples `ntpq -pn` and `ppstest` for the GPS-takeover bench. Part of #177 and #310 (D-058, D-059; the bench is session 14 of `docs/reference/bench-verification-5430.md`, not yet run).
+
+- **Infrastructure and EMCOMM layers are kept per region** (issue #327, part of #326; **D-075** amended, **D-082**): `maps infra import` and `fetch-fcc-asr`/`fetch-nwr` write one layer per theme and installed region (`infra-osm-medical-<region slug>`), data-source layers clipped to each region's box, so `maps activate` draws only the active regions' infrastructure in QMapShack, Navit and the browser map. `--merged` keeps one layer across every region; an older merged layer is left alone with a note, once; `maps infra remove --layer` takes a theme or `<theme>-<region>`; the `infra` documents' layer views carry `area`.
+
+- `hammunition maps activate CODE|REGION ... | --all | --none [--dry-run]` and `maps areas` switch the active area of operations (the station value `active_areas`, `station set --active-areas`, `--clear-active-areas`): QMapShack's `poiPaths` (a directory of links to the active areas' `.poi` files), Navit's map set and the browser map's list follow it, `maps repeaters list --json` and the infrastructure documents carry `active` per layer, and deactivating deletes nothing; also fixes `ensure_paths` swapping one path for another under one key. Built and tested on synthetic layers, not yet run in QMapShack, Navit or a browser (#328, part of #326, D-082).
+
+- The `gpsd` unit now installs `pps-tools` with it, so `hammunition time measure --pps` can run `ppstest` on a machine set up for GPS time on either route (ntpsec, D-058, or the `chrony` unit, D-072); closes #319.
+
+- **`hammunition maps repeaters fetch-repeaterbook`, the `repeaterbook-client` unit and one secrets helper** (**D-081**, **D-078**; branch `repeaterbook-api`): `resolve_secret(name)` reads a key from an environment variable, then Doppler (`station set --doppler-project/--doppler-config`, `--clear-doppler`), and never from the repository, station file, argv or a log; the run log redacts it and any credential header. The verb runs the unofficial `repeaterbook` client (a hash-pinned venv unit, registered with RepeaterBook as App #114; the operator generates their own token for it) through an engine-owned runner, with the token in that subprocess's environment only, into an unverified, personal-use `repeaterbook` layer (0600, credited with a link, never mirrored, never listed by `artifacts`). Built against the documentation and the client's source; not yet run against the live API. Rename this fragment to `<PR number>.added.md` when the pull request has a number.
+
+- `hammunition maps repeaters list [--layer ID] [--json]` reads the repeater layers back as a `repeaters-list` document for front ends: layers with `personal_use` and `unverified`, the joined rows with their layer, the credits to print, and the layers it could not read, exit 0 on a partial list; read-only (#312; D-074 amended 2026-10-04, D-059, D-081).
+
+- Repeaters have a mode vocabulary (`FM`, `DMR`, `D-STAR`, `YSF`, `P25`, `NXDN`, `M17`, `TETRA`, `ATV`), a band and the digital details a source actually supplies; `maps repeaters list` gains `--near GRID|LAT,LON`, `--within KM`, `--band` and `--mode` with distance and bearing, nearest first; the QMapShack POI has one category per mode and every name carries `N0CALL 146.940 2m FM DMR` for a text search (#313; D-074 amended 2026-10-04).
+
+- **Reticulum, NomadNet and LXMF** (Track C, PR 2, issue #105, **D-080**). Three
+  hash-pinned per-user venvs, `rns`, `lxmf` and `nomadnet`, because no archive
+  carries any of them: `rns` exposes every console script Reticulum declares
+  (`rnsd`, `rnstatus`, `rnpath`, `rnprobe`, `rnid`, `rncp`, `rnx`, `rnsh`, the
+  RNode flasher `rnodeconf` and the rest) and installs a user service,
+  `hammunition-rnsd`, that keeps one shared instance per machine (the first
+  operator's service runs it and another account's attaches as a client; enabled at
+  install, started at next login; an abstract local socket, not a TCP port,
+  measured in a Debian 13 container); `lxmf` gives `lxmd` and starts nothing;
+  `nomadnet` gives the terminal messenger and a menu entry. The Reticulum
+  License (MIT plus two use restrictions, not OSI-approved) is printed on the
+  plan line that installs the venv and never gated; NomadNet is `GPL-3.0-only`
+  by its shipped text. The engine writes no Reticulum configuration and
+  uninstall leaves `~/.reticulum`, `~/.nomadnetwork`, `~/.lxmd` and `~/.rnsh`.
+  New post-1.0 `mesh` profile (the three plus `python3-meshtastic` and
+  `gtk-meshtastic-client`), a `rnode` hardware entry (`untested`: no identifier
+  of its own), and `docs/guides/mesh-and-reticulum.md` with four
+  troubleshooting entries. Engine: a user service's `exec` may start
+  `{venv}/...`, and a venv block may state its `licence` and `licence_url` on
+  its plan line. Two containers on one bridge found each other, exchanged an
+  LXMF message and ran `rnsh`; no LoRa link has been run.
+
+- **`hammunition self-update` pulls the engine's own checkout and re-runs `bootstrap.sh`, and `--version`, every `--json` document and `doctor` say when the venv lags the checkout (#303, #311).** The verb fetches, fast-forwards to `origin/main` (or the newest `v*` tag with `--release`) and re-runs bootstrap, each step printed before it runs, `--dry-run` printing the commits that would arrive; it refuses a dirty tree, a detached or non-`main` branch and a non-fast-forward, and never touches apt, units or the station; its run is teed to a D-077 log. `hammunition --version` prints `0.20.0 (checkout), 0.19.0 (installed); run `hammunition self-update`` when the editable install's metadata is behind `pyproject.toml`, the `engine` field of every document is the checkout's version, `doctor` gains an `engine version` check with the fix as argv, and the console's Home offers the update with `U`.
+
+- **`hammunition console`: the terminal console is part of the engine** (#302, **D-059** amended 2026-10-04): `hammunition_console` moved to `src/hammunition/console/` with its tests in `tests/console/`, one release and one version, so `ENGINE_FLOOR`, `EngineTooOld` and the fixtures' `engine` field are gone. urwid is the optional `console` extra; without it the subcommand prints one line naming the install command and exits 2. The console runs the engine as `<interpreter> -m hammunition`. The `hammunition-console` unit is retired, `menus apply` writes the engine's own entry for it, and `tests/console/capture_fixtures.py` refuses to run unless HOME is a temporary directory it made itself. The old repository is archived; see the console reference at `docs/console/index.md`.
+
+- `hammunition-hill` pinned to v1.2.0 (the repeaters panel with any-centre lookup and mode filters, hill #83/#85), its digest from the release's SHA256SUMS; the suite page's status row follows (#314).
+
+- **RepeaterBook is one layer per state (#325, epic #326, D-074 amended).** `fetch-repeaterbook --state OH --state PA` writes `repeaterbook-OH` and `repeaterbook-PA`, each with its own four files, so QMapShack's POI dock has one tick box per state; a re-fetch replaces that state's layer whole, `remove --layer repeaterbook-OH` and `list --layer repeaterbook-OH` take one, `--county` fetches per county where an answer is cut at the 3,500-row limit, `maps repeaters list --json` layers carry `area`, and the earlier merged `repeaterbook` layer stays until removed (the fetch says so once). The guide records how QMapShack 1.17.1 loads a POI file (lazy, per viewport cell, read from source).
+
+- **Repeater POIs show what an operator keys in (#324, D-064 amended).** QMapShack draws only a POI's name, so the name is now `N0CALL 146.940 2m -0.600 T100.0 FM` (offset, tone as `T`/`D`/`CSQ`, modes), the POI gets a `keying=` line for the hover tooltip, the GPX a `<cmt>`, and Navit's label and `maps repeaters list` the same line; an `=` in a POI value no longer makes QMapShack drop the description.
+
+- **Every open CodeQL and Semgrep alert was read; the real ones are fixed and the rest dismissed with a written reason.** Fixed: eight unsafe import cycles (`Deferral` moved to `src/hammunition/deferral.py`, the shared topo helpers to `src/hammunition/backends/topo_common.py`), 79 wrapped string literals in lists now joined with an explicit `+`, repeated and doubled imports, five empty `except` blocks that now say what they ignore, one `except OSError` that now exits explicitly, and a handful of dead reads. One real defect: a package manifest's `config_files` `mode` reached `chmod` and `install -m` unchecked, so a manifest of any tier could ask for a setuid or world-writable file; the schema now refuses a mode with a special bit or world write, and a test holds it. The remaining alerts (Protocol stubs, deliberate 0644/0755/0700 modes, SHA-1 where the format defines it, cleanup-and-reraise on `BaseException`) are dismissed one by one with the file and reason in the pull request.
+
+- The GPS resume script says why a gpsd socket error ends its watch early instead of swallowing it silently; the two file-mode scanner alerts on the staged sleep hook are dismissed with the reason (the unprivileged engine reads root's copy back to verify it, D-031) (CodeQL sweep).
+
+- The GPS resume step now checks that gpsd delivers data after the re-open and, when the receiver stays silent, power-cycles it once through its USB `authorized` switch (the one `hardware park`/`wake` use), then checks again; it exits 0 only when data was seen and otherwise names the manual steps in its last journal line. The plan's disclosure says so (issue #177, D-058 amendment 2026-10-04).
+
+- Code scanning tail: the last `side-effect-in-assert` in the OSM header test and the digest refresher's token parse (no download piped into an interpreter) are fixed; the one remaining CodeQL note is a re-export two modules import and is dismissed with that reason.
+
+- OpenSSF Scorecard remediations: a `SECURITY.md` (private reporting, supported versions), every container base image pinned by multi-arch index digest with `containers/refresh-digests.sh`, and hash-pinned `requirements/{runtime,dev,docs}.txt` installed with `--require-hashes` by CI, `bootstrap.sh` and the target Dockerfile, kept current by `scripts/check_locks.py` (PR scorecard-remediations).
+
+- The Semgrep suppression on the active-area links directory sits on the lines it covers (the previous-line form was not honoured); no behaviour change.
+
+- `load_station` refuses a `map_regions`, `reference_books` or `topo_regions` value that is not a list by name instead of raising `TypeError` (an int) or iterating a bare string's characters; found by the station-config fuzz target on its second CI run (#339).
+
+- **The test suite is isolated from the operator's own files, and fails the run if the real station file changes.** A session fixture in `tests/conftest.py` points `HOME` and every `XDG_*` base at a temporary root, drops `USER`, `SUDO_USER` and `LOGNAME`, and hides passwd from `hammunition.paths`, so even euid 0 under `unshare -r` cannot resolve a real home; a session-end check compares the real station file's mtime and sha256. Two runs on 2026-10-03 had rewritten it. `tests/test_isolation.py`, `docs/contributing/ci.md`.
+
+- `uninstall` removes the launcher wrapper and generated menu entry an install recorded in the transaction log, not only those the current manifest still lists, so a unit whose manifest lost its `launchers` block or was retired no longer leaves them behind; a file whose generated marker is gone is still kept and reported (#336).
+
+- A guide for the area of operations, "Load every area ahead, activate where you are": the pre-deployment walk (regions, RepeaterBook per state with the token from the Secrets screen or the environment, infrastructure per region, `maps areas`), the on-arrival `maps activate`, what each program then shows, and what is unmeasured (the symlink `poiPaths` directory); the EMCOMM guide's datasets table gains a per-area column. Closes #329, completes #326 (D-082).
+
+- The documentation gains `docs/suite.md` (the suite: engine, Tray, Hill, Bunker, Console and GPS Tether, with what each owns), an EMCOMM preparation and field-use guide, a "before a deployment" download page, and a generated application directory (`scripts/gen_application_directory.py`). The documentation site stops requesting Google Fonts (`font: false`), so the release tarball reads with no network (#300, part of issue #298).
+
 ## v0.20.0 — 2026-10-03 — the run log and live feedback, an offline aircraft map, bounded US Topo, retries and deferrals when a publisher is down, SDR entries for the HydraSDR RFOne and Fobos, and a wiki and a documentation pass for newcomers
 
 - **tar1090, the ADS-B aircraft map, as a page in `reference serve`**

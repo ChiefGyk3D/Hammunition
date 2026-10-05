@@ -177,13 +177,18 @@ def test_the_shared_instance_is_per_machine_in_the_record_the_row_and_the_fragme
     """The instance is an abstract Unix socket, machine-wide: a second account's
     rnsd attached to the first's (Debian 13 container, 2026-10-03). 'Per operator'
     was wrong, and it was wrong in the authoritative record."""
+    fragment = ROOT / "changelog.d" / "reticulum-core.added.md"
     files = [
         ROOT / "docs" / "DECISIONS.md",
         ROOT / "CLAUDE.md",
-        ROOT / "changelog.d" / "reticulum-core.added.md",
+        # A release assembles the fragment into CHANGELOG.md; then the wording is
+        # held in the v0.21.0 section instead.
+        fragment if fragment.exists() else ROOT / "CHANGELOG.md",
     ]
     for path in files:
         text = _flat(_text(path))
+        if path.name == "CHANGELOG.md":
+            text = text[text.index("## v0.21.0") : text.index("## v0.20.0")]
         if path.name == "DECISIONS.md":
             text = text[
                 text.index("## D-080 ") : text.index("## D-081 ") if "## D-081 " in text else None

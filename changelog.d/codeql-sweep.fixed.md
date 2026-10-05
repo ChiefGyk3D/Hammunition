@@ -1,1 +1,0 @@
-- The GPS resume script says why a gpsd socket error ends its watch early instead of swallowing it silently; the two file-mode scanner alerts on the staged sleep hook are dismissed with the reason (the unprivileged engine reads root's copy back to verify it, D-031) (CodeQL sweep).

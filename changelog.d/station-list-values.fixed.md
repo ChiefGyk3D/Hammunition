@@ -1,1 +1,0 @@
-- `load_station` refuses a `map_regions`, `reference_books` or `topo_regions` value that is not a list by name instead of raising `TypeError` (an int) or iterating a bare string's characters; found by the station-config fuzz target on its second CI run (#339).

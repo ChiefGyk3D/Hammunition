@@ -1,1 +1,0 @@
-- The `gpsd` unit now installs `pps-tools` with it, so `hammunition time measure --pps` can run `ppstest` on a machine set up for GPS time on either route (ntpsec, D-058, or the `chrony` unit, D-072); closes #319.
