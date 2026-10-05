@@ -33,3 +33,12 @@ Not a USB peripheral. The uConsole is a host computer, so it has no VID:PID to r
 *Who can close it:* nothing to capture; the gap is documentation, not measurement.
 
 **Upstream:** <https://www.clockworkpi.com/uconsole>
+
+## A Debian 13 route, or an image
+
+The uConsole is the one device Hammunition may build an image for (**D-084**).
+The plan, in order: document how a stock CM4 uConsole gets to Debian 13 and
+`hammunition install uconsole`, and only if that cannot be written, publish an
+image that is Debian 13 with the engine run once, the AIO v2 setup optional.
+Nothing here is measured yet; the work and its measurements are tracked in
+[epic #372](https://github.com/Renegade-Penguin/Hammunition/issues/372).
