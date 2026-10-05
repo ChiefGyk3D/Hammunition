@@ -241,9 +241,11 @@ class HomeScreen(Screen):
                 [
                     "This runs: hammunition self-update",
                     "",
-                    "It fetches this checkout, fast-forwards it and re-runs bootstrap.sh, "
-                    "printing each step first and asking its own confirmation in the pane. "
-                    "It never touches apt, installed units or your station.",
+                    (
+                        "It fetches this checkout, fast-forwards it and re-runs bootstrap.sh, "
+                        "printing each step first and asking its own confirmation in the pane. "
+                        "It never touches apt, installed units or your station."
+                    ),
                 ],
                 self._run_update,
             )

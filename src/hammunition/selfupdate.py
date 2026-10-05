@@ -45,7 +45,6 @@ __all__ = [
 
 #: This file; tests point it at a scratch repository.
 PACKAGE_FILE = Path(__file__).resolve()
-SELF_UPDATE_ARGV = ["hammunition", "self-update"]
 _TAG = re.compile(r"^v\d+(\.\d+)*")
 
 

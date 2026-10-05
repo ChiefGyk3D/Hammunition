@@ -73,7 +73,7 @@ def TestOneInput(data: bytes) -> None:
         else:
             repeater_sources.read_direwolf_logs([path])
     except RepeaterInputError:
-        pass
+        pass  # the reader's own refusal is the contract; anything else propagates
     except ValueError:
         if reader != "layer":
             raise
