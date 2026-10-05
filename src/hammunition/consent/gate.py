@@ -213,7 +213,7 @@ def render_repo_disclosure(repo: AptRepo, unit: str, *, sources: str, keyring: s
         "What will be added:",
         f"  repository:  {repo.uri}",
         f"  suites:      {' '.join(repo.suites)}",
-        f"  components:  {' '.join(repo.components)}",
+        f"  components:  {' '.join(repo.components) or '(none: a flat repository)'}",
         f"  signing key: {repo.key_url}",
         f"  fingerprint: {fingerprint}",
         f"  written to:  {sources}",

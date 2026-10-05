@@ -146,6 +146,33 @@ def test_a_malformed_repo_declaration_is_refused(field: str, value: Any, why: st
         _repo(**{field: value})
 
 
+def test_a_flat_repository_has_no_components_and_writes_no_components_line() -> None:
+    """The openSUSE Build Service publishes flat repositories (D-040 amendment,
+    2026-10-05): `Suites: ./` and no `Components:` line. An empty `Components:`
+    line is a malformed stanza and apt refuses the whole file (measured in a
+    Debian 13 container, 2026-10-05), so the line must be absent, not empty."""
+    repo = _repo(suites=["./"], components=[])
+    text = render_sources(repo, Path("/etc/apt/keyrings/vendor.gpg"), unit="editor")
+    assert "Suites: ./\n" in text
+    assert "Components" not in text
+    assert text.endswith("Signed-By: /etc/apt/keyrings/vendor.gpg\n")
+
+
+@pytest.mark.parametrize(
+    ("suites", "components", "why"),
+    [
+        (["trixie"], [], "components may be empty only for a flat repository"),
+        (["./"], ["main"], "takes no components"),
+        (["trixie", "./"], [], "components may be empty only for a flat repository"),
+    ],
+)
+def test_flat_and_dists_shapes_are_never_mixed(
+    suites: list[str], components: list[str], why: str
+) -> None:
+    with pytest.raises((ValidationError, ManifestError), match=why):
+        _repo(suites=suites, components=components)
+
+
 def test_a_spaced_lower_case_fingerprint_is_accepted() -> None:
     assert _repo(key_fingerprint="527c a4ae a244 4bd2 40a9 fdcd 3852 ff00 e343 0290")
 

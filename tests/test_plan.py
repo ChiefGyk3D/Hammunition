@@ -104,6 +104,7 @@ def _resolve(tmp_path: Path, names: list[str], **kwargs: Any) -> Any:
         desktops=kwargs.pop("desktops", None),
         log=kwargs.pop("log", None),
         station=kwargs.pop("station", None),
+        repos=kwargs.pop("repos", None),
     )
 
 

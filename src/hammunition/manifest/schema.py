@@ -1933,6 +1933,9 @@ class SystemModification(Strict):
         "apt_pin",
         "file_shadow",
         "file_capability",
+        "package_udev_rule",
+        "package_service",
+        "package_account",
     ]
     description: str
     detail: str
@@ -2277,6 +2280,13 @@ class AptRepo(Strict):
     would add a noble repository to a Debian 13 machine. A target no
     repository applies to gets no repository, and the unit falls to the
     ordinary "the archive does not offer it" path (D-039), deferred by name.
+
+    A **flat** repository has no ``dists/`` tree: its ``Release`` and
+    ``Packages`` sit directly under ``uri``. The openSUSE Build Service
+    publishes every repository that way (``meshtasticd``, D-040 amendment of
+    2026-10-05). It is declared as ``suites: ["./"]`` with ``components: []``,
+    which is how sources.list(5) writes one: a suite ending in ``/`` and no
+    ``Components:`` line. A mix of the two shapes in one entry is refused.
     """
 
     name: str
@@ -2308,8 +2318,19 @@ class AptRepo(Strict):
         for label, url in (("uri", self.uri), ("key_url", self.key_url)):
             if not url.startswith("https://"):
                 raise ManifestError(f"apt repo {self.name!r}: {label} must be https, got {url!r}")
-        if not self.suites or not self.components:
+        if not self.suites:
             raise ManifestError(f"apt repo {self.name!r}: suites and components are required")
+        if not self.components and not all(suite.endswith("/") for suite in self.suites):
+            raise ManifestError(
+                f"apt repo {self.name!r}: suites and components are required "
+                f"(components may be empty only for a flat repository, whose every "
+                f"suite ends in '/', sources.list(5))"
+            )
+        if self.components and any(suite.endswith("/") for suite in self.suites):
+            raise ManifestError(
+                f"apt repo {self.name!r}: a flat repository (a suite ending in '/') "
+                f"takes no components"
+            )
         return self
 
 
