@@ -1,0 +1,1 @@
+- README carries the OpenSSF Best Practices badge; project 15243 passes all 67 Passing criteria (#370).

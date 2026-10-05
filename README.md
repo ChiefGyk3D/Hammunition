@@ -2,6 +2,8 @@
 
 > Pick your RF arsenal.
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15243/badge)](https://www.bestpractices.dev/projects/15243)
+
 Hammunition turns an existing Debian-family install into an amateur radio,
 SDR and RF experimentation workstation. It adds software to the system you
 already run, using your distribution's own packages wherever they exist, and
