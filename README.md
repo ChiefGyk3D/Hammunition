@@ -1,3 +1,8 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Renegade-Penguin/Hammunition/main/docs/images/logo.png"
+       alt="Hammunition" width="360">
+</p>
+
 # Hammunition
 
 > Pick your RF arsenal.
