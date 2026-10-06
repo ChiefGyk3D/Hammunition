@@ -11,6 +11,10 @@ together, what each needs, and where to report a problem. **It does not repeat
 installation specifics:** each project's README owns those, and every section
 links to it, so a copy here cannot drift from the project.
 
+Looking for an activity rather than a project (GPS and time, APRS, Meshtastic,
+Reticulum, MeshCore)? The [activity hubs](activities/index.md) say what the
+catalog carries for each, how to install it and what has been measured.
+
 ## The projects
 
 | Project | What it is | Status | Needs the engine? |

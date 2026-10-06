@@ -13,7 +13,9 @@ in; **by name only** means no profile includes it, so
 `hammunition install NAME` is how you ask for it. *(retired)* marks a unit the
 catalog keeps for the record. The [package reference](packages/index.md) lists
 the same applications by bare tag, and the [profiles](profiles/index.md) say
-what each bundle is for.
+what each bundle is for. For the five activities with a hub page, GPS and
+time, APRS, Meshtastic, Reticulum and MeshCore, start from the
+[activity hubs](activities/index.md).
 
 ## Operate the Station
 

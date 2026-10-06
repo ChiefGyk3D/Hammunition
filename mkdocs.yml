@@ -121,6 +121,13 @@ nav:
       - Applications by activity: applications.md
       - The projects we install: projects.md
       - Credits: credits.md
+  - Activity hubs:
+      - activities/index.md
+      - GPS, position and time: activities/gps-time.md
+      - APRS: activities/aprs.md
+      - Meshtastic: activities/meshtastic.md
+      - Reticulum: activities/reticulum.md
+      - MeshCore: activities/meshcore.md
   - Installation: getting-started/installation.md
   - Profiles:
       - profiles/index.md
