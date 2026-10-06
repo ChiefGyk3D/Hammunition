@@ -125,7 +125,7 @@ def installed_by_hammunition(log: TransactionLog) -> frozenset[str]:
         packages = _packages_after_dashes(entry.get("argv"))
         if packages is None:
             continue
-        verb = entry["argv"][1]
+        verb = _apt_verb(entry["argv"])
         if verb == "install":
             attributed.update(packages)
         elif verb == "remove":
@@ -167,13 +167,40 @@ def _launcher_owner(path: Path) -> str | None:
     return None
 
 
-def _packages_after_dashes(argv: Any) -> list[str] | None:
-    """The package arguments of an ``apt-get install``/``remove`` argv, else None."""
+def _apt_verb(argv: Any) -> str | None:
+    """``install`` or ``remove`` for an ``apt-get`` argv, else None.
+
+    The verb is the first argument that is neither an option nor an option's
+    value. Reading ``argv[1]`` was right until the engine began to write
+    ``apt-get -o Acquire::Retries=3 install ...`` (#236), after which every
+    apt install was invisible here: ``uninstall`` reported the package as "not
+    installed by Hammunition" and left it. Only ``-o`` takes a separate value
+    in the commands this engine writes; any other ``-x`` stands alone.
+    """
     if not isinstance(argv, list) or len(argv) < 2 or argv[0] != "apt-get":
         return None
-    if argv[1] not in ("install", "remove"):
+    if "--simulate" in argv:
+        # The engine's own pre-flight (`install --simulate`, D-040 rule 6)
+        # exits 0 and changes nothing: it must never attribute a package.
         return None
-    if "--" not in argv:
+    index = 1
+    while index < len(argv):
+        arg = str(argv[index])
+        if arg == "--":
+            return None
+        if arg == "-o":
+            index += 2
+            continue
+        if arg.startswith("-"):
+            index += 1
+            continue
+        return arg if arg in ("install", "remove") else None
+    return None
+
+
+def _packages_after_dashes(argv: Any) -> list[str] | None:
+    """The package arguments of an ``apt-get install``/``remove`` argv, else None."""
+    if _apt_verb(argv) is None or "--" not in argv:
         return None
     return [str(p) for p in argv[argv.index("--") + 1 :]]
 
@@ -268,7 +295,7 @@ def deb_attributed(log: TransactionLog, *, sha256: str, deb_package: str) -> boo
         packages = _packages_after_dashes(entry.get("argv"))
         if packages is None:
             continue
-        verb = entry["argv"][1]
+        verb = _apt_verb(entry["argv"])
         if verb == "install" and any(Path(str(p)).name.startswith(f"{sha256}-") for p in packages):
             attributed = True
         elif verb == "remove" and deb_package in packages:

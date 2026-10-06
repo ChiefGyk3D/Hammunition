@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**326 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**327 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -301,12 +301,13 @@ Contact logging, awards tracking, Logbook of the World and the lookups a log nee
 - [tucnak](tucnak.md) — VHF and above contest logger, built around locator scoring and networking
 - [xlog](xlog.md) — Small GTK station log that opens instantly and does the basics well
 
-### `mesh` — 5
+### `mesh` — 6
 
 Meshtastic, MeshCore and Reticulum: off-grid text over LoRa.
 
 - [gtk-meshtastic-client](gtk-meshtastic-client.md) — Desktop GUI for Meshtastic nodes
 - [lxmf](lxmf.md) — LXMF, Reticulum's message layer, and lxmd, its store-and-forward propagation daemon
+- [meshtasticd](meshtasticd.md) — Meshtastic node daemon for Linux, driving a LoRa radio on this machine's SPI/GPIO or a USB CH341 module
 - [nomadnet](nomadnet.md) — Nomad Network, an encrypted messenger and page browser for the terminal, over Reticulum
 - [python3-meshtastic](python3-meshtastic.md) — Meshtastic command-line client and Python API
 - [rns](rns.md) — Reticulum, encrypted networking over any medium, with its shared instance and the RNode flasher
@@ -905,6 +906,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [mapsforge-map](mapsforge-map.md) | Mapsforge vector maps of your OpenStreetMap regions, for phone map apps | derived |
 | [mapsforge-poi](mapsforge-poi.md) | Mapsforge points-of-interest files of your regions, for searching on a phone | derived |
 | [mercury](mercury.md) | Open HF data modem that speaks VARA's TCP interface, so pat uses it unchanged | apt, git |
+| [meshtasticd](meshtasticd.md) | Meshtastic node daemon for Linux, driving a LoRa radio on this machine's SPI/GPIO or a USB CH341 module | apt |
 | [mfcuk](mfcuk.md) | MIFARE Classic key recovery with no known key — the slow path | apt |
 | [mfoc](mfoc.md) | Key recovery for MIFARE Classic cards with at least one known key | apt |
 | [minicom](minicom.md) | Full-screen serial communication program, the one everyone already knows | apt |

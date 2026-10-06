@@ -58,10 +58,28 @@ IMPLEMENTED_METHODS: frozenset[str] = frozenset(
 #: `system_modifications` kinds this engine build can actually perform.
 #: Everything else is a declared, named gap — never a silent skip.
 IMPLEMENTED_MODIFICATIONS: frozenset[str] = frozenset(
-    {"group_membership", "apt_pin", "file_capability"}
+    {
+        "group_membership",
+        "apt_pin",
+        "file_capability",
+        "package_udev_rule",
+        "package_service",
+        "package_account",
+    }
+)
+
+#: The kinds the engine never performs: the *package's own* maintainer scripts
+#: and files do (a udev rule under /usr/lib/udev/rules.d, a service enabled in
+#: a postinst). They are implemented in the sense that matters -- the plan
+#: prints each as a note before the confirmation, and `show` and the package
+#: page carry it -- so that a unit whose package does these things is not
+#: refused as an engine gap and is not silent about them either.
+DISCLOSED_ONLY_MODIFICATIONS: frozenset[str] = frozenset(
+    {"package_udev_rule", "package_service", "package_account"}
 )
 
 __all__ = [
+    "DISCLOSED_ONLY_MODIFICATIONS",
     "IMPLEMENTED_BINARY_FORMATS",
     "IMPLEMENTED_METHODS",
     "IMPLEMENTED_MODIFICATIONS",

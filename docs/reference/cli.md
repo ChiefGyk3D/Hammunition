@@ -2666,7 +2666,7 @@ capability matrix that reports coverage the engine does not have is the shim
 | An apt step apt can only complete by **removing an installed package** — a `Breaks:` against something already there, the archive's `wsjtx-improved` against `wsjtx` being the measured case | every package apt would remove, with its installed version, attributed to the unit whose `conflicts_with_repo_package` declares it (or, when none does, named as a catalog gap), and the removal command so the operator can do it deliberately. Read from the same `apt-get install --simulate`; before it was read, a Kali guest with `wsjtx` installed planned clean, printed no removal, and would have lost three packages at the apt step (2026-09-07). The apt step itself now runs with `--no-remove`, so apt errors rather than removes if the real solve ever disagrees with the simulation (**D-022**) |
 | A vendor `.deb` whose declared conflict is something **this same transaction's apt step would install** — directly, or as a dependency apt resolves | the package by name and both halves of the remedy: leave out the `.deb` unit, or the unit that pulls the conflict in. Found by the one `apt-get install --simulate` every transaction with apt work gets. A clean machine has nothing installed, so the row above is silent there; this one caught `digital-modes` planning clean and failing after forty-four commands (Kali, 2026-09-02) |
 | An apt transaction apt itself **cannot resolve** as one `apt-get install` — the packages all exist, and the set of them still does not install | `apt: cannot resolve this transaction as one apt-get install`, then apt's own words, indented, and the simulate command that reproduces it. When the reason is that an installed package would be downgraded and it is installed from one other release, the plan is first retried from that release (**D-038**) and this row is reached only if that fails too. Five Parrot profiles passed the plan and died at the first apt command before this row existed (2026-09-02) |
-| A `system_modifications` kind other than `group_membership` | the kind, by name |
+| A `system_modifications` kind the engine neither performs nor discloses (`udev_rule`, `modprobe_blacklist`, `group_create`, `foreign_arch`, `package_purge`, `file_shadow`) | the kind, by name. `apt_pin`, `group_membership` and `file_capability` are performed; `package_service`, `package_udev_rule` and `package_account` are **disclosed only**: dpkg does them, the plan prints each as a note before the confirmation, and `uninstall` does not reverse them (**D-040**, 2026-10-05) |
 | A package whose status is `broken` or `retired` | the recorded reason, verdict and date |
 | A dependency apt has no candidate for | which name, and whether it came from `install` or `depends`. A *profile* member whose own `install` packages are the ones missing is deferred instead (**D-039**), and the row above still applies to its `depends` |
 | A profile every member of which this target cannot install | the profile by name, with each member's reason — installing nothing and reporting success is not an outcome (**D-039**) |
@@ -2884,6 +2884,11 @@ step the engine cannot do for you, and a variable set to `1` would be
 should hold. The plan prints the variable and the fingerprint together.
 The affirmation is logged as `consent_affirmed` with profile
 `apt-repo:<name>`, so the log records who trusted which key and when.
+
+A repository may be **flat** (**D-040**, amendment of 2026-10-05): the openSUSE
+Build Service publishes `Release` and `Packages` directly under the URI, so the
+manifest declares `suites: ["./"]` with no components, the `.sources` file has no
+`Components:` line, and the disclosure and the plan say "a flat repository".
 
 The repository is added only when the target's own archive offers no
 candidate for the unit's packages (**D-022**): on Parrot, `codium` installs

@@ -1187,3 +1187,19 @@ the removal of the other, and as a member it would refuse `station` on the
 field laptop (ntpsec) and on every timesyncd install. It is installed by
 name, after the operator removes systemd-timesyncd; ntpsec machines take
 D-058. `docs/reference/time-daemons.md` has the tables.
+
+---
+
+## Q-023 🟢 — `meshtasticd`: a consent gate of its own, the shape of the `mesh` profile, and the OBS key's expiry
+
+**Raised:** 2026-10-05, by the pull request for issue #308. **Blocks:** nothing;
+the recommended option is implemented in that pull request and any other is a
+small follow-up. **Evidence:** `catalog/packages/meshtasticd.yaml`,
+D-040's and D-080's amendments of 2026-10-05, `docs/reference/mesh-inventory.md`.
+
+| # | Question | Recommendation (implemented) |
+|---|---|---|
+| 1 | **Does `meshtasticd` want a consent gate beyond the repository's?** It is a transmit-capable node (D-021, D-034: the line is transmit, not topic), but nothing transmits at install: `config.d` is empty, the region is unset, and with no radio the daemon exits (measured). D-080 made the same call for Reticulum and the RNode flasher. | **No.** The D-040 repository gate (the typed fingerprint) is the one affirmation, and the plan prints the boot service, the udev rule and the open API port. Revisit if the unit ever writes a hardware file or a region itself, which it does not. |
+| 2 | **Declining the repository gate declines the whole `mesh` transaction**, because a gate belongs to the transaction (as it does for `kismet` in `rf-security`). An operator who wants Reticulum and not Meshtastic's daemon names the units (`install rns lxmf nomadnet`) and is never asked. Is that the right shape, or should `meshtasticd` leave `mesh` for a profile of its own (`meshtastic-node`)? | **Keep it in `mesh`**, as issue #308 asked, and keep the guide's line saying how to install the Reticulum units alone. Split only if operators report the question as friction; the kismet precedent has had no complaint. |
+| 3 | **The OBS signing key expires 2027-08-26** and is the key of the whole `network:` project. Four targets stop updating on that date until a new fingerprint is pinned. Should `update --upstream` flag a pinned key's expiry before it happens? | **Yes, as its own change**: the key's expiry is in the packet data `openpgp.py` already reads, and `update` is where D-053 puts "the pin is going stale". Not built here; the cadence hint and the manifest comment say the date. |
+| 4 | **The channel.** There is no `stable`; `beta` is upstream's recommended channel and was the same 2.7.26 build on both repositories on 2026-10-05, and `alpha` (2.8.1) is ahead of it. | **`beta`**, a fixed channel in the manifest, not an operator choice. Moving channel is a manifest edit and a re-pin of nothing (the key is the same for all three OBS channels, `Release.key` byte-identical). |

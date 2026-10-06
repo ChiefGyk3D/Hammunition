@@ -39,6 +39,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from hammunition.backends import (
+    DISCLOSED_ONLY_MODIFICATIONS,
     IMPLEMENTED_BINARY_FORMATS,
     IMPLEMENTED_METHODS,
     IMPLEMENTED_MODIFICATIONS,
@@ -2253,6 +2254,15 @@ def resolve(
 
     if blockers:
         raise PlanError(blockers)
+
+    # What a package's own scripts and files do to the machine, disclosed before
+    # the confirmation: the engine performs none of it (dpkg does), and a plan
+    # that stayed silent about a service enabled at boot or a world-writable
+    # udev rule would be the "approximate dry run" this project refuses.
+    for item in planned:
+        for modification in item.manifest.system_modifications:
+            if modification.kind in DISCLOSED_ONLY_MODIFICATIONS:
+                notes.append(f"{item.name}: {modification.description.strip()}")
 
     decided_desktops = any(catalog[n].desktops is not None for n in ordered if n in catalog)
     return InstallPlan(

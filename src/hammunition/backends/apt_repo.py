@@ -95,13 +95,16 @@ def render_sources(repo: AptRepo, keyring: Path, *, unit: str) -> str:
     uninstall read the file back and know it is looking at its own work
     before removing it.
     """
+    # A flat repository (a suite ending in "/") takes no Components line at
+    # all: an empty one is a malformed stanza and apt refuses the whole file.
+    components = f"Components: {' '.join(repo.components)}\n" if repo.components else ""
     return (
         f"# {MARKER} for {unit}. Remove with `hammunition uninstall {unit}`, or\n"
         f"# delete this file and {keyring}, then run apt-get update.\n"
         f"Types: deb\n"
         f"URIs: {repo.uri}\n"
         f"Suites: {' '.join(repo.suites)}\n"
-        f"Components: {' '.join(repo.components)}\n"
+        f"{components}"
         f"Signed-By: {keyring}\n"
     )
 

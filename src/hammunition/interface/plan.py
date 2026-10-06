@@ -1480,7 +1480,10 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView, full: bool = 
         lines.append("Third-party apt repositories that will be added (D-040):")
         for repo in view.repos:
             lines.append(f"  {repo.name}  [{repo.unit}: {', '.join(repo.packages)}]")
-            lines.append(f"      {repo.uri}  {' '.join(repo.suites)}  {' '.join(repo.components)}")
+            lines.append(
+                f"      {repo.uri}  {' '.join(repo.suites)}  "
+                f"{' '.join(repo.components) or '(flat repository)'}"
+            )
             lines.append(f"      key {repo.key_fingerprint}")
             lines.append(f"      writes {repo.sources}")
             lines.append(f"      writes {repo.keyring}")

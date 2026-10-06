@@ -339,6 +339,62 @@ simulator. That settles which existing hardware entry a unit would be gated on:
 none of `catalog/hardware/devices/meshtastic.yaml`'s USB identifiers (ESP32-S3 native
 USB and nRF52840 bootloaders, from the board sweep) is the CH341 pair.
 
+### Installed and run, 2026-10-05
+
+Issue #308. Each target's repository was added by the engine itself
+(`hammunition install meshtasticd`, the fingerprint typed through the variable the
+plan names, `--yes` not enough) in a rootless Podman container of the harness's own
+target image, built from `containers/Dockerfile.target`, as root in a container with
+no systemd. `apt-get update` accepted the signed `InRelease` through `Signed-By`, the
+simulate resolved, the package installed, `meshtasticd --version` printed 2.7.26, a
+second `install` planned zero commands, and `uninstall` removed the package and both
+repository files.
+
+| Target (image) | Repository the unit declares | Package version | Daemon under `--sim` | `meshtastic --host` client |
+|---|---|---|---|---|
+| Debian 13 (glibc 2.41) | OBS `Debian_13`, flat | 2.7.26.61~obs54e0d8d~beta | listened on 0.0.0.0:4403 | connected, firmware 2.7.26 |
+| Parrot 7.4 (glibc 2.41) | OBS `Debian_13`, flat | same | same | same |
+| Kali rolling 2026.3 (glibc 2.43) | OBS `Debian_Testing`, flat | same | same | same |
+| Ubuntu 24.04 | PPA `noble` | 2.7.26.61~ppa54e0d8d~noble | listener not looked at | no `python3-meshtastic` in the archive: not run |
+| Linux Mint 22.3 | PPA `noble` | same | listened on 0.0.0.0:4403 | not run (as above) |
+| Ubuntu 26.04 (glibc 2.43) | PPA `resolute` | 2.7.26.61~ppa54e0d8d~resolute | listened on 0.0.0.0:4403 | connected, firmware 2.7.26 |
+
+What else was measured the same day:
+
+- **Parrot cannot take the `Debian_Testing` build** (`Depends: libc6 (>= 2.43)`,
+  `libyaml-cpp0.9`; Parrot has glibc 2.41), and **Kali's glibc 2.43 takes it**; Kali also
+  simulated the `Debian_13` build. The unit gives Kali `Debian_Testing` because that is
+  the suite built against its glibc; Debian 13's build is the fallback if Kali moves.
+- **The OBS repositories are flat**: `Release` and `Packages` under the URI, no `dists/`.
+  `apt` refuses a source file with an empty `Components:` line (a "Malformed stanza"),
+  so the engine omits the line for a suite ending in `/` (D-040's amendment).
+- **The OBS key** `426AA6B0285C2096B70D9FC2528423A469A77D9A` was fetched again from
+  `.../beta/Debian_13/Release.key`: sha256 prefix `d546e147623ed42f` as before, identical in
+  `alpha` and `daily`, expiry 2027-08-26 (`gpg --show-keys`), and `gpg --verify` accepts
+  `beta/Debian_13`'s `InRelease` against it. **The PPA key**
+  `5E0A0F83F3DDE7AC55915B14F40C93FFA2CD17E3` equals the Launchpad API's
+  `signing_key_fingerprint`; no expiry.
+- **The `.deb`** (Debian 13 amd64, `beta`, 2,140,624 bytes, sha256
+  `324fd99ede031c662c2f483b9fd6ed82f238ee94143d5d6b473f51da53bf2104`) was unpacked with
+  `dpkg-deb -I -c -e -x` on the maintainer's machine and installed only in containers. Its
+  `60-meshtasticd.rules` has **four** rules (spidev to group spi 0660; USB `1a86:5512` mode
+  0666; gpiomem and gpio to group gpio 0660), its `postinst` creates the groups `spi`,
+  `gpio` and `meshtasticd` and the system user `meshtasticd` and adds it to eight groups
+  where they exist, chowns `/etc/meshtasticd`, `/var/lib/meshtasticd` and
+  `/usr/share/meshtasticd` to it, and enables and starts `meshtasticd.service`. The
+  conffiles are `/etc/meshtasticd/config.yaml` and the 62 `available.d` YAML files plus a
+  README. `apt-get remove` leaves the user, the groups, the config directory, `/var/lib` and
+  the enablement symlink (purge clears the last two).
+- **Without a radio the service exits**: the shipped config (`Module: auto`) printed
+  "autoconf: Could not locate any devices" and the daemon exited 0 in about a second as
+  the service user. Under `--sim` it ran and the Python client connected over TCP.
+- **Sizes**: 152 packages are newly installed on a bare Debian 13 container (84 with
+  `--no-install-recommends`).
+- **Not measured**: a radio of any kind; the unit under systemd (so the restart limit and
+  the enablement at boot are read from the unit, not observed); the udev rule against a
+  plugged-in CH341; arm64 and armhf installs; Raspberry Pi OS and Pop!_OS; the web client's
+  pages (the port opened and a certificate was written).
+
 ### The web client
 
 Two things, measured separately.
@@ -462,10 +518,9 @@ Nothing here has run against a node, a radio or a bench. Specifically:
 - The closures were resolved for Python 3.11 on `x86_64-unknown-linux-gnu`. A pin
   set for 3.12 or 3.13 or for arm64 can differ in a package or two (`numpy` already
   does), and was not generated.
-- `meshtasticd` was not installed. Kali, Raspberry Pi OS and Pop!_OS were matched
-  to OBS and PPA releases by their base, not tested. Whether the OBS `Debian_13`
-  build runs on Parrot with its backported `libxkbcommon0` is unmeasured; only that
-  every dependency has an apt candidate.
+- `meshtasticd` was not installed in this pass. (It was on 2026-10-05, for issue #308:
+  see "Installed and run, 2026-10-05" in section 3. Raspberry Pi OS and Pop!_OS are
+  still matched to OBS and PPA releases by their base and were not tested.)
 - Whether `rnodeconf --autoinstall` verifies what it downloads, and from where, was
   not read. Neither were `markqvist/tncattach` or `RNode_Firmware`'s release assets.
 - The Reticulum License's two clauses were quoted, not interpreted, and the

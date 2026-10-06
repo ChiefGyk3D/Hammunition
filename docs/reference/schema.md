@@ -297,7 +297,7 @@ upstream must be repointable by editing the catalog, not the launchers.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `kind` | `Literal[udev_rule, modprobe_blacklist, group_create, group_membership, foreign_arch, package_purge, apt_pin, file_shadow, file_capability]` | **yes** |  |
+| `kind` | `Literal[udev_rule, modprobe_blacklist, group_create, group_membership, foreign_arch, package_purge, apt_pin, file_shadow, file_capability, package_udev_rule, package_service, package_account]` | **yes** |  |
 | `description` | `str` | **yes** |  |
 | `detail` | `str` | **yes** |  |
 | `reversible` | `bool` | **yes** |  |
@@ -342,6 +342,13 @@ serves ``.../release/trixie`` and ``.../release/noble``, each its own
 would add a noble repository to a Debian 13 machine. A target no
 repository applies to gets no repository, and the unit falls to the
 ordinary "the archive does not offer it" path (D-039), deferred by name.
+
+A **flat** repository has no ``dists/`` tree: its ``Release`` and
+``Packages`` sit directly under ``uri``. The openSUSE Build Service
+publishes every repository that way (``meshtasticd``, D-040 amendment of
+2026-10-05). It is declared as ``suites: ["./"]`` with ``components: []``,
+which is how sources.list(5) writes one: a suite ending in ``/`` and no
+``Components:`` line. A mix of the two shapes in one entry is refused.
 
 | Field | Type | Required | Description |
 |---|---|---|---|

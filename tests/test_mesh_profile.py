@@ -14,6 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from hammunition.backends import AptRepoBackend
 from hammunition.manifest.load import load_catalog, load_profiles
 from hammunition.manifest.schema import ProfileManifest
 
@@ -25,7 +26,7 @@ PROFILES = load_profiles(ROOT / "catalog" / "profiles", CATALOG)
 MESH: ProfileManifest = PROFILES["mesh"]
 
 
-def test_the_profile_is_post_1_0_ungated_and_carries_exactly_these_five() -> None:
+def test_the_profile_is_post_1_0_ungated_and_carries_exactly_these_six() -> None:
     assert MESH.stage == "post-1.0"
     assert MESH.consent is None  # nothing transmits until the operator attaches a radio
     assert MESH.packages == [
@@ -34,6 +35,7 @@ def test_the_profile_is_post_1_0_ungated_and_carries_exactly_these_five() -> Non
         "nomadnet",
         "python3-meshtastic",
         "gtk-meshtastic-client",
+        "meshtasticd",
     ]
 
 
@@ -45,7 +47,7 @@ def test_no_other_profile_pulls_it_in_and_no_default_does() -> None:
 
 def test_the_profile_says_what_it_leaves_out_and_what_the_operator_does_next() -> None:
     doc = MESH.documentation
-    for left_out in ("Sideband", "MeshChat", "meshtasticd", "MeshCore", "TAK"):
+    for left_out in ("Sideband", "MeshChat", "MeshCore", "TAK"):
         assert left_out in doc.deliberately_excludes, left_out
     assert "Part 97" in doc.manual_configuration
     assert "systemctl --user start hammunition-rnsd" in doc.manual_configuration
@@ -67,6 +69,13 @@ def test_a_target_without_python3_meshtastic_defers_it_by_name_and_installs_the_
         known=known,
         target=TARGET,
         apt=_apt(tmp_path, known),
+        # `meshtasticd` is in no archive, so the plan adds the project's repository.
+        repos=AptRepoBackend(
+            cache_dir=tmp_path / "cache",
+            staging_dir=tmp_path / "staging",
+            sources_dir=tmp_path / "sources.list.d",
+            keyrings_dir=tmp_path / "keyrings",
+        ),
     )
     installed = {p.name for p in plan.packages}
     assert {"rns", "lxmf", "nomadnet"} <= installed

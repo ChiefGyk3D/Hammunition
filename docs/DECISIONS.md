@@ -2883,6 +2883,48 @@ there by name.
 `uninstall` is unchanged: it removes the files the log attributes to a
 unit's declared repositories, whichever target wrote them.
 
+### Amendment, 2026-10-05 — a repository may be flat; a package's own effects are disclosed, not performed
+
+**No new number; two additions to rule 1 and to what a plan prints, and
+nothing else changes.** Issue #308 (`meshtasticd`, D-080's Track C part 2) is
+the first unit whose publisher is the openSUSE Build Service.
+
+1. **A flat repository is declarable.** The Build Service publishes
+   `Release` and `Packages` directly under the repository URI, with no
+   `dists/` tree (measured 2026-10-05, `network:Meshtastic:beta/Debian_13/`).
+   sources.list(5) writes that as a suite ending in `/` and no `Components:`
+   line, and an empty `Components:` line is a malformed stanza that apt
+   refuses whole (measured, Debian 13 container). An `apt_repos` entry may
+   therefore carry `suites: ["./"]` and `components: []`; the two shapes are
+   never mixed in one entry (`components` empty only when every suite ends in
+   `/`, and none given when one does). The source file omits the line, the
+   consent disclosure says "a flat repository", and the plan line says so.
+   Nothing about the key, the gate, the two files or the removal changes.
+2. **`system_modifications` gains three disclosure-only kinds**,
+   `package_service`, `package_udev_rule` and `package_account`, for what a
+   *package's own* maintainer scripts and files do and the engine does not.
+   `meshtasticd`'s package enables and starts a boot service, ships a udev
+   rule with a world-writable line (`1a86:5512`, mode 0666) and creates a
+   system user and groups; before this there was no honest place for that
+   (`udev_rule` and `group_create` are kinds the engine does not perform and
+   refuses by name, which is the right reading of those two). The three are
+   in `IMPLEMENTED_MODIFICATIONS` because the plan prints each as a note
+   before the confirmation; the engine runs nothing for them and
+   `uninstall` does not reverse them, which each entry's `reverse_hint` says.
+   The disclosure is the point: a dry run that omitted a world-writable rule
+   would be the approximation this project refuses.
+
+The first unit to use both is `meshtasticd` (D-080's amendment, the pull
+request for #308). The same pull request fixes a defect found by its
+uninstall run, recorded here because the evidence is this decision's rule 7:
+since #236 the engine's apt commands read `apt-get -o Acquire::Retries=3
+install ...`, and the attribution that decides what `uninstall` may remove
+read `argv[1]` as the verb, so it saw `-o`, attributed nothing, and left every
+apt package behind as "installed, but not installed by Hammunition". The verb
+is now the first non-option argument, and the engine's own `install
+--simulate` pre-flight (rule 6), which exits 0 and installs nothing, never
+attributes.
+
 
 ---
 
@@ -10370,6 +10412,42 @@ maintainer's LoRa boards were lost in a flood. A public hub (not run from CI by
 policy). The service under a real systemd user manager. NomadNet's text
 interface. What an attached client of another account can do. The last section
 of `docs/guides/mesh-and-reticulum.md` has the detail.
+
+### Amendment, 2026-10-05 — `meshtasticd` joins the `mesh` profile from the Meshtastic project's repositories
+
+**Issue #308, Track C part 2.** `meshtasticd` is in no distribution archive;
+the Meshtastic project publishes it in the openSUSE Build Service (a flat
+repository per Debian release, no Ubuntu) and in Launchpad PPAs (Ubuntu), on
+channels `beta`, `alpha` and `daily` (there is no `stable`). The unit carries
+the `beta` channel, which is upstream's own name for its recommended channel. It
+is a D-040 case with the archive offering nothing on any target, declared as
+five repositories, one per kind of target (`when:`), each pinning the key
+fingerprint read from the published key on 2026-10-05 with the engine's own
+`openpgp.py` and `gpg --show-keys`: OBS `426AA6B0285C2096B70D9FC2528423A469A77D9A`
+(Debian 13, Parrot 7 from `Debian_13`; Kali from `Debian_Testing`, whose build
+needs glibc 2.43 and does not install on Parrot) and PPA
+`5E0A0F83F3DDE7AC55915B14F40C93FFA2CD17E3` (Ubuntu 24.04 and Mint 22.3 from
+`noble`, Ubuntu 26.04 from `resolute`). The OBS key is the whole `network:`
+project's, not Meshtastic's, and **expires 2027-08-26**; the manifest says both.
+Q-023 asks whether the unit wants a consent gate beyond the repository's and
+whether the profile should be split.
+
+**It is disclosed, not gated, beyond the repository.** Nothing transmits at
+install: the shipped `config.d` is empty, the region is unset and `Module:
+auto` finds no radio, and the daemon then exits within seconds (measured). The
+D-040 gate on the repository is the typed fingerprint. The package's boot
+service, its udev rule with a world-writable line for USB `1a86:5512`, its
+system user and groups, and the API it serves on TCP 4403 (all interfaces, no
+login, measured under `--sim`) are printed in the plan as notes and recorded in
+the manifest's `system_modifications` and `service_endpoints` (D-040's
+2026-10-05 amendment gives the three disclosure kinds).
+
+**Measured 2026-10-05** in rootless Podman containers of the harness's own
+target images, with the engine installing through the typed fingerprint: Debian
+13, Parrot, Kali, Ubuntu 24.04 and 26.04 and Linux Mint 22.3 (the pull request
+has the per-target table and what each run covered). **Not measured:** any
+radio, any systemd boot of the unit, arm64 and armhf installs, and what the
+CH341 udev rule does to a plugged-in module.
 
 **Consequences.** `catalog/packages/{rns,lxmf,nomadnet}.yaml`,
 `catalog/hardware/devices/rnode.yaml`, `catalog/profiles/mesh.yaml`;
