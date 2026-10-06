@@ -45,8 +45,10 @@ a made-up hash where a destination hash goes. Put your own in their place.
 - **For radio**, an RNode (section 6) or a packet modem (section 7), and
   membership of the `dialout` group: `docs/hardware/rnode.md` and the
   [serial permission entry](../troubleshooting/running.md#dialout) say how.
-- **About 70 MB of disk** for the three Reticulum environments, plus the two
-  Meshtastic packages.
+- **About 70 MB of disk** for the three Reticulum environments, plus the
+  Meshtastic packages. `meshtasticd` pulls about 150 packages on a bare machine
+  (most are the SDL and graphics libraries it links) and a third-party
+  repository you are asked to trust (section 2).
 
 The profile is marked post-1.0: it is built and its pieces are tested, and no
 LoRa link has been run through it. [What is measured, and what is
@@ -113,7 +115,21 @@ hammunition install mesh
 ```
 
 Run it as yourself. Nothing needs root unless a Meshtastic package has to
-come from the archive, and then the plan shows the `sudo` step first.
+come from the archive or a repository, and then the plan shows the `sudo` step
+first.
+
+**One question you must answer: the Meshtastic repository.** `meshtasticd`, the
+Meshtastic node daemon (section 11), is in no distribution's archive. It comes
+from the Meshtastic project's own repository (the openSUSE Build Service on
+Debian 13, Parrot and Kali, a Launchpad PPA on Ubuntu 24.04, Linux Mint 22.3
+and Ubuntu 26.04), so the plan lists a *third-party apt repository* with its
+signing key's fingerprint and the two files it will write, and the install
+stops until you type that fingerprint. At a terminal it asks; in a script, set
+the variable the plan names (`HAMMUNITION_ACCEPT_APT_REPO_<NAME>`) to the
+fingerprint itself, and note that `--yes` does not answer it (**D-040**,
+**D-021**). Check the fingerprint against what Meshtastic publishes before you
+accept it. If you want Reticulum and not Meshtastic's daemon, name the units
+and the question never comes: `hammunition install rns lxmf nomadnet`.
 
 **What the licence means for you.** Reticulum and LXMF are under the
 Reticulum License: the MIT text plus two added conditions, which upstream's
@@ -639,9 +655,90 @@ guide did not run it). The same `--help` lists `--set-ham`, "Set licensed Ham
 ID and turn off encryption", which is Meshtastic's own switch for the
 amateur-radio question section 6 raises.
 
-The Linux Meshtastic node daemon, `meshtasticd`, is not here: no distribution
-carries it, it comes from a third-party repository and it is the next unit of
-this track. So are MeshCore's clients.
+### The node daemon: `meshtasticd`
+
+`meshtasticd` is a different thing from the two clients above. They talk to a
+node you own over USB. `meshtasticd` **is** a node, running on the computer: it
+drives a LoRa radio wired to the computer's SPI and GPIO pins (a Raspberry Pi
+HAT such as the RAK6421, Nebra or MeshAdv) or plugged in as a USB CH341 SPI
+module (Meshstick, MeshToad, uMesh), joins the mesh, and serves the Meshtastic
+API on TCP port 4403 so that `meshtastic --host ...`, the web client and the
+phone apps can use it. **A T-Deck, T-Echo or RAK on your USB bus is not a case
+for it**: use `meshtastic --port /dev/ttyACM0` for those. A machine with neither
+a HAT nor a CH341 module can run it only in simulation, which is useful to
+try the client against.
+
+It is not in any distribution's archive, which is why section 2 asked you to
+trust a repository. What the install did to the machine, each item printed in
+the plan before you confirmed and read from the package itself (`dpkg-deb -I`,
+`-c` and `-e` on the 2.7.26 `.deb`, never run on the maintainer's machine):
+
+- **A repository and its key.** `/etc/apt/sources.list.d/<name>.sources` and
+  `/etc/apt/keyrings/<name>.gpg`, trusted for that repository alone. On Debian
+  13, Parrot and Kali the repository is the Build Service's `network:Meshtastic:beta`,
+  signed by the key of the whole `network:` project ("network OBS Project",
+  RSA 4096, **expires 2027-08-26**): after that date the update fails until the
+  catalog pins a new key. On the Ubuntu family it is `ppa:meshtastic/beta`,
+  signed by "Launchpad PPA for Meshtastic", no expiry. `beta` is Meshtastic's
+  own name for the channel they recommend; there is no "stable".
+- **A boot service.** `meshtasticd.service` is enabled and started by the
+  package, runs as a new `meshtasticd` system user, and is restarted whenever
+  it exits. With no radio configured it exits within seconds (measured), so on
+  a real machine systemd restarts it and then gives up after its start limit.
+- **A udev rule with a world-writable line.**
+  `/usr/lib/udev/rules.d/60-meshtasticd.rules` makes every USB device with the
+  pair `1a86:5512` (the WCH CH341 in SPI mode) readable and writable by **every
+  account on the machine** (mode 0666), and gives SPI and GPIO devices to the
+  groups `spi` and `gpio` (mode 0660). The pair is generic, not specific to a
+  Meshtastic radio. To narrow it, copy the file to `/etc/udev/rules.d/`, change
+  that line to `GROUP="plugdev", MODE="0660"`, and `sudo udevadm control
+  --reload`.
+- **A user and groups.** `meshtasticd` (user and group) and `spi` and `gpio` if
+  the machine has none; the user is added to `spi`, `gpio`, `plugdev`,
+  `dialout`, `i2c`, `video`, `audio` and `input` where they exist. **You are not
+  added to any group.** The package owns `/etc/meshtasticd` and
+  `/var/lib/meshtasticd`.
+- **A network listener.** The API on TCP 4403 listens on **every interface**
+  and has no login (measured with `--sim`): anyone who can reach the machine on
+  that port can read and change the node. Firewall it, or do not leave the
+  daemon running on a network you do not trust. The web client the daemon serves
+  itself (`Webserver:` in the config, off by default) listens on 0.0.0.0:9443
+  over TLS with a certificate it makes on first start, and is open the same way.
+
+**Using it.** On a machine with a HAT, enable SPI (and the I²C bus) in the kernel (on
+Raspberry Pi OS, `raspi-config`), then pick the one hardware file that matches
+your board from the 62 in `/etc/meshtasticd/available.d`, link it into
+`config.d`, restart the service and set the region (section 11 above, with
+`--host localhost`):
+
+```
+sudo ln -s /etc/meshtasticd/available.d/<file>.yaml /etc/meshtasticd/config.d/
+sudo systemctl restart meshtasticd.service
+meshtastic --host localhost --set lora.region US
+```
+
+(`<file>` is yours to choose, and `US` your region's code; this guide has not
+driven a radio, see section 13.) To try it with no radio, run it by hand as the
+service user:
+
+```
+sudo systemctl disable --now meshtasticd.service
+sudo -u meshtasticd /usr/bin/meshtasticd --sim
+meshtastic --host 127.0.0.1 --info
+```
+
+and to keep it off the machine entirely, `sudo systemctl disable --now
+meshtasticd.service`. Version care: the node and the client want to be near each
+other, and Debian 13 and Parrot carry client 2.6.0 against daemon 2.7.26.
+
+**Removing it.** `hammunition uninstall meshtasticd` removes the package, the
+repository file and the key, and refreshes apt. It leaves `/etc/meshtasticd`
+and `/var/lib/meshtasticd` (the node's identity and settings), the `meshtasticd`
+user and the groups, and the boot-enablement link until the package is purged:
+`sudo apt-get purge meshtasticd` clears the link and `/var/lib/meshtasticd`, and
+`sudo deluser meshtasticd` the account.
+
+MeshCore's clients are not here.
 
 ---
 
@@ -751,8 +848,33 @@ minute; the two-container run used a private bridge:
   removed the unit file, the virtualenvs, the wrappers and the menu entry. It
   left `~/.reticulum`, `~/.lxmd`, `~/.nomadnetwork` and `~/.rnsh` in place.
 
+Then `meshtasticd` on 2026-10-05 (details in the pull request for issue #308):
+the engine added each target's repository in a container of its own image (Debian
+13, Parrot, Kali, Ubuntu 24.04 and 26.04, Linux Mint 22.3), after the typed
+fingerprint, with `Signed-By` naming the key and nothing wider; the daemon
+installed; `meshtasticd --version` printed 2.7.26; a second `install` planned zero
+commands; `hammunition uninstall` removed both repository files and the package
+(and, on every target, left the user, the groups, `/etc/meshtasticd` and
+`/var/lib/meshtasticd`). Under `--sim`, as the `meshtasticd` user, the daemon
+listened on 0.0.0.0:4403 on Debian 13, Parrot, Kali, Ubuntu 26.04 and Linux Mint 22.3 and
+`meshtastic --host 127.0.0.1 --info` connected and read firmware 2.7.26 on
+Debian 13, Parrot, Kali and Ubuntu 26.04. Ubuntu 24.04 and Mint 22.3 have no
+`python3-meshtastic`, so no client was run there, and the Ubuntu 24.04 run did
+not look at the listener. With the shipped config and no radio the daemon exited 0 within a
+second. With a `Webserver:` block it listened on 0.0.0.0:9443 and wrote its
+certificate. The package's postinst, udev rule, conffiles and unit were read with
+`dpkg-deb`; the OBS `Release.key` fingerprint was computed with the engine's own
+parser and agrees with `gpg --show-keys`, and `gpg --verify` accepts the
+repository's `InRelease` against it.
+
 Not measured, and this page says so where it matters:
 
+- **`meshtasticd` under systemd**, and with a radio: no HAT or CH341 module has
+  been run, no region set on a real node, no packet sent. The containers have no
+  systemd, so the boot service, its restart limit and the udev rule's effect on
+  a plugged-in module were read, not observed. arm64 and armhf packages exist in
+  both repositories and were not installed. The web client's pages were not
+  fetched.
 - **No LoRa link.** No RNode, and no Meshtastic node, has been run for this
   page. The maintainer's LoRa boards were lost in a flood; the `rnode` entry
   is recorded from upstream's board lists, as `meshtastic` was, and says

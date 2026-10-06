@@ -2,7 +2,7 @@
 
 # Profile: mesh
 
-> Off-grid mesh messaging: Reticulum with NomadNet and LXMF, and the Meshtastic clients
+> Off-grid mesh messaging: Reticulum with NomadNet and LXMF, the Meshtastic clients and the Meshtastic node daemon
 
 **Stage:** post-1.0
 
@@ -15,32 +15,33 @@ An operator who wants encrypted off-grid messaging for EMCOMM or experiment, ove
 | | |
 |---|---|
 | Stage | post-1.0 |
-| Units | 5 |
-| Disk | about 70 MB of venvs, plus two apt packages |
+| Units | 6 |
+| Disk | about 70 MB of venvs, plus three apt packages (152 more with meshtasticd on a bare machine) |
 | Hardware | None for Reticulum on a local network. A LoRa board (an RNode for Reticulum, a Meshtastic node) for radio links. No LoRa link has been run through this profile. |
-| Consent | none |
+| Consent | a typed key fingerprint per repository, only where the target's archive lacks the unit: `meshtasticd` |
 | Install | `hammunition install mesh` |
 
 ## What it installs
 
 Two mesh networks that do not talk to each other, and the programs for each.
 **Reticulum** is a general networking stack: addresses are keys, every packet is encrypted, and one network can run over a LoRa radio, a packet modem, a cable or an ordinary network with no router. `rns` is the stack, its command tools (`rnstatus`, `rnpath`, `rnprobe`, `rncp`, `rnx`, `rnsh`, `rnid`), the RNode flasher `rnodeconf`, and a systemd user service that keeps one shared instance running for your account. `lxmf` is the message layer and `lxmd`, a store-and-forward daemon you run only on purpose. `nomadnet` is the terminal messenger and page browser.
-**Meshtastic** is a ready-made text mesh on LoRa with phone apps: the command-line client (`python3-meshtastic`) and a GTK desktop client (`gtk-meshtastic-client`) from the distribution's archive.
+**Meshtastic** is a ready-made text mesh on LoRa with phone apps: the command-line client (`python3-meshtastic`) and a GTK desktop client (`gtk-meshtastic-client`) from the distribution's archive, and `meshtasticd`, the node itself as a Linux daemon, for a computer that has a LoRa radio on its SPI/GPIO pins or a USB CH341 module (or none, in simulation). No distribution carries `meshtasticd`: it comes from the Meshtastic project's own repository, which the install asks you to trust by typing its key fingerprint, once.
+**A caution about `meshtasticd`.** Its package starts a system service at install and at every boot, ships a udev rule that makes USB CH341 modules (1a86:5512) writable by every account, and the API it serves on TCP 4403 listens on every interface and has no login. The plan prints each of these before you confirm, and [Mesh and Reticulum](../guides/mesh-and-reticulum.md) has the commands to keep it off, local or removed.
 All of the Reticulum programs come from PyPI, hash-pinned, each in its own per-user virtualenv: no archive carries them. Reticulum's licence is its own (MIT plus two use restrictions) and is printed in the plan before you confirm.
 
-**Disk footprint:** About 70 MB for the three Reticulum virtualenvs (20, 20 and 27 MB, measured 2026-10-03 on Python 3.13.5; each carries its own copy of `rns`), plus the two Meshtastic packages and their dependencies from the archive, which were not measured here.
+**Disk footprint:** About 70 MB for the three Reticulum virtualenvs (20, 20 and 27 MB, measured 2026-10-03 on Python 3.13.5; each carries its own copy of `rns`), plus the Meshtastic packages and their dependencies from the archive, which were not measured here except for one number: `meshtasticd` is 2.1 MB to download and 9.4 MB installed, and pulls 152 packages on a bare Debian 13 container (84 without recommends), most of them the SDL and graphics libraries it links.
 
 ## Why these belong together
 
 They are the two off-grid messaging networks a person with a LoRa board is most likely to meet, and they use the same boards, the same `dialout` group and the same serial tools, so one profile gets a laptop ready for either. They are a choice, not a bridge: a Meshtastic node and a Reticulum node do not exchange messages. Reticulum is the one with no central design and a wider reach (a laptop on one Wi-Fi, a TCP link, a LoRa RNode, a Direwolf modem, all one network); Meshtastic is the one with the ready hardware and the phone app.
 
-## Packages (5)
+## Packages (6)
 
-[`rns`](../packages/rns.md), [`lxmf`](../packages/lxmf.md), [`nomadnet`](../packages/nomadnet.md), [`python3-meshtastic`](../packages/python3-meshtastic.md), [`gtk-meshtastic-client`](../packages/gtk-meshtastic-client.md)
+[`rns`](../packages/rns.md), [`lxmf`](../packages/lxmf.md), [`nomadnet`](../packages/nomadnet.md), [`python3-meshtastic`](../packages/python3-meshtastic.md), [`gtk-meshtastic-client`](../packages/gtk-meshtastic-client.md), [`meshtasticd`](../packages/meshtasticd.md)
 
 ## What it deliberately excludes
 
-**Sideband**, Reticulum's phone-style client: a 293 MB Kivy environment under a non-commercial Creative Commons licence, with a compiler build on arm64 (mesh-inventory.md); its own decision. **Reticulum MeshChat**, which ships only as an AppImage (a post-1.0 backend). **`meshtasticd`**, the Linux Meshtastic node daemon, which no distribution archive carries and which comes from a third-party repository (the next unit of this track), and **MeshCore** and its clients. Any TAK server or client. **Any Reticulum configuration**: the engine writes none, and the file is yours.
+**Sideband**, Reticulum's phone-style client: a 293 MB Kivy environment under a non-commercial Creative Commons licence, with a compiler build on arm64 (mesh-inventory.md); its own decision. **Reticulum MeshChat**, which ships only as an AppImage (a post-1.0 backend). **MeshCore** and its clients, and Meshtastic's web client as a unit of its own (the daemon serves its bundled copy when you enable its web server). Any TAK server or client. **Any Reticulum configuration**: the engine writes none, and the file is yours.
 
 ## Install it
 
@@ -64,15 +65,17 @@ A member your machine cannot take is deferred by name and the rest installs
 the command that fixes it. [Installation](../getting-started/installation.md)
 explains how to read every part of the plan.
 
+**Third-party apt repositories.** `meshtasticd` can need a publisher's apt repository on a target whose own archive lacks the package (D-040). The plan then prints the repository, the two files it would write and the key's fingerprint, and asks you to type that fingerprint into `HAMMUNITION_ACCEPT_APT_REPO_<NAME>`. `--yes` and a value of `1` are refused.
+
 ## What you configure by hand afterward
 
 **Reticulum.** Nothing is required for two machines on one local network: `rnsd` writes `~/.reticulum/config` on first start with the AutoInterface on. Start the service now with `systemctl --user start hammunition-rnsd` (it is enabled and begins at your next login). For the internet add a `TCPClientInterface`; for LoRa flash an RNode with `rnodeconf --autoinstall` and add an `RNodeInterface` with a frequency you are allowed to use. The guide has the stanzas. Reticulum encrypts every packet, which matters on amateur frequencies (Part 97 in the United States): the guide states it as a disclosure and does not rule on it. NomadNet creates your identity in `~/.nomadnetwork` on first run; keep it.
-**Meshtastic.** Set the radio region on the node before it will transmit, and expect the client and the node's firmware to want matching versions. Add yourself to `dialout` for either family and log out and back in.
+**Meshtastic.** Set the radio region on the node before it will transmit, and expect the client and the node's firmware to want matching versions. Add yourself to `dialout` for either family and log out and back in. **`meshtasticd`** starts empty: no radio is configured, so it exits at once and does nothing until you link one hardware file from `/etc/meshtasticd/available.d` into `/etc/meshtasticd/config.d` (or run it with `--sim` to try it without a radio), restart it and set the region. If you do not want a boot service, `sudo systemctl disable --now meshtasticd.service`; to keep the API off the network, firewall port 4403.
 
 ## Your first ten minutes
 
-1. Read the plan first: `hammunition install mesh --dry-run`. It names the Reticulum licence beside the venv step, the user service it will write, and any Meshtastic package your archive lacks, which it defers rather than refuses.
-2. Install: `hammunition install mesh`. The Reticulum programs are fetched from PyPI against pinned hashes, so it needs the network and takes a minute or two.
+1. Read the plan first: `hammunition install mesh --dry-run`. It names the Reticulum licence beside the venv step, the user service it will write, any Meshtastic package your archive lacks (which it defers rather than refuses), and for `meshtasticd` the third-party repository it will add, with its key fingerprint, and the service, udev rule and system user its package brings.
+2. Install: `hammunition install mesh`. It asks you once to trust the Meshtastic repository by typing its fingerprint (in a script, set the variable the plan names to that fingerprint; `--yes` does not answer it). The Reticulum programs are fetched from PyPI against pinned hashes, so it needs the network and takes a minute or two.
 3. Start the shared instance now: `systemctl --user start hammunition-rnsd`, then `rnstatus`. It should show a shared instance and the AutoInterface.
 4. Put `~/.local/bin` on your PATH if the shell says `rnstatus: command not found` (a new shell usually does it), then run `nomadnet` and write down the address it shows.
 5. On a second machine on the same network, install the profile too and message the first one. [Mesh and Reticulum](../guides/mesh-and-reticulum.md) walks through it, then the internet and LoRa.

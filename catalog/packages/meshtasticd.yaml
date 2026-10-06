@@ -1,0 +1,362 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: meshtasticd
+version: "2.7.26"
+summary: Meshtastic node daemon for Linux, driving a LoRa radio on this machine's SPI/GPIO or a USB CH341 module
+menu_title: Meshtastic node daemon (meshtasticd)
+categories: [mesh]
+
+# Issue #308, Track C part 2 (epic #105). Every claim below was measured on
+# 2026-10-05 unless it says otherwise; the measurements are summarised here, in
+# docs/reference/mesh-inventory.md and in the pull request.
+#
+# NO DISTRIBUTION CARRIES IT. `apt-cache madison meshtasticd` is empty on the
+# Parrot 7.4 development machine (2026-10-03) and every target's archive was
+# swept for it (mesh-inventory.md section 2). It is published two ways:
+#
+#   * the openSUSE Build Service, https://download.opensuse.org/repositories/
+#     network:/Meshtastic:/<channel>/<release>/ -- channels beta, alpha, daily
+#     (no "stable"); releases Debian_12, Debian_13, Debian_Testing,
+#     Debian_Unstable, Raspbian_12, Raspbian_13; NO Ubuntu directory. These are
+#     FLAT repositories: Release and Packages sit directly under the URI, there
+#     is no dists/ tree, so the source is `Suites: ./` with no `Components:`
+#     line at all (D-040 amendment of 2026-10-05, the engine change this unit
+#     needed). An empty `Components:` line is a malformed stanza and apt
+#     refuses the file (measured, Debian 13 container).
+#   * Launchpad PPAs for Ubuntu, ppa.launchpadcontent.net/meshtastic/<channel>,
+#     one suite per Ubuntu series, a conventional dists/ tree.
+#
+# CHANNEL. `beta` is the one carried: upstream calls it "Meshtastic Beta
+# Releases" and it is the channel the project's own installation page points
+# an operator at, the others being alpha (2.8.1) and a daily build. Nothing
+# named "stable" exists. beta was 2.7.26.61 on 2026-10-05 on both the OBS and
+# the PPA side, built from one commit (54e0d8d).
+#
+# KEYS, each computed from the downloaded bytes with this engine's own
+# src/hammunition/openpgp.py and, separately, `gpg --show-keys`:
+#   OBS   426AA6B0285C2096B70D9FC2528423A469A77D9A, uid "network OBS Project
+#         <network@build.opensuse.org>", RSA 4096, created 2025-06-17,
+#         EXPIRES 2027-08-26. Release.key is byte-identical in the beta, alpha
+#         and daily projects (sha256 prefix d546e147623ed42f). The InRelease of
+#         beta/Debian_13 verifies against it (`gpg --verify`, good signature,
+#         primary key fingerprint as above). It is the key of the whole
+#         `network:` project, not of the Meshtastic sub-project: it can sign any
+#         repository OBS builds under that project, which the rationale says.
+#         When it expires every OBS target stops updating until a new key is
+#         pinned; `update --upstream` should flag it.
+#   PPA   5E0A0F83F3DDE7AC55915B14F40C93FFA2CD17E3, uid "Launchpad PPA for
+#         Meshtastic", RSA 4096, created 2025-01-04, no expiry. Equals
+#         `signing_key_fingerprint` from the Launchpad API for all three PPAs,
+#         and keyserver.ubuntu.com serves the same key.
+#
+# WHICH TARGET GETS WHICH. For each: the engine added the repository through the
+# typed fingerprint in a container of that target's own image, apt-get update
+# accepted the signed InRelease through Signed-By, the simulate resolved, the
+# package installed, and the daemon ran under `--sim` (2026-10-05):
+#   Debian 13            OBS Debian_13       amd64; client connected over TCP
+#   Parrot 7.4           OBS Debian_13       amd64; client connected. Debian_Testing
+#                                            does NOT resolve here: libc6 >= 2.43 and
+#                                            libyaml-cpp0.9 against Parrot's 2.41
+#   Kali rolling         OBS Debian_Testing  amd64; client connected. Kali has glibc
+#                                            2.43, which that build needs; the
+#                                            Debian_13 build also simulates there.
+#                                            A rolling target on a rolling suite,
+#                                            best effort (D-084)
+#   Ubuntu 24.04, Mint 22.3  PPA noble       amd64; no python3-meshtastic in the
+#                                            archive, so no client was run
+#   Ubuntu 26.04         PPA resolute        amd64; client connected
+# Architectures: Debian_13 carries amd64, arm64, armhf, i386, ppc64el;
+# Debian_Testing amd64, arm64, armhf, i386, ppc64el; the PPA amd64, arm64,
+# armhf, i386, ppc64el, riscv64, s390x (noble) and the same plus amd64v3
+# (resolute). Only amd64 was run here; arm64 and armhf are read from the
+# Release and Packages files and were not run.
+#
+# NOT CONSENT-GATED BEYOND THE REPOSITORY, and the reason is D-080's, not an
+# oversight: gates attach to profiles, and nothing transmits until the operator
+# attaches a radio, writes a config.d file for it and sets a region. A fresh
+# install has an empty config.d and a region of UNSET; the shipped config.yaml
+# says `Module: auto`. What `--yes` cannot answer is the D-040 repository gate
+# on every target (the variable named in each entry's plan line). The question
+# whether a transmit-capable unit wants a gate of its own is Q-023.
+recommended_default: false
+
+apt_repos:
+  - name: meshtastic-obs-debian13
+    uri: https://download.opensuse.org/repositories/network:/Meshtastic:/beta/Debian_13/
+    suites: ["./"]
+    components: []
+    key_url: https://download.opensuse.org/repositories/network:/Meshtastic:/beta/Debian_13/Release.key
+    key_fingerprint: 426AA6B0285C2096B70D9FC2528423A469A77D9A
+    when:
+      distro: [debian]
+      distro_version: ["13"]
+    rationale: &obs_rationale >-
+      meshtasticd, the Meshtastic node daemon for Linux, is in no Debian, Ubuntu,
+      Kali or Parrot archive. The Meshtastic project publishes it in the openSUSE
+      Build Service, in the repository `network:Meshtastic:beta` ("Meshtastic
+      Beta Releases", upstream's own channel name; there is no stable one), built
+      for this release. It is a flat repository (no dists/ tree). It is signed
+      by the key of the whole `network:` project, "network OBS Project
+      <network@build.opensuse.org>", an RSA 4096 key created 2025-06-17 that
+      EXPIRES 2027-08-26; the fingerprint was read from the published Release.key
+      on 2026-10-05, and that key verifies this repository's InRelease. Adding
+      the repository grants the holder of that key the ability to ship updates
+      for any package name published there, for as long as it stays configured;
+      today it publishes meshtasticd (and its debug-symbols package) only. The
+      key can also sign other repositories OBS builds under `network:`, which
+      this repository does not use and the Signed-By line does not stop.
+  - name: meshtastic-obs-parrot
+    uri: https://download.opensuse.org/repositories/network:/Meshtastic:/beta/Debian_13/
+    suites: ["./"]
+    components: []
+    key_url: https://download.opensuse.org/repositories/network:/Meshtastic:/beta/Debian_13/Release.key
+    key_fingerprint: 426AA6B0285C2096B70D9FC2528423A469A77D9A
+    when:
+      distro: [parrot]
+    rationale: *obs_rationale
+  - name: meshtastic-obs-kali
+    uri: https://download.opensuse.org/repositories/network:/Meshtastic:/beta/Debian_Testing/
+    suites: ["./"]
+    components: []
+    key_url: https://download.opensuse.org/repositories/network:/Meshtastic:/beta/Debian_Testing/Release.key
+    key_fingerprint: 426AA6B0285C2096B70D9FC2528423A469A77D9A
+    when:
+      distro: [kali]
+    rationale: *obs_rationale
+  - name: meshtastic-ppa-noble
+    uri: https://ppa.launchpadcontent.net/meshtastic/beta/ubuntu
+    suites: [noble]
+    components: [main]
+    key_url: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x5E0A0F83F3DDE7AC55915B14F40C93FFA2CD17E3
+    key_fingerprint: 5E0A0F83F3DDE7AC55915B14F40C93FFA2CD17E3
+    # Ubuntu 24.04 and Linux Mint 22.3, which installs from Ubuntu 24.04's
+    # archive. The selector is a cross product, so it would also match an
+    # "ubuntu 22.3" or a "linuxmint 24.04"; neither exists.
+    when:
+      distro: [ubuntu, linuxmint]
+      distro_version: ["24.04", "22.3"]
+    rationale: &ppa_rationale >-
+      meshtasticd, the Meshtastic node daemon for Linux, is in no Ubuntu or Mint
+      archive. The Meshtastic project publishes it in its Launchpad PPA
+      `ppa:meshtastic/beta` ("Meshtastic Beta Releases"), built for this Ubuntu
+      series, signed by "Launchpad PPA for Meshtastic", an RSA 4096 key created
+      2025-01-04 that does not expire; the fingerprint was read from the key the
+      Ubuntu keyserver serves on 2026-10-05 and equals the signing key
+      Launchpad's API reports for the PPA. Adding the repository grants the
+      holder of that key the ability to ship updates for any package name
+      published there, for as long as it stays configured; today it publishes
+      meshtasticd only.
+  - name: meshtastic-ppa-resolute
+    uri: https://ppa.launchpadcontent.net/meshtastic/beta/ubuntu
+    suites: [resolute]
+    components: [main]
+    key_url: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x5E0A0F83F3DDE7AC55915B14F40C93FFA2CD17E3
+    key_fingerprint: 5E0A0F83F3DDE7AC55915B14F40C93FFA2CD17E3
+    when:
+      distro: [ubuntu]
+      distro_version: ["26.04"]
+    rationale: *ppa_rationale
+
+install:
+  - install:
+      method: apt
+      packages: [meshtasticd]
+    note: >-
+      One package, from the repository for this target (listed under its
+      apt_repos), after its gate. The package starts and enables a boot
+      service, ships a udev rule with a world-writable line, creates a system
+      user and three groups, and takes ownership of /etc/meshtasticd; each is
+      under system_modifications and is printed in the plan.
+
+system_modifications:
+  - kind: apt_pin
+    description: >-
+      Adds the Meshtastic project's repository for this target (the openSUSE
+      Build Service on Debian 13, Parrot and Kali; the Launchpad PPA on Ubuntu
+      24.04, Linux Mint 22.3 and Ubuntu 26.04) and pins its signing key.
+    detail: >-
+      Writes /etc/apt/sources.list.d/<name>.sources and the signing key, in
+      binary form, to /etc/apt/keyrings/<name>.gpg, with Signed-By naming that
+      keyring, so the key is trusted for this repository only and not
+      archive-wide. <name> is meshtastic-obs-debian13, meshtastic-obs-parrot,
+      meshtastic-obs-kali, meshtastic-ppa-noble or meshtastic-ppa-resolute, one
+      per target. The OBS source is a flat repository (`Suites: ./`, no
+      `Components:`).
+    reversible: true
+    reverse_hint: >-
+      sudo rm /etc/apt/sources.list.d/meshtastic-obs-debian13.sources
+      /etc/apt/keyrings/meshtastic-obs-debian13.gpg && sudo apt update (the
+      name for your target in place of meshtastic-obs-debian13);
+      `hammunition uninstall meshtasticd` removes both files itself
+  - kind: package_service
+    description: >-
+      The meshtasticd package enables and starts `meshtasticd.service`, a system
+      service that runs at every boot as the `meshtasticd` user and is restarted
+      whenever it exits. With no radio configured it exits within seconds.
+    detail: >-
+      /lib/systemd/system/meshtasticd.service: User=meshtasticd,
+      Group=meshtasticd, AmbientCapabilities=CAP_NET_BIND_SERVICE,
+      Restart=always, RestartSec=3, WantedBy=multi-user.target, ExecStart=
+      /usr/bin/meshtasticd-start.sh %i (no instance id: the bare daemon). The
+      package's postinst runs `deb-systemd-helper enable` and then starts or
+      restarts it when systemd is running, so installing the package enables a
+      boot-time service. Read from the package's postinst with dpkg-deb -e. The
+      same ExecStart run by hand as that user, with the shipped config and no
+      radio, printed "autoconf: Could not locate any devices" and exited 0 in
+      about a second (Debian 13 container, 2026-10-05); under systemd the unit's
+      Restart=always, RestartSec=3 and StartLimitBurst=5 within 200 s would
+      restart it five times and then stop it, which was not run here (no systemd
+      in the container). With a radio or `--sim` it keeps running and listens on
+      TCP 4403 on every interface (service_endpoints).
+    reversible: true
+    reverse_hint: >-
+      sudo systemctl disable --now meshtasticd.service. `hammunition uninstall
+      meshtasticd` removes the package and the unit file; the enablement symlink
+      under /etc/systemd/system/multi-user.target.wants stays until the package
+      is purged (`sudo apt-get purge meshtasticd`, measured: still there after
+      `apt-get remove`)
+  - kind: package_udev_rule
+    description: >-
+      The meshtasticd package ships /usr/lib/udev/rules.d/60-meshtasticd.rules,
+      which makes every USB CH341 SPI module (1a86:5512) readable and writable
+      by every account on the machine (mode 0666), and hands SPI and GPIO
+      devices to the `spi` and `gpio` groups (mode 0660).
+    detail: >-
+      The four rules, verbatim in effect from the .deb: spidev devices to group spi, mode
+      0660; USB 1a86:5512 MODE 0666; *gpiomem* and gpio devices to group gpio,
+      mode 0660. 1a86:5512 is the WCH CH341 in SPI/I2C mode, the chip on the
+      USB LoRa modules upstream lists (Meshstick, MeshToad, uMesh); other
+      devices that use the same pair are covered too, and no account has to be
+      in any group to use them. It is not written by this engine and not
+      listed in the hardware catalog: it is the package's own file, and it is
+      the reason the plan says so before the confirmation.
+    reversible: true
+    reverse_hint: >-
+      sudo cp /usr/lib/udev/rules.d/60-meshtasticd.rules
+      /etc/udev/rules.d/60-meshtasticd.rules, edit the 1a86:5512 line to
+      `GROUP="plugdev", MODE="0660"` (a copy under /etc overrides the packaged
+      file and survives upgrades), then sudo udevadm control --reload
+  - kind: package_account
+    description: >-
+      The package's postinst creates the system groups `spi` and `gpio` (when
+      the machine has none) and the system user and group `meshtasticd`, and
+      adds that user to `spi`, `gpio`, `plugdev`, `dialout`, `i2c`, `video`,
+      `audio` and `input` where they exist.
+    detail: >-
+      Read from the postinst: addgroup --system spi and gpio; adduser --system
+      --home /var/lib/meshtasticd --no-create-home meshtasticd; adduser
+      meshtasticd <group> for each of the above that exists. It also runs
+      chown -R meshtasticd:meshtasticd on /var/lib/meshtasticd, /etc/meshtasticd
+      and /usr/share/meshtasticd, so the daemon owns its own configuration.
+      The operator is not added to any group by this unit.
+    reversible: false
+    reverse_hint: >-
+      `hammunition uninstall meshtasticd` (apt-get remove) leaves the user, the
+      groups, /etc/meshtasticd and /var/lib/meshtasticd, which hold the node's
+      identity and settings (measured). `sudo apt-get purge meshtasticd`
+      removes /var/lib/meshtasticd (the postrm); remove the user and groups by
+      hand with `sudo deluser meshtasticd` and `sudo delgroup meshtasticd`
+      (and spi, gpio if nothing else uses them) if you want them gone
+
+service_endpoints:
+  - name: node_api
+    default_url: tcp://localhost:4403
+    description: >-
+      The Meshtastic TCP API, which the python3-meshtastic CLI and the phone
+      and web clients use (`meshtastic --host <address>`). `APIPort: 4403` is
+      commented out in the shipped /etc/meshtasticd/config.yaml, so this is the
+      daemon's built-in default. Measured with `meshtasticd --sim` as the
+      service user (Debian 13 container, 2026-10-05): it listens on 0.0.0.0:4403,
+      every interface, not only this machine, and `meshtastic --host 127.0.0.1
+      --info` connected to it. The API has no login.
+    user_configurable: true
+  - name: web_ui
+    default_url: https://localhost:9443
+    description: >-
+      The web client the daemon serves itself over TLS from
+      /usr/share/meshtasticd/web, with a certificate generated on first use.
+      The shipped config has the `Webserver:` block commented out, so it is OFF
+      until the operator enables it (`Webserver: Port: 9443`). Measured with
+      that block set: it listens on 0.0.0.0:9443, every interface, and the
+      daemon generated /etc/meshtasticd/ssl/{private_key,certificate}.pem on
+      the first start (the log line "ERROR SSL Certificate File can't be loaded
+      or is missing" is that first start). The page itself was not fetched.
+    user_configurable: true
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+  cadence_hint: >-
+    The beta channel moves with Meshtastic's firmware releases, a few times a
+    year, and the same version is built for the OBS and the PPA. The OBS signing
+    key expires 2027-08-26: after that date the Debian, Parrot and Kali
+    repositories stop verifying until a new fingerprint is pinned here.
+
+documentation:
+  what_it_does: >-
+    The Meshtastic node, as a Linux program. Where the firmware on a T-Deck or a
+    RAK board is the node, `meshtasticd` is the same node running on the
+    computer itself: it drives a LoRa radio wired to the computer's SPI and GPIO
+    pins (a Raspberry Pi HAT such as the RAK6421, Nebra or MeshAdv) or plugged in
+    as a USB CH341 SPI module (Meshstick, MeshToad, uMesh), joins the mesh, and
+    serves the Meshtastic API on a TCP port so that the `meshtastic` command, the
+    web client and the phone apps can talk to it. It carries 62 ready-made
+    hardware description files for such boards under /etc/meshtasticd/available.d,
+    and a simulation mode that needs no radio.
+  why_you_want_it: >-
+    It is how a Linux box becomes a permanent Meshtastic node: a Pi on a shelf,
+    a gateway that bridges the mesh to MQTT, an always-on node that does not
+    depend on a phone. It is the alternative to a standalone T-Beam or RAK on a
+    windowsill when you already have a computer there. It is NOT how a laptop
+    talks to a node it already owns: a T-Deck, T-Echo or RAK on USB is operated
+    with `python3-meshtastic` (`meshtastic --port /dev/ttyACM0`), which this
+    profile already carries, and a machine with neither a HAT nor a CH341 module
+    runs only the simulator.
+  prerequisites: >-
+    A radio the daemon can drive, or none, for the simulator. Enable exactly one
+    hardware description by linking it into /etc/meshtasticd/config.d (`sudo ln
+    -s /etc/meshtasticd/available.d/<file>.yaml /etc/meshtasticd/config.d/`),
+    restart the service, and set the radio's region before it will transmit:
+    `meshtastic --host localhost --set lora.region US` (or your region). A
+    fresh install has an empty config.d and an unset region, which is the
+    state in which it cannot transmit. SPI and I2C must be enabled in the
+    kernel for a HAT (on Raspberry Pi OS, `raspi-config`); the CH341 modules
+    need nothing, the packaged udev rule makes them accessible. The operator
+    is not added to any group.
+  known_problems: >-
+    The package starts and enables a boot service when it installs, as the
+    `meshtasticd` user, and the plan says so. With no radio configured the
+    shipped `Module: auto` finds none and the daemon exits within seconds, and
+    systemd restarts it every three seconds until its start limit stops it
+    (the exit was measured; the restart loop is read from the unit, not run).
+    If you only want it on demand, `sudo systemctl disable --now
+    meshtasticd.service`. The packaged udev rule makes USB 1a86:5512 devices
+    world-writable (mode 0666): any account on the machine can drive such a
+    module while it is plugged in. 1a86:5512 is a generic WCH CH341 pair, the
+    same kind of vendor-chip identifier docs/reference/lora-inventory.md
+    discusses, so the rule is wider than "a Meshtastic radio". The TCP API
+    (4403) has no authentication of its own and listens on every interface
+    (measured), so anyone who can reach the machine on that port can read and
+    change the node: firewall it, or keep the machine off networks you do not
+    trust, before you leave the daemon running. The shipped /etc/meshtasticd/config.yaml is a conffile that the
+    postinst chowns to the daemon's user; leave your changes in
+    /etc/meshtasticd/config.d. The OBS build for Kali and Debian testing needs
+    libc6 2.43 or newer and libyaml-cpp0.9, so it follows Kali's rolling
+    archive and can break the day Kali moves; the Debian 13 build needs
+    libyaml-cpp0.8. Version matching: the node and `python3-meshtastic` want to
+    be near each other (Debian 13 and Parrot carry 2.6.0 of the client against
+    2.7.26 of the daemon). No radio has been driven on any target: what ran
+    was the simulator and `meshtastic --host` over TCP, in containers.
+  upstream_url: https://meshtastic.org/
+  upstream_support: >-
+    Documentation at https://meshtastic.org/docs/software/linux/ (installation,
+    native `meshtasticd` and configuration); firmware and `meshtasticd` source
+    at https://github.com/meshtastic/firmware; packaging in the OBS project
+    network:Meshtastic. Issues at https://github.com/meshtastic/firmware/issues.
+    GPL-3.0: the repository's LICENSE is the GNU GPL version 3 text, 35,148
+    bytes (whether source files say "only" or "or later" was not read).
+    Liveness per D-032: default branch `develop`, head 9e4d3018ef47 committed
+    2026-10-05; latest release tag v2.7.26.54e0d8d, published 2026-06-24, the
+    commit the beta packages (2.7.26.61~...~54e0d8d) are built from.

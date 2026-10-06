@@ -3,7 +3,7 @@
 # Applications by activity
 
 Every application the catalog carries, laid out the way the desktop menu is: one
-chapter per activity, one section per thing a person looks for. **326
+chapter per activity, one section per thing a person looks for. **327
 applications.** A program with several tags is listed under each.
 
 Each entry links to its page, which says what it does and why you would want it,
@@ -316,6 +316,7 @@ Meshtastic, MeshCore and Reticulum: off-grid text over LoRa.
 
 - [gtk-meshtastic-client](packages/gtk-meshtastic-client.md) — Desktop GUI for Meshtastic nodes (in [`mesh`](profiles/mesh.md))
 - [lxmf](packages/lxmf.md) — LXMF, Reticulum's message layer, and lxmd, its store-and-forward propagation daemon (in [`mesh`](profiles/mesh.md))
+- [meshtasticd](packages/meshtasticd.md) — Meshtastic node daemon for Linux, driving a LoRa radio on this machine's SPI/GPIO or a USB CH341 module (in [`mesh`](profiles/mesh.md))
 - [nomadnet](packages/nomadnet.md) — Nomad Network, an encrypted messenger and page browser for the terminal, over Reticulum (in [`mesh`](profiles/mesh.md))
 - [python3-meshtastic](packages/python3-meshtastic.md) — Meshtastic command-line client and Python API (in [`mesh`](profiles/mesh.md))
 - [rns](packages/rns.md) — Reticulum, encrypted networking over any medium, with its shared instance and the RNode flasher (in [`mesh`](profiles/mesh.md))
