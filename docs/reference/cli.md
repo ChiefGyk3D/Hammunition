@@ -313,7 +313,7 @@ $ hammunition artifacts --map-regions north-america/us/vermont --units osm-regio
 | `--map-regions R[,R…]` | Geofabrik region paths, as `station set --map-regions` takes them. None defers the map units |
 | `--map-freshness MODE` | `yearly` (the default), `monthly` or `latest`: which dated file each region resolves to and how it is verified, exactly as in the plan |
 | `--reference-books ID[,ID…]` | Kiwix book ids, as `station set --reference-books` takes them (`hammunition reference books` lists them). Each is listed by its id with the pinned URL, `sha256`, size and the book's own licence line, from the carried pins with no network asked. An id the book list or the pins do not carry is listed as deferred; a malformed one, or an empty list, exits 2. None defers `kiwix-library` as *no books selected* |
-| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions`, `dem-tiles`, `mwm-regions` or `kiwix-books` install block. A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
+| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions`, `dem-tiles`, `mwm-regions` or `kiwix-books` install block, then `repeater-snapshots` (D-078: not a catalog unit, the on-request repeater lists a Bunker may hold, which can also be named here). A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
 
 The network is asked as the plan asks it, and only for what the selection
 names: Geofabrik for a region's dated file, its `.md5` and its `.poly`
