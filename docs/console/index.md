@@ -15,7 +15,7 @@ Raspberry Pi has not been measured.
 
 ## What it is
 
-Eight screens: Home, Install, Station, Secrets, Repeaters, Logs, Update and Help. Every action is a command you could type yourself, and the console
+Eight screens: Home, Install, Station, Secrets, Repeaters, Logs, Update and Help. Which CLI verbs they cover, and which have no screen yet, is counted in [Console coverage](../reference/console-coverage.md). Every action is a command you could type yourself, and the console
 shows it before it runs. Hardware setup is one first-run step on Home (`hammunition hardware apply`, in a pane, with the
 engine's own prompts); everything else about hardware, and maps, is left to the CLI and to
 [hammunition-tray](https://github.com/Renegade-Penguin/hammunition-tray) for now.
