@@ -387,3 +387,118 @@ def test_security_key_type_without_token(wire: dict[str, object]) -> None:
     row["hardware"] = False
     with pytest.raises(CatalogueError, match="hardware"):
         parse(encode(wire))
+
+
+@pytest.mark.parametrize(
+    "raw,reason",
+    [
+        (b'{"last_run":' + b"[" * 200_000 + b"0" + b"]" * 200_000 + b"}", "recursion"),
+        (b'{"serial":' + b"9" * 5000 + b"}", "integer"),
+    ],
+    ids=["deep-nesting", "oversized-integer"],
+)
+def test_parser_resource_errors_are_catalogue_errors(raw: bytes, reason: str) -> None:
+    with pytest.raises(CatalogueError, match=r"^catalogue:") as caught:
+        parse(raw)
+    assert reason in str(caught.value).lower()
+
+
+@pytest.mark.parametrize(
+    "error", [RecursionError("last_run nesting too deep"), ValueError("invalid nested JSON value")]
+)
+def test_model_resource_errors_are_catalogue_errors(
+    wire: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+    error: Exception,
+) -> None:
+    from unittest.mock import Mock
+
+    from hammunition.catalogue import Catalogue
+
+    monkeypatch.setattr(Catalogue, "model_validate_json", Mock(side_effect=error))
+    with pytest.raises(CatalogueError, match=r"^catalogue:") as caught:
+        parse(encode(wire))
+    assert str(error) in str(caught.value)
+
+
+@pytest.mark.parametrize("field", ["last_run", "deferred", "declined"])
+def test_nested_json_value_refused(wire: dict[str, object], field: str) -> None:
+    raw = encode(wire).replace(
+        b'"' + field.encode() + b'": ' + (b"null" if field == "last_run" else b"[]"),
+        b'"' + field.encode() + b'": ' + b"[" * 300 + b"0" + b"]" * 300,
+    )
+    with pytest.raises(CatalogueError, match=r"^catalogue:"):
+        parse(raw)
+
+
+@pytest.mark.parametrize("count", [16, 17])
+def test_signer_limit_before_key_subprocess(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, count: int
+) -> None:
+    from unittest.mock import Mock
+
+    rows = []
+    for n in range(count):
+        public = key(tmp_path / str(n)).with_suffix(".pub").read_text().strip()
+        signer = section(document(public), "signers")
+        signer["signature"] = f"catalogue.sig.d/{n}.sig"
+        rows.append(signer)
+    public = rows[0]["public_key"]
+    assert isinstance(public, str)
+    doc = document(public)
+    doc["signers"] = rows
+    if count == 16:
+        assert len(parse(encode(doc)).signers) == 16
+    else:
+        run = Mock(side_effect=AssertionError("ssh-keygen must not run"))
+        monkeypatch.setattr("hammunition.keystrength.subprocess.run", run)
+        with pytest.raises(CatalogueError, match="signers"):
+            parse(encode(doc))
+        run.assert_not_called()
+
+
+@pytest.mark.parametrize("algorithm,small_rsa", [("ed25519", False), ("rsa", False), ("rsa", True)])
+def test_keygen_read_error_message(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, algorithm: str, small_rsa: bool
+) -> None:
+    import base64
+    import struct
+    import subprocess
+    from unittest.mock import Mock
+
+    public = (
+        key(tmp_path, algorithm, 2048 if algorithm == "rsa" else None)
+        .with_suffix(".pub")
+        .read_text()
+        .strip()
+    )
+    if small_rsa:
+        blob = base64.b64decode(public.split()[1])
+        offset = 0
+        for _ in range(2):  # type and exponent precede the modulus.
+            size = struct.unpack(">I", blob[offset : offset + 4])[0]
+            offset += 4 + size
+        modulus = b"\x7f" + b"\xff" * 63
+        public = (
+            "ssh-rsa "
+            + base64.b64encode(blob[:offset] + struct.pack(">I", len(modulus)) + modulus).decode()
+        )
+    monkeypatch.setattr(
+        "hammunition.keystrength.subprocess.run",
+        Mock(
+            return_value=subprocess.CompletedProcess(
+                args=["ssh-keygen"],
+                returncode=1,
+                stdout=b"",
+                stderr=b"cannot decode public key\nsecond diagnostic\n",
+            )
+        ),
+    )
+    expected = (
+        "public_key is invalid; OpenSSH refuses RSA under 1024 bits"
+        if small_rsa
+        else "ssh-keygen could not read the key: cannot decode public key"
+    )
+    with pytest.raises(ValueError) as caught:
+        classify(public)
+    assert str(caught.value) == expected

@@ -16,7 +16,7 @@ wire lists become tuples. This wire format has no CLI JSON envelope.
 | `generated` | str | RFC 3339 UTC, `Z` suffix |
 | `bunker.name` | str | `[a-z0-9][a-z0-9-]{0,62}`; the signing principal is `bunker:<name>` |
 | `bunker.mode` | str | `personal` or `group` |
-| `signers` | list | ≥ 1 entry; `signature` is a relative path under `catalogue.sig.d/` |
+| `signers` | list | 1–16 entries; larger lists are refused before key classification; `signature` is a relative path under `catalogue.sig.d/` |
 | `signers[].algorithm` | str | the OpenSSH key type string of `public_key` |
 | `signers[].bits` | int | key size as `ssh-keygen -l` reports it |
 | `signers[].hardware` | bool | the Bunker's claim; provable only for `sk-*` types |

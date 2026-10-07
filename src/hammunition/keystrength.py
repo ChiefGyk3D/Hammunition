@@ -51,7 +51,25 @@ def classify(public_key_line: str) -> KeyStrength:
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise ValueError("ssh-keygen could not classify public_key; install OpenSSH 8.2+") from exc
     if result.returncode:
-        raise ValueError("public_key is invalid; OpenSSH refuses RSA under 1024 bits")
+        if algorithm == "ssh-rsa":
+            # RSA's wire fields are type, exponent, modulus. Only diagnose
+            # OpenSSH's size floor when the encoded modulus proves it.
+            offset = 4 + size
+            try:
+                exponent_size = struct.unpack(">I", blob[offset : offset + 4])[0]
+                offset += 4 + exponent_size
+                modulus_size = struct.unpack(">I", blob[offset : offset + 4])[0]
+                modulus = blob[offset + 4 : offset + 4 + modulus_size]
+                if (
+                    len(modulus) == modulus_size
+                    and 0 < int.from_bytes(modulus, "big").bit_length() < 1024
+                ):
+                    raise ValueError("public_key is invalid; OpenSSH refuses RSA under 1024 bits")
+            except struct.error:
+                pass
+        diagnostics = result.stderr.decode("utf-8", errors="replace").splitlines()
+        reason = diagnostics[0] if diagnostics else "no diagnostic from ssh-keygen"
+        raise ValueError(f"ssh-keygen could not read the key: {reason}")
     fields = result.stdout.decode().split()
     if len(fields) < 2 or not fields[0].isdigit() or not fields[1].startswith("SHA256:"):
         raise ValueError("ssh-keygen returned no public_key size/fingerprint")

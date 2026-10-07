@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from hammunition.keystrength import classify
 from hammunition.station import REGION
@@ -73,7 +73,7 @@ class Catalogue(Wire):
     serial: int = Field(ge=1)
     generated: str
     bunker: Bunker
-    signers: tuple[Signer, ...] = Field(min_length=1)
+    signers: tuple[Signer, ...] = Field(min_length=1, max_length=16)
     engine_version: str | None
     artifacts: tuple[CatalogueArtifact, ...] = Field(min_length=0)
     inputs: tuple[CatalogueInput, ...] = Field(min_length=0)
@@ -149,7 +149,9 @@ def _object(pairs: list[tuple[str, object]]) -> dict[str, object]:
 def parse(raw: bytes) -> Catalogue:
     try:
         value = json.loads(raw.decode("utf-8"), object_pairs_hook=_object)
-    except (UnicodeError, json.JSONDecodeError) as exc:
+    except CatalogueError:
+        raise
+    except (RecursionError, ValueError) as exc:
         raise CatalogueError(f"catalogue: invalid UTF-8 JSON: {exc}") from exc
     if not isinstance(value, dict):
         raise CatalogueError("catalogue: expected an object")
@@ -159,8 +161,8 @@ def parse(raw: bytes) -> Catalogue:
         )
     try:
         cat = Catalogue.model_validate_json(raw)
-    except ValidationError as exc:
-        raise CatalogueError(str(exc)) from exc
+    except (RecursionError, ValueError) as exc:
+        raise CatalogueError(f"catalogue: invalid v3 document: {exc}") from exc
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", cat.bunker.name):
         raise CatalogueError("bunker.name: expected a lowercase Bunker name")
     utc(cat.generated, "generated")
