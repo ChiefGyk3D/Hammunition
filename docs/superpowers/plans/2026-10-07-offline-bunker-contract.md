@@ -37,6 +37,7 @@ release). Signed bytes: exactly the bytes served. UTF-8 JSON.
       "algorithm": "sk-ssh-ed25519@openssh.com",
       "bits": 256,
       "hardware": true,
+      "no_touch_required": false,
       "signature": "catalogue.sig.d/1.sig"
     }
   ],
@@ -93,9 +94,17 @@ Field rules (the reader refuses a document that breaks one, naming the field):
 | `signers[].algorithm` | str | the OpenSSH key type string of `public_key` |
 | `signers[].bits` | int | key size as `ssh-keygen -l` reports it |
 | `signers[].hardware` | bool | the Bunker's claim; provable only for `sk-*` types |
+| `signers[].no_touch_required` | bool | true only for an `sk-*` key created with `-O no-touch-required`; the engine then adds that option to the key's allowed-signers line; false for every other type |
 | `artifacts[]` | object | the v2 entry fields unchanged, plus `publisher_name` (str or null), `publisher_size` (int or null), `share` (`all` or `owner:<enrolment id>`) |
 | `inputs[].kind` | str | one of `region-outline`, `tile-selection`, `sheet-selection`, `dem3dep-selection`, `fstopo-selection` |
 | `inputs[].region` | str | an OSM region name as the engine spells it |
+
+**Selection inputs are the engine's own record files, byte for byte** (the
+records `terrain_plan` and `topo_plan` already write and read, e.g.
+`render_record(RegionQuads(...))`). The Bunker never implements its own
+codec: it produces them by calling the pinned engine's functions, and the
+engine re-validates each against its verified outline and the current bound
+before using it (amended 2026-10-07 after Plan A's review).
 
 `publisher_name`/`publisher_size` are null for kinds the repository pins by
 sha256 (the pin is the trust) and set for publisher-digest kinds (unpinned
