@@ -2452,7 +2452,11 @@ One run's log file.
 
 ### mirror
 
-MirrorDocument(url: 'str | None', name: 'str | None', mode: 'str | None', enrolment_id: 'str | None', accepted_serial: 'int | None', generated: 'str | None', age_days: 'int | None', require_hardware: 'bool', keys: 'tuple[MirrorKeyView, ...]', warnings: 'tuple[str, ...]')
+Stored Bunker trust and station signature policy, without a network request.
+
+The serial and catalogue age describe the last verified metadata. With no
+enrolled Bunker, its identity and catalogue fields are null and keys are empty;
+the station hardware policy still applies to future enrolment.
 
 | field | type | meaning |
 |---|---|---|
@@ -2469,7 +2473,10 @@ MirrorDocument(url: 'str | None', name: 'str | None', mode: 'str | None', enrolm
 
 #### `MirrorKeyView`
 
-MirrorKeyView(id: 'str', algorithm: 'str', bits: 'int', hardware: 'bool', no_touch_required: 'bool', weak: 'bool', warning: 'str | None')
+One enrolled Bunker signer, with measured strength and hardware origin.
+
+The advertised no-touch metadata is informational only; it never changes
+signature verification options.
 
 | field | type | meaning |
 |---|---|---|
@@ -2488,6 +2495,7 @@ MirrorKeyView(id: 'str', algorithm: 'str', bits: 'int', hardware: 'bool', no_tou
   "$defs": {
     "MirrorKeyView": {
       "additionalProperties": false,
+      "description": "One enrolled Bunker signer, with measured strength and hardware origin.\n\nThe advertised no-touch metadata is informational only; it never changes\nsignature verification options.",
       "properties": {
         "id": {
           "title": "Id",
@@ -2539,6 +2547,7 @@ MirrorKeyView(id: 'str', algorithm: 'str', bits: 'int', hardware: 'bool', no_tou
     }
   },
   "additionalProperties": false,
+  "description": "Stored Bunker trust and station signature policy, without a network request.\n\nThe serial and catalogue age describe the last verified metadata. With no\nenrolled Bunker, its identity and catalogue fields are null and keys are empty;\nthe station hardware policy still applies to future enrolment.",
   "properties": {
     "url": {
       "anyOf": [

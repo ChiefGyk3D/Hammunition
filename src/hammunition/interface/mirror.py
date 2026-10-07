@@ -14,6 +14,12 @@ from hammunition.signers import MirrorState
 
 @dataclass(frozen=True)
 class MirrorKeyView(Strict):
+    """One enrolled Bunker signer, with measured strength and hardware origin.
+
+    The advertised no-touch metadata is informational only; it never changes
+    signature verification options.
+    """
+
     id: str = described("SHA256 fingerprint of the enrolled public key")
     algorithm: str = described("OpenSSH algorithm measured from the public key")
     bits: int = described("key size measured by ssh-keygen")
@@ -25,6 +31,13 @@ class MirrorKeyView(Strict):
 
 @dataclass(frozen=True)
 class MirrorDocument(Strict):
+    """Stored Bunker trust and station signature policy, without a network request.
+
+    The serial and catalogue age describe the last verified metadata. With no
+    enrolled Bunker, its identity and catalogue fields are null and keys are empty;
+    the station hardware policy still applies to future enrolment.
+    """
+
     KIND: ClassVar[str] = "mirror"
     url: str | None = described("enrolled mirror URL; null when no Bunker is enrolled")
     name: str | None = described("enrolled Bunker name")
