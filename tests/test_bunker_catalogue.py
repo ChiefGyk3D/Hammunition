@@ -443,9 +443,9 @@ def test_signer_limit_before_key_subprocess(
         signer = section(document(public), "signers")
         signer["signature"] = f"catalogue.sig.d/{n}.sig"
         rows.append(signer)
-    public = rows[0]["public_key"]
-    assert isinstance(public, str)
-    doc = document(public)
+    first_key = rows[0]["public_key"]
+    assert isinstance(first_key, str)
+    doc = document(first_key)
     doc["signers"] = rows
     if count == 16:
         assert len(parse(encode(doc)).signers) == 16

@@ -3,12 +3,16 @@
 
 import importlib
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
 from bunker_fixtures import document, key, signed
 from hammunition import mirror, signers
+from hammunition.consent import ConsentRecord
+from hammunition.keystrength import classify
+from hammunition.signers import MirrorState
 from hammunition.station import load_station
 
 cli = importlib.import_module("hammunition.cli.main")
@@ -33,7 +37,7 @@ def test_enrol_requires_fingerprint_and_clear_removes_trust(
     candidate = mirror.Candidate(raw, sigs)
     monkeypatch.setattr(mirror, "read_candidate", lambda *a: candidate)
     monkeypatch.setattr(cli, "is_interactive", lambda: True)
-    fingerprint = signers.classify(public).fingerprint
+    fingerprint = classify(public).fingerprint
     monkeypatch.setattr("builtins.input", lambda *a: "1")
     assert cli.main(["mirror", "enrol", "http://bunker.invalid/"]) != 0
     assert signers.load_mirror() is None
@@ -65,7 +69,7 @@ def test_second_fingerprint_prompt_is_real(tmp_path: Path) -> None:
     private = key(tmp_path)
     public = private.with_suffix(".pub").read_text().strip()
     raw, signatures = signed(tmp_path, private, document(public))
-    identity = signers.classify(public).fingerprint
+    identity = classify(public).fingerprint
     responses = iter((identity, "wrong"))
     records: list[ConsentRecord] = []
     with pytest.raises(ConsentDeclined):
@@ -87,15 +91,22 @@ def candidate(tmp_path: Path, *, serial: int = 42, hardware: bool = False) -> mi
     private = key(tmp_path)
     public = private.with_suffix(".pub").read_text().strip()
     doc = document(public, serial=serial)
-    doc["signers"][0]["hardware"] = hardware
+    rows = doc["signers"]
+    assert isinstance(rows, list)
+    rows[0]["hardware"] = hardware
     raw, signatures = signed(tmp_path, private, doc)
     return mirror.Candidate(raw, signatures)
 
 
-def enroll(value: mirror.Candidate, records: list, choose=None, affirm=None):
+def enroll(
+    value: mirror.Candidate,
+    records: list[ConsentRecord],
+    choose: Callable[[str], str] | None = None,
+    affirm: Callable[[str], bool] | None = None,
+) -> MirrorState:
     from datetime import UTC, datetime
 
-    identity = signers.classify(
+    identity = classify(
         __import__("hammunition.catalogue", fromlist=["parse"])
         .parse(value.raw)
         .signers[0]
@@ -114,7 +125,9 @@ def enroll(value: mirror.Candidate, records: list, choose=None, affirm=None):
     )
 
 
-def test_store_failure_does_not_change_station(tmp_path, monkeypatch):
+def test_store_failure_does_not_change_station(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from hammunition.station import Station, save_station
 
     save_station(Station(mirror="http://previous.invalid/"))
@@ -129,13 +142,13 @@ def test_store_failure_does_not_change_station(tmp_path, monkeypatch):
     assert load_station().mirror == "http://previous.invalid/"
 
 
-def test_hardware_consent_is_real_and_logged(tmp_path):
+def test_hardware_consent_is_real_and_logged(tmp_path: Path) -> None:
     from hammunition.catalogue import parse
     from hammunition.consent import ConsentDeclined
 
     value = candidate(tmp_path, hardware=True)
     identity = parse(value.raw).signers[0].id
-    records = []
+    records: list[ConsentRecord] = []
     responses = iter((identity, identity, "wrong"))
     with pytest.raises(ConsentDeclined):
         enroll(value, records, choose=lambda text: next(responses))
@@ -149,7 +162,7 @@ def test_hardware_consent_is_real_and_logged(tmp_path):
     assert records[0].disclosure_sha256 != records[1].disclosure_sha256
 
 
-def test_bad_signature_writes_no_state(tmp_path):
+def test_bad_signature_writes_no_state(tmp_path: Path) -> None:
     value = candidate(tmp_path)
     with pytest.raises(signers.SignerError):
         enroll(mirror.Candidate(value.raw, {}), [])
@@ -157,13 +170,15 @@ def test_bad_signature_writes_no_state(tmp_path):
     assert load_station().mirror is None
 
 
-def test_clear_oserror_is_clean(tmp_path, monkeypatch, capsys):
+def test_clear_oserror_is_clean(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     enroll(candidate(tmp_path), [])
 
     def fail(*args: object, **kwargs: object) -> None:
         raise PermissionError("denied")
 
-    monkeypatch.setattr(signers.os, "unlink", fail)
+    monkeypatch.setattr("hammunition.signers.os.unlink", fail)
     with pytest.raises(signers.SignerError) as caught:
         signers.clear_mirror()
     assert isinstance(caught.value.__cause__, PermissionError)
@@ -172,7 +187,7 @@ def test_clear_oserror_is_clean(tmp_path, monkeypatch, capsys):
     assert "mirror.json" in capsys.readouterr().err
 
 
-def test_policy_round_trip_clear_and_strict_bool(tmp_path):
+def test_policy_round_trip_clear_and_strict_bool(tmp_path: Path) -> None:
     from hammunition.station import StationError, config_path
 
     assert cli.main(["station", "set", "--mirror-require-hardware-key"]) == 0
@@ -184,7 +199,7 @@ def test_policy_round_trip_clear_and_strict_bool(tmp_path):
         load_station()
 
 
-def test_mutations_refuse_json_and_yes(tmp_path, capsys):
+def test_mutations_refuse_json_and_yes(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     for command in (["mirror", "enrol", "http://bunker.invalid/"], ["mirror", "accept-older"]):
         assert cli.main([*command, "--json"]) != 0
         assert json.loads(capsys.readouterr().out)["kind"] == "error"
@@ -192,7 +207,7 @@ def test_mutations_refuse_json_and_yes(tmp_path, capsys):
             cli.main([*command, "--yes"])
 
 
-def test_noninteractive_enrol_refuses(tmp_path, monkeypatch):
+def test_noninteractive_enrol_refuses(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     value = candidate(tmp_path)
     monkeypatch.setattr(mirror, "read_candidate", lambda *args: value)
     monkeypatch.setattr(cli, "is_interactive", lambda: False)
@@ -200,7 +215,7 @@ def test_noninteractive_enrol_refuses(tmp_path, monkeypatch):
     assert signers.load_mirror() is None
 
 
-def test_status_refuses_url_mismatch(tmp_path):
+def test_status_refuses_url_mismatch(tmp_path: Path) -> None:
     from hammunition.station import Station, save_station
 
     enroll(candidate(tmp_path), [])
@@ -208,21 +223,23 @@ def test_status_refuses_url_mismatch(tmp_path):
     assert cli.main(["mirror", "status"]) == 2
 
 
-def test_clear_fsync_failure_is_chained(tmp_path, monkeypatch):
+def test_clear_fsync_failure_is_chained(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     enroll(candidate(tmp_path), [])
     error = OSError("fsync failed")
-    monkeypatch.setattr(signers.os, "fsync", lambda *args: (_ for _ in ()).throw(error))
+    monkeypatch.setattr("hammunition.signers.os.fsync", lambda *args: (_ for _ in ()).throw(error))
     with pytest.raises(signers.SignerError) as caught:
         signers.clear_mirror()
     assert caught.value.__cause__ is error
 
 
-def test_declined_hardware_is_file_key(tmp_path):
+def test_declined_hardware_is_file_key(tmp_path: Path) -> None:
     state = enroll(candidate(tmp_path, hardware=True), [], affirm=lambda text: False)
     assert not state.keys[0].hardware
 
 
-def test_lower_serial_requires_verified_backup_consent(tmp_path, monkeypatch, capsys):
+def test_lower_serial_requires_verified_backup_consent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     from hammunition.catalogue import parse
 
     original = candidate(tmp_path)
@@ -233,10 +250,11 @@ def test_lower_serial_requires_verified_backup_consent(tmp_path, monkeypatch, ca
     older = mirror.Candidate(raw, signatures)
     with pytest.raises(signers.SignerError, match="serial"):
         enroll(older, [])
-    assert signers.load_mirror().accepted_serial == state.accepted_serial
+    kept = signers.load_mirror()
+    assert kept is not None and kept.accepted_serial == state.accepted_serial
     monkeypatch.setattr(mirror, "read_candidate", lambda *args: older)
     monkeypatch.setattr(cli, "is_interactive", lambda: True)
-    prompts = []
+    prompts: list[str] = []
 
     def answer(text: str) -> str:
         prompts.append(text)
@@ -245,14 +263,17 @@ def test_lower_serial_requires_verified_backup_consent(tmp_path, monkeypatch, ca
     monkeypatch.setattr("builtins.input", answer)
     assert cli.main(["mirror", "accept-older"]) == 0
     assert "42" in prompts[0] and "12" in prompts[0] and "trusted backup" in prompts[0]
-    assert signers.load_mirror().accepted_serial == 12
+    accepted = signers.load_mirror()
+    assert accepted is not None and accepted.accepted_serial == 12
     monkeypatch.setattr(mirror, "read_candidate", lambda *args: mirror.Candidate(raw, {}))
     prompts.clear()
     assert cli.main(["mirror", "accept-older"]) == 2
     assert prompts == []
 
 
-def test_cli_logs_fingerprint_timestamp_hash(tmp_path, monkeypatch):
+def test_cli_logs_fingerprint_timestamp_hash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from hammunition.catalogue import parse
 
     value = candidate(tmp_path)
@@ -274,7 +295,9 @@ def test_cli_logs_fingerprint_timestamp_hash(tmp_path, monkeypatch):
     assert len(consent["disclosure_sha256"]) == 64
 
 
-def test_status_displays_no_touch_and_age(tmp_path, capsys):
+def test_status_displays_no_touch_and_age(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     from dataclasses import replace
     from datetime import UTC, datetime
 
@@ -288,17 +311,19 @@ def test_status_displays_no_touch_and_age(tmp_path, capsys):
     assert "Bunker catalogue is older than 30 days" in doc.warnings
 
 
-def test_transport_header_bounds_redirect_and_body_error(monkeypatch):
+def test_transport_header_bounds_redirect_and_body_error(monkeypatch: pytest.MonkeyPatch) -> None:
     import io
     import urllib.error
+    import urllib.request
+    from email.message import Message
 
     from hammunition.backends import BackendError
     from hammunition.mirror_transport import MirrorTransport
 
     source = MirrorTransport("http://bunker.invalid/base/", "laptop")
-    requests = []
+    requests: list[urllib.request.Request] = []
 
-    def opened(request, **kwargs: object) -> io.BytesIO:
+    def opened(request: urllib.request.Request, **kwargs: object) -> io.BytesIO:
         requests.append(request)
         return io.BytesIO(b"payload")
 
@@ -317,28 +342,25 @@ def test_transport_header_bounds_redirect_and_body_error(monkeypatch):
         raise error
     assert caught.value is error
 
-    def redirected(request, **kwargs: object) -> None:
-        raise urllib.error.HTTPError(request.full_url, 302, "redirect", {}, None)
+    def redirected(request: urllib.request.Request, **kwargs: object) -> None:
+        raise urllib.error.HTTPError(request.full_url, 302, "redirect", Message(), None)
 
     monkeypatch.setattr(source.opener, "open", redirected)
     with pytest.raises(BackendError, match="redirects are not followed"):
         source.read("catalogue.json", max_bytes=8)
-    assert not any(
-        isinstance(
-            handler,
-            __import__("urllib.request", fromlist=["HTTPRedirectHandler"]).HTTPRedirectHandler,
-        )
-        for handler in source.opener.handlers
-    )
+    handlers: list[object] = vars(source.opener)["handlers"]
+    assert not any(isinstance(handler, urllib.request.HTTPRedirectHandler) for handler in handlers)
 
 
-def test_read_candidate_uses_shared_transport(tmp_path, monkeypatch):
+def test_read_candidate_uses_shared_transport(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from hammunition.mirror_transport import MirrorTransport
 
     value = candidate(tmp_path)
-    requests = []
+    requests: list[tuple[str, str | None, int]] = []
 
-    def read(self, relative: str, *, max_bytes: int) -> bytes:
+    def read(self: MirrorTransport, relative: str, *, max_bytes: int) -> bytes:
         requests.append((relative, self.enrolment_id, max_bytes))
         return value.raw if relative == "catalogue.json" else value.signatures[relative]
 
@@ -350,7 +372,9 @@ def test_read_candidate_uses_shared_transport(tmp_path, monkeypatch):
     ]
 
 
-def test_install_refuses_changed_station_mirror(tmp_path, monkeypatch):
+def test_install_refuses_changed_station_mirror(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from hammunition.station import Station, save_station
 
     enroll(candidate(tmp_path), [])
@@ -358,7 +382,7 @@ def test_install_refuses_changed_station_mirror(tmp_path, monkeypatch):
     assert cli.main(["install", "--dry-run", "--yes", "--no-refresh", "fldigi"]) == 2
 
 
-def test_fingerprint_case_and_disclosure(tmp_path):
+def test_fingerprint_case_and_disclosure(tmp_path: Path) -> None:
     from hammunition.catalogue import parse
     from hammunition.consent import ConsentDeclined
 
@@ -379,7 +403,7 @@ def test_fingerprint_case_and_disclosure(tmp_path):
     assert "no_touch_required=False" in prompts[0]
 
 
-def test_mirror_empty_golden(capsys):
+def test_mirror_empty_golden(capsys: pytest.CaptureFixture[str]) -> None:
     from json_support import assert_golden, assert_golden_text, parse_one, validate
 
     assert cli.main(["mirror", "status", "--json"]) == 0
@@ -390,7 +414,7 @@ def test_mirror_empty_golden(capsys):
     assert_golden_text("mirror-none", capsys.readouterr().out)
 
 
-def test_policy_json_set_and_show(capsys):
+def test_policy_json_set_and_show(capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main(["station", "set", "--mirror-require-hardware-key", "--json"]) == 0
     doc = json.loads(capsys.readouterr().out)
     assert doc["saved"]["mirror_require_hardware_key"] is True
@@ -400,7 +424,9 @@ def test_policy_json_set_and_show(capsys):
     assert not load_station().mirror_require_hardware_key
 
 
-def test_status_sk_metadata_golden(tmp_path, monkeypatch, capsys):
+def test_status_sk_metadata_golden(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     import base64
     import struct
     from dataclasses import replace
@@ -421,7 +447,7 @@ def test_status_sk_metadata_golden(tmp_path, monkeypatch, capsys):
         + b"ssh:"
     )
     public = algorithm + " " + base64.b64encode(wrapped).decode()
-    strength = signers.classify(public)
+    strength = classify(public)
     enrolled = signers.EnrolledKey(strength.fingerprint, public, algorithm, 256, True, True)
     state = replace(state, keys=(enrolled,))
     signers.save_mirror(state)
@@ -459,7 +485,7 @@ def test_status_sk_metadata_golden(tmp_path, monkeypatch, capsys):
     assert "no_touch_required=True" in display_signer(signer)
 
 
-def test_reenrol_retains_only_selected_keys_and_preserves_serial(tmp_path):
+def test_reenrol_retains_only_selected_keys_and_preserves_serial(tmp_path: Path) -> None:
     from hammunition.catalogue import parse
 
     first = candidate(tmp_path / "first")
@@ -467,9 +493,9 @@ def test_reenrol_retains_only_selected_keys_and_preserves_serial(tmp_path):
     private = key(tmp_path / "second")
     public = private.with_suffix(".pub").read_text().strip()
     doc = document(public, serial=43)
-    doc["signers"].append(
-        parse(first.raw).signers[0].model_dump() | {"signature": "catalogue.sig.d/2.sig"}
-    )
+    extra = doc["signers"]
+    assert isinstance(extra, list)
+    extra.append(parse(first.raw).signers[0].model_dump() | {"signature": "catalogue.sig.d/2.sig"})
     raw, signatures = signed(tmp_path / "second", private, doc)
     newer = enroll(mirror.Candidate(raw, signatures), [])
     assert len(newer.keys) == 1
@@ -478,7 +504,7 @@ def test_reenrol_retains_only_selected_keys_and_preserves_serial(tmp_path):
     assert signers.load_mirror() == newer
 
 
-def test_explicit_new_url_does_not_reuse_serial(tmp_path):
+def test_explicit_new_url_does_not_reuse_serial(tmp_path: Path) -> None:
     from datetime import UTC, datetime
 
     from hammunition.catalogue import parse
@@ -502,7 +528,7 @@ def test_explicit_new_url_does_not_reuse_serial(tmp_path):
     assert load_station().mirror == state.url
 
 
-def test_hardware_policy_refuses_file_key(tmp_path):
+def test_hardware_policy_refuses_file_key(tmp_path: Path) -> None:
     from datetime import UTC, datetime
 
     from hammunition.catalogue import parse

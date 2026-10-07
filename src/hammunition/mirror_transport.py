@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import errno
 import os
 import stat
 import urllib.error
@@ -16,10 +17,24 @@ from typing import IO
 from urllib.parse import quote, unquote, urlsplit
 
 from hammunition.backends import BackendError
-from hammunition.catalogue import parse, safe_relative, valid_enrolment_id
+from hammunition.catalogue import CatalogueError, parse, safe_relative, valid_enrolment_id
 from hammunition.fetch import MIRROR_TIMEOUT, TransportUnreachable
-from hammunition.signers import MirrorState, VerifiedCatalogue, advance_mirror, verify
+from hammunition.signers import (
+    MirrorState,
+    SignerError,
+    VerifiedCatalogue,
+    advance_mirror,
+    verify,
+)
 from hammunition.station import _check_mirror
+
+
+def _safe(value: str, field: str) -> str:
+    """:func:`safe_relative`, refusing as the transport refuses: BackendError."""
+    try:
+        return safe_relative(value, field)
+    except CatalogueError as exc:
+        raise BackendError(str(exc)) from exc
 
 
 def read_catalogue(source: MirrorTransport) -> bytes:
@@ -60,14 +75,14 @@ class MirrorTransport:
             or parts.fragment
         ):
             raise BackendError("mirror request leaves the configured base")
-        relative = safe_relative(unquote(parts.path[len(prefix) :]), "mirror request")
+        relative = _safe(unquote(parts.path[len(prefix) :]), "mirror request")
         if parts.scheme == "file":
             directory = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
             fd = -1
             try:
                 components = [*Path(unquote(self.parts.path)).parts[1:], *relative.split("/")]
                 for index, component in enumerate(components):
-                    safe_relative(component, "file mirror component")
+                    _safe(component, "file mirror component")
                     flags = os.O_RDONLY | os.O_NOFOLLOW
                     if index < len(components) - 1:
                         flags |= os.O_DIRECTORY
@@ -75,7 +90,17 @@ class MirrorTransport:
                         # A FIFO planted in an export would block open() for
                         # ever; non-blocking returns, and fstat refuses it.
                         flags |= os.O_NONBLOCK
-                    child = os.open(component, flags, dir_fd=directory)
+                    try:
+                        child = os.open(component, flags, dir_fd=directory)
+                    except OSError as exc:
+                        if exc.errno in (errno.ELOOP, errno.ENOTDIR) and stat.S_ISLNK(
+                            os.stat(component, dir_fd=directory, follow_symlinks=False).st_mode
+                        ):
+                            raise BackendError(
+                                "symlinked path components in a file mirror are refused: "
+                                f"{component!r} in {relative}"
+                            ) from exc
+                        raise
                     os.close(directory)
                     directory = child
                 fd, directory = directory, -1
@@ -103,9 +128,8 @@ class MirrorTransport:
             if response is None:
                 raise BackendError("no mirror transport handler")
         except urllib.error.HTTPError as exc:
-            raise BackendError(
-                f"mirror returned HTTP {exc.code}; redirects are not followed"
-            ) from exc
+            note = "; redirects are not followed" if 300 <= exc.code < 400 else ""
+            raise BackendError(f"mirror returned HTTP {exc.code}{note}") from exc
         except (urllib.error.URLError, OSError) as exc:
             raise TransportUnreachable(f"mirror could not be reached: {exc}") from exc
 
@@ -113,7 +137,7 @@ class MirrorTransport:
             yield response
 
     def read(self, relative: str, *, max_bytes: int) -> bytes:
-        relative = safe_relative(relative, "mirror path")
+        relative = _safe(relative, "mirror path")
         url = self.base.rstrip("/") + "/" + "/".join(quote(p, safe="") for p in relative.split("/"))
         with self.open(url) as stream:
             raw = stream.read(max_bytes + 1)
@@ -156,14 +180,22 @@ def load_catalogue(
     raw = read_catalogue(source)
     parsed = parse(raw)
     signatures: dict[str, bytes] = {}
+    fetch_failures: list[str] = []
     accepted = {k.id for k in state.keys}
     for signer in parsed.signers:
         if signer.id not in accepted:
             continue
         try:
             signatures[signer.signature] = source.read(signer.signature, max_bytes=64 * 1024)
-        except BackendError:
-            continue  # another enrolled signature can still verify
-    verified = verify(raw, signatures, state, require_hardware=require_hardware, now=now)
-    advance_mirror(state, parsed.serial, parsed.generated, owner=owner)
+        except BackendError as exc:
+            # Another enrolled signature can still verify; the reason is kept
+            # for the refusal if none does.
+            fetch_failures.append(f"{signer.signature}: {exc}")
+    try:
+        verified = verify(raw, signatures, state, require_hardware=require_hardware, now=now)
+    except SignerError as exc:
+        if not fetch_failures:
+            raise
+        raise SignerError(f"{exc}; signature fetch failed: " + "; ".join(fetch_failures)) from exc
+    advance_mirror(state, verified.catalogue.serial, verified.catalogue.generated, owner=owner)
     return verified

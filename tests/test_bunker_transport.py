@@ -11,6 +11,7 @@ later test's connections.
 from __future__ import annotations
 
 import errno
+import hashlib
 import http.server
 import os
 import threading
@@ -19,6 +20,7 @@ from contextlib import contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import NoReturn
 
 import pytest
 
@@ -32,8 +34,16 @@ from hammunition.mirror_transport import (
     CatalogueInputs,
     MirrorTransport,
     load_catalogue,
+    read_catalogue,
 )
-from hammunition.signers import EnrolledKey, MirrorState, SignerError, load_mirror, save_mirror
+from hammunition.signers import (
+    EnrolledKey,
+    MirrorState,
+    SignerError,
+    advance_mirror,
+    load_mirror,
+    save_mirror,
+)
 
 NOW = datetime(2026, 10, 7, tzinfo=UTC)
 LOCALHOST = "127.0.0.1"
@@ -464,20 +474,18 @@ def test_bad_signature_refuses_and_does_not_advance(tmp_path: Path) -> None:
 def test_good_verification_persists_the_serial_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import hammunition.mirror_transport as module
-
     state, raw, signatures, _ = enrolled(tmp_path, "http://bunker.invalid/", serial=10)
-    calls: list[int] = []
-    real = module.advance_mirror
+    calls: list[tuple[int, str]] = []
+    real = advance_mirror
 
-    def counting(state: MirrorState, serial: int, generated: str, **kw: object) -> None:
-        calls.append(serial)
-        real(state, serial, generated, **kw)  # type: ignore[arg-type]
+    def counting(state: MirrorState, serial: int, generated: str, *, owner: str | None) -> None:
+        calls.append((serial, generated))
+        real(state, serial, generated, owner=owner)
 
-    monkeypatch.setattr(module, "advance_mirror", counting)
+    monkeypatch.setattr("hammunition.mirror_transport.advance_mirror", counting)
     recording = Recording(state.url, {"catalogue.json": raw, **signatures})
     load_catalogue(state, require_hardware=False, now=NOW, transport=recording)
-    assert calls == [42]
+    assert calls == [(42, "2026-10-07T12:00:00Z")]
     stored = load_mirror()
     assert stored is not None and stored.accepted_serial == 42
     assert stored.generated == "2026-10-07T12:00:00Z"
@@ -626,20 +634,115 @@ def test_inputs_adapter_turns_backend_errors_into_oserror() -> None:
     assert isinstance(caught.value.__cause__, BackendError)
 
 
+@pytest.mark.parametrize("relative", ["a\\b", "../x", "a//b", "/abs", "a/./b", ""])
+def test_unsafe_relative_paths_stay_backend_errors_and_oserror_at_the_boundary(
+    tmp_path: Path, relative: str
+) -> None:
+    for base in ((tmp_path).as_uri(), "http://bunker.invalid/export/"):
+        source = MirrorTransport(base, None)
+        with pytest.raises(BackendError) as caught:
+            source.read(relative, max_bytes=10)
+        assert not isinstance(caught.value, CatalogueError)
+        with pytest.raises(OSError):
+            CatalogueInputs(source).read(relative, max_bytes=10)
+
+
+def test_a_file_base_with_a_backslash_gets_the_missing_catalogue_refusal(tmp_path: Path) -> None:
+    base = tmp_path.as_uri() + "/a%5Cb"
+    state = MirrorState(base, "bunker", "personal", None, (), 0)
+    with pytest.raises(BackendError) as caught:
+        load_catalogue(state, require_hardware=False, now=NOW)
+    text = str(caught.value)
+    assert text.startswith(f"no catalogue at {base}/catalogue.json: ")
+    assert text.endswith(". Enrol a Bunker that serves one, or run without --offline.")
+
+
+def test_a_symlinked_component_is_named_in_the_refusal(tmp_path: Path) -> None:
+    real = tmp_path / "real"
+    (real / "unit").mkdir(parents=True)
+    (real / "unit" / "name").write_bytes(b"x")
+    root = tmp_path / "export"
+    root.mkdir()
+    (root / "unit").symlink_to(real / "unit", target_is_directory=True)
+    (root / "leaf").symlink_to(real / "unit" / "name")
+    source = MirrorTransport(root.as_uri(), None)
+    for relative, component in (("unit/name", "unit"), ("leaf", "leaf")):
+        with pytest.raises(BackendError) as caught:
+            source.read(relative, max_bytes=10)
+        text = str(caught.value)
+        assert "symlinked path components in a file mirror are refused" in text
+        assert repr(component) in text
+
+
+def test_an_http_404_does_not_claim_redirects_are_not_followed() -> None:
+    server = Recorder({})
+    with serving(server), pytest.raises(BackendError) as caught:
+        read_catalogue(MirrorTransport(server.base, "laptop"))
+    text = str(caught.value)
+    assert "HTTP 404" in text and "redirect" not in text
+    assert text.endswith(". Enrol a Bunker that serves one, or run without --offline.")
+
+
+def test_signature_fetch_reason_survives_into_the_refusal(tmp_path: Path) -> None:
+    state, raw, _signatures, _ = enrolled(tmp_path, "http://bunker.invalid/")
+    recording = Recording(state.url, {"catalogue.json": raw})
+    with pytest.raises(SignerError, match="no enrolled signature verified") as caught:
+        load_catalogue(state, require_hardware=False, now=NOW, transport=recording)
+    assert "catalogue.sig.d/1.sig: HTTP 404" in str(caught.value)
+    assert isinstance(caught.value.__cause__, SignerError)
+
+
 # -- wiring -----------------------------------------------------------------
 
 
-def test_fetch_transport_is_used_only_when_the_enrolled_url_is_the_station_url(
-    tmp_path: Path,
-) -> None:
+def test_fetch_transport_enrolment_header_only_for_the_enrolled_url(tmp_path: Path) -> None:
     from hammunition import mirror
 
     state, *_ = enrolled(tmp_path, "http://bunker.invalid/export/")
     got = mirror.fetch_transport(state.url, state)
     assert isinstance(got, MirrorTransport) and got.enrolment_id == "laptop"
+    # An un-enrolled http mirror keeps the publisher transport.
     assert mirror.fetch_transport("http://other.invalid/", state) is None
+    assert mirror.fetch_transport("http://other.invalid/", None) is None
     assert mirror.fetch_transport(None, state) is None
     assert mirror.fetch_transport(state.url, None) is None
+
+
+def test_fetch_transport_serves_a_file_export_without_enrolment(tmp_path: Path) -> None:
+    from hammunition import mirror
+
+    state, *_ = enrolled(tmp_path, "http://bunker.invalid/export/")
+    export_url = (tmp_path / "usb").as_uri()
+    for enrolled_state in (None, state):
+        got = mirror.fetch_transport(export_url, enrolled_state)
+        assert isinstance(got, MirrorTransport)
+        assert got.enrolment_id is None and got.base == export_url
+
+
+def test_an_unenrolled_file_export_serves_an_artifact(tmp_path: Path) -> None:
+    from hammunition import mirror
+
+    body = b"artifact from a USB stick"
+    root = tmp_path / "usb"
+    (root / "unit").mkdir(parents=True)
+    (root / "unit" / "name").write_bytes(body)
+    transport = mirror.fetch_transport(root.as_uri(), None)
+    assert transport is not None
+    remote = RemoteArtifact(
+        url="https://example.invalid/payload", sha256=hashlib.sha256(body).hexdigest()
+    )
+
+    class Publisher(UrllibTransport):
+        def open(self, url: str) -> NoReturn:
+            raise AssertionError(f"the publisher was asked for {url}")
+
+    fetched = Fetcher(
+        tmp_path / "cache",
+        transport=Publisher(),
+        mirror=root.as_uri(),
+        mirror_transport=transport,
+    ).fetch(remote, mirror=MirrorPath("unit", "name"))
+    assert fetched.path.read_bytes() == body
 
 
 def test_publisher_transport_never_carries_the_enrolment_header() -> None:

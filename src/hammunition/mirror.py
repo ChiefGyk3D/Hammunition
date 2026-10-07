@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import datetime
+from urllib.parse import urlsplit
 
 from hammunition.backends import BackendError
 from hammunition.catalogue import Signer, parse
@@ -148,11 +149,18 @@ def consistent_state(url: str | None, state: MirrorState | None) -> None:
 
 
 def fetch_transport(station_url: str | None, state: MirrorState | None) -> MirrorTransport | None:
-    """The transport for artifact downloads from the enrolled Bunker, or ``None``.
+    """The transport for artifact downloads from the station's mirror, or ``None``.
 
-    Only when the station's mirror is the enrolled one: it carries the
-    enrolment header and accepts a ``file://`` export. Any other mirror stays
-    on the publisher transport, which never sends the header."""
-    if station_url is None or state is None or station_url != state.url:
+    The enrolled Bunker (station mirror equal to the enrolled URL) gets its
+    enrolment header. A ``file://`` mirror that is not enrolled still gets a
+    header-less Bunker transport, the only one that can read a file export:
+    a mirror is untrusted transport and artifacts stay pinned by the engine's
+    own hashes. Any other mirror stays on the publisher transport, which
+    never sends the header."""
+    if station_url is None:
         return None
-    return MirrorTransport(state.url, state.enrolment_id)
+    if state is not None and station_url == state.url:
+        return MirrorTransport(state.url, state.enrolment_id)
+    if urlsplit(station_url).scheme == "file":
+        return MirrorTransport(station_url, None)
+    return None

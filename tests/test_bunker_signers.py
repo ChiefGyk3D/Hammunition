@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 
@@ -31,6 +32,9 @@ from hammunition.signers import (
     verify,
     write_state,
 )
+
+if TYPE_CHECKING:
+    from _typeshed import ReadableBuffer
 
 
 @pytest.mark.parametrize(
@@ -288,12 +292,13 @@ def test_direct_state_types_refused(
     enrolled_state: tuple[Path, MirrorState], field: str, value: object
 ) -> None:
     _, state = enrolled_state
-    changes = {field: value}
-    invalid = (
-        replace(state, **changes)
-        if field == "accepted_serial"
-        else replace(state, keys=(replace(state.keys[0], **changes),))
-    )
+    first = state.keys[0]
+    if field == "accepted_serial":
+        invalid = replace(state, accepted_serial=cast(int, value))
+    elif field == "hardware":
+        invalid = replace(state, keys=(replace(first, hardware=cast(bool, value)),))
+    else:
+        invalid = replace(state, keys=(replace(first, no_touch_required=cast(bool, value)),))
     with pytest.raises(SignerError, match=field):
         validate_state(invalid)
 
@@ -500,10 +505,11 @@ def test_verify_openssh_unavailable(
         else subprocess.TimeoutExpired("ssh-keygen", 15)
     )
 
-    def run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+    def run(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
         if args[:3] == ["ssh-keygen", "-Y", "verify"]:
             raise cause
-        return real_run(args, **kwargs)
+        result: subprocess.CompletedProcess[bytes] = real_run(args, **kwargs)
+        return result
 
     monkeypatch.setattr(subprocess, "run", run)
     with pytest.raises(SignerError, match=r"needs working OpenSSH 8\.2\+") as caught:
@@ -524,10 +530,10 @@ def test_state_unbuffered_writes(
     cause = OSError(errno.ENOSPC, "write failed")
 
     class Writer(io.FileIO):
-        def write(self, data: bytes | memoryview) -> int | None:
+        def write(self, data: "ReadableBuffer", /) -> int:
             if failure == "full":
                 raise cause
-            return super().write(data[:7])
+            return super().write(memoryview(data)[:7])
 
     def fdopen(fd: int, mode: str, *, buffering: int) -> Writer:
         assert buffering == 0
