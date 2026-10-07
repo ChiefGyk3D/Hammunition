@@ -116,9 +116,10 @@ def test_online_without_a_catalogue_keeps_the_publisher_error() -> None:
         ResolutionContext().choose("osm-regions", "europe/monaco", down, lambda: "never")
 
 
-def test_the_context_answers_only_after_exhaustion_not_on_each_attempt(tmp_path: Path) -> None:
+def test_the_catalogue_is_asked_once_and_only_after_exhaustion(tmp_path: Path) -> None:
     ctx = make_context(tmp_path, [artifact("u", "n", b"x")], offline=False)
     asked: list[str] = []
+    attempts: list[int] = []
     real = ctx.entry
 
     def counting(unit: str, name: str) -> Any:
@@ -129,10 +130,16 @@ def test_the_context_answers_only_after_exhaustion_not_on_each_attempt(tmp_path:
     policy = RetryPolicy(attempts=3, sleep=lambda _: None, notify=lambda _: None)
 
     def down() -> int:
+        attempts.append(1)
+        assert asked == [], "the catalogue was read before the retries were spent"
         raise TimeoutError("dead link")
 
-    ctx.choose("u", "n", lambda: policy.call("https://example.invalid/x", down), lambda: 1)
-    assert asked == [], "recorded() did not touch entry; the catalogue was not read per attempt"
+    def recorded() -> int:
+        assert len(attempts) == 3, "recorded() ran before the third attempt failed"
+        return ctx.entry("u", "n").size or 0
+
+    got = ctx.choose("u", "n", lambda: policy.call("https://example.invalid/x", down), recorded)
+    assert got == 1 and asked == ["u/n"]
     assert ctx.notes
 
 
@@ -628,7 +635,12 @@ def apt_state(monkeypatch: pytest.MonkeyPatch, *, installed: str | None) -> None
 
 
 def enrol_file_bunker(
-    tmp_path: Path, rows: list[dict[str, object]], *, serial: int = 42
+    tmp_path: Path,
+    rows: list[dict[str, object]],
+    *,
+    serial: int = 42,
+    accepted_serial: int = 0,
+    station: dict[str, Any] | None = None,
 ) -> tuple[Path, str]:
     """A file:// export holding a really signed catalogue and its artifacts, enrolled
     for this tmp tree and set as the station mirror. Returns (export dir, mirror URL)."""
@@ -650,10 +662,10 @@ def enrol_file_bunker(
         "personal",
         None,
         (EnrolledKey(strength.fingerprint, public, strength.algorithm, strength.bits, False),),
-        0,
+        accepted_serial,
     )
     save_mirror(state)
-    save_station(Station(mirror=url))
+    save_station(Station(mirror=url, **(station or {})))
     return export, url
 
 
@@ -722,7 +734,8 @@ def test_install_offline_plans_data_from_the_bunker_only(
     notes = "\n".join(doc["install"]["region_notes"])
     assert "fixture-data/fixture-data.bin: offline; resolved from Bunker bunker" in notes
     assert "catalogue serial 42 verified" in notes
-    assert "advanced from serial 0 to 42" in notes
+    assert "dry run: the local trust state was not written" in notes
+    assert "advances it from serial 0 to 42" in notes
     assert not any(
         "apt-get" in c["display"] and "update" in c["display"] for c in doc["install"]["commands"]
     )
@@ -861,12 +874,12 @@ def test_update_offline_reports_the_trust_write_and_never_asks_upstream(
     assert rc == 0, err
     doc = parse_one(out)
     assert doc["upstream"] is None
-    assert "nothing was fetched" in doc["offline"]
+    assert "no publisher was asked; the Bunker's catalogue was read" in doc["offline"]
     assert "advanced from serial 0 to 42" in doc["offline"]
     again = parse_one(run(capsys, machine, "update", "--offline", "--json", "fixture-apt")[1])
     assert "already holds serial 42; unchanged" in again["offline"]
     rc, text, _err = run(capsys, machine, "update", "--offline", "fixture-apt")
-    assert rc == 0 and "offline: nothing was fetched" in text
+    assert rc == 0 and "offline: no publisher was asked; the Bunker's catalogue was read" in text
 
 
 def test_update_offline_without_an_enrolment_refuses_before_apt(
@@ -880,42 +893,56 @@ def test_update_offline_without_an_enrolment_refuses_before_apt(
     assert rc == cli.EXIT_UNPLANNABLE and "hammunition mirror enrol URL" in err
 
 
-def test_an_unverifiable_catalogue_is_refused_not_replaced(
-    machine: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    apt_state(monkeypatch, installed="1.0")
-    export, _url = enrol_file_bunker(tmp_path, [])
+def break_signature(export: Path) -> None:
     sig = export / "catalogue.sig.d" / "1.sig"
     sig.write_bytes(sig.read_bytes()[:-30] + b"A" * 30)
-    for argv in (
-        ("install", "--offline", "--dry-run", "fixture-apt"),
-        ("install", "--dry-run", "fixture-apt"),
-        ("update", "--offline", "fixture-apt"),
-    ):
-        rc, _out, err = run(capsys, machine, *argv)
-        assert rc == cli.EXIT_UNPLANNABLE, argv
-        assert "error: " in err, argv
-        assert "did not verify" in err, argv
 
 
-def test_an_unreachable_bunker_online_costs_only_the_fallback(
+def break_document(export: Path) -> None:
+    (export / "catalogue.json").write_text("{ not json")
+
+
+def remove_document(export: Path) -> None:
+    (export / "catalogue.json").unlink()
+
+
+@pytest.mark.parametrize(
+    ("damage", "accepted", "reason"),
+    [
+        (break_signature, 0, "did not verify"),
+        (break_document, 0, "invalid"),
+        (remove_document, 0, "no catalogue at"),
+        (None, 99, "older than accepted serial 99"),
+    ],
+    ids=["bad-signature", "malformed", "unreachable", "rollback"],
+)
+def test_a_bunker_that_cannot_be_trusted_turns_the_fallback_off_online_and_refuses_offline(
     machine: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    damage: Any,
+    accepted: int,
+    reason: str,
 ) -> None:
+    from hammunition.signers import load_mirror
+
     apt_state(monkeypatch, installed="1.0")
-    export, _url = enrol_file_bunker(tmp_path, [])
-    (export / "catalogue.json").unlink()
+    export, _url = enrol_file_bunker(tmp_path, [], accepted_serial=accepted)
+    if damage is not None:
+        damage(export)
     rc, out, err = run(capsys, machine, "install", "--dry-run", "--json", "fixture-apt")
     assert rc == 0, err
-    notes = "\n".join(parse_one(out)["install"]["region_notes"])
-    assert "catalogue was not read" in notes and "will not fall back" in notes
+    notes = [n for n in parse_one(out)["install"]["region_notes"] if "fallback is off" in n]
+    assert len(notes) == 1, "one warning, not one per failure"
+    assert reason in notes[0] and "--no-mirror" in notes[0]
+    assert "proceeds" in notes[0]
     rc, _out, err = run(capsys, machine, "install", "--offline", "--dry-run", "fixture-apt")
-    assert rc == cli.EXIT_UNPLANNABLE and "no catalogue at" in err
+    assert rc == cli.EXIT_UNPLANNABLE and reason in err
+    rc, _out, err = run(capsys, machine, "update", "--offline", "fixture-apt")
+    assert rc == cli.EXIT_UNPLANNABLE and reason in err
+    state = load_mirror()
+    assert state is not None and state.accepted_serial == accepted
 
 
 def test_the_blocker_dataclass_is_the_planner_s_own() -> None:

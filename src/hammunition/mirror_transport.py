@@ -169,13 +169,15 @@ def load_catalogue(
     now: datetime,
     transport: MirrorTransport | None = None,
     owner: str | None = None,
+    advance: bool = True,
 ) -> VerifiedCatalogue:
     """The enrolled Bunker's catalogue, read once and verified against *state*.
 
     One run makes one of these and shares the returned object; nothing is
     cached across runs, and an unsigned candidate is never reused. Only an
     enrolled signer's signature is fetched. The stored serial advances only
-    after verification, and never moves down."""
+    after verification, and never moves down. ``advance=False`` (a dry run)
+    verifies and writes nothing."""
     source = transport or MirrorTransport(state.url, state.enrolment_id)
     raw = read_catalogue(source)
     parsed = parse(raw)
@@ -197,5 +199,6 @@ def load_catalogue(
         if not fetch_failures:
             raise
         raise SignerError(f"{exc}; signature fetch failed: " + "; ".join(fetch_failures)) from exc
-    advance_mirror(state, verified.catalogue.serial, verified.catalogue.generated, owner=owner)
+    if advance:
+        advance_mirror(state, verified.catalogue.serial, verified.catalogue.generated, owner=owner)
     return verified

@@ -34,6 +34,7 @@ import dataclasses
 import hashlib
 import io
 import os
+import re
 import shlex
 import shutil
 import sqlite3
@@ -190,8 +191,12 @@ from hammunition.plan import (
     Deferral,
     InstallPlan,
     PlanError,
+    PlannedPackage,
     cached_data_pin,
+    cached_remote,
     offline_network_blockers,
+    offline_payload_blockers,
+    parse_deb_depends,
     preflight_data,
     resolve,
 )
@@ -1161,17 +1166,21 @@ def _offline_unrouted(
 
 
 def _resolution_context(
-    *, offline: bool, no_mirror: bool, owner: str | None
+    *, offline: bool, no_mirror: bool, owner: str | None, write_trust: bool = True
 ) -> tuple[ResolutionContext, list[str]]:
     """The run's one :class:`ResolutionContext`, and the notes it earns.
 
     Enrolled and not ignored, the Bunker's catalogue is read and verified once
-    here. Online, an unreachable Bunker costs only the outage fallback (a note
-    says so); a catalogue that fails verification is refused in either mode,
-    and never replaced by unverified metadata. Offline, nothing is enrolled or
-    nothing verifies: it raises, naming ``hammunition mirror enrol URL``.
-    Accepting a newer catalogue advances the local trust state, and the notes
-    say so, dry run included."""
+    here. Online, anything wrong with it (unreachable, a bad signature, a
+    rollback, a malformed document, a trust state that cannot be written)
+    switches the Bunker fallback off for the run with one note naming the
+    reason and ``--no-mirror``; the install proceeds, since every download
+    stays pinned by its own hash, and unverified metadata is never used.
+    Offline, the same failures raise, and so does nothing enrolled (naming
+    ``hammunition mirror enrol URL``). Accepting a newer catalogue advances the
+    local trust state, and the notes say so; with ``write_trust=False`` (a dry
+    run) nothing is written and the note says what a real run would do."""
+    from hammunition.catalogue import CatalogueError
     from hammunition.mirror import consistent_state, fetch_transport
     from hammunition.mirror_transport import CatalogueInputs, load_catalogue
     from hammunition.resolution import NO_BUNKER
@@ -1197,13 +1206,15 @@ def _resolution_context(
             now=datetime.now(UTC),
             transport=transport,
             owner=owner,
+            advance=write_trust,
         )
-    except BackendError as exc:
+    except (SignerError, CatalogueError, BackendError, OSError) as exc:
         if offline:
             raise
         return context, [
-            f"Bunker {state.name} catalogue was not read ({exc}); a publisher outage will "
-            f"not fall back to it this run"
+            f"Bunker {state.name} fallback is off for this run: {exc}. The install "
+            f"proceeds because every download stays pinned by its own hash; --no-mirror "
+            f"skips the Bunker"
         ]
     context.verified = verified
     context.enrolment_id = state.enrolment_id
@@ -1212,17 +1223,54 @@ def _resolution_context(
     advanced = serial > state.accepted_serial or (
         serial == state.accepted_serial and state.generated is None
     )
-    notes = [
-        f"Bunker {state.name}: catalogue serial {serial} verified with {verified.key.id}; "
-        + (
+    if not advanced:
+        trust = f"the local trust state already holds serial {state.accepted_serial}; unchanged"
+    elif write_trust:
+        trust = (
             f"the local trust state in the mirror file advanced from serial "
             f"{state.accepted_serial} to {serial} (a local write, not a package action)"
-            if advanced
-            else f"the local trust state already holds serial {state.accepted_serial}; unchanged"
         )
+    else:
+        trust = (
+            f"dry run: the local trust state was not written; a real run advances it from "
+            f"serial {state.accepted_serial} to {serial}"
+        )
+    notes = [
+        f"Bunker {state.name}: catalogue serial {serial} verified with {verified.key.id}; {trust}"
     ]
     notes.extend(f"Bunker {state.name}: {warning}" for warning in verified.warnings)
     return context, notes
+
+
+def _dpkg_depends(path: Path) -> str:
+    """The ``Pre-Depends`` and ``Depends`` text of the .deb at *path* (local, no network)."""
+    result = subprocess.run(
+        ["dpkg-deb", "--field", str(path), "Pre-Depends", "Depends"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    if result.returncode:
+        raise OSError(result.stderr.strip() or f"dpkg-deb exited {result.returncode}")
+    return re.sub(r"^(?:Pre-)?Depends:", ",", result.stdout, flags=re.MULTILINE)
+
+
+def _deb_unmet(apt: AptBackend, fetcher: Fetcher, unit: PlannedPackage) -> list[str]:
+    """Dependency groups of a cached vendor .deb that no installed package meets."""
+    block = unit.block.install
+    assert isinstance(block, BinaryInstall)
+    try:
+        groups = parse_deb_depends(_dpkg_depends(fetcher.path_for(block.artifact)))
+        names = sorted({name for group in groups for name in group})
+        states = apt.probe(names) if names else {}
+    except (OSError, subprocess.TimeoutExpired, BackendError) as exc:
+        return [f"(its dependencies could not be read: {exc})"]
+    return [
+        " | ".join(group)
+        for group in groups
+        if not any(name in states and states[name].is_installed for name in group)
+    ]
 
 
 def _provenance_notes(context: ResolutionContext) -> list[str]:
@@ -1260,9 +1308,8 @@ def cmd_update(args: argparse.Namespace) -> int:
             print(f"error: {exc}", file=sys.stderr)
             return EXIT_UNPLANNABLE
         offline_note = (
-            "offline: nothing was fetched and no upstream was asked; this report reads the "
-            "local apt lists and the install records. "
-            + " ".join(f"{note}." for note in context_notes)
+            "offline: no publisher was asked; the Bunker's catalogue was read. This report reads the local apt lists and the install "
+            "records. " + " ".join(f"{note}." for note in context_notes)
         )
 
     try:
@@ -4699,25 +4746,42 @@ def cmd_install(args: argparse.Namespace) -> int:
     from hammunition.catalogue import CatalogueError
     from hammunition.signers import SignerError
 
+    def context_refusal(subject: str, message: str) -> int:
+        # Before resolution there is no plan, but the refusal is still a plan
+        # document under --json (D-059) once the target can be read.
+        print(f"error: {message}", file=sys.stderr)
+        if envelope.wanted(args):
+            try:
+                detected = Target.detect()
+            except DetectionError:
+                return EXIT_UNPLANNABLE
+            envelope.emit(
+                refused_plan(
+                    "install", args.names, target_view(detected), [Blocker(subject, message)]
+                )
+            )
+        return EXIT_UNPLANNABLE
+
     offline = bool(getattr(args, "offline", False))
     if offline and args.no_mirror:
-        print(
-            "error: --offline resolves from the enrolled Bunker and --no-mirror ignores it; "
+        return context_refusal(
+            "--offline",
+            "--offline resolves from the enrolled Bunker and --no-mirror ignores it; "
             "the two cannot be combined",
-            file=sys.stderr,
         )
-        return EXIT_UNPLANNABLE
 
     # One context for the run: the enrolled Bunker's catalogue, verified once,
     # before any apt probe. Offline with nothing enrolled refuses here by name.
     try:
         owner = operator(args) or None
         rctx, context_notes = _resolution_context(
-            offline=offline, no_mirror=args.no_mirror, owner=owner
+            offline=offline,
+            no_mirror=args.no_mirror,
+            owner=owner,
+            write_trust=not args.dry_run,
         )
     except (SignerError, StationError, CatalogueError, BackendError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return EXIT_UNPLANNABLE
+        return context_refusal("Bunker" if offline else "mirror", str(exc))
 
     refresh = args.refresh and not offline
 
@@ -5367,6 +5431,12 @@ def cmd_install(args: argparse.Namespace) -> int:
         unreachable = [
             *offline_network_blockers(plan, built),
             *_offline_unrouted(plan, built, plan_time=False),
+            *offline_payload_blockers(
+                plan,
+                built,
+                cached=lambda artifact: cached_remote(source.fetcher, artifact),
+                deb_unmet=lambda unit: _deb_unmet(apt, source.fetcher, unit),
+            ),
         ]
         if unreachable:
             return plan_refusal(PlanError(unreachable))

@@ -96,7 +96,7 @@ from hammunition.userservice import PlannedUserService, plan_user_services, serv
 
 if TYPE_CHECKING:
     from hammunition.fetch import Fetcher
-    from hammunition.manifest.schema import DataArtifact
+    from hammunition.manifest.schema import DataArtifact, RemoteArtifact
     from hammunition.resolution import ResolutionContext
 
 __all__ = [
@@ -108,8 +108,11 @@ __all__ = [
     "PlannedPackage",
     "RepoAddition",
     "cached_data_pin",
+    "cached_remote",
     "catalogue_deferral",
     "offline_network_blockers",
+    "offline_payload_blockers",
+    "parse_deb_depends",
     "preflight_data",
     "resolve",
 ]
@@ -1295,6 +1298,11 @@ OFFLINE_PHASE_2 = (
     "online; phase 1 carries pinned payloads and map data only"
 )
 
+OFFLINE_PAYLOAD_REMEDY = (
+    "run it once online so the verified download is cached, or wait for the Bunker route "
+    "for source and binary payloads (#381)"
+)
+
 CATALOGUE_REMEDY = "populate this selection on the Bunker, or retry with the publisher reachable"
 
 
@@ -1377,24 +1385,129 @@ def catalogue_deferral(unit: PlannedPackage, exc: CatalogueMiss) -> Deferral:
     )
 
 
-def cached_data_pin(fetcher: Fetcher, pin: DataArtifact) -> bool:
-    """Whether *pin*'s verified bytes are already in the artifact cache.
+def cached_remote(fetcher: Fetcher, artifact: RemoteArtifact) -> bool:
+    """Whether *artifact*'s verified bytes are already in the artifact cache.
 
-    True only on an exact size and sha256 match of the content-addressed file;
-    it never fetches, and a symlink or unreadable file is not a hit."""
+    True only on an exact sha256 match of the content-addressed file; it never
+    fetches, and a symlink or unreadable file is not a hit."""
     from hammunition.fetch import _digest_file
+
+    path = fetcher.path_for(artifact)
+    try:
+        return path.is_file() and not path.is_symlink() and _digest_file(path) == artifact.sha256
+    except OSError:
+        return False
+
+
+def cached_data_pin(fetcher: Fetcher, pin: DataArtifact) -> bool:
+    """Whether *pin*'s verified bytes are already in the artifact cache: the
+    exact size and sha256 of the content-addressed file."""
     from hammunition.manifest.schema import RemoteArtifact
 
-    path = fetcher.path_for(RemoteArtifact(url=pin.url, sha256=pin.sha256))
+    remote = RemoteArtifact(url=pin.url, sha256=pin.sha256)
     try:
         return (
-            path.is_file()
-            and not path.is_symlink()
-            and path.stat().st_size == pin.size
-            and _digest_file(path) == pin.sha256
+            cached_remote(fetcher, remote) and fetcher.path_for(remote).stat().st_size == pin.size
         )
     except OSError:
         return False
+
+
+def _remote_artifacts(node: object) -> list[RemoteArtifact]:
+    """Every pinned download a block declares, wherever it sits in the block."""
+    from pydantic import BaseModel
+
+    from hammunition.manifest.schema import RemoteArtifact
+
+    if isinstance(node, RemoteArtifact):
+        return [node]
+    found: list[RemoteArtifact] = []
+    if isinstance(node, BaseModel):
+        for value in vars(node).values():
+            found.extend(_remote_artifacts(value))
+    elif isinstance(node, list | tuple):
+        for value in node:
+            found.extend(_remote_artifacts(value))
+    elif isinstance(node, dict):
+        for value in node.values():
+            found.extend(_remote_artifacts(value))
+    return found
+
+
+def parse_deb_depends(field_text: str) -> list[list[str]]:
+    """``Depends``/``Pre-Depends`` text as groups of alternatives, names only.
+
+    ``"a (>= 1), b | c"`` is ``[["a"], ["b", "c"]]``; architecture and version
+    qualifiers are dropped, so a group is met by any installed alternative."""
+    groups: list[list[str]] = []
+    for clause in field_text.replace("\n", " ").split(","):
+        names = [
+            alternative.split("(")[0].split("[")[0].split(":")[0].strip()
+            for alternative in clause.split("|")
+        ]
+        names = [name for name in names if name]
+        if names:
+            groups.append(names)
+    return groups
+
+
+def offline_payload_blockers(
+    plan: InstallPlan,
+    built: frozenset[str],
+    *,
+    cached: Callable[[RemoteArtifact], bool],
+    deb_unmet: Callable[[PlannedPackage], list[str]],
+) -> list[Blocker]:
+    """Downloads an offline run could not make, refused at plan time by name.
+
+    A source, binary, derived-data or other pinned payload has no Bunker route
+    in phase 1 (Task 13 and 14 add them), so it proceeds only when its bytes
+    are already in the verified cache or the unit is already built. A vendor
+    ``.deb`` is installed with ``apt-get install ./file.deb``, which resolves
+    its dependencies against the archive: offline it proceeds only when every
+    dependency group already has an installed package (*deb_unmet* names the
+    ones that do not). Units refused by :func:`offline_network_blockers`, and
+    the data kinds :func:`preflight_data` decides, are not repeated here."""
+    from hammunition.manifest.schema import BinaryInstall, DataInstall, RegisterInstall
+
+    out: list[Blocker] = []
+    for unit in plan.packages:
+        block = unit.block.install
+        if unit.name in built or isinstance(
+            block,
+            DataInstall | RegisterInstall | AptInstall | VenvInstall | NodeInstall | GitInstall,
+        ):
+            continue
+        missing = [a for a in _remote_artifacts(block) if not cached(a)]
+        if missing:
+            shown = ", ".join(a.url for a in missing[:3]) + (
+                f" and {len(missing) - 3} more" if len(missing) > 3 else ""
+            )
+            out.append(
+                Blocker(
+                    subject=unit.name,
+                    reason=(
+                        f"offline: it downloads {shown}, which has no Bunker route yet and "
+                        "is not in the local cache"
+                    ),
+                    remedy=OFFLINE_PAYLOAD_REMEDY,
+                )
+            )
+            continue
+        if isinstance(block, BinaryInstall) and block.format == "deb" and not unit.deb_installed:
+            unmet = deb_unmet(unit)
+            if unmet:
+                out.append(
+                    Blocker(
+                        subject=unit.name,
+                        reason=(
+                            "offline: its .deb is installed by apt, which would fetch what it "
+                            f"depends on and this machine lacks: {', '.join(unmet)}"
+                        ),
+                        remedy=OFFLINE_APT_REMEDY,
+                    )
+                )
+    return out
 
 
 def preflight_data(
@@ -1465,7 +1578,44 @@ def preflight_data(
             blockers.extend(exc.blockers)
     if blockers:
         raise PlanError(blockers)
-    return replace(plan, packages=tuple(packages), deferrals=tuple(deferrals))
+    if not misses:
+        return plan
+    return _without_units(plan, set(misses), packages, deferrals)
+
+
+def _without_units(
+    plan: InstallPlan,
+    dropped: set[str],
+    packages: list[PlannedPackage],
+    deferrals: list[Deferral],
+) -> InstallPlan:
+    """*plan* with *dropped* units gone from every field that belongs to a unit.
+
+    A unit with no install steps also has no group membership, configuration
+    file, user service, file capability, third-party repository, consent gate
+    of its own or disclosure note: those would otherwise be performed for
+    software that is not being installed."""
+
+    return replace(
+        plan,
+        packages=tuple(packages),
+        deferrals=tuple(deferrals),
+        group_memberships=tuple(g for g in plan.group_memberships if g.package not in dropped),
+        file_capabilities=tuple(c for c in plan.file_capabilities if c.package not in dropped),
+        consent_gates=tuple(
+            (name, gate)
+            for name, gate in plan.consent_gates
+            if name.removeprefix("file-capabilities:") not in dropped
+        ),
+        config_files=tuple(c for c in plan.config_files if c[0] not in dropped),
+        user_services=tuple(s for s in plan.user_services if s.unit not in dropped),
+        apt_repos=tuple(r for r in plan.apt_repos if r.unit not in dropped),
+        notes=tuple(
+            n
+            for n in plan.notes
+            if not any(n.startswith((f"{name}:", f"{name} ")) for name in dropped)
+        ),
+    )
 
 
 def resolve(
