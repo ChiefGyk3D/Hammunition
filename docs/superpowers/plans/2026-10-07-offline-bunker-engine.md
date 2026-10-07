@@ -580,11 +580,10 @@ NAMESPACE = "hammunition-bunker-catalogue"
 def allowed_signers(state: MirrorState) -> str:
     lines: list[str] = []
     for key in state.keys:
+        # OpenSSH's allowed-signers format has no touch option: measured on
+        # OpenSSH 10.3, "no-touch-required" there is "bad options: unknown key
+        # option". no_touch_required stays display-only metadata.
         options = f'namespaces="{NAMESPACE}"'
-        if key.no_touch_required:
-            if not key.algorithm.startswith("sk-"):
-                raise SignerError("no-touch-required applies only to sk keys")
-            options += ",no-touch-required"
         lines.append(f"bunker:{state.name} {options} {key.public_key.strip()}")
     return "\n".join(lines) + "\n"
 
@@ -926,23 +925,8 @@ def enrol(candidate: Candidate, url: str, enrolment_id: str | None, *,
     serial = old.accepted_serial if old is not None and (old.url, old.name) == (normalized, parsed.bunker.name) else 0
     state = MirrorState(normalized, parsed.bunker.name, parsed.bunker.mode, enrolment_id,
                         tuple(keys), serial)
-    try:
-        verified = verify(candidate.raw, candidate.signatures, state,
-                          require_hardware=require_hardware, now=now)
-    except SignerError:
-        # Only an explicit new enrollment may allow signatures made without a touch.
-        relaxed: list[EnrolledKey] = []
-        changed = False
-        for enrolled in state.keys:
-            allow = (enrolled.algorithm.startswith("sk-") and affirm_hardware is not None
-                     and affirm_hardware(f"{enrolled.id}: permit no-touch-required signing? Type yes: "))
-            relaxed.append(replace(enrolled, no_touch_required=True) if allow else enrolled)
-            changed = changed or bool(allow)
-        if not changed:
-            raise
-        state = replace(state, keys=tuple(relaxed))
-        verified = verify(candidate.raw, candidate.signatures, state,
-                          require_hardware=require_hardware, now=now)
+    verified = verify(candidate.raw, candidate.signatures, state,
+                      require_hardware=require_hardware, now=now)
     state = replace(state, accepted_serial=verified.catalogue.serial,
                     generated=verified.catalogue.generated)
     current = load_station(owner=owner)
@@ -3319,7 +3303,7 @@ git commit -m "docs: record D-085 and explain offline Bunker trust and gaps"
 | Signing namespace, principal and exact bytes | 1–4 |
 | Key algorithms, rank order, RSA warning | 1–3, 5, 18 |
 | Hardware by type, affirmed PIV, optional hardware-only | 2–3, 18 |
-| Hybrid any-valid signature and no-touch allowed-signers | 2–3 |
+| Hybrid any-valid signature; no_touch_required shown, never written to allowed-signers | 2–3 |
 | Enrol URL/id, status JSON, clear, accept-older | 3–4 |
 | Group header, all entries listed, client sharing filter | 1, 4, 10, 19 |
 | HTTP and file transport, immutable per-run verification | 4–5 |

@@ -148,9 +148,11 @@ written).
    (YubiKey, Immurok, SoloKey, Nitrokey, Token2, Feitian): `ed25519-sk`
    preferred, `ecdsa-sk` (P-256) when the token lacks Ed25519. Created with or
    without `no-touch-required`; with touch, someone taps the token when the
-   catalogue changes; without, scheduled refreshes sign unattended and the
-   laptop's allowed-signers line carries the matching `no-touch-required`
-   option. FIDO2 has no RSA.
+   catalogue changes; without, scheduled refreshes sign unattended. (OpenSSH's
+   allowed-signers format has no touch option, measured 2026-10-07; whether
+   `-Y verify` accepts a signature made without touch is a bench item. If it
+   does not, unattended refreshes use the hybrid: a file key signs, the token
+   adds its signature when someone is present.) FIDO2 has no RSA.
 3. **`agent`.** Whatever key `ssh-agent` holds, which is how PIV and other
    PKCS#11 tokens sign (`ssh-add -s <pkcs11 module>`): RSA 3072/4096 and P-384
    on YubiKey firmware 5.7+, ECDSA and RSA on older PIV tokens.

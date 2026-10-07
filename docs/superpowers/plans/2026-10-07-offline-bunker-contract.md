@@ -94,7 +94,7 @@ Field rules (the reader refuses a document that breaks one, naming the field):
 | `signers[].algorithm` | str | the OpenSSH key type string of `public_key` |
 | `signers[].bits` | int | key size as `ssh-keygen -l` reports it |
 | `signers[].hardware` | bool | the Bunker's claim; provable only for `sk-*` types |
-| `signers[].no_touch_required` | bool | true only for an `sk-*` key created with `-O no-touch-required`; the engine then adds that option to the key's allowed-signers line; false for every other type |
+| `signers[].no_touch_required` | bool | true only for an `sk-*` key created with `-O no-touch-required`; **display only**: OpenSSH's allowed-signers format has no touch option (measured 2026-10-07 on OpenSSH 10.3: `bad options: unknown key option`), so the engine shows it at enrolment and in status and never writes it. Whether `-Y verify` accepts a signature made without touch is a bench item |
 | `artifacts[]` | object | the v2 entry fields unchanged, plus `publisher_name` (str or null), `publisher_size` (int or null), `share` (`all` or `owner:<enrolment id>`) |
 | `inputs[].kind` | str | one of `region-outline`, `tile-selection`, `sheet-selection`, `dem3dep-selection`, `fstopo-selection` |
 | `inputs[].region` | str | an OSM region name as the engine spells it |
@@ -122,7 +122,7 @@ OSM, unpinned Copernicus tiles, FSTopo) from what the Bunker saw at fetch.
   bits, hardware-as-affirmed, accepted serial) and renders an OpenSSH
   allowed-signers file from it at verify time:
   `bunker:<name> namespaces="hammunition-bunker-catalogue" <public key>`
-  (adding `no-touch-required` for an `sk-*` key the Bunker created that way).
+  (no touch option: the format has none; see `no_touch_required`).
 - Verification: for each `signers[]` entry whose key is enrolled, run
   `ssh-keygen -Y verify -f <allowed signers> -I bunker:<name> -n hammunition-bunker-catalogue -s <sig>`
   with `catalogue.json`'s bytes on stdin. Accept when any one succeeds.
