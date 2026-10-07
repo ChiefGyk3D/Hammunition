@@ -78,3 +78,24 @@ def artifact(unit: str, name: str, body: bytes, **changes: object) -> dict[str, 
     }
     value.update(changes)
     return value
+
+
+def signed(tmp_path: Path, private: Path, doc: dict[str, object]) -> tuple[bytes, dict[str, bytes]]:
+    path = tmp_path / "catalogue.json"
+    path.write_bytes(encode(doc))
+    path.with_suffix(".json.sig").unlink(missing_ok=True)
+    subprocess.run(
+        [
+            "ssh-keygen",
+            "-Y",
+            "sign",
+            "-n",
+            "hammunition-bunker-catalogue",
+            "-f",
+            str(private),
+            str(path),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    return path.read_bytes(), {"catalogue.sig.d/1.sig": path.with_suffix(".json.sig").read_bytes()}
