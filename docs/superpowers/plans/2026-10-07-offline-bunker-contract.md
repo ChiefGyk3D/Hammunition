@@ -95,6 +95,8 @@ Field rules (the reader refuses a document that breaks one, naming the field):
 | `signers[].bits` | int | key size as `ssh-keygen -l` reports it |
 | `signers[].hardware` | bool | the Bunker's claim; provable only for `sk-*` types |
 | `signers[].no_touch_required` | bool | true only for an `sk-*` key created with `-O no-touch-required`; **display only**: OpenSSH's allowed-signers format has no touch option (measured 2026-10-07 on OpenSSH 10.3: `bad options: unknown key option`), so the engine shows it at enrolment and in status and never writes it. Whether `-Y verify` accepts a signature made without touch is a bench item |
+| `artifacts` | list | may be empty (`[]`) on a fresh Bunker |
+| `inputs` | list | may be empty (`[]`) on a fresh Bunker; `signers` still requires ≥ 1 |
 | `artifacts[]` | object | the v2 entry fields unchanged, plus `publisher_name` (str or null), `publisher_size` (int or null), `share` (`all` or `owner:<enrolment id>`) |
 | `inputs[].kind` | str | one of `region-outline`, `tile-selection`, `sheet-selection`, `dem3dep-selection`, `fstopo-selection` |
 | `inputs[].region` | str | an OSM region name as the engine spells it |
@@ -150,6 +152,7 @@ Other types (DSA) are refused. The same text appears wherever a key is shown.
 ## Fetch routes and group gating
 
 - Catalogue: `<mirror>/catalogue.json`, signatures `<mirror>/catalogue.sig.d/<n>.sig`.
+  A missing catalogue refuses with exactly: "no catalogue at <url>/catalogue.json: <reason>. Enrol a Bunker that serves one, or run without --offline." (`<url>` has no trailing slash).
 - Artifact bytes: `<mirror>/<unit>/<name>` (unchanged, D-070).
 - Inputs: `<mirror>/inputs/<kind>/<name>`.
 - Git bundles: unit `git-bundles`, name `<unit>@<commit>`; one
@@ -163,3 +166,21 @@ Other types (DSA) are refused. The same text appears wherever a key is shown.
   ignores entries not shared with it. This is a sharing filter, not access
   control: it is sent in clear over plain HTTP and the docs say so.
 - `file://` mirrors read the same paths from a directory; no headers.
+
+
+## Artifact listing amendments (2026-10-07)
+
+- `artifacts --json` lists US Topo/3DEP sheets with `check: "etag-md5"`
+  and `digest` equal to the raw ETag exactly as carried in the repository:
+  32 hex for a single-part object, `<hex>-<parts>` for multipart. Each row
+  also carries `part_size` (int bytes or null when no part size is recorded).
+- Inputs are inline in the document's `inputs` array as UTF-8 `content`.
+  Refuse to list any input over 8 MiB (8 × 1024 × 1024 encoded bytes), name
+  that input and suggest `--units`; do not truncate or omit its content.
+- `--units` filters `inputs` to the selected units' explicitly requested
+  regions and filters `git_pins` by the selected catalog unit. No station
+  selection is read. A selected static unit needs no regional inputs.
+- Every `git_pins` entry carries `licence: str` from the manifest's licence
+  field, verbatim. Existing manifests without it report
+  "licence not recorded in this manifest"; never infer it from the catalog
+  YAML file's own CC0 header.

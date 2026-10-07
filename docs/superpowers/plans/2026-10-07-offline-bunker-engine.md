@@ -182,6 +182,21 @@ def test_failed_v2_entry_is_preserved_but_not_usable(tmp_path: Path) -> None:
 
 Also parameterize every field in the contract table: missing field, null where forbidden, wrong type, invalid timestamp/calendar date, key algorithm/bits/id mismatch, `inputs[].kind`/region, negative sizes, malformed sha256, unsafe previous/path/name, owner id with CR/LF, and duplicate inputs/signers. Test malformed UTF-8, duplicate JSON keys, non-object root, DSA refusal, all ECDSA ranks and RSA rank 4 (generate RSA 2560). These are field rules, not guesses about v2 status vocabulary: retain status/reason/previous strings without inventing a “current only” format restriction.
 
+- [ ] Hold the fresh-Bunker boundary explicitly in `tests/test_bunker_catalogue.py`:
+
+```python
+def test_fresh_bunker_has_empty_payload_lists(tmp_path: Path) -> None:
+    private = key(tmp_path)
+    public = private.with_suffix(".pub").read_text().strip()
+    got = parse(encode(document(public, artifacts=[], inputs=[])))
+    assert got.artifacts == () and got.inputs == ()
+    assert len(got.signers) == 1
+    with pytest.raises(CatalogueError, match="signers"):
+        parse(encode(document(public, artifacts=[], inputs=[], signers=[])))
+```
+
+The `Catalogue` code below deliberately has no minimum length on `artifacts` or `inputs`; only `signers` has `Field(min_length=1)`. JSON empty lists therefore become immutable empty tuples. Expected pre-fix FAIL: `CatalogueError` on an empty payload list; expected PASS after the declarations below.
+
 - [ ] Run: `.venv/bin/pytest tests/test_bunker_catalogue.py -q`. Expected FAIL during collection: `ModuleNotFoundError: No module named 'hammunition.catalogue'`.
 
 - [ ] Implement the classifier as a full function. Validate the key blob's embedded type against the line type, so a substituted prefix cannot change hardware classification:
@@ -306,8 +321,8 @@ class Catalogue(Wire):
     bunker: Bunker
     signers: tuple[Signer, ...] = Field(min_length=1)
     engine_version: str | None
-    artifacts: tuple[CatalogueArtifact, ...]
-    inputs: tuple[CatalogueInput, ...]
+    artifacts: tuple[CatalogueArtifact, ...] = Field(min_length=0)
+    inputs: tuple[CatalogueInput, ...] = Field(min_length=0)
     deferred: tuple[JsonValue, ...]
     declined: tuple[JsonValue, ...]
     last_run: JsonValue
@@ -1173,7 +1188,7 @@ git commit -m "feat: enrol Bunker signers with typed fingerprint consent"
 
 **Interfaces:**
 - Consumes: Tasks 1–3 `safe_relative`, `Candidate`, `verify`, store; existing `fetch.Transport`, `MirrorPath`, `mirror_url`.
-- Produces: `MirrorTransport(base: str, enrolment_id: str | None = None)` implementing `open(url: str) -> ContextManager[IO[bytes]]`; `read(relative: str, *, max_bytes: int) -> bytes`; `load_catalogue(state: MirrorState, *, require_hardware: bool, now: datetime, transport: MirrorTransport | None = None, owner: str | None = None) -> VerifiedCatalogue`.
+- Produces: `MirrorTransport(base: str, enrolment_id: str | None = None)` implementing `open(url: str) -> ContextManager[IO[bytes]]`; `read(relative: str, *, max_bytes: int) -> bytes`; `read_catalogue(source: MirrorTransport) -> bytes`; `load_catalogue(state: MirrorState, *, require_hardware: bool, now: datetime, transport: MirrorTransport | None = None, owner: str | None = None) -> VerifiedCatalogue`.
 - Produces: `VerifiedCatalogue` stays the Task 2 type; the CLI creates it once and shares that same object with all resolvers and fetchers. Cache only within this run, not a silently reused persisted unsigned candidate.
 
 - [ ] Write failing transport tests over loopback and a temporary export directory:
@@ -1233,10 +1248,47 @@ def test_concurrent_verifications_preserve_highest_serial(tmp_path: Path, monkey
 
 Use `ThreadingHTTPServer` bound to `127.0.0.1` in a local fixture defined in this test file, recording `self.headers.get("X-Hammunition-Enrolment")` for catalogue/signature/input/artifact requests. Assert the supplied id on every request. A 302 to a second loopback server must refuse and that server must see **zero requests**. A `file://other-host/path`, query/fragment, symlinked file/parent component, `../`, `%2e%2e`, empty segment, backslash and absolute relative path each refuse. Group filter ignores `owner:other` even when its bytes are present; personal mode uses it. An absent/bad signature refuses without advancing serial; good verification persists `max(old, new)` once. Verify 32 MiB/64 KiB bounds and one catalogue GET when two resolver families use it.
 
+- [ ] Assert the missing-catalogue remedy byte for byte, without platform-dependent filesystem wording:
+
+```python
+import pytest
+from hammunition.backends import BackendError
+from hammunition.mirror import read_candidate
+
+
+class MissingCatalogue(MirrorTransport):
+    def read(self, relative: str, *, max_bytes: int) -> bytes:
+        assert relative == "catalogue.json"
+        raise BackendError("HTTP 404")
+
+def test_missing_catalogue_has_exact_remedy(monkeypatch: pytest.MonkeyPatch) -> None:
+    import hammunition.mirror as mirror
+    monkeypatch.setattr(mirror, "MirrorTransport", MissingCatalogue)
+    with pytest.raises(BackendError) as caught:
+        read_candidate("http://bunker.invalid/export/", None)
+    assert str(caught.value) == (
+        "no catalogue at http://bunker.invalid/export/catalogue.json: HTTP 404. "
+        "Enrol a Bunker that serves one, or run without --offline."
+    )
+```
+
+Also call the shared reader with `MissingCatalogue` in the loader test: enrolment and offline loading must use identical wording. Expected pre-fix FAIL: the message is only `HTTP 404`.
+
 - [ ] Run: `.venv/bin/pytest tests/test_bunker_transport.py -q`; expected FAIL: module missing.
 - [ ] Implement the full bounded read method and catalogue loader:
 
 ```python
+def read_catalogue(source: MirrorTransport) -> bytes:
+    try:
+        return source.read("catalogue.json", max_bytes=32 * 1024 * 1024)
+    except BackendError as exc:
+        url = source.base.rstrip("/") + "/catalogue.json"
+        raise BackendError(
+            f"no catalogue at {url}: {exc}. "
+            "Enrol a Bunker that serves one, or run without --offline."
+        ) from exc
+
+
 def read(self, relative: str, *, max_bytes: int) -> bytes:
     relative = safe_relative(relative, "mirror path")
     url = self.base.rstrip("/") + "/" + "/".join(quote(p, safe="") for p in relative.split("/"))
@@ -1251,7 +1303,7 @@ def load_catalogue(state: MirrorState, *, require_hardware: bool, now: datetime,
                    transport: MirrorTransport | None = None,
                    owner: str | None = None) -> VerifiedCatalogue:
     source = transport or MirrorTransport(state.url, state.enrolment_id)
-    raw = source.read("catalogue.json", max_bytes=32 * 1024 * 1024)
+    raw = read_catalogue(source)
     parsed = parse(raw)
     signatures: dict[str, bytes] = {}
     accepted = {k.id for k in state.keys}
@@ -1384,7 +1436,7 @@ Extend `_check_mirror` with this explicit file-base branch; maintain old HTTP(S)
 ```python
 def read_candidate(url: str, enrolment_id: str | None) -> Candidate:
     source = MirrorTransport(url, enrolment_id)
-    raw = source.read("catalogue.json", max_bytes=32 * 1024 * 1024)
+    raw = read_catalogue(source)
     parsed = parse(raw)
     signatures: dict[str, bytes] = {}
     for signer in parsed.signers:
@@ -1394,6 +1446,8 @@ def read_candidate(url: str, enrolment_id: str | None) -> Candidate:
             continue
     return Candidate(raw, signatures)
 ```
+
+`mirror.py` imports `read_catalogue` alongside `MirrorTransport`; the loader uses it before parsing, and a signature failure retains its separate verification error.
 
  In normal download fetchers, use this mirror transport when state URL matches station URL, leaving `transport` as the publisher-only transport. Group filtering is a reader lookup, never a different parse model. Do not add `X-Hammunition-Enrolment` to `UrllibTransport`.
 
@@ -2284,6 +2338,75 @@ def test_payload_action_uses_mirror_and_records_facts(tmp_path: Path) -> None:
 
 Parametrize backend-level tests over the four existing manifest helpers/builders, exercising their **actual** fetch Actions with `Routes`; assert no publisher call on mirror hit, online fallback on wrong digest, offline corrupt/missing refusal, both reasons logged online, and variant-name collision avoided. Ensure a venv payload still carries its existing source/build script and pip steps; this task does not mirror pip dependencies. Node route means its source tarball, never fetching/installing a Node runtime. Keep NPM script protections and disclosed registry gap.
 
+- [ ] Add the real static-data CLI regression in `tests/test_payload_mirror.py`. Fixture bytes replace the PDFs' pins in a copied manifest; no publisher bytes are fetched, and the manifest still uses the real `ics-forms` data shape. The isolated install prefix is `tmp_path / "prefix"`; files land at `<prefix>/share/hammunition/data/ics-forms/<install_as>`, not directly under the prefix:
+
+```python
+import importlib
+import yaml
+import pytest
+from hammunition.backends.source import SourceBackend
+from hammunition.station import Station, save_station
+from hammunition.signers import EnrolledKey, MirrorState, save_mirror
+from hammunition.keystrength import classify
+from bunker_fixtures import artifact as catalogue_artifact, document, key, signed
+
+
+def test_ics_forms_offline_install_without_regions(tmp_path: Path,
+                                                 monkeypatch: pytest.MonkeyPatch) -> None:
+    cli = importlib.import_module("hammunition.cli.main")
+    catalog = tmp_path / "catalog"
+    (catalog / "packages").mkdir(parents=True)
+    (catalog / "profiles").mkdir()
+    source = Path(__file__).resolve().parents[1] / "catalog/packages/ics-forms.yaml"
+    manifest = yaml.safe_load(source.read_text())
+    block = manifest["install"][0]["install"]
+    export = tmp_path / "export"
+    (export / "ics-forms").mkdir(parents=True)
+    rows = []
+    expected = {}
+    for index, pin in enumerate(block["artifacts"]):
+        body = f"%PDF-1.4 fixture {index}\n".encode()
+        pin["sha256"] = hashlib.sha256(body).hexdigest()
+        pin["size"] = len(body)
+        name = pin["install_as"]
+        (export / "ics-forms" / name).write_bytes(body)
+        rows.append(catalogue_artifact("ics-forms", name, body,
+                    publisher_url=pin["url"], licence=block["licence"]))
+        expected[name] = body
+    (catalog / "packages/ics-forms.yaml").write_text(yaml.safe_dump(manifest))
+    private = key(tmp_path)
+    public = private.with_suffix(".pub").read_text().strip()
+    raw, signatures = signed(tmp_path, private, document(public, artifacts=rows))
+    (export / "catalogue.json").write_bytes(raw)
+    (export / "catalogue.sig.d").mkdir()
+    for name, body in signatures.items():
+        (export / name).write_bytes(body)
+    strength = classify(public)
+    save_mirror(MirrorState(export.as_uri(), "bunker", "personal", None,
+                (EnrolledKey(strength.fingerprint, public, strength.algorithm,
+                             strength.bits, False),), 0))
+    save_station(Station(mirror=export.as_uri()))  # no map_regions
+    prefix = tmp_path / "prefix"
+    def isolated_source(fetcher: Fetcher, *, build_root: Path,
+                        owner: str | None = None) -> SourceBackend:
+        return SourceBackend(fetcher, build_root=build_root, prefix=prefix, owner=owner)
+    monkeypatch.setattr(cli, "SourceBackend", isolated_source)
+    assert cli.main(["--catalog", str(catalog), "install", "ics-forms",
+                     "--offline", "--yes"]) == 0
+    destination = prefix / "share/hammunition/data/ics-forms"
+    assert {path.name: path.read_bytes() for path in destination.glob("*.pdf")} == expected
+```
+
+Expected pre-fix FAIL: absent `--offline`, file mirror refusal, or incorrect region deferral. Expected PASS with the Task 5 static preflight and Task 4 file transport plus the existing `DataBackend` SHA-256 fetch path. Keep all transaction/config/cache paths under conftest's isolated environment. Ensure CLI static data dispatch is independent of region resolution; apply the concrete constructor below when creating the data backend, not a regional backend:
+
+```python
+# cmd_install's static data constructor (existing independent dispatch):
+data = DataBackend(fetcher=source.fetcher, prefix=source.prefix, runner=runner,
+                   build_root=builds, owner=source.owner)
+# preflight_data's DataInstall branch in Task 5 uses only block.artifacts;
+# do not add any station.map_regions precondition to that branch.
+```
+
 - [ ] Run: `.venv/bin/pytest tests/test_payload_mirror.py -q`; expected FAIL: module missing.
 - [ ] Implement the complete shared action:
 
@@ -2437,12 +2560,46 @@ def test_bundle_names_are_contract_names(tmp_path: Path) -> None:
 
 Add checkout tests: parent+child+nested grandchild; `git -c protocol.file.allow=always submodule add <local fixture path> ...` only in fixture creation; create bundles with `git bundle create <path> --all`; put bundle bytes at `git-bundles` routes; catalogue entries record actual sha256/size; use `SubprocessRunner` for checkout (not network). Assert checked HEAD and every recursive status mark, and no fetch to a remote. Corrupt bundle, absent child/grandchild, wrong child HEAD, detached correct commit, annotated tag, and moved tag all exercised. A moved tag test changes the tag but preserves the pinned commit in another ref, so merely checking that the commit exists cannot pass. Add direct unit preflight: all known recursive bundle entries required before any build. The backend must not recreate a tag before validating its original target.
 
+- [ ] Test the module's public import in a fresh interpreter, not the warmed pytest process:
+
+```python
+import os
+import sys
+
+
+def test_gitbundles_import_without_backend_cycle() -> None:
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1] / "src")
+    result = subprocess.run(
+        [sys.executable, "-c", "import hammunition.gitbundles"],
+        env=env, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+```
+
+Expected pre-fix FAIL: `ImportError` mentioning a partially initialized module (or missing module before creation). Move `GIT_ENV` to `gitbundles.py`, import it from there in `backends/git.py`, and keep backend classes out of `gitbundles` runtime imports. Use this shared constant in every command below:
+
+```python
+# gitbundles.py: runtime imports are leaf modules; annotations only are guarded.
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from hammunition.backends.base import CommandRunner
+    from hammunition.fetch import Fetcher
+    from hammunition.offline import ResolutionContext
+    from hammunition.manifest.schema import GitInstall
+
+GIT_ENV: dict[str, str] = {"GIT_TERMINAL_PROMPT": "0", "GIT_EDITOR": "true"}
+```
+
+Use `from __future__ import annotations`. Put every runtime import of `BackendError`, `Command`, `Fetcher`, `RemoteArtifact` and `ResolutionContext` inside the function that needs it; importing `backends.base` at module scope initializes `backends/__init__.py` too. The module-level imports are stdlib, `catalogue` and `manifest.schema` only. The constant preserves both existing `GIT_ENV` members. The fresh interpreter test is included in the task's pytest command below; expected PASS after imports are acyclic.
+
 - [ ] Run: `.venv/bin/pytest tests/test_git_bundles.py -q`; expected FAIL: missing module.
 - [ ] Implement full naming and command checking helpers:
 
 ```python
 def bundle_name(unit: str, commit: str, *, path: str | None = None,
                 subcommit: str | None = None) -> str:
+    from hammunition.backends.base import BackendError
     if COMMIT_SHA.fullmatch(commit) is None or "/" in unit:
         raise BackendError("git bundle needs a unit and full pinned commit")
     name = f"{unit}@{commit}"
@@ -2457,6 +2614,7 @@ def bundle_name(unit: str, commit: str, *, path: str | None = None,
 
 
 def checked_git(runner: CommandRunner, cwd: Path, *argv: str) -> str:
+    from hammunition.backends.base import BackendError, Command
     result = runner.run(Command(argv=("git", "-C", str(cwd), *argv), env=GIT_ENV,
                                 description="Check the pinned Bunker git bundle"))
     if not result.ok:
@@ -2633,15 +2791,15 @@ git commit -m "feat: verify mirrored git bundles and every pinned gitlink"
 ### Task 16: A10 — `artifacts --json` describes every payload, sheet, input and git pin
 
 **Files:**
-- Modify: `src/hammunition/artifacts.py:38-153,167-233,299-344,417-479`, `src/hammunition/interface/artifacts.py:39-151`, `src/hammunition/cli/main.py:1760-1848,8605-8640`.
+- Modify: `src/hammunition/manifest/schema.py:2453-2460` (additive licence metadata), `src/hammunition/artifacts.py:38-153,167-233,299-344,417-479`, `src/hammunition/interface/artifacts.py:39-151`, `src/hammunition/cli/main.py:1760-1848,8605-8640`.
 - Create: `tests/test_artifacts_bunker.py`.
-- Regenerate: `docs/reference/json-interface.md`, CLI generated help block.
+- Regenerate: `docs/reference/json-interface.md`; hand-edit `docs/reference/cli.md` (no CLI generator).
 - Read: `tests/test_artifacts.py:171-227,597-616,746-766`, `src/hammunition/manifest/schema.py:228-242,528-628,818-847,945-1016,1070-1090,1517-1554`.
 
 **Interfaces:**
 - Consumes: payload helpers, bundle_name, carried indices, existing list_artifacts probes and Task 7 selection codecs. No station reads.
 - Produces: `payload_entries(unit: str, block: SourceInstall | BinaryInstall | VenvInstall | NodeInstall | GitInstall | DerivedDataInstall, licence: str) -> tuple[ArtifactEntry, ...]`; existing `list_artifacts(..., bound: TopoBound = ALL, gateway: GatewayProbe | None = None) -> tuple[ArtifactEntry, ...]`.
-- Produces: `InputEntry(Strict)` with `kind: str`, `region: str`, `name: str`, `url: str | None`, `sha256: str | None`, `size: int | None`, `content: str | None`, `deferred: str | None`; `GitPinEntry(Strict)` with `unit: str` (always `git-bundles`), `name: str`, `repo: str`, `ref: str`, `commit: str | None`, `submodules: bool`, `deferred: str | None`.
+- Produces: `InputEntry(Strict)` with `kind: str`, `region: str`, `name: str`, `url: str | None`, `sha256: str | None`, `size: int | None`, `content: str | None`, `deferred: str | None`; `GitPinEntry(Strict)` with `unit: str` (always `git-bundles`), `name: str`, `repo: str`, `ref: str`, `commit: str | None`, `submodules: bool`, `licence: str`, `deferred: str | None`.
 - Produces: additive `ArtifactsDocument.inputs: tuple[InputEntry, ...] = ()`, `git_pins: tuple[GitPinEntry, ...] = ()`; `list_inputs(regions: Sequence[str], *, catalog_root: Path, probe: Probe, bound: TopoBound = ALL) -> tuple[InputEntry, ...]`; `list_git_pins(units: Sequence[str], catalog: Mapping[str, PackageManifest]) -> tuple[GitPinEntry, ...]`.
 - Topo names use `quad.path`, FSTopo `quad.name`, payloads `payload_name`, tools/extras same, inputs `<kind>/<name>` under `inputs/`; git pin names use the binding contract. Bundle sha256 is computed by the Bunker after construction, never fabricated by artifacts.
 
@@ -2670,6 +2828,72 @@ def test_all_source_payloads_use_the_install_route() -> None:
 
 Add backend-name parity tests for binary/venv/Node, converter-tool and git extras; default fetching set includes these but not apt-only/derived-without-tool; unknown explicit unit still refuses. Use `_root`, `_list`, `Geofabrik`, `Bucket` from existing artifact tests (or move shared fixture into `tests/bunker_fixtures.py`). Topo/FSTopo inputs and sheets are selected from the same synthetic Delaware outline and bound as the install; compare sets and exact stable names. All five input kinds listed, input `sha256` and size match actual content, outline requests memoized. Missing/malformed outline becomes a deferred input/sheet entry, never dropped. Book/map/data existing names unchanged. Git parent pin named correctly; tag lacking commit has named deferral; recursive names are generated from pinned gitlinks by the bundle writer using Task 15 helper (not guessed at listing time). `cmd_artifacts` remains station-independent even with another selection saved. Golden JSON uses new additive arrays and validates against `Strict` dataclasses.
 
+- [ ] Add exact ETag, inline-input bound, unit filtering and licence tests:
+
+```python
+import pytest
+from hammunition.artifacts import (
+    SelectionError, input_entry, input_regions, etag_entry, list_git_pins,
+)
+from hammunition.manifest.schema import (
+    PackageManifest, TopoQuadsInstall, DemTilesInstall,
+)
+
+
+@pytest.mark.parametrize("etag", ["a" * 32, "b" * 32 + "-94"])
+def test_sheet_etag_is_raw_and_part_size_is_nullable(etag: str) -> None:
+    for unit, name in [("usgs-ustopo", "DE/fixture_20260101"),
+                       ("dem-3dep", "USGS_13_n39w076")]:
+        row = etag_entry(unit, name, "https://example.invalid/sheet.tif",
+                         etag, 123, "public domain")
+        assert row.check == "etag-md5" and row.digest == etag
+        assert row.part_size is None
+        assert etag_entry(unit, name, row.url, etag, 123,
+                          "public domain", part_size=5 * 1024 * 1024).part_size == 5242880
+
+
+def test_inline_input_bound_names_the_input() -> None:
+    row = input_entry("region-outline", "europe/monaco", "europe/monaco.poly",
+                      "x" * (8 * 1024 * 1024))
+    assert row.size == 8 * 1024 * 1024 and row.content is not None
+    with pytest.raises(SelectionError) as caught:
+        input_entry("region-outline", "europe/monaco", "europe/monaco.poly",
+                    "é" * (4 * 1024 * 1024 + 1))
+    assert str(caught.value) == (
+        "input region-outline/europe/monaco.poly is over 8 MiB; "
+        "narrow the selection with --units"
+    )
+
+
+def test_units_filter_inputs_and_git_pins_and_carry_licence() -> None:
+    catalog = load_catalog(Path(__file__).resolve().parents[1] / "catalog/packages")
+    regions = ("europe/monaco", "north-america/us/delaware")
+    assert input_regions(("ics-forms",), regions, catalog) == ()
+    assert input_regions(("osm-regions",), regions, catalog) == regions
+    git_units = [unit for unit in catalog if list_git_pins((unit,), catalog)]
+    assert len(git_units) >= 2
+    selected = git_units[0]
+    catalog[selected] = catalog[selected].model_copy(update={"licence": "GPL-3.0-or-later"})
+    pins = list_git_pins((selected,), catalog)
+    assert pins and all(p.name.startswith(selected + "@") for p in pins)
+    assert all(p.licence == "GPL-3.0-or-later" for p in pins)
+    assert not list_git_pins(("ics-forms",), catalog)
+
+
+def test_cli_units_filter_inline_arrays(capsys: pytest.CaptureFixture[str]) -> None:
+    import importlib
+    import json
+    cli = importlib.import_module("hammunition.cli.main")
+    assert cli.main(["artifacts", "--units", "ics-forms", "--map-regions",
+                     "europe/monaco", "--json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["inputs"] == []
+    assert doc["git_pins"] == []
+
+```
+
+Expected pre-fix FAIL: missing `etag_entry`/`input_regions`, no `part_size`, or over-limit input accepted. Include these tests in both Task 16 pytest runs below. Add a `cmd_artifacts --units ics-forms --map-regions europe/monaco --json` assertion that both arrays are empty; for `--units osm-regions` every input's region is explicitly selected. No station regions may enter either array.
+
 - [ ] Run: `.venv/bin/pytest tests/test_artifacts_bunker.py -q`; expected FAIL: cannot import `payload_entries`.
 - [ ] Implement complete payload selector:
 
@@ -2694,6 +2918,43 @@ def payload_entries(unit: str,
     return tuple(ArtifactEntry(unit, payload_name(pin), pin.url, "sha256", pin.sha256,
                                None, size, licence, None) for pin, size, licence in items)
 ```
+
+Add an optional manifest `licence` field to `PackageManifest` in `manifest/schema.py` (this checkout has no top-level one), keeping existing manifests readable. Do not infer the program's licence from the YAML file's CC0 header. Missing metadata remains explicit:
+
+```python
+# PackageManifest field:
+licence: str = Field(default="licence not recorded in this manifest", min_length=1)
+
+# ArtifactEntry: append after required fields, preserving existing positional callers.
+part_size: int | None = field(default=None, metadata={"doc": "ETag multipart part size in bytes, or null when not recorded"})
+
+# artifacts.py: imports ArtifactEntry; no stripping quotes, suffixes or rehashing.
+def etag_entry(unit: str, name: str, url: str, etag: str, size: int,
+               licence: str, *, part_size: int | None = None) -> ArtifactEntry:
+    return ArtifactEntry(unit, name, url, "etag-md5", etag, None, size,
+                         licence, None, part_size=part_size)
+
+
+def input_regions(units: Sequence[str], regions: Sequence[str],
+                  catalog: Mapping[str, PackageManifest]) -> tuple[str, ...]:
+    regional = (RegionalDataInstall, DemTilesInstall, TopoQuadsInstall)
+    needs_regions = any(isinstance(entry.install, regional)
+                        for unit in units for entry in catalog[unit].install)
+    return tuple(dict.fromkeys(regions)) if needs_regions else ()
+```
+
+Import `RegionalDataInstall`, `DemTilesInstall` and `TopoQuadsInstall`; `DemTilesInstall.provider` distinguishes Copernicus/3DEP and `TopoQuadsInstall.provider` distinguishes US Topo/FSTopo. Route every selected US Topo quad through `etag_entry(unit, quad.path, quad.url, quad.etag, quad.size, block.licence)` and each 3DEP row through `etag_entry(unit, row.name, tile_url(row.name), row.etag, row.size, block.licence)`; carried rows currently lack a part-size column, so emit null, never guess one from the multipart suffix. Update `ArtifactEntry.digest` documentation to allow the raw `<hex>-<parts>` ETag as well as hex digests. Inputs stay inline (`content` contains the exact UTF-8 text); the 8 MiB bound below counts encoded bytes, names the oversized input and refuses the command, rather than returning a deferred/null row.
+
+In `cmd_artifacts`, construct arrays using the resolved `units` from `select_units`, not all catalogue keys; catch `SelectionError` from input generation through the existing unplannable error path:
+
+```python
+inputs = list_inputs(input_regions(units, regions, catalog),
+                     catalog_root=catalog_root, probe=region_probe, bound=bound)
+git_pins = list_git_pins(units, catalog)
+# Pass inputs=inputs, git_pins=git_pins to ArtifactsDocument alongside existing fields.
+```
+
+Here `region_probe` is the shared `MemoProbe(UrllibProbe())` and `bound` is the explicit CLI bound or `ALL`, defined before `list_artifacts`; use that same probe and bound for both calls. Include `src/hammunition/manifest/schema.py` in Files/commit, document the additive licence field, and regenerate the JSON reference only.
 
 Extend `FETCHING` / `Block` to these classes and `TopoQuadsInstall` (derived only when it has a tool; git is fetching for bundles even without extras). `_blocks` filters variants explicitly, not truthiness of empty list. List every target variant, deduplicate identical `(unit,name,digest)` and refuse conflicting names using existing `_data` rule. Do not invent payload size/licence where manifests do not carry them; emit null size and “licence not recorded in this manifest” rather than claiming verification metadata exists. `artifacts` reports what is available; Bunker obtains actual size and sha256 when fetching. Its recorded size does not become a repo pin.
 
@@ -2723,10 +2984,11 @@ class GitPinEntry(Strict):
     ref: str = described("repository manifest tag or commit ref")
     commit: str | None = described("full repository commit, null for an unpinned tag")
     submodules: bool = described("writer must recursively enumerate pinned gitlinks and produce separate bundles")
+    licence: str = described("manifest licence field, carried verbatim")
     deferred: str | None = described("why no verifiable bundle can be named")
 ```
 
-Add the two optional arrays after ArtifactsDocument's required fields using `field(default=(), metadata={"doc": ...})`, preserving constructors for existing callers. Text rendering lists each input and git pin or its deferral after the current artifact section; one JSON document contains all three arrays. Keep the artifact array's existing field meanings unchanged.
+Add the two optional arrays after ArtifactsDocument's required fields using `field(default=(), metadata={"doc": ...})`, preserving constructors for existing callers. Text rendering lists each input and git pin or its deferral after the current artifact section; one JSON document contains all three arrays. Keep the artifact array's existing field meanings, extending `digest` to describe raw multipart ETags and adding nullable `part_size`.
 
 Full git listing function:
 
@@ -2744,11 +3006,11 @@ def list_git_pins(units: Sequence[str], catalog: Mapping[str, PackageManifest]) 
             if commit is None:
                 name = f"{unit}@{block.ref}"
                 out[name] = GitPinEntry("git-bundles", name, block.repo, block.ref, None,
-                                       block.submodules, "tag has no recorded commit; offline bundle verification needs a repository pin")
+                                       block.submodules, catalog[unit].licence, "tag has no recorded commit; offline bundle verification needs a repository pin")
             else:
                 name = bundle_name(unit, commit)
                 out[name] = GitPinEntry("git-bundles", name, block.repo, block.ref, commit,
-                                       block.submodules, None)
+                                       block.submodules, catalog[unit].licence, None)
     return tuple(out.values())
 ```
 
@@ -2765,8 +3027,13 @@ from hammunition.fstopo import load_index as load_fstopo_index
 from hammunition.usgs3dep import load_tile_list as load_3dep_list, tile_name as threedep_name
 
 
+MAX_INPUT_BYTES = 8 * 1024 * 1024
+
+
 def input_entry(kind: str, region: str, name: str, text: str, url: str | None = None) -> InputEntry:
     body = text.encode("utf-8")
+    if len(body) > MAX_INPUT_BYTES:
+        raise SelectionError(f"input {kind}/{name} is over 8 MiB; narrow the selection with --units")
     return InputEntry(kind, region, name, url, hashlib.sha256(body).hexdigest(), len(body), text, None)
 
 
@@ -2834,7 +3101,7 @@ Expected PASS; inspect regenerated artifacts goldens, especially old stable name
 - [ ] Commit:
 
 ```bash
-git add src/hammunition/artifacts.py src/hammunition/interface/artifacts.py src/hammunition/cli/main.py tests/test_artifacts_bunker.py tests/fixtures/json/artifacts.json docs/reference/json-interface.md docs/reference/cli.md docs/reference/bunker-catalogue.md
+git add src/hammunition/manifest/schema.py src/hammunition/artifacts.py src/hammunition/interface/artifacts.py src/hammunition/cli/main.py tests/test_artifacts_bunker.py tests/fixtures/json/artifacts.json docs/reference/json-interface.md docs/reference/cli.md docs/reference/bunker-catalogue.md
 git commit -m "feat: describe Bunker payloads inputs sheets and git pins"
 ```
 
