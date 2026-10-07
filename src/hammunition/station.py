@@ -167,10 +167,32 @@ RIG_VALUE = re.compile(r"^(?:hamlib:[0-9]+|[a-z0-9][a-z0-9-]*)$")
 #: construction, and ``..`` is refused separately (D-073 §4).
 RIG_DEVICE = re.compile(r"^/dev/[A-Za-z0-9#+\-.:=@_/]+$")
 
-#: A mirror is fetched by :class:`hammunition.fetch.UrllibTransport`, which
-#: speaks these and nothing else. Plain http is allowed on purpose: the
+#: A mirror is fetched over these. Plain http is allowed on purpose: the
 #: content is public data and the check is the hash, not the transport.
-MIRROR_SCHEMES = ("http", "https")
+#: ``file`` is a Bunker export directory, read only by
+#: :class:`hammunition.mirror_transport.MirrorTransport`; the publisher
+#: transport (:class:`hammunition.fetch.UrllibTransport`) speaks http(s) alone.
+MIRROR_SCHEMES = ("http", "https", "file")
+
+
+def _file_mirror_problem(value: str, parts: urllib.parse.SplitResult) -> str | None:
+    """Why *value* is not a ``file:///absolute/dir`` export, or ``None``.
+
+    The path is matched raw by the transport and walked by its decoded
+    segments, so the decoded form is what is checked for ``.``, ``..`` and
+    control characters; it is decoded once, never twice."""
+    if parts.netloc:
+        return "a file mirror names no host: write file:///absolute/path"
+    if parts.query or parts.fragment or "?" in value or "#" in value:
+        return "it has a query or a fragment; a mirror is a base URL"
+    decoded = urllib.parse.unquote(parts.path)
+    if not parts.path.startswith("/") or not decoded.strip("/"):
+        return "a file mirror needs an absolute, non-empty directory path"
+    if any(c.isspace() for c in value) or any(ord(c) < 32 or ord(c) == 127 for c in decoded):
+        return "it contains whitespace or a control character"
+    if any(segment in (".", "..") for segment in decoded.split("/")):
+        return "its path has a . or .. segment"
+    return None
 
 
 def _check_mirror(url: str) -> str:
@@ -191,7 +213,9 @@ def _check_mirror(url: str) -> str:
             f"http://bunker.lan:8080/ (D-070)."
         ) from exc
     if parts.scheme not in MIRROR_SCHEMES:
-        problem = "it must start with http:// or https://"
+        problem = "it must start with http://, https:// or file://"
+    elif parts.scheme == "file":
+        problem = _file_mirror_problem(value, parts)
     elif not parts.hostname or any(c.isspace() for c in value):
         problem = "it names no host"
     elif parts.username is not None or parts.password is not None:

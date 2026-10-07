@@ -40,6 +40,7 @@ import os
 import re
 import subprocess
 import urllib.error
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterable, Sequence
@@ -293,7 +294,11 @@ def read_snapshot(
 
     get = fetch or repeaters.fetch_list
     failure: str | None = None
-    if mirror:
+    if mirror and urllib.parse.urlsplit(mirror).scheme == "file":
+        # A file export is read by the Bunker transport, never by this plain
+        # HTTP fetch; asking it would raise on a scheme with no handler.
+        failure = "a file:// mirror is not asked for repeater snapshots"
+    elif mirror:
         where = mirror_url(mirror, MirrorPath(SNAPSHOT_UNIT, snapshot.name))
         try:
             body, digest, when = get(where, limit=snapshot.limit)

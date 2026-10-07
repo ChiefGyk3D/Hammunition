@@ -4643,8 +4643,18 @@ def cmd_install(args: argparse.Namespace) -> int:
     # D-070: the station's LAN mirror, unless --no-mirror; only the data
     # backends name a mirror path, so nothing else is ever asked of it.
     mirror = None if args.no_mirror else station.mirror
+    from hammunition.mirror import fetch_transport
+    from hammunition.signers import SignerError, load_mirror
+
+    try:
+        enrolled_transport = fetch_transport(mirror, load_mirror(owner=user or None))
+    except (SignerError, StationError, BackendError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
     source = SourceBackend(
-        Fetcher(owner=user or None, mirror=mirror), build_root=builds, owner=user or None
+        Fetcher(owner=user or None, mirror=mirror, mirror_transport=enrolled_transport),
+        build_root=builds,
+        owner=user or None,
     )
     git = GitBackend(
         runner=runner,

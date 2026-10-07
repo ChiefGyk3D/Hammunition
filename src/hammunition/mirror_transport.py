@@ -9,13 +9,16 @@ import urllib.error
 import urllib.request
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import IO
 from urllib.parse import quote, unquote, urlsplit
 
 from hammunition.backends import BackendError
-from hammunition.catalogue import safe_relative, valid_enrolment_id
+from hammunition.catalogue import parse, safe_relative, valid_enrolment_id
 from hammunition.fetch import MIRROR_TIMEOUT, TransportUnreachable
+from hammunition.signers import MirrorState, VerifiedCatalogue, advance_mirror, verify
 from hammunition.station import _check_mirror
 
 
@@ -68,6 +71,10 @@ class MirrorTransport:
                     flags = os.O_RDONLY | os.O_NOFOLLOW
                     if index < len(components) - 1:
                         flags |= os.O_DIRECTORY
+                    else:
+                        # A FIFO planted in an export would block open() for
+                        # ever; non-blocking returns, and fstat refuses it.
+                        flags |= os.O_NONBLOCK
                     child = os.open(component, flags, dir_fd=directory)
                     os.close(directory)
                     directory = child
@@ -113,3 +120,50 @@ class MirrorTransport:
         if len(raw) > max_bytes:
             raise BackendError(f"{relative}: larger than {max_bytes} bytes")
         return raw
+
+
+@dataclass(frozen=True)
+class CatalogueInputs:
+    """The resolution boundary: reads a mirror path, failing as ``OSError``.
+
+    Resolution is a leaf that must not import backend exceptions; this adapter
+    turns the transport's refusal into the ``OSError`` an input read raises."""
+
+    transport: MirrorTransport
+
+    def read(self, relative: str, *, max_bytes: int) -> bytes:
+        try:
+            return self.transport.read(relative, max_bytes=max_bytes)
+        except BackendError as exc:
+            raise OSError(str(exc)) from exc
+
+
+def load_catalogue(
+    state: MirrorState,
+    *,
+    require_hardware: bool,
+    now: datetime,
+    transport: MirrorTransport | None = None,
+    owner: str | None = None,
+) -> VerifiedCatalogue:
+    """The enrolled Bunker's catalogue, read once and verified against *state*.
+
+    One run makes one of these and shares the returned object; nothing is
+    cached across runs, and an unsigned candidate is never reused. Only an
+    enrolled signer's signature is fetched. The stored serial advances only
+    after verification, and never moves down."""
+    source = transport or MirrorTransport(state.url, state.enrolment_id)
+    raw = read_catalogue(source)
+    parsed = parse(raw)
+    signatures: dict[str, bytes] = {}
+    accepted = {k.id for k in state.keys}
+    for signer in parsed.signers:
+        if signer.id not in accepted:
+            continue
+        try:
+            signatures[signer.signature] = source.read(signer.signature, max_bytes=64 * 1024)
+        except BackendError:
+            continue  # another enrolled signature can still verify
+    verified = verify(raw, signatures, state, require_hardware=require_hardware, now=now)
+    advance_mirror(state, parsed.serial, parsed.generated, owner=owner)
+    return verified

@@ -145,3 +145,14 @@ def consistent_state(url: str | None, state: MirrorState | None) -> None:
         raise SignerError(
             "station mirror differs from enrolled mirror; run hammunition mirror enrol URL"
         )
+
+
+def fetch_transport(station_url: str | None, state: MirrorState | None) -> MirrorTransport | None:
+    """The transport for artifact downloads from the enrolled Bunker, or ``None``.
+
+    Only when the station's mirror is the enrolled one: it carries the
+    enrolment header and accepts a ``file://`` export. Any other mirror stays
+    on the publisher transport, which never sends the header."""
+    if station_url is None or state is None or station_url != state.url:
+        return None
+    return MirrorTransport(state.url, state.enrolment_id)
