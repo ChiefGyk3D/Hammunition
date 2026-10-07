@@ -61,6 +61,7 @@ their text follows.
 - `hammunition maps repeaters import`
 - `hammunition maps repeaters list`
 - `hammunition maps repeaters remove`
+- `hammunition mirror status`
 - `hammunition reference books`
 - `hammunition secrets status`
 - `hammunition self update` (with `--dry-run` only)
@@ -91,6 +92,7 @@ their text follows.
 | `infra` | [`InfraDocument`](#infra) |
 | `infra-removed` | [`InfraRemovedDocument`](#infra-removed) |
 | `logs` | [`LogsDocument`](#logs) |
+| `mirror` | [`MirrorDocument`](#mirror) |
 | `phone` | [`PhoneDocument`](#phone) |
 | `plan` | [`PlanDocument`](#plan) |
 | `profile` | [`ProfileDocument`](#profile) |
@@ -2442,6 +2444,211 @@ One run's log file.
     "runs"
   ],
   "title": "LogsDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### mirror
+
+MirrorDocument(url: 'str | None', name: 'str | None', mode: 'str | None', enrolment_id: 'str | None', accepted_serial: 'int | None', generated: 'str | None', age_days: 'int | None', require_hardware: 'bool', keys: 'tuple[MirrorKeyView, ...]', warnings: 'tuple[str, ...]')
+
+| field | type | meaning |
+|---|---|---|
+| `url` | string or null | enrolled mirror URL; null when no Bunker is enrolled |
+| `name` | string or null | enrolled Bunker name |
+| `mode` | string or null | personal or group mode from the last verified catalogue |
+| `enrolment_id` | string or null | opaque group sharing id; not proof of laptop identity |
+| `accepted_serial` | integer or null | highest accepted serial, except explicit backup restoration |
+| `generated` | string or null | UTC generation time from the last verified catalogue |
+| `age_days` | integer or null | age of last verified metadata, without contacting the Bunker |
+| `require_hardware` | boolean | station hardware-signature policy, off by default |
+| `keys` | list of [`MirrorKeyView`](#mirrorkeyview) | enrolled key strength and hardware assertions |
+| `warnings` | list of string | weak-key and catalogue-age warnings |
+
+#### `MirrorKeyView`
+
+MirrorKeyView(id: 'str', algorithm: 'str', bits: 'int', hardware: 'bool', no_touch_required: 'bool', weak: 'bool', warning: 'str | None')
+
+| field | type | meaning |
+|---|---|---|
+| `id` | string | SHA256 fingerprint of the enrolled public key |
+| `algorithm` | string | OpenSSH algorithm measured from the public key |
+| `bits` | integer | key size measured by ssh-keygen |
+| `hardware` | boolean | hardware by sk type or explicitly affirmed by the operator |
+| `no_touch_required` | boolean | advertised signature metadata; informational only |
+| `weak` | boolean | true for RSA of 2048 bits or fewer |
+| `warning` | string or null | shared weak-key warning, null for a strong key |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "MirrorKeyView": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "algorithm": {
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "bits": {
+          "title": "Bits",
+          "type": "integer"
+        },
+        "hardware": {
+          "title": "Hardware",
+          "type": "boolean"
+        },
+        "no_touch_required": {
+          "title": "No Touch Required",
+          "type": "boolean"
+        },
+        "weak": {
+          "title": "Weak",
+          "type": "boolean"
+        },
+        "warning": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Warning"
+        }
+      },
+      "required": [
+        "id",
+        "algorithm",
+        "bits",
+        "hardware",
+        "no_touch_required",
+        "weak",
+        "warning"
+      ],
+      "title": "MirrorKeyView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Url"
+    },
+    "name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Name"
+    },
+    "mode": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Mode"
+    },
+    "enrolment_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Enrolment Id"
+    },
+    "accepted_serial": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Accepted Serial"
+    },
+    "generated": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Generated"
+    },
+    "age_days": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Age Days"
+    },
+    "require_hardware": {
+      "title": "Require Hardware",
+      "type": "boolean"
+    },
+    "keys": {
+      "items": {
+        "$ref": "#/$defs/MirrorKeyView"
+      },
+      "title": "Keys",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "url",
+    "name",
+    "mode",
+    "enrolment_id",
+    "accepted_serial",
+    "generated",
+    "age_days",
+    "require_hardware",
+    "keys",
+    "warnings"
+  ],
+  "title": "MirrorDocument",
   "type": "object"
 }
 ```
@@ -7031,6 +7238,7 @@ and a grid square or a map region says where the station is.
 | `map_regions` | list of string | Geofabrik region paths carrying offline map data; empty when none are set |
 | `map_freshness` | string or null | how often map data is refreshed: yearly, monthly or latest; null means the yearly default applies |
 | `reference_books` | list of string | Kiwix book ids chosen for kiwix-library (D-066); empty when none are chosen |
+| `mirror_require_hardware_key` | boolean | require an enrolled hardware signer for Bunker catalogues |
 | `mirror` | string or null | the LAN mirror the verified fetch tries before the publisher, the same digest checked either way (D-070); null when none is set |
 | `rig` | string or null | the station's radio: a catalog device id or hamlib:<model>; null when not set (D-073) |
 | `rig_device` | string or null | the serial port the rig is reached on — the full by-id path, for the operator's own screen (the plan, doctor and status elide the serial); null when not set |
@@ -7117,6 +7325,10 @@ and a grid square or a map region says where the station is.
       },
       "title": "Reference Books",
       "type": "array"
+    },
+    "mirror_require_hardware_key": {
+      "title": "Mirror Require Hardware Key",
+      "type": "boolean"
     },
     "mirror": {
       "anyOf": [
@@ -7249,6 +7461,7 @@ and a grid square or a map region says where the station is.
     "map_regions",
     "map_freshness",
     "reference_books",
+    "mirror_require_hardware_key",
     "mirror",
     "rig",
     "rig_device",

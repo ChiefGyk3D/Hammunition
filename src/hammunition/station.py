@@ -101,6 +101,7 @@ _MAP_FIELDS = frozenset({"map_regions", "map_freshness"})
 #: Kiwix books chosen for `kiwix-library` (D-066).
 _NOT_TEMPLATES = _MAP_FIELDS | {
     "mirror",
+    "mirror_require_hardware_key",
     "reference_books",
     "dem_source",
     "topo_radius_km",
@@ -229,6 +230,7 @@ class Station:
     ``ham.stackexchange.com_en_all``. None means ``kiwix-library`` is
     deferred (D-066). Which books somebody reads is not where they are, so
     these are printed where map regions are only counted."""
+    mirror_require_hardware_key: bool = False
     mirror: str | None = None
     """A LAN mirror of the catalog's data artifacts, tried before the
     publisher and verified the same way (D-070). Never an internet address."""
@@ -319,6 +321,8 @@ class Station:
             raise StationError(
                 f"map freshness {self.map_freshness!r} is not one of {', '.join(FRESHNESS)}"
             )
+        if not isinstance(self.mirror_require_hardware_key, bool):
+            raise StationError("mirror_require_hardware_key must be true or false")
         if self.mirror is not None:
             object.__setattr__(self, "mirror", _check_mirror(self.mirror))
         if self.rig is not None:
@@ -492,6 +496,10 @@ class Station:
             result["map_freshness"] = self.map_freshness
         if self.reference_books:
             result["reference_books"] = list(self.reference_books)
+        if not isinstance(self.mirror_require_hardware_key, bool):
+            raise StationError("mirror_require_hardware_key must be true or false")
+        if self.mirror_require_hardware_key:
+            result["mirror_require_hardware_key"] = True
         if self.mirror is not None:
             result["mirror"] = self.mirror
         if self.rig_baud is not None:
@@ -643,6 +651,7 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         map_freshness=_str("map_freshness"),
         reference_books=_str_list("reference_books"),
         mirror=_str("mirror"),
+        mirror_require_hardware_key=data.get("mirror_require_hardware_key", False),
         rig=_str("rig"),
         rig_device=_str("rig_device"),
         rig_baud=rig_baud,
@@ -703,6 +712,7 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
                     map_freshness=station.map_freshness,
                     reference_books=station.reference_books,
                     mirror=station.mirror,
+                    mirror_require_hardware_key=station.mirror_require_hardware_key,
                     rig_baud=station.rig_baud,
                     dem_source=station.dem_source,
                     topo_radius_km=station.topo_radius_km,
@@ -723,6 +733,7 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
         map_freshness=station.map_freshness,
         reference_books=station.reference_books,
         mirror=station.mirror,
+        mirror_require_hardware_key=station.mirror_require_hardware_key,
         rig_baud=station.rig_baud,
         dem_source=station.dem_source,
         topo_radius_km=station.topo_radius_km,

@@ -2421,6 +2421,40 @@ it never passes the assume-yes flag and never runs as root. Walkthrough:
 - It has **no `--json` form**: `hammunition console --json` is refused like any verb with no document.
 - It launches the engine as `<its own interpreter> -m hammunition`, never a `hammunition` found on `PATH`.
 
+## mirror
+
+### `hammunition mirror enrol URL [--enrolment-id ID]`
+
+Fetch the Bunker's catalogue and show each signer’s fingerprint, measured
+algorithm and size, hardware claim, `no_touch_required` metadata and any weak-key
+warning. Type the chosen fingerprints, comma-separated, then confirm each
+fingerprint at the terminal. A non-sk key’s hardware claim requires a separate
+hardware-origin affirmation and typed fingerprint consent, recorded in the
+transaction log. `no_touch_required` is display only.
+
+Enrolment verifies a signature before storing trust and the station URL. Re-enrolling
+the same URL and Bunker name retains the accepted serial and only the keys explicitly
+chosen this time. A lower serial refuses. A changed URL or name is new enrolment.
+There is no `--yes` and no JSON form; `--json` refuses with an `error` document.
+A group enrolment id is a sharing filter sent in clear over HTTP, not identity proof.
+
+### `hammunition mirror status [--json]`
+
+Show stored Bunker trust, each key’s strength, hardware assertion and
+`no_touch_required`, accepted serial and age of the last verified catalogue.
+Nothing is fetched. Missing trust reports no Bunker enrolled. A station URL that
+differs from enrolled trust requires re-enrolment.
+
+`--json` prints a `mirror` document ([JSON interface](json-interface.md)).
+
+### `hammunition mirror accept-older`
+
+Verify the current catalogue with enrolled keys and the station hardware policy,
+show its serial beside the accepted serial, then ask for typed `yes` at a terminal.
+Use this only after restoring the Bunker from a trusted backup. An invalid signature
+still refuses. There is no `--yes` and no JSON form; `--json` refuses with an
+`error` document.
+
 ### `hammunition station show`
 
 The values only you can supply — callsign, grid square, packet node alias,
@@ -2444,7 +2478,8 @@ hammunition station show
 | `--map-freshness MODE` | `yearly` (the default when unset), `monthly` or `latest`: which dated file each region resolves to, and so how it can be verified |
 | `--reference-books ID[,ID…]` | Kiwix books for `kiwix-library`, by id (`hammunition reference books` lists them). Replaces the whole list; an id the catalog's book list does not name is refused when you type it, and an empty list is refused (uninstall `kiwix-library` to remove the books) (**D-066**) |
 | `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile, a CoMaps map, a reference book) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
-| `--clear-mirror` | Remove the saved mirror |
+| `--clear-mirror` | Remove the saved mirror URL and all enrolled keys, enrolment id and accepted serial; preserve hardware policy |
+| `--mirror-require-hardware-key` / `--no-mirror-require-hardware-key` | Require an enrolled hardware signer for Bunker catalogues, or turn that policy off (default). Hardware means sk type or operator-affirmed origin. `station set --json` reports the policy in its `station-set` document; `station show --json` includes it in the `station` document |
 | `--doppler-project PROJECT`, `--doppler-config CONFIG` | Where a keyed download's key is read from when its environment variable is not set (**D-081**): the two names of a Doppler project and config, given together, never a token. Each is letters, digits, `.`, `_` or `-`, starting with a letter or digit. One without the other, or either with `--clear-doppler`, is refused (exit 2) |
 | `--clear-doppler` | Remove both Doppler names |
 | `--dem-source SOURCE` | `copernicus` (the default when unset) or `3dep`: the elevation QMapShack's hillshade, slope and contours are drawn from (**D-068**, amended 2026-10-01). `3dep` makes `dem-3dep` fetch USGS 3DEP 1/3-arc-second bare-earth tiles for the US regions, about ten times Copernicus's size, and `dem-qmapshack` redraw from them; Copernicus stays installed for BRouter and for regions outside the US. Setting it back to `copernicus` removes the 3DEP tiles and redraws from Copernicus on the next install. `station show` prints it |

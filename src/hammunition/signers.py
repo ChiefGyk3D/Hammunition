@@ -401,8 +401,11 @@ def clear_mirror(*, owner: str | None = None) -> None:
     target = mirror_path(owner)
     if not target.parent.exists():
         return
-    with store_lock(target, owner) as directory:
-        for name in (target.name, "mirror-signers"):
-            with suppress(FileNotFoundError):
-                os.unlink(name, dir_fd=directory)
-        os.fsync(directory)
+    try:
+        with store_lock(target, owner) as directory:
+            for name in (target.name, "mirror-signers"):
+                with suppress(FileNotFoundError):
+                    os.unlink(name, dir_fd=directory)
+            os.fsync(directory)
+    except OSError as exc:
+        raise SignerError(f"cannot clear {target}: {exc}") from exc

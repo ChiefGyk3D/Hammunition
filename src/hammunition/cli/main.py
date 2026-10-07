@@ -99,6 +99,7 @@ from hammunition.comaps import CdnProbe, ComapsError, ComapsPins, MapFile, resol
 from hammunition.comaps import load_pins as load_comaps_pins
 from hammunition.consent import (
     ConsentDeclined,
+    ConsentRecord,
     ConsentUnavailable,
     resolve_consent,
     resolve_repo_consent,
@@ -594,6 +595,9 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
                 else:
                     accepted["reference_books"] = candidate.reference_books
 
+    if args.mirror_require_hardware_key is not None:
+        requested["mirror_require_hardware_key"] = args.mirror_require_hardware_key
+        accepted["mirror_require_hardware_key"] = args.mirror_require_hardware_key
     if args.clear_mirror:
         requested["mirror"] = None
         accepted["mirror"] = None
@@ -761,7 +765,7 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
         message = (
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
             "--node-alias, --map-regions, --map-freshness, --reference-books, --mirror, "
-            "--clear-mirror, --doppler-project, --doppler-config, --clear-doppler, --dem-source, --topo-radius-km, --topo-regions, --topo-all, "
+            "--clear-mirror, --mirror-require-hardware-key, --no-mirror-require-hardware-key, --doppler-project, --doppler-config, --clear-doppler, --dem-source, --topo-radius-km, --topo-regions, --topo-all, "
             "--active-areas, --clear-active-areas, "
             "--rig, --rig-device, --rig-baud, --rig-ptt-line, --rig-owner, --clear-rig, "
             "--unattended."
@@ -780,37 +784,7 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
         return refusal_code
 
     try:
-        station = Station(
-            callsign=cast(str | None, accepted.get("callsign", current.callsign)),
-            grid_square=cast(str | None, accepted.get("grid_square", current.grid_square)),
-            node_alias=cast(str | None, accepted.get("node_alias", current.node_alias)),
-            map_regions=cast(tuple[str, ...], accepted.get("map_regions", current.map_regions)),
-            map_freshness=cast(str | None, accepted.get("map_freshness", current.map_freshness)),
-            reference_books=cast(
-                tuple[str, ...], accepted.get("reference_books", current.reference_books)
-            ),
-            mirror=cast(str | None, accepted.get("mirror", current.mirror)),
-            rig=cast(str | None, accepted.get("rig", current.rig)),
-            rig_device=cast(str | None, accepted.get("rig_device", current.rig_device)),
-            rig_baud=cast(int | None, accepted.get("rig_baud", current.rig_baud)),
-            rig_ptt_line=cast(str | None, accepted.get("rig_ptt_line", current.rig_ptt_line)),
-            rig_owner=cast(str | None, accepted.get("rig_owner", current.rig_owner)),
-            dem_source=cast(str | None, accepted.get("dem_source", current.dem_source)),
-            topo_radius_km=cast(int, accepted.get("topo_radius_km", current.topo_radius_km)),
-            topo_regions=cast(tuple[str, ...], accepted.get("topo_regions", topo_regions)),
-            topo_all=cast(bool | None, accepted.get("topo_all", current.topo_all)),
-            active_areas=cast(
-                tuple[str, ...] | None, accepted.get("active_areas", current.active_areas)
-            ),
-            secrets_doppler_project=cast(
-                str | None,
-                accepted.get("secrets_doppler_project", current.secrets_doppler_project),
-            ),
-            secrets_doppler_config=cast(
-                str | None,
-                accepted.get("secrets_doppler_config", current.secrets_doppler_config),
-            ),
-        )
+        station = dataclasses.replace(current, **accepted)  # type: ignore[arg-type]  # Values validated above.
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILED
@@ -823,6 +797,7 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
         "map_freshness",
         "reference_books",
         "mirror",
+        "mirror_require_hardware_key",
         "rig",
         "rig_device",
         "rig_baud",
@@ -853,6 +828,15 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
     }
     if refused:
         station = current
+
+    if args.clear_mirror and not refused:
+        from hammunition.signers import SignerError, clear_mirror
+
+        try:
+            clear_mirror(owner=user or None)
+        except SignerError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_UNPLANNABLE
 
     if (accepted and not refused) or (args.unattended is not None and not refused):
         path = save_station(station, owner=user)
@@ -4548,6 +4532,16 @@ def cmd_install(args: argparse.Namespace) -> int:
                 refused_plan("install", args.names, target_view(target), [Blocker(subject, reason)])
             )
 
+    from hammunition.mirror import consistent_state
+    from hammunition.signers import SignerError, load_mirror
+
+    try:
+        owner = operator(args) or None
+        consistent_state(load_station(owner=owner).mirror, load_mirror(owner=owner))
+    except (SignerError, StationError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+
     try:
         target = Target.detect()
     except DetectionError as exc:
@@ -8048,6 +8042,126 @@ class _Probe(argparse.ArgumentParser):
         raise _ProbeError(message)
 
 
+def record_mirror_consent(record: ConsentRecord, *, owner: str | None) -> None:
+    from hammunition.state.log import TransactionLog
+
+    TransactionLog(owner=owner).append(record.to_log_entry())
+
+
+def cmd_mirror_enrol(args: argparse.Namespace) -> int:
+    from hammunition import mirror
+    from hammunition.catalogue import CatalogueError
+    from hammunition.signers import SignerError
+
+    user = operator(args) or None
+    try:
+        station = load_station(owner=user)
+        candidate = mirror.read_candidate(args.url, args.enrolment_id)
+        interactive = is_interactive()
+        mirror.enrol(
+            candidate,
+            args.url,
+            args.enrolment_id,
+            choose=input if interactive else None,
+            affirm_hardware=(lambda text: input(text).strip() == "yes") if interactive else None,
+            owner=user,
+            require_hardware=station.mirror_require_hardware_key,
+            now=datetime.now(UTC),
+            record_consent=lambda record: record_mirror_consent(record, owner=user),
+        )
+    except (
+        SignerError,
+        CatalogueError,
+        BackendError,
+        StationError,
+        ConsentUnavailable,
+        ConsentDeclined,
+    ) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    print("Bunker enrolled; hammunition mirror status shows accepted keys and serial")
+    return EXIT_OK
+
+
+@envelope.json_capable()
+def cmd_mirror_status(args: argparse.Namespace) -> int:
+    from hammunition.interface.mirror import build_mirror, render_mirror
+    from hammunition.mirror import consistent_state
+    from hammunition.signers import SignerError, load_mirror
+
+    try:
+        user = operator(args) or None
+        station = load_station(owner=user)
+        state = load_mirror(owner=user)
+        consistent_state(station.mirror, state)
+        doc = build_mirror(
+            state, require_hardware=station.mirror_require_hardware_key, now=datetime.now(UTC)
+        )
+    except (SignerError, StationError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    if envelope.wanted(args):
+        envelope.emit(doc)
+    else:
+        for line in render_mirror(doc):
+            print(line)
+    return EXIT_OK
+
+
+def cmd_mirror_accept_older(args: argparse.Namespace) -> int:
+    from hammunition.catalogue import CatalogueError
+    from hammunition.mirror import consistent_state, read_candidate
+    from hammunition.signers import SignerError, load_mirror, save_mirror, verify
+
+    user = operator(args) or None
+    try:
+        state = load_mirror(owner=user)
+        if state is None:
+            raise SignerError("no Bunker enrolled; hammunition mirror enrol URL")
+        station = load_station(owner=user)
+        consistent_state(station.mirror, state)
+        candidate = read_candidate(state.url, state.enrolment_id)
+        checked = verify(
+            candidate.raw,
+            candidate.signatures,
+            dataclasses.replace(state, accepted_serial=0),
+            require_hardware=station.mirror_require_hardware_key,
+            now=datetime.now(UTC),
+        )
+        text = (
+            f"Bunker {state.name}: accepted serial {state.accepted_serial}, restored catalogue "
+            f"serial {checked.catalogue.serial}. Confirm that this Bunker was restored from "
+            "a trusted backup. Type yes to accept the older serial: "
+        )
+        if not is_interactive():
+            raise ConsentUnavailable(
+                "accept-older requires typed yes at a terminal; --yes cannot answer it"
+            )
+        if input(text).strip() != "yes":
+            raise ConsentDeclined("older Bunker catalogue was not accepted")
+        save_mirror(
+            dataclasses.replace(
+                state,
+                accepted_serial=checked.catalogue.serial,
+                generated=checked.catalogue.generated,
+            ),
+            owner=user,
+            allow_older=True,
+        )
+    except (
+        SignerError,
+        CatalogueError,
+        BackendError,
+        StationError,
+        ConsentUnavailable,
+        ConsentDeclined,
+    ) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    print("Restored catalogue serial accepted")
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="hammunition",
@@ -8075,6 +8189,20 @@ def build_parser() -> argparse.ArgumentParser:
     # it), which is friendlier than argparse's "command is required" error for
     # someone running it for the first time to see what it does.
     sub = parser.add_subparsers(dest="command", required=False)
+    p_mirror = sub.add_parser("mirror", help="enrol and inspect a signed Bunker catalogue")
+    mirror_sub = p_mirror.add_subparsers(dest="mirror_command", required=True)
+    p_enrol = mirror_sub.add_parser("enrol", help="trust explicitly affirmed Bunker signers")
+    p_enrol.add_argument("url")
+    p_enrol.add_argument("--enrolment-id")
+    p_enrol.set_defaults(func=cmd_mirror_enrol)
+    p_status = mirror_sub.add_parser(
+        "status", help="show stored Bunker trust without contacting it"
+    )
+    p_status.set_defaults(func=cmd_mirror_status)
+    p_older = mirror_sub.add_parser(
+        "accept-older", help="affirm a restored catalogue after a backup"
+    )
+    p_older.set_defaults(func=cmd_mirror_accept_older)
 
     p_list = sub.add_parser("list", help="show what the catalog contains")
     p_list.add_argument(
@@ -8919,6 +9047,16 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="ID[,ID…]",
         help="comma-separated Kiwix book ids to carry offline; `hammunition reference "
         "books` lists them (D-066)",
+    )
+    policy = p_station_set.add_mutually_exclusive_group()
+    policy.add_argument(
+        "--mirror-require-hardware-key",
+        dest="mirror_require_hardware_key",
+        action="store_true",
+        default=None,
+    )
+    policy.add_argument(
+        "--no-mirror-require-hardware-key", dest="mirror_require_hardware_key", action="store_false"
     )
     mirror_flags = p_station_set.add_mutually_exclusive_group()
     mirror_flags.add_argument(
