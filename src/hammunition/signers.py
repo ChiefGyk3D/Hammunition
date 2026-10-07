@@ -116,10 +116,23 @@ def verify(
             if signature is None:
                 failures.append(f"{signer.id}: missing signature")
                 continue
-            allowed.write_text(allowed_signers(replace(state, keys=(key,))), encoding="utf-8")
-            allowed.chmod(0o600)
-            sigpath.write_bytes(signature)
-            sigpath.chmod(0o600)
+            rendered = allowed_signers(replace(state, keys=(key,)))
+            try:
+                allowed.write_text(rendered, encoding="utf-8")
+            except OSError as exc:
+                raise SignerError(f"write_text {allowed}: {exc}") from exc
+            try:
+                allowed.chmod(0o600)
+            except OSError as exc:
+                raise SignerError(f"chmod {allowed}: {exc}") from exc
+            try:
+                sigpath.write_bytes(signature)
+            except OSError as exc:
+                raise SignerError(f"write_bytes {sigpath}: {exc}") from exc
+            try:
+                sigpath.chmod(0o600)
+            except OSError as exc:
+                raise SignerError(f"chmod {sigpath}: {exc}") from exc
             try:
                 result = subprocess.run(
                     [
@@ -151,8 +164,11 @@ def verify(
             if now.astimezone(UTC) - generated > timedelta(days=30):
                 warnings.append("Bunker catalogue is older than 30 days")
             return VerifiedCatalogue(cat, raw, key, strength, tuple(warnings))
+    if require_hardware and not failures:
+        raise SignerError("no enrolled hardware key signed this catalogue")
     policy = " with an enrolled hardware key" if require_hardware else ""
-    raise SignerError("no enrolled signature verified" + policy + ": " + "; ".join(failures))
+    details = ": " + "; ".join(failures) if failures else ""
+    raise SignerError("no enrolled signature verified" + policy + details)
 
 
 def mirror_path(owner: str | None = None) -> Path:
@@ -280,9 +296,10 @@ def read_state(directory: int, filename: str, owner: str | None) -> MirrorState 
     if len(raw) > 1024 * 1024:
         raise SignerError("mirror.json exceeds 1 MiB")
     try:
-        return validate_state(TypeAdapter(MirrorState).validate_json(raw))
-    except (ValidationError, ValueError) as exc:
+        state = TypeAdapter(MirrorState).validate_json(raw)
+    except ValidationError as exc:
         raise SignerError(f"mirror.json: {exc}") from exc
+    return validate_state(state)
 
 
 def load_mirror(path: Path | None = None, *, owner: str | None = None) -> MirrorState | None:
@@ -320,16 +337,43 @@ def write_state(directory: int, filename: str, state: MirrorState, owner: str | 
     temporary = f".mirror-{secrets.token_hex(12)}"
     fd = open_store_file(directory, temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     try:
-        with os.fdopen(fd, "wb") as stream:
+        # Unbuffered writes avoid a second flush during close masking a write error.
+        with os.fdopen(fd, "wb", buffering=0) as stream:
             if os.geteuid() == 0:
-                os.fchown(stream.fileno(), *store_uid(owner))
-            stream.write((json.dumps(asdict(state), ensure_ascii=False) + "\n").encode())
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, filename, src_dir_fd=directory, dst_dir_fd=directory)
-        os.fsync(directory)
+                uid, gid = store_uid(owner)
+                try:
+                    os.fchown(stream.fileno(), uid, gid)
+                except OSError as exc:
+                    raise SignerError(f"fchown {temporary}: {exc}") from exc
+            payload = (json.dumps(asdict(state), ensure_ascii=False) + "\n").encode()
+            remaining = memoryview(payload)
+            while remaining:
+                try:
+                    written = stream.write(remaining)
+                except OSError as exc:
+                    raise SignerError(f"write {temporary}: {exc}") from exc
+                if written is None or written <= 0:
+                    raise SignerError(f"write {temporary}: no progress")
+                remaining = remaining[written:]
+            try:
+                stream.flush()
+            except OSError as exc:
+                raise SignerError(f"flush {temporary}: {exc}") from exc
+            try:
+                os.fsync(stream.fileno())
+            except OSError as exc:
+                raise SignerError(f"fsync {temporary}: {exc}") from exc
+        try:
+            os.replace(temporary, filename, src_dir_fd=directory, dst_dir_fd=directory)
+        except OSError as exc:
+            raise SignerError(f"replace {temporary} -> {filename}: {exc}") from exc
+        try:
+            os.fsync(directory)
+        except OSError as exc:
+            raise SignerError(f"fsync directory containing {filename}: {exc}") from exc
     finally:
-        with suppress(FileNotFoundError):
+        # A secondary cleanup failure must never replace the operation's cause.
+        with suppress(OSError):
             os.unlink(temporary, dir_fd=directory)
 
 

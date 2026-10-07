@@ -1,9 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import errno
 import json
 import os
 import pwd
+import stat
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -26,6 +29,7 @@ from hammunition.signers import (
     save_mirror,
     validate_state,
     verify,
+    write_state,
 )
 
 
@@ -234,8 +238,17 @@ def test_owner_handoff(
     entry = pwd.struct_passwd(("operator", "x", uid, gid, "", str(tmp_path), "/bin/sh"))
     monkeypatch.setattr(os, "geteuid", lambda: 0)
     monkeypatch.setattr(pwd, "getpwnam", lambda name: entry)
+    (tmp_path / "store").mkdir()
     real_replace = os.replace
+    real_fchown = os.fchown
+    handoffs: list[tuple[int, int, int]] = []
     observed: list[int] = []
+
+    def record_fchown(fd: int, owner_uid: int, owner_gid: int) -> None:
+        handoffs.append((os.fstat(fd).st_ino, owner_uid, owner_gid))
+        real_fchown(fd, owner_uid, owner_gid)
+
+    monkeypatch.setattr(os, "fchown", record_fchown)
 
     def check_replace(src: str, dst: str, *, src_dir_fd: int, dst_dir_fd: int) -> None:
         observed.append(os.stat(src, dir_fd=src_dir_fd).st_uid)
@@ -244,6 +257,10 @@ def test_owner_handoff(
     monkeypatch.setattr(os, "replace", check_replace)
     path = save_mirror(state, tmp_path / "store" / "mirror.json", owner="operator")
     assert observed == [uid]
+    assert handoffs == [
+        (path.with_name("mirror.lock").stat().st_ino, entry.pw_uid, entry.pw_gid),
+        (path.stat().st_ino, entry.pw_uid, entry.pw_gid),
+    ]
     assert path.stat().st_uid == uid
     assert load_mirror(path, owner="operator") == state
     assert mirror_path("operator").is_relative_to(tmp_path)
@@ -334,3 +351,200 @@ def test_sk_touch_metadata_roundtrip(
     )
     with pytest.raises(SignerError, match="hardware"):
         validate_state(replace(state, keys=(replace(enrolled, hardware=False),)))
+
+
+@pytest.mark.parametrize(
+    "operation,filename",
+    [
+        ("write_text", "allowed-signers"),
+        ("write_bytes", "catalogue.sig"),
+        ("chmod", "allowed-signers"),
+        ("chmod", "catalogue.sig"),
+    ],
+)
+def test_verify_temporary_io_refused(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    enrolled_state: tuple[Path, MirrorState],
+    operation: str,
+    filename: str,
+) -> None:
+    private, state = enrolled_state
+    raw, sigs = signed(tmp_path, private, document(state.keys[0].public_key))
+    cause = OSError(errno.ENOSPC, "full temporary directory")
+
+    original = getattr(Path, operation)
+
+    def fail(path: Path, *args: object, **kwargs: object) -> object:
+        if path.name == filename:
+            raise cause
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, operation, fail)
+    with pytest.raises(SignerError) as caught:
+        verify(raw, sigs, state, now=datetime(2026, 10, 7, tzinfo=UTC))
+    assert caught.value.__cause__ is cause
+    assert operation in str(caught.value)
+    assert filename in str(caught.value)
+
+
+@pytest.mark.parametrize("operation", ["fchown", "fsync-file", "fsync-directory", "replace"])
+def test_write_state_io_refused(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    enrolled_state: tuple[Path, MirrorState],
+    operation: str,
+) -> None:
+    _, state = enrolled_state
+    directory = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    cause = OSError(errno.ENOSPC, "full store")
+    real_fsync = os.fsync
+
+    def fail_fsync(fd: int) -> None:
+        is_directory = stat.S_ISDIR(os.fstat(fd).st_mode)
+        if is_directory == (operation == "fsync-directory"):
+            raise cause
+        real_fsync(fd)
+
+    def fail_fchown(fd: int, uid: int, gid: int) -> None:
+        raise cause
+
+    def fail_replace(src: str, dst: str, *, src_dir_fd: int, dst_dir_fd: int) -> None:
+        raise cause
+
+    if operation.startswith("fsync"):
+        monkeypatch.setattr(os, "fsync", fail_fsync)
+    elif operation == "fchown":
+        monkeypatch.setattr(os, "geteuid", lambda: 0)
+        monkeypatch.setattr(os, "fchown", fail_fchown)
+    else:
+        monkeypatch.setattr(os, "replace", fail_replace)
+    try:
+        with pytest.raises(SignerError) as caught:
+            write_state(directory, "mirror.json", state, None)
+        assert caught.value.__cause__ is cause
+        assert operation.split("-")[0] in str(caught.value)
+        assert (".mirror-" if operation in ("fchown", "fsync-file") else "mirror.json") in str(
+            caught.value
+        )
+        assert not list(tmp_path.glob(".mirror-*"))
+    finally:
+        os.close(directory)
+
+
+def test_cleanup_preserves_original_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, enrolled_state: tuple[Path, MirrorState]
+) -> None:
+    _, state = enrolled_state
+    directory = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    original = OSError(errno.ENOSPC, "replace failed")
+    secondary = OSError(errno.EACCES, "cleanup failed")
+
+    def fail_replace(src: str, dst: str, *, src_dir_fd: int, dst_dir_fd: int) -> None:
+        raise original
+
+    def fail_unlink(path: str, *, dir_fd: int) -> None:
+        raise secondary
+
+    monkeypatch.setattr(os, "replace", fail_replace)
+    monkeypatch.setattr(os, "unlink", fail_unlink)
+    try:
+        with pytest.raises(SignerError) as caught:
+            write_state(directory, "mirror.json", state, None)
+        assert caught.value.__cause__ is original
+        assert "replace" in str(caught.value)
+    finally:
+        os.close(directory)
+
+
+def test_read_state_validation_message_unchanged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, enrolled_state: tuple[Path, MirrorState]
+) -> None:
+    from hammunition import signers
+
+    _, state = enrolled_state
+    path = save_mirror(state, tmp_path / "mirror.json")
+    error = SignerError("mirror.json: specific validation refusal")
+
+    def refuse(value: MirrorState) -> MirrorState:
+        raise error
+
+    monkeypatch.setattr(signers, "validate_state", refuse)
+    with pytest.raises(SignerError) as caught:
+        load_mirror(path)
+    assert caught.value is error
+    assert str(caught.value) == "mirror.json: specific validation refusal"
+
+
+def test_hardware_skips_message(tmp_path: Path, enrolled_state: tuple[Path, MirrorState]) -> None:
+    private, state = enrolled_state
+    raw, sigs = signed(tmp_path, private, document(state.keys[0].public_key))
+    with pytest.raises(SignerError) as caught:
+        verify(raw, sigs, state, require_hardware=True, now=datetime(2026, 10, 7, tzinfo=UTC))
+    assert str(caught.value) == "no enrolled hardware key signed this catalogue"
+
+
+@pytest.mark.parametrize("failure", ["missing", "timeout"])
+def test_verify_openssh_unavailable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    enrolled_state: tuple[Path, MirrorState],
+    failure: str,
+) -> None:
+    private, state = enrolled_state
+    raw, sigs = signed(tmp_path, private, document(state.keys[0].public_key))
+    real_run = subprocess.run
+    cause = (
+        FileNotFoundError("ssh-keygen missing")
+        if failure == "missing"
+        else subprocess.TimeoutExpired("ssh-keygen", 15)
+    )
+
+    def run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        if args[:3] == ["ssh-keygen", "-Y", "verify"]:
+            raise cause
+        return real_run(args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", run)
+    with pytest.raises(SignerError, match=r"needs working OpenSSH 8\.2\+") as caught:
+        verify(raw, sigs, state, now=datetime(2026, 10, 7, tzinfo=UTC))
+    assert caught.value.__cause__ is cause
+
+
+@pytest.mark.parametrize("failure", ["short", "full"])
+def test_state_unbuffered_writes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    enrolled_state: tuple[Path, MirrorState],
+    failure: str,
+) -> None:
+    import io
+
+    _, state = enrolled_state
+    cause = OSError(errno.ENOSPC, "write failed")
+
+    class Writer(io.FileIO):
+        def write(self, data: bytes | memoryview) -> int | None:
+            if failure == "full":
+                raise cause
+            return super().write(data[:7])
+
+    def fdopen(fd: int, mode: str, *, buffering: int) -> Writer:
+        assert buffering == 0
+        return Writer(fd, mode)
+
+    directory = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "fdopen", fdopen)
+            if failure == "full":
+                with pytest.raises(SignerError, match="write") as caught:
+                    write_state(directory, "mirror.json", state, None)
+                assert caught.value.__cause__ is cause
+                assert not (tmp_path / "mirror.json").exists()
+            else:
+                write_state(directory, "mirror.json", state, None)
+        if failure == "short":
+            assert load_mirror(tmp_path / "mirror.json") == state
+    finally:
+        os.close(directory)
