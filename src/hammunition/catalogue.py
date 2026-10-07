@@ -3,6 +3,7 @@
 
 import json
 import re
+import urllib.parse
 from datetime import datetime
 from typing import Literal
 
@@ -104,6 +105,24 @@ class Catalogue(Wire):
 
 class CatalogueError(ValueError):
     pass
+
+
+class PublisherUnavailable(OSError):
+    """A publisher did not answer a probe after every retry.
+
+    ``answer`` is the last thing it said (``HTTP 503 Service Unavailable``,
+    ``timed out``); ``attempts`` how many times it was asked."""
+
+    def __init__(self, url: str, answer: str, attempts: int) -> None:
+        self.url = url
+        self.host = urllib.parse.urlsplit(url).hostname or url
+        self.answer = answer
+        self.attempts = attempts
+        tries = f"{attempts} attempt{'s' if attempts != 1 else ''}"
+        super().__init__(
+            f"{url}: the publisher is not answering right now (its last answer after "
+            f"{tries}: {answer})"
+        )
 
 
 def valid_enrolment_id(value: str) -> bool:

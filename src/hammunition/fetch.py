@@ -318,6 +318,12 @@ def fetch_disclosure(
     tried. With no mirror the suffix is empty and the detail is the URL, so
     the plan reads exactly as it did."""
     urls = tuple(where for _, where in fetcher.sources_for(url, path))
+    if fetcher.offline:
+        return (
+            f" — Bunker only, offline: the publisher is not asked; the {check} is checked",
+            urls[0],
+            urls,
+        )
     if len(urls) == 1:
         return "", url, urls
     return (
@@ -443,7 +449,11 @@ class Fetcher:
         owner: str | None = None,
         mirror: str | None = None,
         mirror_transport: Transport | None = None,
+        offline: bool = False,
     ) -> None:
+        self.offline = offline
+        """Mirror only: the publisher is never asked, and a source that fails
+        verification refuses the download instead of falling through (#381)."""
         self.cache_dir = cache_dir if cache_dir is not None else artifact_cache_dir(owner)
         self.transport: Transport = transport if transport is not None else UrllibTransport()
         self.max_bytes = max_bytes
@@ -464,10 +474,27 @@ class Fetcher:
 
     def sources_for(self, url: str, mirror: MirrorPath | None) -> tuple[tuple[str, str], ...]:
         """``(source, url)`` pairs in the order a fetch tries them. Pure, so
-        the plan discloses exactly the order the run will use."""
+        the plan discloses exactly the order the run will use. Offline it is the
+        Bunker alone: with no mirror or no path on it there is no route, and
+        that is a refusal, never the publisher."""
+        if self.offline:
+            if self.mirror is None or mirror is None:
+                raise BackendError(
+                    "offline download has no Bunker route; hammunition mirror enrol URL"
+                )
+            return (("mirror", mirror_url(self.mirror, mirror)),)
         if self.mirror and mirror is not None:
             return (("mirror", mirror_url(self.mirror, mirror)), ("publisher", url))
         return (("publisher", url),)
+
+    def _refuse_offline_publisher(self, url: str) -> None:
+        """A download with no Bunker route yet (ETag and size-only fetches) is a
+        publisher download, which an offline run refuses by name."""
+        if self.offline:
+            raise BackendError(
+                f"offline: {url} would be fetched from its publisher, and this kind of "
+                "download has no Bunker route yet; the publisher is not asked under --offline"
+            )
 
     def _from_sources(
         self,
@@ -517,6 +544,10 @@ class Fetcher:
                     ) from exc
                 raise
             return _Downloaded(sha, size, got, source, where, passed_over)
+        if self.offline:
+            raise BackendError(
+                f"offline Bunker download failed: {passed_over or self._mirror_down}"
+            )
         raise AssertionError("the publisher is always the last source")  # pragma: no cover
 
     def path_for(self, artifact: RemoteArtifact) -> Path:
@@ -750,6 +781,7 @@ class Fetcher:
         1 MiB. A cached copy is re-verified every time, never trusted for
         having matched once.
         """
+        self._refuse_offline_publisher(url)
         make_dir(self.cache_dir)
         final = self.etag_path_for(url, etag)
         if final.exists() and final.stat().st_size == expected_size:
@@ -794,6 +826,7 @@ class Fetcher:
         install's own re-check. No redirect is followed: the URL is the one
         the plan located and checked.
         """
+        self._refuse_offline_publisher(url)
         make_dir(self.cache_dir)
         final = self.sized_path_for(url, expected_size)
         final.unlink(missing_ok=True)

@@ -3350,7 +3350,7 @@ One step, exactly as the real run performs it.
 | `argv` | list of string | the argv executed, escalation applied; empty for an in-process step |
 | `action` | string or null | the in-process step's kind (`fetch`, `extract`, ...); null for a command |
 | `requires_root` | boolean | whether it runs as root |
-| `sources` | list of string | for a data download (a `data` artifact, a map region, a terrain tile), the URLs it is fetched from in the order tried: the LAN mirror, then the publisher (D-070); the publisher alone with no mirror; empty for any other step |
+| `sources` | list of string | for a data download (a `data` artifact, a map region, a terrain tile), the URLs it is fetched from in the order tried: the LAN mirror, then the publisher (D-070); the publisher alone with no mirror; the Bunker alone under `--offline`; empty for any other step |
 | `index` | integer | this step's 1-based position in execution order |
 | `long_running` | boolean | true when the backend knows the step can take several minutes (a submodule fetch, a compile, a venv install, a node build); the text prints one fixed note under it and claims no duration (#270) |
 
@@ -8252,6 +8252,7 @@ Installed versus the catalog, as a report. Nothing runs (D-053).
 | `rebuild_command` | string or null | rebuilds every unit behind the pin; null when none |
 | `upstream_declared` | list of string | units whose probe would ask upstream |
 | `upstream` | list of [`UpstreamRowView`](#upstreamrowview) or null | the upstream comparison; null unless `--upstream` asked for it |
+| `offline` | string or null | present under `--offline`: that nothing was fetched, which Bunker and catalogue serial were verified, and whether the local trust state advanced; null otherwise |
 
 #### `UpdateRowView`
 
@@ -8555,6 +8556,18 @@ The catalog's pin against what upstream publishes (`--upstream` only).
         }
       ],
       "title": "Upstream"
+    },
+    "offline": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Offline"
     }
   },
   "required": [

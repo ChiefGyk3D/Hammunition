@@ -34,9 +34,10 @@ from __future__ import annotations
 
 import pwd
 import re
-from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hammunition.backends import (
     DISCLOSED_ONLY_MODIFICATIONS,
@@ -87,10 +88,16 @@ from hammunition.manifest.schema import (
     VenvInstall,
     effective_binaries,
 )
+from hammunition.resolution import CatalogueMiss
 from hammunition.state.log import TransactionLog
 from hammunition.state.uninstall import deb_attributed
 from hammunition.station import Station
 from hammunition.userservice import PlannedUserService, plan_user_services, service_venv_dir
+
+if TYPE_CHECKING:
+    from hammunition.fetch import Fetcher
+    from hammunition.manifest.schema import DataArtifact
+    from hammunition.resolution import ResolutionContext
 
 __all__ = [
     "Blocker",
@@ -100,6 +107,10 @@ __all__ = [
     "PlanError",
     "PlannedPackage",
     "RepoAddition",
+    "cached_data_pin",
+    "catalogue_deferral",
+    "offline_network_blockers",
+    "preflight_data",
     "resolve",
 ]
 
@@ -1270,6 +1281,193 @@ def _deb_installed(
     return deb_attributed(log, sha256=method.artifact.sha256, deb_package=method.deb_package)
 
 
+# ---------------------------------------------------------------------------
+# Offline resolution (#381): what the Bunker's catalogue answers for
+# ---------------------------------------------------------------------------
+
+OFFLINE_APT_REMEDY = (
+    "install it while the apt archive is reachable, or wait for apt served by the Bunker "
+    "(phase 2 of #381); an offline run never calls apt-get update or fetches a package"
+)
+
+OFFLINE_PHASE_2 = (
+    "serve this unit's dependencies from the Bunker (phase 2 of #381), or install it while "
+    "online; phase 1 carries pinned payloads and map data only"
+)
+
+CATALOGUE_REMEDY = "populate this selection on the Bunker, or retry with the publisher reachable"
+
+
+def _offline_apt_blockers(
+    resolved: Sequence[tuple[PackageManifest, InstallBlock, tuple[str, ...], tuple[str, ...]]],
+    outstanding: set[str],
+) -> list[Blocker]:
+    """One blocker per unit that needs an apt package this machine lacks."""
+    out: list[Blocker] = []
+    for manifest, _block, packages, _build_only in resolved:
+        missing = [p for p in packages if p in outstanding]
+        if not missing:
+            continue
+        shown = ", ".join(missing[:6]) + (
+            f" and {len(missing) - 6} more" if len(missing) > 6 else ""
+        )
+        out.append(
+            Blocker(
+                subject=manifest.name,
+                reason=f"offline: needs apt package(s) this machine does not have: {shown}",
+                remedy=OFFLINE_APT_REMEDY,
+            )
+        )
+    return out
+
+
+def _offline_repo_blockers(additions: Sequence[RepoAddition]) -> list[Blocker]:
+    """A third-party apt repository cannot be added without ``apt-get update``."""
+    return [
+        Blocker(
+            subject=addition.unit,
+            reason=(
+                f"offline: it adds the apt repository {addition.repo.name}, whose index "
+                "only `apt-get update` can fetch"
+            ),
+            remedy=OFFLINE_APT_REMEDY,
+        )
+        for addition in additions
+    ]
+
+
+def offline_network_blockers(plan: InstallPlan, built: frozenset[str]) -> list[Blocker]:
+    """Steps an offline run would have to send to the network, refused by name.
+
+    A pip virtual environment is resolved against PyPI on every install, a git
+    block with ``build_python`` lines installs them with pip, and a Node build
+    runs ``npm ci``: none of them has a Bunker route in phase 1. A unit whose
+    build is already attributed at its pin (``built``) plans none of its build
+    steps, so it is not named."""
+    out: list[Blocker] = []
+    for unit in plan.packages:
+        if unit.name in built:
+            continue
+        block = unit.block.install
+        if isinstance(block, VenvInstall):
+            tool = "pip"
+        elif isinstance(block, GitInstall) and block.build_python:
+            tool = "pip (build_python)"
+        elif isinstance(block, NodeInstall):
+            tool = "npm"
+        else:
+            continue
+        out.append(
+            Blocker(
+                subject=unit.name,
+                reason=f"offline: its install runs {tool}, which fetches from a package index",
+                remedy=OFFLINE_PHASE_2,
+            )
+        )
+    return out
+
+
+def catalogue_deferral(unit: PlannedPackage, exc: CatalogueMiss) -> Deferral:
+    """What an unresolved catalogue entry does to *unit*: refuse it by name when
+    the operator typed it, otherwise defer the whole unit (D-039)."""
+    if REQUESTED_DIRECTLY in unit.requested_by:
+        raise PlanError([Blocker(unit.name, str(exc), CATALOGUE_REMEDY)])
+    return Deferral(
+        unit.name, "will not install this unit this run", str(exc), CATALOGUE_REMEDY, "package"
+    )
+
+
+def cached_data_pin(fetcher: Fetcher, pin: DataArtifact) -> bool:
+    """Whether *pin*'s verified bytes are already in the artifact cache.
+
+    True only on an exact size and sha256 match of the content-addressed file;
+    it never fetches, and a symlink or unreadable file is not a hit."""
+    from hammunition.fetch import _digest_file
+    from hammunition.manifest.schema import RemoteArtifact
+
+    path = fetcher.path_for(RemoteArtifact(url=pin.url, sha256=pin.sha256))
+    try:
+        return (
+            path.is_file()
+            and not path.is_symlink()
+            and path.stat().st_size == pin.size
+            and _digest_file(path) == pin.sha256
+        )
+    except OSError:
+        return False
+
+
+def preflight_data(
+    plan: InstallPlan,
+    context: ResolutionContext,
+    *,
+    cached: Callable[[str, DataArtifact], bool],
+) -> InstallPlan:
+    """Offline, drop every data unit the Bunker cannot fully supply.
+
+    A unit with any artifact neither cached nor on the Bunker (matching the
+    repository's own sha256 and size) gets no steps at all: a profile member is
+    deferred by name, a unit the operator typed refuses. A register download
+    with no digest is only taken from a catalogue entry labelled unverified.
+    Every miss in a unit is named together, and a unit that depends on a
+    dropped unit is dropped with it. Online it returns *plan* unchanged."""
+    if not context.offline:
+        return plan
+    from hammunition.acma import FILE_NAME
+    from hammunition.backends.data import data_name
+    from hammunition.manifest.schema import DataInstall, RegisterInstall
+
+    misses: dict[str, CatalogueMiss] = {}
+    for unit in plan.packages:
+        block = unit.block.install
+        found: list[str] = []
+        if isinstance(block, DataInstall):
+            for pin in block.artifacts:
+                if cached(unit.name, pin):
+                    continue
+                name = data_name(pin)
+                try:
+                    context.require_payload(unit.name, name, sha256=pin.sha256, size=pin.size)
+                    context.note(unit.name, name, fallback=False)
+                except CatalogueMiss as exc:
+                    found.append(str(exc))
+        elif isinstance(block, RegisterInstall):
+            try:
+                context.unverified(unit.name, FILE_NAME)
+                context.note(unit.name, FILE_NAME, fallback=False)
+            except CatalogueMiss as exc:
+                found.append(str(exc))
+        if found:
+            misses[unit.name] = CatalogueMiss("; ".join(dict.fromkeys(found)))
+    # A unit that depends on one dropped here cannot run without it.
+    changed = True
+    while changed:
+        changed = False
+        for unit in plan.packages:
+            gone = sorted(d for d in unit.manifest.depends if d in misses)
+            if gone and unit.name not in misses:
+                misses[unit.name] = CatalogueMiss(
+                    f"depends on {', '.join(gone)}, which the Bunker cannot supply: "
+                    + "; ".join(str(misses[d]) for d in gone)
+                )
+                changed = True
+    packages: list[PlannedPackage] = []
+    deferrals = list(plan.deferrals)
+    blockers: list[Blocker] = []
+    for unit in plan.packages:
+        miss = misses.get(unit.name)
+        if miss is None:
+            packages.append(unit)
+            continue
+        try:
+            deferrals.append(catalogue_deferral(unit, miss))
+        except PlanError as exc:
+            blockers.extend(exc.blockers)
+    if blockers:
+        raise PlanError(blockers)
+    return replace(plan, packages=tuple(packages), deferrals=tuple(deferrals))
+
+
 def resolve(
     names: Sequence[str],
     *,
@@ -1286,6 +1484,7 @@ def resolve(
     java: JavaProbe | None = None,
     desktops: SessionScan | frozenset[Desktop] | None = None,
     log: TransactionLog | None = None,
+    resolution_context: ResolutionContext | None = None,
 ) -> InstallPlan:
     """Build a complete plan, or raise :class:`PlanError` listing every blocker.
 
@@ -1312,6 +1511,12 @@ def resolve(
     ``log`` is the transaction log, consulted only to attribute an installed
     vendor .deb to this engine (#63); ``None`` means no unit can be already
     installed that way, which is the conservative reading.
+
+    ``resolution_context`` is the run's :class:`~hammunition.resolution.
+    ResolutionContext`. Offline, apt is not reachable, so an apt package the
+    machine does not already have is a blocker by name rather than an
+    ``apt-get`` that would try the network (apt on the Bunker is phase 2 of
+    #381); the simulation of what is already installed stays local.
     """
     blockers: list[Blocker] = []
     deferrals: list[Deferral] = []
@@ -1561,7 +1766,12 @@ def resolve(
                             "has no package lists, so every package would resolve as unknown. "
                             "Reporting them all as unobtainable would be a confident lie"
                         ),
-                        remedy="run `sudo apt-get update`, or drop --no-refresh so this run does it first",
+                        remedy=(
+                            "run `sudo apt-get update` while the archive is reachable; an "
+                            "offline run never refreshes the lists"
+                            if resolution_context is not None and resolution_context.offline
+                            else "run `sudo apt-get update`, or drop --no-refresh so this run does it first"
+                        ),
                     )
                 )
         else:
@@ -1944,6 +2154,9 @@ def resolve(
 
     apt_sets = ((_outstanding(default_names), False), (_outstanding(opted_out_names), True))
     outstanding_apt = [p for set_packages, _ in apt_sets for p in set_packages]
+    if resolution_context is not None and resolution_context.offline:
+        blockers.extend(_offline_apt_blockers(resolved, set(outstanding_apt)))
+        blockers.extend(_offline_repo_blockers(repo_additions))
     apt_release: str | None = None
     apt_from_release: tuple[str, ...] = ()
     simulation = AptSimulation(ok=True)

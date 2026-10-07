@@ -166,6 +166,7 @@ from hammunition.manifest.schema import (
     BinaryInstall,
     DemTilesInstall,
     DerivedDataInstall,
+    GitInstall,
     KiwixBooksInstall,
     MwmRegionsInstall,
     PackageManifest,
@@ -183,9 +184,20 @@ from hammunition.paths import (
     venv_root,
 )
 from hammunition.phone_plan import build_phone_run
-from hammunition.plan import NO_MAP_REGIONS, Blocker, Deferral, InstallPlan, PlanError, resolve
+from hammunition.plan import (
+    NO_MAP_REGIONS,
+    Blocker,
+    Deferral,
+    InstallPlan,
+    PlanError,
+    cached_data_pin,
+    offline_network_blockers,
+    preflight_data,
+    resolve,
+)
 from hammunition.progress import LiveStatus, Progress, activate_live, current_live
 from hammunition.repeater_sources import SnapshotHead
+from hammunition.resolution import ResolutionContext
 from hammunition.retry import (
     POLICY,
     Outages,
@@ -1108,10 +1120,150 @@ def _apt_lists_note(apt: AptBackend) -> str:
     return f"last refreshed {when} (`sudo apt-get update` refreshes them; this report does not)"
 
 
+#: Install blocks whose plan-time resolution asks a publisher directly, with
+#: the Bunker route for each still to be built (#381). An offline run refuses
+#: them by name rather than letting a probe or a git clone reach a publisher.
+_OFFLINE_UNROUTED: tuple[tuple[type, str, bool], ...] = (
+    (RegionalDataInstall, "map regions", True),
+    (DemTilesInstall, "terrain tiles", True),
+    (TopoQuadsInstall, "topographic sheets", True),
+    (KiwixBooksInstall, "reference books", True),
+    (MwmRegionsInstall, "CoMaps maps", True),
+    (GitInstall, "git sources", False),
+)
+
+
+def _offline_unrouted(
+    plan: InstallPlan, built: frozenset[str] = frozenset(), *, plan_time: bool
+) -> list[Blocker]:
+    """The units in *plan* whose resolution would ask a publisher, named.
+
+    ``plan_time`` selects the kinds a resolver probes while planning (asked
+    before any resolver runs); the rest act at execution and are skipped when
+    already built."""
+    out: list[Blocker] = []
+    for unit in plan.packages:
+        if unit.name in built and not plan_time:
+            continue
+        for kind, what, at_plan_time in _OFFLINE_UNROUTED:
+            if at_plan_time == plan_time and isinstance(unit.block.install, kind):
+                out.append(
+                    Blocker(
+                        subject=unit.name,
+                        reason=(
+                            f"offline: resolving its {what} asks the publisher, and the Bunker "
+                            f"route for that is not built yet"
+                        ),
+                        remedy="run it online, or leave this unit out of the offline run (#381)",
+                    )
+                )
+    return out
+
+
+def _resolution_context(
+    *, offline: bool, no_mirror: bool, owner: str | None
+) -> tuple[ResolutionContext, list[str]]:
+    """The run's one :class:`ResolutionContext`, and the notes it earns.
+
+    Enrolled and not ignored, the Bunker's catalogue is read and verified once
+    here. Online, an unreachable Bunker costs only the outage fallback (a note
+    says so); a catalogue that fails verification is refused in either mode,
+    and never replaced by unverified metadata. Offline, nothing is enrolled or
+    nothing verifies: it raises, naming ``hammunition mirror enrol URL``.
+    Accepting a newer catalogue advances the local trust state, and the notes
+    say so, dry run included."""
+    from hammunition.mirror import consistent_state, fetch_transport
+    from hammunition.mirror_transport import CatalogueInputs, load_catalogue
+    from hammunition.resolution import NO_BUNKER
+    from hammunition.signers import SignerError, load_mirror
+
+    station = load_station(owner=owner)
+    state = load_mirror(owner=owner)
+    consistent_state(station.mirror, state)
+    context = ResolutionContext(offline=offline)
+    if state is None:
+        if offline:
+            raise SignerError(NO_BUNKER)
+        return context, []
+    if no_mirror and not offline:
+        return context, []
+    transport = fetch_transport(station.mirror, state)
+    if transport is None:  # pragma: no cover -- consistent_state proved the URLs equal
+        raise SignerError("station mirror differs from enrolled mirror")
+    try:
+        verified = load_catalogue(
+            state,
+            require_hardware=station.mirror_require_hardware_key,
+            now=datetime.now(UTC),
+            transport=transport,
+            owner=owner,
+        )
+    except BackendError as exc:
+        if offline:
+            raise
+        return context, [
+            f"Bunker {state.name} catalogue was not read ({exc}); a publisher outage will "
+            f"not fall back to it this run"
+        ]
+    context.verified = verified
+    context.enrolment_id = state.enrolment_id
+    context.inputs = CatalogueInputs(transport)
+    serial = verified.catalogue.serial
+    advanced = serial > state.accepted_serial or (
+        serial == state.accepted_serial and state.generated is None
+    )
+    notes = [
+        f"Bunker {state.name}: catalogue serial {serial} verified with {verified.key.id}; "
+        + (
+            f"the local trust state in the mirror file advanced from serial "
+            f"{state.accepted_serial} to {serial} (a local write, not a package action)"
+            if advanced
+            else f"the local trust state already holds serial {state.accepted_serial}; unchanged"
+        )
+    ]
+    notes.extend(f"Bunker {state.name}: {warning}" for warning in verified.warnings)
+    return context, notes
+
+
+def _provenance_notes(context: ResolutionContext) -> list[str]:
+    """One line per distinct provenance, naming the items the catalogue answered."""
+    by_text: dict[str, list[str]] = {}
+    for (unit, name), text in sorted(context.notes.items()):
+        by_text.setdefault(text, []).append(f"{unit}/{name}")
+    return [f"{', '.join(items)}: {text}" for text, items in by_text.items()]
+
+
 @envelope.json_capable()
 def cmd_update(args: argparse.Namespace) -> int:
     """Installed versus the catalog, as a report. D-053: nothing runs."""
+    from hammunition.catalogue import CatalogueError
     from hammunition.interface.update import build_update
+    from hammunition.signers import SignerError
+
+    # Validated first, whatever else the request is: --offline never asks
+    # upstream, so the two cannot be combined, even for an empty request.
+    offline = bool(getattr(args, "offline", False))
+    if offline and args.upstream:
+        print(
+            "error: --offline never asks upstream and --upstream asks it; the two cannot "
+            "be combined",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+    offline_note: str | None = None
+    if offline:
+        try:
+            _, context_notes = _resolution_context(
+                offline=True, no_mirror=False, owner=operator(args) or None
+            )
+        except (SignerError, StationError, CatalogueError, BackendError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_UNPLANNABLE
+        offline_note = (
+            "offline: nothing was fetched and no upstream was asked; this report reads the "
+            "local apt lists and the install records. "
+            + " ".join(f"{note}." for note in context_notes)
+        )
 
     try:
         target = Target.detect()
@@ -1147,6 +1299,7 @@ def cmd_update(args: argparse.Namespace) -> int:
                         lists_note=_apt_lists_note(apt),
                         from_log=True,
                         upstream=None,
+                        offline=offline_note,
                     )
                 )
                 return EXIT_OK
@@ -1155,6 +1308,8 @@ def cmd_update(args: argparse.Namespace) -> int:
                 "Nothing to compare: the transaction log records no install request here "
                 f"({read_log.path}). Name units or profiles to compare them anyway."
             )
+            if offline_note is not None:
+                print(offline_note)
             return EXIT_OK
         print(f"Comparing the {len(names)} unit(s) the transaction log has ever named here.")
 
@@ -1211,7 +1366,9 @@ def cmd_update(args: argparse.Namespace) -> int:
         return EXIT_FAILED
 
     builds = build_root(user or None)
-    source = SourceBackend(Fetcher(owner=user or None), build_root=builds, owner=user or None)
+    source = SourceBackend(
+        Fetcher(owner=user or None, offline=offline), build_root=builds, owner=user or None
+    )
     git = GitBackend(
         runner=runner,
         build_root=builds,
@@ -1325,12 +1482,19 @@ def cmd_update(args: argparse.Namespace) -> int:
     if envelope.wanted(args):
         envelope.emit(
             build_update(
-                target, result, lists_note=lists_note, from_log=from_log, upstream=upstream
+                target,
+                result,
+                lists_note=lists_note,
+                from_log=from_log,
+                upstream=upstream,
+                offline=offline_note,
             )
         )
         return EXIT_OK
     print(f"Target: {target.describe()}")
     print(render(result, lists_note=lists_note, upstream_asked=bool(args.upstream)))
+    if offline_note is not None:
+        print(offline_note)
     if upstream is not None:
         print()
         print(render_upstream(upstream))
@@ -4532,14 +4696,40 @@ def cmd_install(args: argparse.Namespace) -> int:
                 refused_plan("install", args.names, target_view(target), [Blocker(subject, reason)])
             )
 
-    from hammunition.mirror import consistent_state
-    from hammunition.signers import SignerError, load_mirror
+    from hammunition.catalogue import CatalogueError
+    from hammunition.signers import SignerError
 
+    offline = bool(getattr(args, "offline", False))
+    if offline and args.no_mirror:
+        print(
+            "error: --offline resolves from the enrolled Bunker and --no-mirror ignores it; "
+            "the two cannot be combined",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+
+    # One context for the run: the enrolled Bunker's catalogue, verified once,
+    # before any apt probe. Offline with nothing enrolled refuses here by name.
     try:
         owner = operator(args) or None
-        consistent_state(load_station(owner=owner).mirror, load_mirror(owner=owner))
-    except (SignerError, StationError) as exc:
+        rctx, context_notes = _resolution_context(
+            offline=offline, no_mirror=args.no_mirror, owner=owner
+        )
+    except (SignerError, StationError, CatalogueError, BackendError) as exc:
         print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+
+    refresh = args.refresh and not offline
+
+    def plan_refusal(exc: PlanError) -> int:
+        print(str(exc), file=sys.stderr)
+        print(
+            "\nNothing was changed. Resolution happens before installation so that a "
+            "failure is a report rather than a half-installed machine (D-016).",
+            file=sys.stderr,
+        )
+        if envelope.wanted(args):
+            envelope.emit(refused_plan("install", args.names, target_view(target), exc.blockers))
         return EXIT_UNPLANNABLE
 
     try:
@@ -4592,8 +4782,9 @@ def cmd_install(args: argparse.Namespace) -> int:
             target=target,
             apt=apt,
             user=user,
-            refresh=args.refresh,
+            refresh=refresh,
             station=station,
+            resolution_context=rctx,
             # The hardware catalog, so a rig-carrying unit's user service can be
             # resolved against the station's rig (D-073); loaded here, not read
             # in the planner, so the answer is the same under sudo and in a test.
@@ -4644,7 +4835,7 @@ def cmd_install(args: argparse.Namespace) -> int:
     # backends name a mirror path, so nothing else is ever asked of it.
     mirror = None if args.no_mirror else station.mirror
     from hammunition.mirror import fetch_transport
-    from hammunition.signers import SignerError, load_mirror
+    from hammunition.signers import load_mirror
 
     try:
         enrolled_transport = fetch_transport(mirror, load_mirror(owner=user or None))
@@ -4652,7 +4843,12 @@ def cmd_install(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNPLANNABLE
     source = SourceBackend(
-        Fetcher(owner=user or None, mirror=mirror, mirror_transport=enrolled_transport),
+        Fetcher(
+            owner=user or None,
+            mirror=mirror,
+            mirror_transport=enrolled_transport,
+            offline=offline,
+        ),
         build_root=builds,
         owner=user or None,
     )
@@ -4693,7 +4889,21 @@ def cmd_install(args: argparse.Namespace) -> int:
         runner=runner,
         build_root=builds,
         owner=source.owner,
+        provenance=rctx.notes,
     )
+    if offline:
+        # Before any station resolver: a data unit the Bunker cannot supply in
+        # full is deferred (or refused, if typed) here, and nothing below plans
+        # for it. What a resolver would ask a publisher is refused by name.
+        try:
+            plan = preflight_data(
+                plan, rctx, cached=lambda unit, pin: cached_data_pin(source.fetcher, pin)
+            )
+            unrouted = _offline_unrouted(plan, plan_time=True)
+            if unrouted:
+                raise PlanError(unrouted)
+        except PlanError as exc:
+            return plan_refusal(exc)
     map_units = [p for p in plan.packages if isinstance(p.block.install, RegionalDataInstall)]
     try:
         resolution = resolve_map_regions(
@@ -4725,7 +4935,7 @@ def cmd_install(args: argparse.Namespace) -> int:
     # #197: what the log attributes as installed is not asked of its publisher
     # again for a week (`--recheck` asks every one); the real run verifies
     # whatever it fetches either way.
-    checks = PublisherChecks.from_log(read_log, recheck=args.recheck)
+    checks = PublisherChecks.from_log(read_log, recheck=args.recheck, offline=offline)
     POLICY.reset()
     terrain_tile_probe = CachingTileProbe(RetryingProbe(S3Probe()), source.fetcher.cache_dir)
     usgs_tile_probe = CachingTileProbe(RetryingProbe(ustopo_probe()), source.fetcher.cache_dir)
@@ -4907,6 +5117,8 @@ def cmd_install(args: argparse.Namespace) -> int:
             return EXIT_UNPLANNABLE
         region_notes.extend(mwm_notes)
     region_notes.extend(checks.notes())
+    region_notes[:0] = context_notes
+    region_notes.extend(_provenance_notes(rctx))
     mwm = ComapsMapsBackend(
         fetcher=source.fetcher,
         prefix=source.prefix,
@@ -5151,11 +5363,18 @@ def cmd_install(args: argparse.Namespace) -> int:
             mwm=mwm,
         ),
     )
+    if offline:
+        unreachable = [
+            *offline_network_blockers(plan, built),
+            *_offline_unrouted(plan, built, plan_time=False),
+        ]
+        if unreachable:
+            return plan_refusal(PlanError(unreachable))
     step_owners = StepOwners()
     commands = commands_for(
         plan,
         apt,
-        refresh=args.refresh,
+        refresh=refresh,
         skip_builds=built,
         owners=step_owners,
         source=source,
@@ -8245,6 +8464,15 @@ def build_parser() -> argparse.ArgumentParser:
             "catalog's pin is current; the only network the report uses"
         ),
     )
+    p_update.add_argument(
+        "--offline",
+        action="store_true",
+        help=(
+            "read only the local apt lists and install records, with a verified Bunker "
+            "catalogue enrolled; refuses --upstream. Accepting a newer catalogue advances "
+            "the local trust state (#381)"
+        ),
+    )
     p_update.set_defaults(func=cmd_update)
 
     p_maps = sub.add_parser(
@@ -8808,6 +9036,15 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "ignore the LAN mirror set in station config for this run; every data "
             "download comes from its publisher (D-070)"
+        ),
+    )
+    p_install.add_argument(
+        "--offline",
+        action="store_true",
+        help=(
+            "resolve everything from the enrolled Bunker's verified catalogue and never ask "
+            "a publisher; refuses by name what the Bunker cannot supply. Skips apt-get "
+            "update, and cannot be combined with --no-mirror (#381)"
         ),
     )
     p_install.add_argument(

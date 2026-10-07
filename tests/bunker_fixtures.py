@@ -2,12 +2,21 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # tests/bunker_fixtures.py
+from __future__ import annotations
+
 import hashlib
 import json
 import subprocess
+import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hammunition.keystrength import classify
+from hammunition.signers import EnrolledKey, MirrorState, verify
+
+if TYPE_CHECKING:
+    from hammunition.resolution import ResolutionContext
 
 
 def key(tmp_path: Path, algorithm: str = "ed25519", bits: int | None = None) -> Path:
@@ -99,3 +108,28 @@ def signed(tmp_path: Path, private: Path, doc: dict[str, object]) -> tuple[bytes
         capture_output=True,
     )
     return path.read_bytes(), {"catalogue.sig.d/1.sig": path.with_suffix(".json.sig").read_bytes()}
+
+
+def make_context(
+    tmp_path: Path,
+    rows: list[dict[str, object]],
+    *,
+    offline: bool = True,
+    inputs: list[dict[str, object]] | None = None,
+) -> ResolutionContext:
+    """A context over a really signed catalogue of *rows*, verified at 2026-10-07 UTC.
+
+    Each call signs in its own child directory, so no call meets another's key
+    files. The transport for input records is supplied by the test that needs it."""
+    from hammunition.resolution import ResolutionContext
+
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    child = Path(tempfile.mkdtemp(prefix="signing-", dir=tmp_path))
+    private = key(child)
+    public = private.with_suffix(".pub").read_text().strip()
+    strength = classify(public)
+    enrolled = EnrolledKey(strength.fingerprint, public, strength.algorithm, strength.bits, False)
+    state = MirrorState("http://bunker.invalid", "bunker", "personal", None, (enrolled,), 0)
+    raw, sigs = signed(child, private, document(public, artifacts=rows, inputs=inputs or []))
+    verified = verify(raw, sigs, state, now=datetime(2026, 10, 7, tzinfo=UTC))
+    return ResolutionContext(offline=offline, verified=verified)

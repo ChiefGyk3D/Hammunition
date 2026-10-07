@@ -133,7 +133,7 @@ With `--json`, prints a `status` document
 and every unit a transaction here has named. A front end derives which
 profiles those units belong to from `list --json`.
 
-### `hammunition update [NAME...] [--user NAME] [--upstream]`
+### `hammunition update [NAME...] [--user NAME] [--upstream] [--offline]`
 
 Installed versus the catalog, as a report. Nothing runs, nothing is fetched,
 and no network is used (**D-053**). With no names it compares every unit
@@ -179,6 +179,15 @@ it**, and the report says when those lists were last fetched. It does not
 refresh them: a report that ran `apt-get update` would be changing the
 machine, and a laptop that last updated before a trip is told which day it
 is comparing against.
+
+**`--offline`** (**#381**) asks for the same report with a guarantee: it reads only
+the local apt lists and the install records, never asks upstream, and requires
+an enrolled Bunker whose catalogue verifies. With none enrolled it stops at
+once, naming `hammunition mirror enrol URL`. It refuses `--upstream`, even for
+an empty request, before anything else runs. Verifying the catalogue can
+advance the serial recorded in the local mirror file; the report says so on its
+last line (`offline` in `--json`), because that is a local write even though no
+package is touched.
 
 Without `--upstream` it does not ask upstream. Twenty-seven of this
 laptop's units declare a GitHub, PyPI or version-file probe; whether the
@@ -1254,7 +1263,7 @@ its manifest. Names are resolved against profiles first, then units, so a
 profile wins if the same name exists in both. The text form still describes
 profiles only.
 
-### `hammunition install NAME... [--dry-run] [--yes] [-v|--verbose] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--recheck] [--full] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
+### `hammunition install NAME... [--dry-run] [--yes] [-v|--verbose] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--offline] [--recheck] [--full] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
 **A re-run rebuilds nothing it has already built** (**D-051**): a source, git
 or prebuilt-archive unit whose binaries are on the machine *and* whose build
@@ -1300,6 +1309,7 @@ has been measured.
 | `--no-sudo-keepalive` | Do not hold sudo's ticket for the run (**D-062**). By default a run as a user that mixes root steps with steps that are not asks the password once, by `sudo -v`, before the first step, and keeps the ticket valid with `sudo -n -v` every 4 minutes until the run ends. With this flag each root step asks for itself, and one that follows a long step may prompt again. `--sudo-keepalive` is the default and still parses |
 | `--recheck` | Ask every data item's publisher at plan time, including installed items the transaction log attributes. Without it those are trusted for 7 days (`attributed.RECHECK_AFTER_DAYS`): the plan prints `N installed data item(s) were not re-checked against their publishers` with the oldest attribution date, `--json` carries a `publisher_checks` line per item with `checked: false` and the reason, and an item attributed 7 or more days ago, or whose file is not the one the log recorded, is asked again. A re-check that fails is a `note:`, never a refusal; the real run verifies everything it fetches either way (**D-049**, #197) |
 | `--no-mirror` | Ignore the LAN mirror set in station config for this run (**D-070**): every data download comes from its publisher. With no mirror set it changes nothing |
+| `--offline` | Resolve everything from the enrolled Bunker's verified catalogue and never ask a publisher (**#381**, phase 1). The catalogue is read and verified once, before any apt probe; with no Bunker enrolled the run stops at once naming `hammunition mirror enrol URL`. `apt-get update` is never planned, and an apt package the machine does not already have, a pip or npm step, a third-party apt repository, and a unit whose map, terrain, topographic-sheet, reference-book, CoMaps-map or git resolution still asks a publisher are each refused by name (apt and pip on the Bunker are phase 2). A data unit counts only if every artifact is already in the cache or on the Bunker at the repository's own sha256 and size: a profile member with a gap is deferred whole, a unit you typed is refused, and a unit that depends on a dropped one is dropped with it. Downloads come from the Bunker alone (`Bunker only` in the plan), a copy that fails its digest is discarded and refused, and no publisher is tried. Installed items are never re-checked against their publishers, even with `--recheck`. Every line the catalogue answered carries `offline; resolved from Bunker NAME (fingerprint), recorded TIME`, with any weak-key or age warning the signer carries. Cannot be combined with `--no-mirror`. Accepting a newer catalogue advances the local trust state in the mirror file; the plan says so as a local write, dry run included, and it is not a package action. It changes no consent: `--yes` still does not satisfy a gate, and a real install is still never driven through `--json` |
 | `--full` | Print every step of the plan expanded. Without it, a run of steps that repeat one template for many items (a US Topo sheet, a terrain tile, a Kiwix book) is printed as the template with `<placeholders>`, the first item written out in full, every item's own values on a line, and the totals; `--dry-run --full` prints the plan exactly as it was before grouping (**D-016**, amended 2026-10-02). `--json` always carries every step, with or without it |
 | `--user NAME` | Who to add to groups. Defaults to `$SUDO_USER`, then `$USER` |
 | `--callsign CALL` | Station callsign for this run. Overrides the saved value |
