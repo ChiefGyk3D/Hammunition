@@ -757,4 +757,5 @@ def test_the_install_command_gives_its_fetcher_the_signed_catalogue(
     name = next(iter(expected))
     assert lookup(MirrorPath("ics-forms", name)) == hashlib.sha256(expected[name]).hexdigest()
     assert lookup(MirrorPath("ics-forms", "no-such-file.pdf")) is None
+    assert backend.fetcher.bunker == "bunker"  # warnings name the Bunker
     assert isinstance(backend.context, ResolutionContext) and backend.context.offline
