@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import re
 import socket
 from pathlib import Path
 from typing import Any
@@ -512,6 +513,12 @@ def warning_lines(text: str) -> list[str]:
     return [line for line in text.splitlines() if "unverified" in line]
 
 
+def routing(line: str) -> str:
+    """*line* without the words that say which source a fetch asks."""
+    line = re.sub(r" — (the LAN mirror first|Bunker only, offline).*$", "", line)
+    return re.sub(r", then \S+", "", line)
+
+
 def test_cli_offline_plans_unverified_with_zero_sockets(
     machine: Path,
     tmp_path: Path,
@@ -556,7 +563,11 @@ def test_cli_an_unverified_row_meets_the_same_disclosure_offline_as_online(
     on, off = warning_lines(online), warning_lines(offline)
     assert any("1 quad(s) unverified" in line for line in off), offline
     assert any(UNVERIFIED in line for line in off), offline
-    assert off == on
+    # Where the bytes come from is the one thing the fetch line adds (the LAN
+    # mirror first online, the Bunker alone offline, Task 12); the disclosure
+    # in front of it is identical.
+    assert any("Bunker only, offline" in line for line in off), offline
+    assert [routing(line) for line in off] == [routing(line) for line in on]
     assert "every FSTopo quad your regions need is pinned" not in offline
     assert "hold_unverified" not in offline
 

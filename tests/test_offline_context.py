@@ -482,14 +482,16 @@ def test_an_offline_mirror_that_fails_verification_never_asks_the_publisher(
     assert not any(tmp_path.glob("cache/*"))
 
 
-def test_offline_etag_and_size_only_downloads_refuse_the_publisher(tmp_path: Path) -> None:
+def test_offline_etag_and_size_only_downloads_with_no_bunker_path_refuse_the_publisher(
+    tmp_path: Path,
+) -> None:
     from hammunition.backends import BackendError
     from hammunition.fetch import Fetcher
 
     fetcher = Fetcher(tmp_path / "cache", mirror="http://bunker.lan/", offline=True)
-    with pytest.raises(BackendError, match="no Bunker route yet"):
+    with pytest.raises(BackendError, match="no Bunker route"):
         fetcher.fetch_etag("https://publisher.invalid/x", "abc", expected_size=1)
-    with pytest.raises(BackendError, match="no Bunker route yet"):
+    with pytest.raises(BackendError, match="no Bunker route"):
         fetcher.fetch_sized("https://publisher.invalid/x", expected_size=1)
 
 
