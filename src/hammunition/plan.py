@@ -100,8 +100,10 @@ if TYPE_CHECKING:
     from hammunition.resolution import ResolutionContext
 
 __all__ = [
+    "DEB_ARCHITECTURES",
     "Blocker",
     "DebDependency",
+    "DebDependencyError",
     "Deferral",
     "GroupMembership",
     "InstallPlan",
@@ -113,6 +115,8 @@ __all__ = [
     "catalogue_deferral",
     "compare_deb_versions",
     "deb_dependency_met",
+    "deb_group_met",
+    "deb_probe_names",
     "offline_network_blockers",
     "offline_payload_blockers",
     "parse_deb_dependencies",
@@ -120,6 +124,7 @@ __all__ = [
     "payload_misses",
     "preflight_data",
     "resolve",
+    "valid_deb_version",
 ]
 
 REQUESTED_DIRECTLY = "requested"
@@ -1439,54 +1444,122 @@ def _remote_artifacts(node: object) -> list[RemoteArtifact]:
     return found
 
 
+class DebDependencyError(ValueError):
+    """A Depends/Pre-Depends field that does not parse. Always a refusal: an
+    unparsed relation is never read as "no relation"."""
+
+
 @dataclass(frozen=True)
 class DebDependency:
-    """One alternative of a ``Depends`` group: a package name and, if the .deb
-    states one, the version relation it needs (``>=``, ``=`` ...)."""
+    """One alternative of a ``Depends`` group: a package name, the architecture
+    qualifier it carries (``any``, ``native`` or an architecture), and the
+    version relation it needs (``<<``, ``<=``, ``=``, ``>=``, ``>>``)."""
 
     name: str
     relation: str | None = None
     version: str | None = None
+    arch: str | None = None
 
     def text(self) -> str:
-        return (
-            self.name if self.relation is None else f"{self.name} ({self.relation} {self.version})"
-        )
+        base = self.name if self.arch is None else f"{self.name}:{self.arch}"
+        return base if self.relation is None else f"{base} ({self.relation} {self.version})"
 
 
-_DEB_RELATION = re.compile(r"\(\s*(<<|<=|>=|>>|=|<|>)\s*([^)\s]+)\s*\)")
+#: The architectures a qualifier may name besides ``any`` and ``native``.
+DEB_ARCHITECTURES = (
+    "amd64",
+    "arm64",
+    "armel",
+    "armhf",
+    "i386",
+    "loong64",
+    "mips64el",
+    "mipsel",
+    "ppc64el",
+    "riscv64",
+    "s390x",
+)
+
+_DEB_ALTERNATIVE = re.compile(
+    r"^(?P<name>[a-z0-9][a-z0-9+.\-]+)"
+    r"(?::(?P<arch>[A-Za-z0-9]+))?"
+    r"(?:\s*\(\s*(?P<op><<|<=|>=|>>|=|<|>)\s*(?P<version>[^\s()]+)\s*\))?",
+    re.ASCII,
+)
+_DEB_REVISION = re.compile(r"[A-Za-z0-9+.~]+")
+_DEB_UPSTREAM = re.compile(r"[0-9][A-Za-z0-9.+~\-]*")
+
+
+def _deb_split(version: str) -> tuple[int, str, str] | None:
+    """``(epoch, upstream, revision)`` of a version that follows Debian policy
+    (digits-only epoch, upstream starting with a digit, only the allowed
+    characters), else None. The empty string is not a policy version."""
+    if not version.isascii():
+        return None
+    epoch = 0
+    rest = version
+    if ":" in version:
+        head, rest = version.split(":", 1)
+        if not head.isdigit() or ":" in rest:
+            return None
+        epoch = int(head)
+    upstream, revision = rest, ""
+    if "-" in rest:
+        upstream, revision = rest.rsplit("-", 1)
+        if not _DEB_REVISION.fullmatch(revision):
+            return None
+    if not _DEB_UPSTREAM.fullmatch(upstream):
+        return None
+    return epoch, upstream, revision
+
+
+def valid_deb_version(version: str) -> bool:
+    """Whether *version* follows Debian policy."""
+    return _deb_split(version) is not None
 
 
 def parse_deb_dependencies(field_text: str) -> list[list[DebDependency]]:
-    """``Depends``/``Pre-Depends`` text as groups of alternatives, with each
-    alternative's version relation when it has one.
+    """``Depends``/``Pre-Depends`` text as groups of alternatives.
 
-    ``"a (>= 1), b | c"`` is ``[[a >= 1], [b, c]]``; architecture qualifiers
-    are dropped."""
+    A strict grammar: ``name[:arch] [(op version)]`` alternatives joined by
+    ``|``, groups joined by ``,``. ``<`` and ``>`` are dpkg's deprecated
+    spellings of ``<=`` and ``>=``. An empty field is no dependencies; anything
+    else that does not match (an unbalanced parenthesis, a relation that does not
+    exist, an empty group or alternative, trailing text, a build-time restriction,
+    an unknown architecture qualifier, a version that breaks policy) raises
+    :class:`DebDependencyError`."""
+    text = " ".join(field_text.split())
+    if not text:
+        return []
     groups: list[list[DebDependency]] = []
-    for clause in field_text.replace("\n", " ").split(","):
+    for clause in text.split(","):
         alternatives: list[DebDependency] = []
-        for alternative in clause.split("|"):
-            name = alternative.split("(")[0].split("[")[0].split(":")[0].strip()
-            if not name:
-                continue
-            found = _DEB_RELATION.search(alternative)
-            relation = found.group(1) if found else None
-            if relation == "<":
-                relation = "<<"  # the deprecated spellings mean the strict ones
-            elif relation == ">":
-                relation = ">>"
-            alternatives.append(DebDependency(name, relation, found.group(2) if found else None))
-        if alternatives:
-            groups.append(alternatives)
+        for raw in clause.split("|"):
+            found = _DEB_ALTERNATIVE.fullmatch(raw.strip())
+            if found is None:
+                raise DebDependencyError(f"cannot read {raw.strip()!r} as a dependency")
+            arch = found.group("arch")
+            if arch is not None and arch not in ("any", "native", *DEB_ARCHITECTURES):
+                raise DebDependencyError(
+                    f"unknown architecture qualifier :{arch} in {raw.strip()!r}"
+                )
+            relation = found.group("op")
+            version = found.group("version")
+            if relation is not None:
+                relation = {"<": "<=", ">": ">="}.get(relation, relation)
+                assert version is not None
+                if not valid_deb_version(version):
+                    raise DebDependencyError(
+                        f"{version!r} in {raw.strip()!r} is not a valid Debian version"
+                    )
+            alternatives.append(DebDependency(found.group("name"), relation, version, arch))
+        groups.append(alternatives)
     return groups
 
 
 def parse_deb_depends(field_text: str) -> list[list[str]]:
-    """``Depends``/``Pre-Depends`` text as groups of alternatives, names only.
-
-    ``"a (>= 1), b | c"`` is ``[["a"], ["b", "c"]]``; architecture and version
-    qualifiers are dropped. :func:`parse_deb_dependencies` keeps the versions."""
+    """``Depends``/``Pre-Depends`` text as groups of alternatives, names only
+    (:func:`parse_deb_dependencies` keeps versions and qualifiers)."""
     return [[d.name for d in group] for group in parse_deb_dependencies(field_text)]
 
 
@@ -1530,30 +1603,29 @@ def _deb_verrevcmp(a: str, b: str) -> int:
     return 0
 
 
-def _deb_parts(version: str) -> tuple[int, str, str]:
-    epoch = 0
-    if ":" in version:
-        head, version = version.split(":", 1)
-        epoch = int(head) if head.isdigit() else 0
-    upstream, _, revision = version.rpartition("-") if "-" in version else (version, "", "")
-    return epoch, upstream, revision
-
-
 def compare_deb_versions(a: str, b: str) -> int:
     """Debian's version order (epoch, upstream, revision; ``~`` sorts before
     everything): negative, zero or positive as *a* is older than, equal to or
-    newer than *b*."""
-    epoch_a, upstream_a, revision_a = _deb_parts(a)
-    epoch_b, upstream_b, revision_b = _deb_parts(b)
-    if epoch_a != epoch_b:
-        return epoch_a - epoch_b
-    return _deb_verrevcmp(upstream_a, upstream_b) or _deb_verrevcmp(revision_a, revision_b)
+    newer than *b*. The empty version is older than any other and equal to
+    itself, as dpkg orders it. A non-empty version that breaks Debian policy
+    raises :class:`ValueError`."""
+    if not a or not b:
+        return (a != "") - (b != "")
+    parts_a, parts_b = _deb_split(a), _deb_split(b)
+    for version, parts in ((a, parts_a), (b, parts_b)):
+        if parts is None:
+            raise ValueError(f"{version!r} is not a valid Debian version")
+    assert parts_a is not None and parts_b is not None
+    if parts_a[0] != parts_b[0]:
+        return parts_a[0] - parts_b[0]
+    return _deb_verrevcmp(parts_a[1], parts_b[1]) or _deb_verrevcmp(parts_a[2], parts_b[2])
 
 
 def deb_dependency_met(dependency: DebDependency, installed: str | None) -> bool:
-    """Whether an installed version (None: not installed) satisfies *dependency*,
-    its version relation included."""
-    if installed is None:
+    """Whether an installed version (None: not installed) satisfies *dependency*'s
+    version relation. An installed version that is not a valid Debian version
+    meets nothing."""
+    if installed is None or not valid_deb_version(installed):
         return False
     if dependency.relation is None or dependency.version is None:
         return True
@@ -1565,6 +1637,32 @@ def deb_dependency_met(dependency: DebDependency, installed: str | None) -> bool
         ">=": order >= 0,
         ">>": order > 0,
     }[dependency.relation]
+
+
+def deb_probe_names(dependency: DebDependency, native: str) -> tuple[str, ...]:
+    """The names apt is asked about to find *dependency*'s installed package: a
+    bare name is the native one; ``:any`` is every architecture; ``:native`` and
+    an explicit architecture are that one."""
+    name = dependency.name
+    if dependency.arch is None:
+        return (name,)
+    if dependency.arch == "any":
+        return (name, *(f"{name}:{arch}" for arch in DEB_ARCHITECTURES))
+    arch = native if dependency.arch == "native" else dependency.arch
+    return (name, f"{name}:{arch}") if arch == native else (f"{name}:{arch}",)
+
+
+def deb_group_met(
+    group: Sequence[DebDependency], installed: Mapping[str, str | None], native: str
+) -> bool:
+    """Whether any alternative of *group* has an installed package, at its stated
+    architecture, whose version is in range. *installed* maps the names
+    :func:`deb_probe_names` gives to the installed version (None: absent)."""
+    return any(
+        deb_dependency_met(dependency, installed.get(candidate))
+        for dependency in group
+        for candidate in deb_probe_names(dependency, native)
+    )
 
 
 def _routed_payload(block: object) -> RemoteArtifact | None:

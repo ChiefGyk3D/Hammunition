@@ -314,7 +314,7 @@ def test_the_source_guard_names_nothing_online(
     assert rc == 0, err
 
 
-DEPENDS = ", libfoo (>= 1.2), libbar | libbaz"
+DEPENDS = "libfoo (>= 1.2), libbar | libbaz"
 SHA_DEB = hashlib.sha256(DEB_BODY).hexdigest()
 
 
@@ -334,10 +334,10 @@ SHA_DEB = hashlib.sha256(DEB_BODY).hexdigest()
             True,
             ("libbaz",),
             {"libbaz": "0.9"},
-            ", libbar (>= 3) | libbaz (>= 1)",
+            "libbar (>= 3) | libbaz (>= 1)",
             ["libbar (>= 3) | libbaz (>= 1)"],
         ),
-        (True, ("libbaz",), {"libbaz": "2.0"}, ", libbar (>= 3) | libbaz (>= 1)", None),
+        (True, ("libbaz",), {"libbaz": "2.0"}, "libbar (>= 3) | libbaz (>= 1)", None),
     ],
     ids=[
         "not-cached",
@@ -368,6 +368,7 @@ def test_a_vendor_deb_offline_needs_its_bytes_and_its_installed_dependencies(
     if cached:
         cache("https://example.invalid/fixture-deb_1.0_amd64.deb", DEB_BODY)
     monkeypatch.setattr(cli, "_dpkg_depends", lambda path: depends)
+    monkeypatch.setattr(cli, "_native_arch", lambda: "amd64")
     rc, _out, err = run(capsys, payload_catalog, "install", "--offline", "--dry-run", "fixture-deb")
     if refused is None:
         assert rc == 0, err
@@ -532,13 +533,18 @@ def test_an_installed_deb_unit_needs_no_dependency_check(machine: Path) -> None:
     assert offline_payload_blockers(plan, frozenset(), cached=lambda a: True, deb_unmet=never) == []
 
 
-def test_the_deb_depends_parser_keeps_names_and_alternatives() -> None:
-    assert parse_deb_depends("libc6 (>= 2.34), libfoo:amd64, a [amd64] | b (<< 2)\n , ") == [
+def test_the_deb_depends_parser_keeps_names_and_alternatives_and_refuses_junk() -> None:
+    assert parse_deb_depends("libc6 (>= 2.34), libfoo:amd64, aa | bb (<< 2)") == [
         ["libc6"],
         ["libfoo"],
-        ["a", "b"],
+        ["aa", "bb"],
     ]
     assert parse_deb_depends("") == []
+    # The old reading dropped everything after the first "[" or "(" and accepted
+    # an empty trailing group; both are malformed and refuse.
+    for junk in ("aa [amd64] | bb (<< 2)\n , ", "libc6 (>= 2.34) trailing", "libfoo,"):
+        with pytest.raises(ValueError):
+            parse_deb_depends(junk)
 
 
 # -- a dropped data unit takes everything with it ---------------------------------

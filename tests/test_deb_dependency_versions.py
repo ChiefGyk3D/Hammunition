@@ -27,10 +27,12 @@ from hammunition.manifest.schema import PackageManifest, RemoteArtifact
 from hammunition.payloads import payload_path
 from hammunition.plan import (
     DebDependency,
+    DebDependencyError,
     compare_deb_versions,
     deb_dependency_met,
     parse_deb_dependencies,
     parse_deb_depends,
+    valid_deb_version,
 )
 from test_fetch_mirror import Routes
 
@@ -51,7 +53,8 @@ cli = importlib.import_module("hammunition.cli.main")
         ("1.0", "1.0a"),
         ("1.0", "1.0.1"),
         ("1.2.3-4-4", "1.2.3-4-5"),
-        ("1", "a"),
+        ("", "0"),
+        ("", "1:0"),
     ],
 )
 def test_the_first_version_is_older(a: str, b: str) -> None:
@@ -93,15 +96,120 @@ def test_no_relation_needs_only_the_package_and_not_installed_is_never_met() -> 
     assert not deb_dependency_met(DebDependency("libfoo", ">=", "1"), None)
 
 
-def test_the_parser_keeps_versions_alternatives_and_the_deprecated_spellings() -> None:
+def test_the_parser_keeps_versions_alternatives_and_arch_qualifiers() -> None:
     groups = parse_deb_dependencies(
-        "libc6 (>= 2.34), libfoo:amd64, a [amd64] | b (<< 2)\n , c (>1), d (<3), e (=1:2.0-1)(,"
+        "libc6 (>= 2.34), libfoo:amd64, aa | bb (<< 2)\n , cc (= 1:2.0-1), dd:any, ee:native (>> 1)"
     )
     flat = [[d.text() for d in group] for group in groups]
-    assert flat[:3] == [["libc6 (>= 2.34)"], ["libfoo"], ["a", "b (<< 2)"]]
-    assert flat[3:] == [["c (>> 1)"], ["d (<< 3)"], ["e (= 1:2.0-1)"]]
-    assert parse_deb_depends("libc6 (>= 2.34), a | b") == [["libc6"], ["a", "b"]]
-    assert parse_deb_dependencies("") == []
+    assert flat == [
+        ["libc6 (>= 2.34)"],
+        ["libfoo:amd64"],
+        ["aa", "bb (<< 2)"],
+        ["cc (= 1:2.0-1)"],
+        ["dd:any"],
+        ["ee:native (>> 1)"],
+    ]
+    assert parse_deb_depends("libc6 (>= 2.34), aa | bb") == [["libc6"], ["aa", "bb"]]
+    assert parse_deb_dependencies("") == [] == parse_deb_dependencies("  \n ")
+
+
+def test_the_deprecated_spellings_mean_or_equal_as_dpkg_reads_them() -> None:
+    lt, gt = (g[0] for g in parse_deb_dependencies("cc (< 1), dd (> 3)"))
+    assert (lt.relation, gt.relation) == ("<=", ">=")
+    assert deb_dependency_met(lt, "1")  # `(< 1)` is `(<= 1)`: the same version meets it
+    assert deb_dependency_met(gt, "3")
+    assert not deb_dependency_met(lt, "1.1") and not deb_dependency_met(gt, "2.9")
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "libfoo (=> 99)",  # a relation that does not exist
+        "libfoo (>= 99",  # unbalanced
+        "libfoo >= 99)",
+        "libfoo (>= )",
+        "libfoo (>= 1 2)",
+        "(>= 99)",  # no package
+        "libfoo,, libbar",  # empty group
+        ", libfoo",
+        "libfoo,",
+        "libfoo | ",
+        "libfoo | | libbar",
+        "libfoo garbage",  # trailing garbage
+        "libfoo (>= 1) garbage",
+        "libfoo (>= 1)(<< 2)",
+        "libfoo [amd64]",  # a build-time restriction has no place in a binary package
+        "libfoo <!nocheck>",
+        "Libfoo",  # not a Debian package name
+        "x",
+        "libfoo:",
+        "libfoo:i386:any",
+        "libfoo (>= bad:1)",  # an invalid version
+        "libfoo (>= a1)",
+        "libfoo (>= 1_0)",
+        "libfoo (>= 1.0-)",
+        "libfoo (>= :1)",
+        "libfoo (>= 1:2:3)",
+    ],
+)
+def test_a_malformed_field_is_refused_never_passed_as_unversioned(field: str) -> None:
+    with pytest.raises(DebDependencyError):
+        parse_deb_dependencies(field)
+
+
+@pytest.mark.parametrize("qualifier", ["i386", "amd64", "arm64", "any", "native"])
+def test_known_arch_qualifiers_parse(qualifier: str) -> None:
+    (group,) = parse_deb_dependencies(f"libfoo:{qualifier} (>= 1)")
+    assert group[0].arch == qualifier
+
+
+@pytest.mark.parametrize("qualifier", ["bogus", "x86", "all", "AMD64", "native2"])
+def test_an_unknown_arch_qualifier_is_refused(qualifier: str) -> None:
+    with pytest.raises(DebDependencyError, match="architecture qualifier"):
+        parse_deb_dependencies(f"libfoo:{qualifier}")
+
+
+@pytest.mark.parametrize(
+    ("version", "valid"),
+    [
+        ("1.0", True),
+        ("0", True),
+        ("1:2.0-3", True),
+        ("0:1", True),
+        ("12345:1.0~rc1+b2-1ubuntu0.1", True),
+        ("1.0-1-2", True),  # upstream may hold hyphens when a revision follows
+        ("", False),
+        ("bad:1", False),
+        (":1", False),
+        ("1:", False),
+        ("1:2:3", False),
+        ("a1", False),
+        ("-1", False),
+        ("1.0-", False),
+        ("1.0_1", False),
+        ("1 0", False),
+        ("1.0\n", False),
+        ("1.0-1_2", False),
+        ("\uff11.0", False),  # a fullwidth digit is not a digit
+    ],
+)
+def test_versions_are_validated_per_debian_policy(version: str, valid: bool) -> None:
+    assert valid_deb_version(version) is valid
+
+
+@pytest.mark.parametrize("bad", ["bad:1", "a1", "1.0_1", ":1", "1:2:3", "1.0-"])
+def test_comparing_an_invalid_version_raises_and_the_dependency_is_not_met(bad: str) -> None:
+    with pytest.raises(ValueError, match="not a valid Debian version"):
+        compare_deb_versions(bad, "1")
+    with pytest.raises(ValueError, match="not a valid Debian version"):
+        compare_deb_versions("1", bad)
+    assert not deb_dependency_met(DebDependency("libfoo", ">=", "1"), bad)
+
+
+def test_the_empty_version_orders_below_everything_and_equals_itself() -> None:
+    assert compare_deb_versions("", "0") < 0 < compare_deb_versions("0", "")
+    assert compare_deb_versions("", "") == 0
+    assert compare_deb_versions("", "0:0") < 0
 
 
 # -- the CLI's check over a real .deb field ------------------------------------
@@ -115,27 +223,83 @@ class StubApt(AptBackend):
         return {
             p: AptPackageState(name=p, installed=self.installed.get(p), candidate="9.0")
             for p in packages
+            if p in self.installed
         }
 
 
+@pytest.fixture
+def amd64(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli, "_native_arch", lambda: "amd64")
+
+
+def _unmet(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, field: str, installed: dict[str, str]
+) -> list[str]:
+    monkeypatch.setattr(cli, "_dpkg_depends", lambda path: field)
+    return list(cli._deb_unmet_file(StubApt(installed), tmp_path / "x.deb"))
+
+
 def test_unmet_names_the_group_with_its_version_range(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, amd64: None
 ) -> None:
-    monkeypatch.setattr(
-        cli, "_dpkg_depends", lambda path: ", libfoo (>= 1.2), libbar | libbaz (>= 2)"
-    )
-    old = cli._deb_unmet_file(StubApt({"libfoo": "1.1", "libbaz": "2.0"}), tmp_path / "x.deb")
-    assert old == ["libfoo (>= 1.2)"]
-    assert cli._deb_unmet_file(StubApt({"libfoo": "1.2", "libbaz": "1.9"}), tmp_path / "x.deb") == [
+    field = "libfoo (>= 1.2), libbar | libbaz (>= 2)"
+    assert _unmet(monkeypatch, tmp_path, field, {"libfoo": "1.1", "libbaz": "2.0"}) == [
+        "libfoo (>= 1.2)"
+    ]
+    assert _unmet(monkeypatch, tmp_path, field, {"libfoo": "1.2", "libbaz": "1.9"}) == [
         "libbar | libbaz (>= 2)"
     ]
-    assert (
-        cli._deb_unmet_file(StubApt({"libfoo": "1.2", "libbar": "0.1"}), tmp_path / "x.deb") == []
-    )
+    assert _unmet(monkeypatch, tmp_path, field, {"libfoo": "1.2", "libbar": "0.1"}) == []
+
+
+@pytest.mark.parametrize(
+    ("field", "installed", "met"),
+    [
+        ("libfoo:i386 (>= 1)", {"libfoo": "2.0"}, False),  # the native one is not i386's
+        ("libfoo:i386 (>= 1)", {"libfoo:i386": "2.0"}, True),
+        ("libfoo:i386 (>= 1)", {"libfoo:i386": "0.5"}, False),
+        ("libfoo:any", {"libfoo": "2.0"}, True),
+        ("libfoo:any", {"libfoo:arm64": "2.0"}, True),
+        ("libfoo:any (>= 3)", {"libfoo:arm64": "2.0", "libfoo": "1"}, False),
+        ("libfoo:any", {}, False),
+        ("libfoo:native", {"libfoo": "2.0"}, True),
+        ("libfoo:native", {"libfoo:amd64": "2.0"}, True),
+        ("libfoo:native", {"libfoo:i386": "2.0"}, False),
+        ("libfoo:amd64", {"libfoo": "2.0"}, True),
+        ("libfoo:amd64", {"libfoo:i386": "2.0"}, False),
+        ("libfoo", {"libfoo:i386": "2.0"}, False),
+    ],
+)
+def test_arch_qualifiers_are_checked_against_that_arch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    amd64: None,
+    field: str,
+    installed: dict[str, str],
+    met: bool,
+) -> None:
+    assert (_unmet(monkeypatch, tmp_path, field, installed) == []) is met
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["libfoo:bogus", "libfoo (=> 1)", "libfoo (>= 1", "libfoo,, libbar", "libfoo (>= bad:1)"],
+)
+def test_a_field_that_does_not_parse_is_unmet_not_assumed_met(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, amd64: None, field: str
+) -> None:
+    got = _unmet(monkeypatch, tmp_path, field, {"libfoo": "9.0", "libbar": "9.0"})
+    assert got and "could not be read" in got[0]
+
+
+def test_an_installed_version_that_is_not_a_version_does_not_meet_a_dependency(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, amd64: None
+) -> None:
+    assert _unmet(monkeypatch, tmp_path, "libfoo (>= 1)", {"libfoo": "bad:1"}) == ["libfoo (>= 1)"]
 
 
 def test_unreadable_dependencies_are_reported_not_assumed_met(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, amd64: None
 ) -> None:
     def broken(path: Path) -> str:
         raise OSError("not a deb")
@@ -143,6 +307,42 @@ def test_unreadable_dependencies_are_reported_not_assumed_met(
     monkeypatch.setattr(cli, "_dpkg_depends", broken)
     got = cli._deb_unmet_file(StubApt({}), tmp_path / "x.deb")
     assert got and "could not be read" in got[0]
+
+
+@pytest.mark.parametrize(
+    ("machine", "arch"),
+    [("x86_64", "amd64"), ("aarch64", "arm64"), ("armv7l", "armhf"), ("i686", "i386")],
+)
+def test_the_native_architecture_is_the_debian_name(
+    monkeypatch: pytest.MonkeyPatch, machine: str, arch: str
+) -> None:
+    monkeypatch.setattr(cli.platform, "machine", lambda: machine)
+    assert cli._native_arch() == arch
+
+
+def test_an_unknown_machine_has_no_native_architecture(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli.platform, "machine", lambda: "vax")
+    with pytest.raises(BackendError, match="native architecture"):
+        cli._native_arch()
+
+
+def test_the_depends_text_joins_pre_depends_and_depends_as_one_field(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class Result:
+        returncode = 0
+        stderr = ""
+        stdout = "Pre-Depends: aa (>= 1)\nDepends: bb,\n cc | dd\n"
+
+    monkeypatch.setattr(cli.subprocess, "run", lambda *a, **k: Result())
+    text = cli._dpkg_depends(tmp_path / "x.deb")
+    assert [[d.name for d in g] for g in parse_deb_dependencies(text)] == [
+        ["aa"],
+        ["bb"],
+        ["cc", "dd"],
+    ]
+    Result.stdout = ""
+    assert parse_deb_dependencies(cli._dpkg_depends(tmp_path / "x.deb")) == []
 
 
 # -- the install's own check, after the fetch -----------------------------------

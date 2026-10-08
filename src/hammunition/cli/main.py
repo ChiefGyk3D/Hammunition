@@ -34,6 +34,7 @@ import dataclasses
 import hashlib
 import io
 import os
+import platform
 import re
 import shlex
 import shutil
@@ -191,6 +192,7 @@ from hammunition.phone_plan import build_phone_run
 from hammunition.plan import (
     NO_MAP_REGIONS,
     Blocker,
+    DebDependencyError,
     Deferral,
     InstallPlan,
     PlanError,
@@ -199,7 +201,8 @@ from hammunition.plan import (
     cached_data_pin,
     cached_remote,
     catalogue_deferral,
-    deb_dependency_met,
+    deb_group_met,
+    deb_probe_names,
     offline_network_blockers,
     offline_payload_blockers,
     parse_deb_dependencies,
@@ -1258,8 +1261,31 @@ def _resolution_context(
     return context, notes
 
 
+_DEBIAN_ARCH = {
+    "x86_64": "amd64",
+    "aarch64": "arm64",
+    "armv7l": "armhf",
+    "armv6l": "armel",
+    "i686": "i386",
+    "i386": "i386",
+    "riscv64": "riscv64",
+    "ppc64le": "ppc64el",
+    "s390x": "s390x",
+    "loongarch64": "loong64",
+}
+
+
+def _native_arch() -> str:
+    """This machine's Debian architecture name, from the kernel's machine name."""
+    machine = platform.machine()
+    if machine not in _DEBIAN_ARCH:
+        raise BackendError(f"cannot name this machine's native architecture from {machine!r}")
+    return _DEBIAN_ARCH[machine]
+
+
 def _dpkg_depends(path: Path) -> str:
-    """The ``Pre-Depends`` and ``Depends`` text of the .deb at *path* (local, no network)."""
+    """The ``Pre-Depends`` and ``Depends`` of the .deb at *path* as one field
+    (local, no network)."""
     result = subprocess.run(
         ["dpkg-deb", "--field", str(path), "Pre-Depends", "Depends"],
         capture_output=True,
@@ -1269,26 +1295,29 @@ def _dpkg_depends(path: Path) -> str:
     )
     if result.returncode:
         raise OSError(result.stderr.strip() or f"dpkg-deb exited {result.returncode}")
-    return re.sub(r"^(?:Pre-)?Depends:", ",", result.stdout, flags=re.MULTILINE)
+    values = [
+        " ".join(value.split())
+        for value in re.split(r"^(?:Pre-)?Depends:", result.stdout, flags=re.MULTILINE)[1:]
+    ]
+    return ", ".join(value for value in values if value)
 
 
 def _deb_unmet_file(apt: AptBackend, path: Path) -> list[str]:
     """Dependency groups of the vendor .deb at *path* that no installed package
-    meets: a name apt does not list as installed, or an installed version outside
-    the .deb's stated range."""
+    meets: not installed (at the stated architecture), outside the stated version
+    range, or a field that does not parse (never assumed met)."""
     try:
+        native = _native_arch()
         groups = parse_deb_dependencies(_dpkg_depends(path))
-        names = sorted({d.name for group in groups for d in group})
+        names = sorted({n for group in groups for d in group for n in deb_probe_names(d, native)})
         states = apt.probe(names) if names else {}
-    except (OSError, subprocess.TimeoutExpired, BackendError) as exc:
+    except (OSError, subprocess.TimeoutExpired, BackendError, DebDependencyError) as exc:
         return [f"(its dependencies could not be read: {exc})"]
+    installed = {name: state.installed for name, state in states.items()}
     return [
         " | ".join(d.text() for d in group)
         for group in groups
-        if not any(
-            deb_dependency_met(d, states[d.name].installed if d.name in states else None)
-            for d in group
-        )
+        if not deb_group_met(group, installed, native)
     ]
 
 
