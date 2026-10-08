@@ -65,7 +65,6 @@ REAL_CATALOG = REPO / "catalog"
 
 #: unit, and the words its refusal must carry
 PLAN_TIME_KINDS = [
-    ("usfs-fstopo", "Forest Service topographic sheets"),
     ("kiwix-library", "reference books"),
     ("comaps-maps", "CoMaps maps"),
 ]
@@ -152,7 +151,7 @@ def test_a_git_unit_is_refused_unless_it_is_already_built(
     assert cli._offline_unrouted(plan, plan_time=True) == [], "git is not a plan-time kind"
 
 
-def test_terrain_and_us_topo_are_routed_and_fstopo_is_not() -> None:
+def test_terrain_and_both_topo_series_are_routed() -> None:
     from hammunition.manifest.schema import DemTilesInstall, TopoQuadsInstall
 
     routed = InstallPlan(
@@ -161,11 +160,10 @@ def test_terrain_and_us_topo_are_routed_and_fstopo_is_not() -> None:
             planned_from("dem-copernicus", DemTilesInstall),
             planned_from("dem-3dep", DemTilesInstall),
             planned_from("usgs-ustopo", TopoQuadsInstall),
+            planned_from("usfs-fstopo", TopoQuadsInstall),
         ),
     )
-    forest = InstallPlan(TARGET, (planned_from("usfs-fstopo", TopoQuadsInstall),))
     assert cli._offline_unrouted(routed, plan_time=True) == []
-    assert [b.subject for b in cli._offline_unrouted(forest, plan_time=True)] == ["usfs-fstopo"]
 
 
 def test_a_unit_of_no_guarded_kind_is_not_named() -> None:

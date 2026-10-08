@@ -47,7 +47,7 @@ from .backends.topo import (
 )
 from .backends.topo_mosaic import warp_estimate
 from .copernicus import CopernicusError, TileProbe, parse_poly
-from .fstopo import FsIndex, FsPin, FsQuad, FsQuadFile, FstopoError, GatewayProbe
+from .fstopo import FsIndex, FsPin, FsQuad, FsQuadFile, FstopoError, GatewayProbe, recorded_sheet
 from .fstopo import load_index as load_fstopo_index
 from .fstopo import load_pins as load_fstopo_pins
 from .geofabrik import BASE, GeofabrikError, Probe
@@ -446,12 +446,22 @@ def resolve_fstopo(
     checks: PublisherChecks | None = None,
     bound: TopoBound = ALL,
     context: ResolutionContext | None = None,
+    unit: str | None = None,
 ) -> tuple[FsTopoResolution, tuple[str, ...]]:
     """*regions* resolved to the FSTopo sheets they need; every sheet not
     installed is located through the gateway and sized, and checked against
     its pin's size where it has one. Every refusal is named together. A
     publisher that did not answer after the retries goes to *on_outage* and
-    that item is left out (#200); without it, it is refused."""
+    that item is left out (#200); without it, it is refused.
+
+    With a *context*, a sheet the gateway cannot be asked about is answered by
+    the Bunker's record (:func:`~hammunition.fstopo.recorded_sheet`), which
+    never upgrades a sheet without a pin to a verified one; *unit* (the
+    catalogue key) is then required. A sheet the Bunker cannot answer for,
+    while a Bunker is verified, defers the whole selection. Offline the gateway
+    is never asked, and no installed sheet is rechecked."""
+    if context is not None and unit is None:
+        raise ValueError("resolve_fstopo needs the unit name when given a context")
     refused: list[str] = []
     notes: list[str] = []
     entries: list[RegionSheets] = []
@@ -497,43 +507,61 @@ def resolve_fstopo(
             current.append(quad)
         else:
             todo.append((secoord, quad))
-    recheck_installed(
-        checks,
-        installed.name,
-        current,
-        name=lambda quad: quad.name,
-        path=lambda quad: installed / f"{quad.name}{TIF}",
-        check=lambda quad: gateway.locate(quad.secoord),
-        label="installed FSTopo sheets against the Forest Service gateway",
-    )
-    # Each sheet is two requests (the gateway's redirect, then the file's size).
+    if context is None or not context.offline:
+        recheck_installed(
+            checks,
+            installed.name,
+            current,
+            name=lambda quad: quad.name,
+            path=lambda quad: installed / f"{quad.name}{TIF}",
+            check=lambda quad: gateway.locate(quad.secoord),
+            label="installed FSTopo sheets against the Forest Service gateway",
+        )
+
+    def located(item: tuple[int, FsQuad]) -> FsQuadFile:
+        """Online: the gateway's redirect and the file's size (two requests),
+        agreeing with the pin's size where there is a pin."""
+        secoord, quad = item
+        url, size = gateway.locate(secoord)
+        pin = pins.get(secoord)
+        if pin is not None and pin.size != size:
+            raise FstopoError(
+                f"the gateway now announces {size} bytes where the pin has "
+                f"{pin.size}; the Forest Service re-issued it, so it is not fetched against "
+                f"the old pin. scripts/gen_fstopo_index.py --pin {secoord} measures it again"
+            )
+        return FsQuadFile(quad, url, size, pin.sha256 if pin else None)
+
+    def resolved(item: tuple[int, FsQuad]) -> FsQuadFile:
+        if context is None:
+            return located(item)
+        assert unit is not None
+        quad = item[1]
+        return context.choose(
+            unit,
+            quad.name,
+            lambda: located(item),
+            lambda: recorded_sheet(quad, unit=unit, pins=pins, context=context),
+        )
+
     outcomes = run_checks(
         todo,
-        lambda item: gateway.locate(item[0]),
+        resolved,
         label="FSTopo sheets against the Forest Service gateway",
     )
-    for (secoord, quad), outcome in zip(todo, outcomes, strict=True):
+    for (_secoord, quad), outcome in zip(todo, outcomes, strict=True):
         try:
-            url, size = outcome.get()
+            fetch.append(outcome.get())
         except PublisherUnavailable as exc:
+            if context is not None and context.verified is not None:
+                raise CatalogueMiss(f"{quad.name}: no complete sheet set: {exc}") from exc
             if on_outage is None:
                 refused.append(f"  {quad.name}: {exc}")
             else:
                 on_outage(quad.name, exc)
                 deferred.append(quad)
-            continue
         except (FstopoError, OSError) as exc:
             refused.append(f"  {quad.name}: {exc}")
-            continue
-        pin = pins.get(secoord)
-        if pin is not None and pin.size != size:
-            refused.append(
-                f"  {quad.name}: the gateway now announces {size} bytes where the pin has "
-                f"{pin.size}; the Forest Service re-issued it, so it is not fetched against "
-                f"the old pin. scripts/gen_fstopo_index.py --pin {secoord} measures it again"
-            )
-            continue
-        fetch.append(FsQuadFile(quad, url, size, pin.sha256 if pin else None))
     if refused:
         raise FstopoError(
             f"{len(refused)} FSTopo item(s) could not be resolved and are not installed "
@@ -616,6 +644,7 @@ def resolve_station_fstopo(
         checks=checks,
         bound=bound,
         context=context,
+        unit=unit.name,
     )
 
 

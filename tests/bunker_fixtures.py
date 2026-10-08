@@ -116,6 +116,8 @@ def make_context(
     *,
     offline: bool = True,
     inputs: list[dict[str, object]] | None = None,
+    mode: str = "personal",
+    enrolment_id: str | None = None,
 ) -> ResolutionContext:
     """A context over a really signed catalogue of *rows*, verified at 2026-10-07 UTC.
 
@@ -130,6 +132,15 @@ def make_context(
     strength = classify(public)
     enrolled = EnrolledKey(strength.fingerprint, public, strength.algorithm, strength.bits, False)
     state = MirrorState("http://bunker.invalid", "bunker", "personal", None, (enrolled,), 0)
-    raw, sigs = signed(child, private, document(public, artifacts=rows, inputs=inputs or []))
+    raw, sigs = signed(
+        child,
+        private,
+        document(
+            public,
+            artifacts=rows,
+            inputs=inputs or [],
+            bunker={"name": "bunker", "mode": mode},
+        ),
+    )
     verified = verify(raw, sigs, state, now=datetime(2026, 10, 7, tzinfo=UTC))
-    return ResolutionContext(offline=offline, verified=verified)
+    return ResolutionContext(offline=offline, verified=verified, enrolment_id=enrolment_id)

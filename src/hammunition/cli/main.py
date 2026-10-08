@@ -1133,9 +1133,8 @@ def _apt_lists_note(apt: AptBackend) -> str:
 #: the Bunker route for each still to be built (#381). An offline run refuses
 #: them by name rather than letting a probe or a git clone reach a publisher.
 _OFFLINE_UNROUTED: tuple[tuple[type, str, bool, str | None], ...] = (
-    # Copernicus terrain (Task 8) and USGS 3DEP bare earth and US Topo (Task 9)
-    # are routed; the Forest Service sheets (fstopo) are not.
-    (TopoQuadsInstall, "Forest Service topographic sheets", True, "usfs-fstopo"),
+    # Copernicus terrain (Task 8), USGS 3DEP bare earth and US Topo (Task 9) and
+    # the Forest Service sheets (Task 10) are routed; what is left asks a publisher.
     (KiwixBooksInstall, "reference books", True, None),
     (MwmRegionsInstall, "CoMaps maps", True, None),
     (GitInstall, "git sources", False, None),
