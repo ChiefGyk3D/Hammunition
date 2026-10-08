@@ -640,6 +640,7 @@ def enrol_file_bunker(
     rows: list[dict[str, object]],
     *,
     serial: int = 42,
+    inputs: list[dict[str, object]] | None = None,
     accepted_serial: int = 0,
     station: dict[str, Any] | None = None,
 ) -> tuple[Path, str]:
@@ -650,7 +651,9 @@ def enrol_file_bunker(
     signing = tmp_path / "signing"
     private = key(signing)
     public = private.with_suffix(".pub").read_text().strip()
-    raw, sigs = signed(signing, private, document(public, serial=serial, artifacts=rows))
+    raw, sigs = signed(
+        signing, private, document(public, serial=serial, artifacts=rows, inputs=inputs or [])
+    )
     (export / "catalogue.json").write_bytes(raw)
     for name, sig in sigs.items():
         (export / name).write_bytes(sig)

@@ -77,6 +77,7 @@ from .geofabrik import BASE, GeofabrikError, Probe, RegionFile
 from .manifest.schema import BinaryInstall, DemTilesInstall, DerivedDataInstall, TopoQuadsInstall
 from .plan import InstallPlan, PlannedPackage
 from .progress import run_checks
+from .resolution import CatalogueMiss, ResolutionContext
 from .retry import OnOutage, Outages, PublisherUnavailable, hint_for, reporter_for
 from .topo_bound import ALL, TopoBound
 from .usgs3dep import TileRow, check_tile, tile_url
@@ -90,15 +91,47 @@ def poly_url(region: str) -> str:
 
 
 def region_tiles(
-    region: str, slug: str, *, installed: Path, tile_list: frozenset[str], probe: Probe
+    region: str,
+    slug: str,
+    *,
+    installed: Path,
+    tile_list: frozenset[str],
+    probe: Probe,
+    context: ResolutionContext | None = None,
 ) -> RegionTiles:
     """*region*'s tiles: its record when there is one, else its outline."""
     recorded = read_record(installed / f"{slug}{TILES}", region, slug)
-    if recorded is not None:
+    if (
+        recorded is not None
+        and recorded.bound == "all"
+        and all(n in tile_list for n in recorded.tiles)
+    ):
         return recorded
-    outer, holes = parse_poly(probe.text(poly_url(region)))
-    tiles, unpublished = select(squares_touching(outer, holes), tile_list)
-    return RegionTiles(region, slug, tiles, unpublished)
+
+    def derive(text: str) -> RegionTiles:
+        outer, holes = parse_poly(text)
+        tiles, unpublished = select(squares_touching(outer, holes), tile_list)
+        return RegionTiles(region, slug, tiles, unpublished)
+
+    def fallback() -> RegionTiles:
+        assert context is not None
+        selected = context.selection("tile-selection", region, read_record)
+        if (
+            selected is not None
+            and selected.bound == "all"
+            and all(n in tile_list for n in selected.tiles)
+        ):
+            return RegionTiles(region, slug, selected.tiles, selected.unpublished)
+        return derive(context.outline(region, probe, base=BASE))
+
+    def online() -> RegionTiles:
+        return derive(probe.text(poly_url(region)))
+
+    return (
+        context.choose("inputs", f"tile-selection/{region}", online, fallback)
+        if context is not None
+        else online()
+    )
 
 
 def resolve_terrain(
@@ -111,6 +144,7 @@ def resolve_terrain(
     tile_probe: TileProbe,
     on_outage: OnOutage | None = None,
     checks: PublisherChecks | None = None,
+    context: ResolutionContext | None = None,
 ) -> DemResolution:
     """*regions* as ``(region, slug)`` pairs -- this run's and the kept ones --
     resolved to the tiles they need and how each is fetched. A pair named
@@ -127,14 +161,23 @@ def resolve_terrain(
         try:
             entries.append(
                 region_tiles(
-                    region, slug, installed=installed, tile_list=tile_list, probe=region_probe
+                    region,
+                    slug,
+                    installed=installed,
+                    tile_list=tile_list,
+                    probe=region_probe,
+                    context=context,
                 )
             )
         except PublisherUnavailable as exc:
             if on_outage is None:
                 refused.append(f"  {region}: its outline could not be read: {exc}")
             else:
+                if context is not None:
+                    raise CatalogueMiss(f"{region}: no complete selection: {exc}") from exc
                 on_outage(f"{region} (its outline)", exc)
+        except CatalogueMiss:
+            raise
         except (GeofabrikError, CopernicusError, OSError) as exc:
             refused.append(f"  {region}: its outline could not be read: {exc}")
     wanted = sorted({name for entry in entries for name in entry.tiles})
@@ -193,6 +236,64 @@ def resolve_terrain(
     )
 
 
+def region_bare_earth(
+    region: str,
+    slug: str,
+    *,
+    installed: Path,
+    tiles: Mapping[str, TileRow],
+    region_probe: Probe,
+    bound: TopoBound = ALL,
+    context: ResolutionContext | None = None,
+) -> RegionTiles:
+    """Select 3DEP tiles using current records, verified inputs, or an outline."""
+    if bound.mode == "none" or not bound.wants_region(region):
+        return RegionTiles(region, slug, (), 0, bound.token)
+    recorded = read_record(installed / f"{slug}{TILES}", region, slug)
+    if (
+        recorded is not None
+        and recorded.bound == bound.token
+        and all(n in tiles for n in recorded.tiles)
+    ):
+        return recorded
+
+    def derive(text: str) -> RegionTiles:
+        outer, holes = parse_poly(text)
+        names = {threedep_name(square) for square in squares_touching(outer, holes)}
+        found = tuple(sorted(name for name in names if name in tiles))
+        unpublished = len(names) - len(found)
+        found = tuple(name for name in found if bound.keeps(tile_box(name)))
+        if not found and unpublished and bound.token != "all":
+            unpublished = 0
+        return RegionTiles(region, slug, found, unpublished, bound.token)
+
+    def fallback() -> RegionTiles:
+        assert context is not None
+        selected = context.selection("dem3dep-selection", region, read_record)
+        if (
+            selected is not None
+            and selected.bound in (bound.token, "all")
+            and all(n in tiles for n in selected.tiles)
+        ):
+            return RegionTiles(
+                region,
+                slug,
+                tuple(n for n in selected.tiles if bound.keeps(tile_box(n))),
+                selected.unpublished,
+                bound.token,
+            )
+        return derive(context.outline(region, region_probe, base=BASE))
+
+    def online() -> RegionTiles:
+        return derive(region_probe.text(poly_url(region)))
+
+    return (
+        context.choose("inputs", f"dem3dep-selection/{region}", online, fallback)
+        if context is not None
+        else online()
+    )
+
+
 def resolve_bare_earth(
     regions: Sequence[tuple[str, str]],
     *,
@@ -202,6 +303,7 @@ def resolve_bare_earth(
     tile_probe: TileProbe,
     on_outage: OnOutage | None = None,
     checks: PublisherChecks | None = None,
+    context: ResolutionContext | None = None,
     bound: TopoBound = ALL,
 ) -> DemResolution:
     """*regions* resolved to their USGS 3DEP tiles, under *bound* (issue #232) (D-068, amended
@@ -218,29 +320,29 @@ def resolve_bare_earth(
         seen.add((region, slug))
         if bound.mode == "none" or not bound.wants_region(region):
             continue
-        recorded = read_record(installed / f"{slug}{TILES}", region, slug)
-        if recorded is not None and recorded.bound == bound.token:
-            entries.append(recorded)
-            continue
         try:
-            outer, holes = parse_poly(region_probe.text(poly_url(region)))
+            entries.append(
+                region_bare_earth(
+                    region,
+                    slug,
+                    installed=installed,
+                    tiles=tiles,
+                    region_probe=region_probe,
+                    bound=bound,
+                    context=context,
+                )
+            )
         except PublisherUnavailable as exc:
             if on_outage is None:
                 refused.append(f"  {region}: its outline could not be read: {exc}")
             else:
+                if context is not None:
+                    raise CatalogueMiss(f"{region}: no complete selection: {exc}") from exc
                 on_outage(f"{region} (its outline)", exc)
-            continue
+        except CatalogueMiss:
+            raise
         except (GeofabrikError, CopernicusError, OSError) as exc:
             refused.append(f"  {region}: its outline could not be read: {exc}")
-            continue
-        names = {threedep_name(square) for square in squares_touching(outer, holes)}
-        found = tuple(sorted(name for name in names if name in tiles))
-        unpublished = len(names) - len(found)
-        found = tuple(name for name in found if bound.keeps(tile_box(name)))
-        if not found and unpublished and bound.token != "all":
-            # Left out by the bound, not unpublished: never "no terrain here".
-            unpublished = 0
-        entries.append(RegionTiles(region, slug, found, unpublished, bound.token))
     wanted = sorted({name for entry in entries for name in entry.tiles})
     current = [name for name in wanted if (installed / f"{name}{TIF}").is_file()]
     held = set(current)
@@ -350,6 +452,7 @@ def resolve_station_3dep(
     tile_probe: TileProbe,
     outages: Outages | None = None,
     checks: PublisherChecks | None = None,
+    context: ResolutionContext | None = None,
     bound: TopoBound | None = ALL,
 ) -> tuple[DemResolution, tuple[str, ...]]:
     """The plan's 3DEP tiles and notes (D-068, amended 2026-10-01). Nothing
@@ -375,6 +478,7 @@ def resolve_station_3dep(
         tile_probe=tile_probe,
         on_outage=reporter_for(outages, unit),
         checks=checks,
+        context=context,
         bound=bound,
     )
     return resolution, ()
@@ -425,6 +529,7 @@ def resolve_station_terrain(
     tile_probe: TileProbe,
     outages: Outages | None = None,
     checks: PublisherChecks | None = None,
+    context: ResolutionContext | None = None,
 ) -> DemResolution:
     """The plan's terrain, or an empty resolution when it holds no dem-tiles unit.
 
@@ -462,6 +567,7 @@ def resolve_station_terrain(
         tile_probe=tile_probe,
         on_outage=reporter_for(outages, unit),
         checks=checks,
+        context=context,
     )
 
 

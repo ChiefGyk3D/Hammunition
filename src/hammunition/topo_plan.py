@@ -54,6 +54,7 @@ from .geofabrik import BASE, GeofabrikError, Probe
 from .manifest.schema import DemTilesInstall, DerivedDataInstall, TopoQuadsInstall
 from .plan import Deferral, InstallPlan, PlannedPackage
 from .progress import run_checks
+from .resolution import CatalogueMiss, ResolutionContext
 from .retry import OnOutage, Outages, PublisherUnavailable, hint_for, reporter_for
 from .topo_bound import ALL, CONSENT_BYTES, DEFAULT_RADIUS_KM, TopoBound
 from .ustopo import Quad, QuadIndex, UstopoError, check_quad, load_index
@@ -107,10 +108,13 @@ def region_quads(
     probe: Probe,
     notes: list[str],
     bound: TopoBound = ALL,
+    context: ResolutionContext | None = None,
 ) -> RegionQuads:
     """*region*'s sheets under *bound*: its record when it was selected under
     the same bound and is current, else its outline."""
     token = bound.token
+    if bound.mode == "none" or not bound.wants_region(region):
+        return RegionQuads(region, slug, (), token)
     recorded = read_record(installed / f"{slug}{QUADS}", region, slug)
     listed = index.by_path()
     if (
@@ -121,8 +125,33 @@ def region_quads(
         # The index's rows, not the record's (review M1): a regenerated index
         # carries a re-uploaded object's new size and ETag under the same name.
         return RegionQuads(region, slug, tuple(listed[q.path] for q in recorded.quads), token)
+
+    def derive(text: str) -> RegionQuads:
+        outer, holes = parse_poly(text)
+        return RegionQuads(region, slug, bound.select(index.select(outer, holes)), token)
+
+    def fallback() -> RegionQuads:
+        assert context is not None
+        selected = context.selection("sheet-selection", region, read_record)
+        if (
+            selected is not None
+            and selected.bound in (token, "all")
+            and all(q.path in listed for q in selected.quads)
+        ):
+            return RegionQuads(
+                region, slug, bound.select([listed[q.path] for q in selected.quads]), token
+            )
+        return derive(context.outline(region, probe, base=BASE))
+
+    def online() -> RegionQuads:
+        return derive(probe.text(poly_url(region)))
+
     try:
-        outer, holes = parse_poly(probe.text(poly_url(region)))
+        return (
+            context.choose("inputs", f"sheet-selection/{region}", online, fallback)
+            if context is not None
+            else online()
+        )
     except (GeofabrikError, CopernicusError, OSError):
         if recorded is None:
             raise
@@ -138,7 +167,6 @@ def region_quads(
                 region, slug, bound.select([listed[q.path] for q in recorded.quads]), token
             )
         raise
-    return RegionQuads(region, slug, bound.select(index.select(outer, holes)), token)
 
 
 def resolve_topo(
@@ -151,6 +179,7 @@ def resolve_topo(
     on_outage: OnOutage | None = None,
     checks: PublisherChecks | None = None,
     bound: TopoBound = ALL,
+    context: ResolutionContext | None = None,
 ) -> tuple[TopoResolution, tuple[str, ...]]:
     """*regions* as ``(region, slug)`` pairs resolved to the sheets they
     need under *bound* and how each is fetched, and any notes for the plan.
@@ -181,13 +210,18 @@ def resolve_topo(
                     probe=region_probe,
                     notes=notes,
                     bound=bound,
+                    context=context,
                 )
             )
         except PublisherUnavailable as exc:
             if on_outage is None:
                 refused.append(f"  {region}: its outline could not be read: {exc}")
             else:
+                if context is not None:
+                    raise CatalogueMiss(f"{region}: no complete selection: {exc}") from exc
                 on_outage(f"{region} (its outline)", exc)
+        except CatalogueMiss:
+            raise
         except (GeofabrikError, CopernicusError, OSError) as exc:
             refused.append(f"  {region}: its outline could not be read: {exc}")
     wanted = {q.path: q for entry in entries for q in entry.quads}
@@ -255,6 +289,7 @@ def resolve_station_topo(
     outages: Outages | None = None,
     checks: PublisherChecks | None = None,
     bound: TopoBound | None = ALL,
+    context: ResolutionContext | None = None,
 ) -> tuple[TopoResolution, tuple[str, ...]]:
     """The plan's US Topo sheets, or an empty resolution when it holds no
     ``topo-quads`` unit. A missing or empty index is refused by name. With
@@ -280,6 +315,7 @@ def resolve_station_topo(
         on_outage=reporter_for(outages, unit),
         checks=checks,
         bound=bound,
+        context=context,
     )
 
 
@@ -325,11 +361,14 @@ def region_sheets(
     probe: Probe,
     notes: list[str],
     bound: TopoBound = ALL,
+    context: ResolutionContext | None = None,
 ) -> RegionSheets:
     """*region*'s FSTopo sheets under *bound*: its record when it was selected
     under the same bound and every sheet in it is still indexed (taken at the
     index's vintage), else its outline."""
     token = bound.token
+    if bound.mode == "none" or not bound.wants_region(region):
+        return RegionSheets(region, slug, (), token)
     recorded = read_sheets(installed / f"{slug}{QUADS}", region, slug)
     listed = index.by_secoord()
     if (
@@ -338,8 +377,33 @@ def region_sheets(
         and all(q.secoord in listed for q in recorded.quads)
     ):
         return RegionSheets(region, slug, tuple(listed[q.secoord] for q in recorded.quads), token)
+
+    def derive(text: str) -> RegionSheets:
+        outer, holes = parse_poly(text)
+        return RegionSheets(region, slug, bound.select(index.select(outer, holes)), token)
+
+    def fallback() -> RegionSheets:
+        assert context is not None
+        selected = context.selection("fstopo-selection", region, read_sheets)
+        if (
+            selected is not None
+            and selected.bound in (token, "all")
+            and all(q.secoord in listed for q in selected.quads)
+        ):
+            return RegionSheets(
+                region, slug, bound.select([listed[q.secoord] for q in selected.quads]), token
+            )
+        return derive(context.outline(region, probe, base=BASE))
+
+    def online() -> RegionSheets:
+        return derive(probe.text(poly_url(region)))
+
     try:
-        outer, holes = parse_poly(probe.text(poly_url(region)))
+        return (
+            context.choose("inputs", f"fstopo-selection/{region}", online, fallback)
+            if context is not None
+            else online()
+        )
     except (GeofabrikError, CopernicusError, OSError):
         if recorded is None:
             raise
@@ -354,7 +418,6 @@ def region_sheets(
                 region, slug, bound.select([listed[q.secoord] for q in recorded.quads]), token
             )
         raise
-    return RegionSheets(region, slug, bound.select(index.select(outer, holes)), token)
 
 
 def resolve_fstopo(
@@ -368,6 +431,7 @@ def resolve_fstopo(
     on_outage: OnOutage | None = None,
     checks: PublisherChecks | None = None,
     bound: TopoBound = ALL,
+    context: ResolutionContext | None = None,
 ) -> tuple[FsTopoResolution, tuple[str, ...]]:
     """*regions* resolved to the FSTopo sheets they need; every sheet not
     installed is located through the gateway and sized, and checked against
@@ -394,13 +458,18 @@ def resolve_fstopo(
                     probe=region_probe,
                     notes=notes,
                     bound=bound,
+                    context=context,
                 )
             )
         except PublisherUnavailable as exc:
             if on_outage is None:
                 refused.append(f"  {region}: its outline could not be read: {exc}")
             else:
+                if context is not None:
+                    raise CatalogueMiss(f"{region}: no complete selection: {exc}") from exc
                 on_outage(f"{region} (its outline)", exc)
+        except CatalogueMiss:
+            raise
         except (GeofabrikError, CopernicusError, OSError) as exc:
             refused.append(f"  {region}: its outline could not be read: {exc}")
     wanted = {q.secoord: q for entry in entries for q in entry.quads}
@@ -495,6 +564,7 @@ def resolve_station_fstopo(
     outages: Outages | None = None,
     checks: PublisherChecks | None = None,
     bound: TopoBound | None = ALL,
+    context: ResolutionContext | None = None,
 ) -> tuple[FsTopoResolution, tuple[str, ...]]:
     """The plan's FSTopo sheets, or nothing when it holds no ``usfs-fstopo``
     unit. A missing index or a malformed pins file is refused by name."""
@@ -531,6 +601,7 @@ def resolve_station_fstopo(
         on_outage=reporter_for(outages, unit),
         checks=checks,
         bound=bound,
+        context=context,
     )
 
 

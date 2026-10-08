@@ -76,7 +76,8 @@ from hammunition.backends.comaps_maps import (
     resolve_station_maps,
 )
 from hammunition.backends.data import human_size
-from hammunition.backends.dem import TIF, TILES, TerrainDisclosure, read_record
+from hammunition.backends.dem import TIF, TILES, DemResolution, TerrainDisclosure, read_record
+from hammunition.backends.fstopo import FsTopoResolution
 from hammunition.backends.kiwix import (
     KiwixBooksBackend,
     books_disk_needs,
@@ -96,6 +97,7 @@ from hammunition.backends.regions import (
 )
 from hammunition.backends.source import DEFAULT_PREFIX
 from hammunition.backends.terrain import combined_shortfall
+from hammunition.backends.topo import TopoResolution
 from hammunition.comaps import CdnProbe, ComapsError, ComapsPins, MapFile, resolve_regions
 from hammunition.comaps import load_pins as load_comaps_pins
 from hammunition.consent import (
@@ -5052,6 +5054,29 @@ def cmd_install(args: argparse.Namespace) -> int:
     checks = PublisherChecks.from_log(read_log, recheck=args.recheck, offline=offline)
     terrain_tile_probe = CachingTileProbe(RetryingProbe(S3Probe()), source.fetcher.cache_dir)
     usgs_tile_probe = CachingTileProbe(RetryingProbe(ustopo_probe()), source.fetcher.cache_dir)
+
+    def defer_selection(exc: CatalogueMiss, provider: str) -> None:
+        """A missing input defers the whole unit and dependents through Task 5."""
+        nonlocal plan
+        names = {
+            p.name
+            for p in plan.packages
+            if isinstance(p.block.install, DemTilesInstall | TopoQuadsInstall)
+            and p.block.install.provider == provider
+        }
+        while True:
+            dependents = {p.name for p in plan.packages if names.intersection(p.manifest.depends)}
+            if dependents <= names:
+                break
+            names.update(dependents)
+        deferrals = [catalogue_deferral(p, exc) for p in plan.packages if p.name in names]
+        plan = _without_units(
+            plan,
+            names,
+            [p for p in plan.packages if p.name not in names],
+            [*plan.deferrals, *deferrals],
+        )
+
     try:
         dem_resolution = resolve_station_terrain(
             plan,
@@ -5062,7 +5087,14 @@ def cmd_install(args: argparse.Namespace) -> int:
             tile_probe=terrain_tile_probe,
             outages=outages,
             checks=checks,
+            context=rctx,
         )
+    except CatalogueMiss as exc:
+        try:
+            defer_selection(exc, "copernicus-glo30")
+        except PlanError as error:
+            return plan_refusal(error)
+        dem_resolution = DemResolution()
     except CopernicusError as exc:
         print(f"error: {exc}", file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)
@@ -5101,7 +5133,14 @@ def cmd_install(args: argparse.Namespace) -> int:
             outages=outages,
             checks=checks,
             bound=topo_bound,
+            context=rctx,
         )
+    except CatalogueMiss as exc:
+        try:
+            defer_selection(exc, "usgs-ustopo")
+        except PlanError as error:
+            return plan_refusal(error)
+        topo_resolution, topo_notes = TopoResolution(), ()
     except UstopoError as exc:
         print(f"error: {exc}", file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)
@@ -5124,7 +5163,14 @@ def cmd_install(args: argparse.Namespace) -> int:
             outages=outages,
             checks=checks,
             bound=topo_bound,
+            context=rctx,
         )
+    except CatalogueMiss as exc:
+        try:
+            defer_selection(exc, "usgs-3dep")
+        except PlanError as error:
+            return plan_refusal(error)
+        bare_resolution, bare_notes = DemResolution(), ()
     except CopernicusError as exc:
         print(f"error: {exc}", file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)
@@ -5143,7 +5189,14 @@ def cmd_install(args: argparse.Namespace) -> int:
             outages=outages,
             checks=checks,
             bound=topo_bound,
+            context=rctx,
         )
+    except CatalogueMiss as exc:
+        try:
+            defer_selection(exc, "usfs-fstopo")
+        except PlanError as error:
+            return plan_refusal(error)
+        fstopo_resolution, fstopo_notes = FsTopoResolution(), ()
     except FstopoError as exc:
         print(f"error: {exc}", file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)

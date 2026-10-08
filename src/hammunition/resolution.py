@@ -19,12 +19,15 @@ item becomes, the data preflight) lives in :mod:`hammunition.plan`.
 
 from __future__ import annotations
 
+import hashlib
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from threading import Lock
-from typing import Protocol, TypeVar
+from typing import Protocol, TypeVar, overload
 
-from hammunition.catalogue import CatalogueArtifact, PublisherUnavailable
+from hammunition.catalogue import CatalogueArtifact, CatalogueInput, PublisherUnavailable
 from hammunition.signers import VerifiedCatalogue
 
 __all__ = [
@@ -67,6 +70,10 @@ class ResolutionContext:
     notes: dict[tuple[str, str], str] = field(default_factory=dict)
     _notes_lock: Lock = field(default_factory=Lock, init=False, repr=False)
 
+    _input_cache: dict[tuple[str, str, str], bytes] = field(
+        default_factory=dict, init=False, repr=False
+    )
+
     def entry(self, unit: str, name: str) -> CatalogueArtifact:
         if self.verified is None:
             raise CatalogueMiss(NO_BUNKER)
@@ -82,6 +89,7 @@ class ResolutionContext:
             )
         return row
 
+    @overload
     def require_payload(
         self,
         unit: str,
@@ -90,18 +98,122 @@ class ResolutionContext:
         sha256: str | None = None,
         size: int | None = None,
         publisher_digest: str | None = None,
-    ) -> CatalogueArtifact:
+        input_kind: None = None,
+    ) -> CatalogueArtifact: ...
+
+    @overload
+    def require_payload(
+        self,
+        unit: str,
+        name: str,
+        *,
+        sha256: str | None = None,
+        size: int | None = None,
+        publisher_digest: str | None = None,
+        input_kind: str,
+    ) -> CatalogueInput: ...
+
+    def require_payload(
+        self,
+        unit: str,
+        name: str,
+        *,
+        sha256: str | None = None,
+        size: int | None = None,
+        publisher_digest: str | None = None,
+        input_kind: str | None = None,
+    ) -> CatalogueArtifact | CatalogueInput:
         """The entry, matching the caller's payload pins and publisher metadata."""
-        row = self.entry(unit, name)
+        if input_kind is None:
+            row: CatalogueArtifact | CatalogueInput = self.entry(unit, name)
+        else:
+            if self.verified is None:
+                raise CatalogueMiss(NO_BUNKER)
+            found = self.verified.catalogue.input(input_kind, name)
+            if found is None:
+                raise CatalogueMiss(
+                    f"inputs/{input_kind}/{name}: not on Bunker {self.verified.catalogue.bunker.name}, publisher unreachable"
+                )
+            row = found
         if sha256 is not None and row.sha256 != sha256:
             raise CatalogueMiss(
                 f"{unit}/{name}: Bunker copy does not match the repository sha256 pin"
             )
-        if publisher_digest is not None and row.publisher_digest != publisher_digest:
+        if publisher_digest is not None and (
+            not isinstance(row, CatalogueArtifact) or row.publisher_digest != publisher_digest
+        ):
             raise CatalogueMiss(f"{unit}/{name}: Bunker copy does not match the publisher digest")
         if size is not None and row.size != size:
             raise CatalogueMiss(f"{unit}/{name}: Bunker copy does not match the expected size")
         return row
+
+    def input_bytes(self, kind: str, region: str) -> bytes:
+        """Read and verify a bounded, signed input; cache successes for this run only."""
+        if self.verified is None or self.inputs is None:
+            raise CatalogueMiss("no Bunker input transport; hammunition mirror enrol URL")
+        row = self.require_payload("inputs", region, input_kind=kind)
+        if row.size > 32 * 1024 * 1024:
+            raise CatalogueMiss(f"inputs/{kind}/{region}: larger than the 32 MiB input bound")
+        key = (kind, region, row.sha256)
+        if key in self._input_cache:
+            return self._input_cache[key]
+        try:
+            body = self.inputs.read(row.path, max_bytes=row.size)
+        except OSError as exc:
+            raise CatalogueMiss(f"inputs/{kind}/{region}: {exc}") from exc
+        self.require_payload(
+            "inputs",
+            region,
+            sha256=hashlib.sha256(body).hexdigest(),
+            size=len(body),
+            input_kind=kind,
+        )
+        self._input_cache[key] = body
+        self.note("inputs", f"{kind}/{region}", fallback=not self.offline)
+        return body
+
+    def selection(
+        self, kind: str, region: str, reader: Callable[[Path, str, str], T | None]
+    ) -> T | None:
+        """Decode a verified input using the installed-record reader, without prefix writes."""
+        if self.verified is None or self.verified.catalogue.input(kind, region) is None:
+            return None
+        body = self.input_bytes(kind, region)
+        try:
+            body.decode("utf-8")
+        except UnicodeError as exc:
+            raise CatalogueMiss(f"inputs/{kind}/{region}: not UTF-8") from exc
+        with tempfile.TemporaryDirectory(prefix="hammunition-input-") as directory:
+            path = Path(directory) / "selection"
+            path.write_bytes(body)
+            result = reader(path, region, region.replace("/", "-"))
+        if result is None:
+            raise CatalogueMiss(f"inputs/{kind}/{region}: invalid selection record")
+        return result
+
+    def outline(self, region: str, probe: TextProbe, *, base: str) -> str:
+        """Use the publisher, or a verified and geometrically valid recorded outline."""
+
+        def recorded() -> str:
+            from hammunition.copernicus import CopernicusError, parse_poly
+
+            try:
+                text = self.input_bytes("region-outline", region).decode("utf-8")
+                parse_poly(text)
+            except UnicodeError as exc:
+                raise CatalogueMiss(f"inputs/region-outline/{region}: not UTF-8") from exc
+            except CopernicusError as exc:
+                raise CatalogueMiss(
+                    f"inputs/region-outline/{region}: invalid outline: {exc}"
+                ) from exc
+            return text
+
+        return self.choose(
+            "inputs",
+            f"region-outline/{region}",
+            lambda: probe.text(f"{base}/{region}.poly"),
+            recorded,
+        )
 
     def unverified(self, unit: str, name: str) -> CatalogueArtifact:
         """An entry whose publisher offers no digest, which the Bunker labels so."""
@@ -146,7 +258,16 @@ class ResolutionContext:
                 try:
                     result = recorded()
                 except CatalogueMiss:
-                    if self.verified.catalogue.artifact(unit, name, self.enrolment_id) is None:
+                    if unit == "inputs":
+                        kind, separator, region = name.partition("/")
+                        missing = (
+                            not separator or self.verified.catalogue.input(kind, region) is None
+                        )
+                    else:
+                        missing = (
+                            self.verified.catalogue.artifact(unit, name, self.enrolment_id) is None
+                        )
+                    if missing:
                         raise outage from None
                     raise
                 self.note(unit, name, fallback=True)

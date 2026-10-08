@@ -112,3 +112,53 @@ are parsed and retained; lookup selects `all` or matching `owner:<id>` entries.
 Personal mode ignores this sharing filter. The Bunker answers 404 for another
 owner's bytes. This is a sharing filter, not access control: the header is sent
 in clear over plain HTTP.
+
+## Selection input codecs
+
+Plan B exports selection inputs with the engine's existing record writers;
+Plan A reads them with the matching readers. The binding version 3 JSON
+contract is unchanged. An input is identified by `kind` and `region`; its
+signed `name` and `path` locate the payload. Consumers do not infer its kind
+from a filename extension.
+
+| Contract kind | Payload name | Writer and reader APIs |
+| --- | --- | --- |
+| `region-outline` | `<region>.poly` | Geofabrik Osmosis `.poly` text; `copernicus.parse_poly` |
+| `tile-selection` | `<region>.tiles` | `backends.dem.render_record(RegionTiles)` / `read_record` |
+| `dem3dep-selection` | `<region>.tiles` | `backends.dem.render_record(RegionTiles)` / `read_record` |
+| `sheet-selection` | `<region>.quads` | `backends.topo.render_record(RegionQuads)` / `read_record` |
+| `fstopo-selection` | `<region>.quads` | `backends.fstopo.render_record(RegionSheets)` / `read_record` |
+
+Each reader takes `(path: Path, region: str, slug: str)`; the slug is the
+region with `/` replaced by `-`. Tile records carry an unpublished-square
+count, an optional bound line, and tile names. Sheet records carry a row
+count, an optional bound line, and complete index rows. A header-only record
+is a valid empty selection. Export the writer's exact UTF-8 bytes, including
+its headers, rather than building another codec.
+
+`ResolutionContext.input_bytes` bounds each input to 32 MiB and checks its
+bytes against the signed SHA-256 and size through `require_payload` before
+caching a successful read for that run. `selection` decodes through the
+reader in a temporary directory; planning never writes installed records.
+Invalid UTF-8, malformed records, and hash or size mismatches refuse by name.
+`outline` validates the recorded polygon with `parse_poly`.
+
+A current installed selection takes precedence. Online, publisher outlines
+are tried through the shared `MemoProbe`; after retries exhaust, or offline,
+a compatible Bunker selection answers. Otherwise the verified outline is
+used to recompute against the carried lists. A bounded subset cannot supply
+an `all` request. An `all` selection can be narrowed to the requested bound;
+`none` bypasses selection inputs. Selected sheets use the current carried
+index rows, sizes and ETags, never those of a Bunker record. A stale selected
+sheet requires recomputation from an outline. Neither a missing selection
+nor a missing outline permits substituting a rectangular bounding box.
+
+These inputs supply selection only. The terrain and topographic sheet
+payload routes remain guarded under `--offline` until their resolver tasks
+land; selection records do not make a payload downloadable offline.
+
+If neither route supplies a complete selection, a profile member and its
+dependents are deferred as whole units through `catalogue_deferral`. An
+explicit request refuses by name. No partial selection is treated as a
+complete region, and deferred units have no installation steps or owned
+configuration changes.
