@@ -477,7 +477,9 @@ def real_tile() -> TileRow:
     return row
 
 
-def enrol(tmp_path: Path, rows: list[dict[str, object]]) -> None:
+def enrol(
+    tmp_path: Path, rows: list[dict[str, object]], station: dict[str, Any] | None = None
+) -> None:
     q, t = real_quad(), real_tile()
     selections = {
         "sheet-selection": (f"{REGION}.quads", render_quads(RegionQuads(REGION, SLUG, (q,), "all"))),
@@ -497,7 +499,8 @@ def enrol(tmp_path: Path, rows: list[dict[str, object]]) -> None:
         )  # fmt: skip
     export, _ = enrol_file_bunker(
         tmp_path, rows, inputs=inputs,
-        station={"map_regions": [REGION], "topo_all": True, "dem_source": "3dep"},
+        station=station
+        or {"map_regions": [REGION], "topo_all": True, "dem_source": "3dep"},
     )  # fmt: skip
     for relative, body in bodies.items():
         target = export / relative
@@ -597,3 +600,140 @@ def test_cli_offline_plans_from_the_catalogue_with_zero_sockets(
         "offline; resolved from Bunker bunker" in n
         for n in parse_one(out)["install"]["region_notes"]
     )
+
+
+@pytest.mark.parametrize("unit", UNITS)
+def test_cli_a_missing_grid_square_still_defers_by_name_offline(
+    machine: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    unit: str,
+) -> None:
+    """D-035: with no grid square (and no topo_all/topo_regions) the radius
+    cannot be drawn; nothing is invented, the unit defers by name, and the
+    Bunker's records are not consulted to choose for it."""
+    enrol(tmp_path, real_rows(), {"map_regions": [REGION], "dem_source": "3dep"})
+    asked = cli_setup(machine, monkeypatch)
+    _rc, out, err = run(capsys, CATALOG, "install", "--offline", "--dry-run", "--json", unit)
+    assert asked == []
+    text = out + err
+    assert "no grid square is set" in text, text
+    assert "resolved from Bunker" not in text
+
+
+# -- narrowing under a new bound uses the current carried rows -------------------------
+
+NEAR = (38.55, -75.45)  # inside the near sheet and tile; the far ones are tens of km away
+CIRCLE = TopoBound("radius", 10, NEAR)
+MONACO = "europe/monaco"
+MONACO_SLUG = "europe-monaco"
+
+
+def outline_for(west: float, south: float, east: float, north: float) -> bytes:
+    ring = f" {west} {south}\n {east} {south}\n {east} {north}\n {west} {north}\n"
+    return f"test\n1\n{ring}END\nEND\n".encode()
+
+
+def bunker_inputs(
+    tmp_path: Path, bodies: dict[str, bytes], rows: list[dict[str, object]]
+) -> ResolutionContext:
+    """A verified context holding artifact *rows* and signed inputs read through
+    a file transport (monaco is the region the inputs are filed under; the
+    resolvers take any region)."""
+    from hammunition.mirror_transport import CatalogueInputs, MirrorTransport
+
+    export = tmp_path / "export"
+    entries: list[dict[str, object]] = []
+    for kind, body in bodies.items():
+        extension = "poly" if kind == "region-outline" else "tiles" if "3dep" in kind else "quads"
+        name = f"{MONACO}.{extension}"
+        relative = f"inputs/{kind}/{name}"
+        entries.append(
+            {
+                "kind": kind, "region": MONACO, "name": name, "path": relative,
+                "sha256": hashlib.sha256(body).hexdigest(), "size": len(body),
+                "fetched": "2026-10-06T03:00:00Z",
+            }
+        )  # fmt: skip
+        target = export / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(body)
+    context = make_context(tmp_path / "keys", rows, inputs=entries)
+    context.inputs = CatalogueInputs(MirrorTransport(export.as_uri()))
+    return context
+
+
+def sheet_pair() -> tuple[Quad, Quad, Quad]:
+    near = quad(path="DE/Near_20260101")
+    stale = quad(path="DE/Near_20260101", etag="a" * 32)  # what the old record carried
+    far = quad(path="DE/Far_20260101", west=-75.125, east=-75.0)
+    return near, stale, far
+
+
+@pytest.mark.parametrize("via", ["selection", "outline"])
+def test_a_narrower_bound_picks_current_index_rows_and_a_verified_input(
+    tmp_path: Path, via: str
+) -> None:
+    near, stale, far = sheet_pair()
+    index = parse_index(
+        "\n".join(
+            f"{q.south} {q.west} {q.north} {q.east} {q.size} {q.etag} {q.path}" for q in (near, far)
+        )
+    )
+    if via == "selection":
+        bodies = {
+            "sheet-selection": render_quads(
+                RegionQuads(MONACO, MONACO_SLUG, (stale, far), "all")
+            ).encode()
+        }
+    else:
+        bodies = {"region-outline": outline_for(-75.49, 38.51, -75.01, 38.61)}
+    # Only the current index row is on the Bunker with its current ETag: a
+    # stale record row would not agree with it and would be refused.
+    context = bunker_inputs(tmp_path, bodies, [quad_row(near)])
+    probe = TileProbe({})
+    got, _ = resolve_topo(
+        [(MONACO, MONACO_SLUG)],
+        installed=tmp_path / "installed",
+        index=index,
+        region_probe=RegionProbe({}),
+        quad_probe=probe,
+        bound=CIRCLE,
+        context=context,
+        unit=TOPO,
+    )
+    assert [(q.path, q.etag) for q in got.fetch] == [(near.path, ETAG)]
+    assert got.regions[0].bound == CIRCLE.token
+    assert probe.asked == []
+    assert (
+        "inputs",
+        f"{'sheet-selection' if via == 'selection' else 'region-outline'}/{MONACO}",
+    ) in context.notes
+
+
+@pytest.mark.parametrize("via", ["selection", "outline"])
+def test_a_narrower_bound_picks_3dep_tiles_from_a_verified_input(tmp_path: Path, via: str) -> None:
+    near, far = tile(), tile(name="USGS_13_n42w076", etag="c" * 32 + "-2")
+    between = [tile(name=f"USGS_13_n{n}w076") for n in (40, 41)]
+    tiles = {t.name: t for t in (near, *between, far)}
+    if via == "selection":
+        body = render_record(RegionTiles(MONACO, MONACO_SLUG, (near.name, far.name), 0)).encode()
+        bodies = {"dem3dep-selection": body}
+    else:
+        bodies = {"region-outline": outline_for(-75.9, 38.1, -75.1, 41.9)}
+    context = bunker_inputs(tmp_path, bodies, [tile_row(near)])
+    probe = TileProbe({})
+    got = resolve_bare_earth(
+        [(MONACO, MONACO_SLUG)],
+        installed=tmp_path / "installed",
+        tiles=tiles,
+        region_probe=RegionProbe({}),
+        tile_probe=probe,
+        bound=CIRCLE,
+        context=context,
+        unit=DEM,
+    )
+    assert [(t.name, t.etag) for t in got.fetch] == [(near.name, MULTI)]
+    assert got.regions[0].bound == CIRCLE.token
+    assert probe.asked == []
