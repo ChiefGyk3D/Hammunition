@@ -1133,10 +1133,9 @@ def _apt_lists_note(apt: AptBackend) -> str:
 #: the Bunker route for each still to be built (#381). An offline run refuses
 #: them by name rather than letting a probe or a git clone reach a publisher.
 _OFFLINE_UNROUTED: tuple[tuple[type, str, bool, str | None], ...] = (
-    # Copernicus terrain (Task 8), USGS 3DEP bare earth and US Topo (Task 9) and
-    # the Forest Service sheets (Task 10) are routed; what is left asks a publisher.
-    (KiwixBooksInstall, "reference books", True, None),
-    (MwmRegionsInstall, "CoMaps maps", True, None),
+    # Copernicus terrain (Task 8), USGS 3DEP bare earth and US Topo (Task 9), the
+    # Forest Service sheets (Task 10) and Kiwix books and CoMaps maps (Task 11)
+    # are routed; what is left asks a publisher.
     (GitInstall, "git sources", False, None),
 )
 
@@ -5063,13 +5062,20 @@ def cmd_install(args: argparse.Namespace) -> int:
 
     def defer_selection(exc: CatalogueMiss, provider: str) -> None:
         """A missing input defers the whole unit and dependents through Task 5."""
+        defer_units(
+            exc,
+            {
+                p.name
+                for p in plan.packages
+                if isinstance(p.block.install, DemTilesInstall | TopoQuadsInstall)
+                and p.block.install.provider == provider
+            },
+        )
+
+    def defer_units(exc: CatalogueMiss, names: set[str]) -> None:
+        """Defer these data units and whatever depends on them (never a reader,
+        which does not name its data)."""
         nonlocal plan
-        names = {
-            p.name
-            for p in plan.packages
-            if isinstance(p.block.install, DemTilesInstall | TopoQuadsInstall)
-            and p.block.install.provider == provider
-        }
         while True:
             dependents = {p.name for p in plan.packages if names.intersection(p.manifest.depends)}
             if dependents <= names:
@@ -5223,7 +5229,15 @@ def cmd_install(args: argparse.Namespace) -> int:
                 head=retrying_head(KiwixProbe().head),
                 on_outage=reporter_for(outages, book_units[0]),
                 checks=checks,
+                context=rctx,
+                unit=book_units[0].name,
             )
+        except CatalogueMiss as exc:
+            try:
+                defer_units(exc, {p.name for p in book_units})
+            except PlanError as error:
+                return plan_refusal(error)
+            book_files = []
         except KiwixError as exc:
             print(f"error: {exc}", file=sys.stderr)
             print("\nNothing was changed.", file=sys.stderr)
@@ -5237,6 +5251,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         keep_unlisted=any(o.unit == book_units[0].name for o in outages.items)
         if book_units
         else False,
+        provenance=rctx.notes,
     )
     region_notes = list(resolution.notes)
     region_notes.extend(topo_notes)
@@ -5281,7 +5296,15 @@ def cmd_install(args: argparse.Namespace) -> int:
                 head=retrying_head(CdnProbe().head),
                 on_outage=reporter_for(outages, mwm_units[0]),
                 checks=checks,
+                context=rctx,
+                unit=mwm_units[0].name,
             )
+        except CatalogueMiss as exc:
+            try:
+                defer_units(exc, {p.name for p in mwm_units})
+            except PlanError as error:
+                return plan_refusal(error)
+            mwm_files, mwm_notes = [], []
         except ComapsError as exc:
             print(f"error: {exc}", file=sys.stderr)
             print("\nNothing was changed.", file=sys.stderr)
@@ -5299,6 +5322,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         keep_unlisted=any(o.unit == mwm_units[0].name for o in outages.items)
         if mwm_units
         else False,
+        provenance=rctx.notes,
     )
     # #200: what a publisher did not answer for becomes a deferral by name in the
     # plan (printed under "Will NOT happen", written to the transaction log, shown

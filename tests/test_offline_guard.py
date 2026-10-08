@@ -63,17 +63,6 @@ cli = importlib.import_module("hammunition.cli.main")
 REPO = Path(__file__).resolve().parents[1]
 REAL_CATALOG = REPO / "catalog"
 
-#: unit, and the words its refusal must carry
-PLAN_TIME_KINDS = [
-    ("kiwix-library", "reference books"),
-    ("comaps-maps", "CoMaps maps"),
-]
-STATION = {
-    "map_regions": ["north-america/us/delaware"],
-    "grid_square": "FN31pr",
-    "reference_books": ["wikipedia_en_top"],
-}
-
 
 class Forbidden:
     """Stands in for a publisher probe: constructing or calling one is the failure."""
@@ -111,25 +100,6 @@ def forbid_the_network(monkeypatch: pytest.MonkeyPatch, *, probes: bool = True) 
 # -- the interim guard ----------------------------------------------------------
 
 
-@pytest.mark.parametrize(("unit", "what"), PLAN_TIME_KINDS, ids=[u for u, _ in PLAN_TIME_KINDS])
-def test_a_plan_time_resolver_kind_is_refused_by_name_before_any_probe(
-    machine: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-    unit: str,
-    what: str,
-) -> None:
-    apt_state(monkeypatch, installed="1.0")
-    enrol_file_bunker(tmp_path, [], station=STATION)
-    attempts = forbid_the_network(monkeypatch)
-    rc, _out, err = run(capsys, REAL_CATALOG, "install", "--offline", "--dry-run", unit)
-    assert rc == cli.EXIT_UNPLANNABLE, err
-    assert f"{unit}: offline: resolving its {what} asks the publisher" in err
-    assert "not built yet" in err and "(#381)" in err
-    assert attempts == []
-
-
 def test_a_git_unit_is_refused_unless_it_is_already_built(
     machine: Path,
     tmp_path: Path,
@@ -151,8 +121,13 @@ def test_a_git_unit_is_refused_unless_it_is_already_built(
     assert cli._offline_unrouted(plan, plan_time=True) == [], "git is not a plan-time kind"
 
 
-def test_terrain_and_both_topo_series_are_routed() -> None:
-    from hammunition.manifest.schema import DemTilesInstall, TopoQuadsInstall
+def test_terrain_topo_books_and_maps_are_routed() -> None:
+    from hammunition.manifest.schema import (
+        DemTilesInstall,
+        KiwixBooksInstall,
+        MwmRegionsInstall,
+        TopoQuadsInstall,
+    )
 
     routed = InstallPlan(
         TARGET,
@@ -161,6 +136,8 @@ def test_terrain_and_both_topo_series_are_routed() -> None:
             planned_from("dem-3dep", DemTilesInstall),
             planned_from("usgs-ustopo", TopoQuadsInstall),
             planned_from("usfs-fstopo", TopoQuadsInstall),
+            planned_from("kiwix-library", KiwixBooksInstall),
+            planned_from("comaps-maps", MwmRegionsInstall),
         ),
     )
     assert cli._offline_unrouted(routed, plan_time=True) == []
