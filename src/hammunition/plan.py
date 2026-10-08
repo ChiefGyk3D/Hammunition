@@ -1591,12 +1591,11 @@ def payload_misses(
     The same check each backend makes before returning steps, asked here so a
     missing payload defers the whole unit (or refuses a typed one) through
     :func:`catalogue_deferral` instead of failing while steps are built. A unit
-    already built at its pin, or a .deb already installed, is not asked about."""
+    already built at its pin, or a .deb already installed, is not asked about.
+    Online (``preflight_payloads`` asks nothing) the result is empty."""
     from hammunition.payloads import preflight_payloads
 
     misses: dict[str, CatalogueMiss] = {}
-    if not context.offline:
-        return misses
     for unit in plan.packages:
         block = unit.block.install
         pin = _routed_payload(block)

@@ -1299,11 +1299,15 @@ def _deb_unmet(apt: AptBackend, fetcher: Fetcher, unit: PlannedPackage) -> list[
     return _deb_unmet_file(apt, fetcher.path_for(block.artifact))
 
 
-def _provenance_notes(context: ResolutionContext) -> list[str]:
-    """One line per distinct provenance, naming the items the catalogue answered."""
+def _provenance_notes(
+    context: ResolutionContext, already: frozenset[tuple[str, str]] = frozenset()
+) -> list[str]:
+    """One line per distinct provenance, naming the items the catalogue answered
+    (those not in *already*, which an earlier pass printed)."""
     by_text: dict[str, list[str]] = {}
     for (unit, name), text in sorted(context.notes.items()):
-        by_text.setdefault(text, []).append(f"{unit}/{name}")
+        if (unit, name) not in already:
+            by_text.setdefault(text, []).append(f"{unit}/{name}")
     return [f"{', '.join(items)}: {text}" for text, items in by_text.items()]
 
 
@@ -5591,6 +5595,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         # Source, binary, venv and Node payloads come from the Bunker: one the
         # catalogue cannot answer for (nor the cache) defers its whole unit, or
         # refuses a unit the operator typed, before any step is built.
+        noted = frozenset(rctx.notes)
         for name, miss in payload_misses(
             plan, rctx, built, cached=payload_cached(source.fetcher)
         ).items():
@@ -5598,6 +5603,9 @@ def cmd_install(args: argparse.Namespace) -> int:
                 defer_units(miss, {name})
             except PlanError as error:
                 return plan_refusal(error)
+        # Notes the pass earned for payloads that stay in the plan; a deferred
+        # unit noted nothing (the pass notes only a unit it can fully answer).
+        region_notes.extend(_provenance_notes(rctx, noted))
         unreachable = [
             *offline_network_blockers(plan, built),
             *_offline_unrouted(plan, built, plan_time=False),

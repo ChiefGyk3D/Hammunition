@@ -45,6 +45,7 @@ from hammunition.plan import (
     parse_deb_depends,
     preflight_data,
 )
+from hammunition.resolution import ResolutionContext
 from hammunition.signers import load_mirror
 from hammunition.userservice import PlannedUserService
 from json_support import FIXTURE_CATALOG, parse_one, validate
@@ -377,6 +378,85 @@ def test_a_vendor_deb_offline_needs_its_bytes_and_its_installed_dependencies(
             assert "apt, which would fetch what it depends on" in err
         if "libfoo" in installed and versions.get("libfoo") != "1.0":
             assert "libfoo (>= 1.2)" not in err
+
+
+SRC_PIN = RemoteArtifact(
+    url="https://example.invalid/fixture-src-1.0.tar.gz",
+    sha256=hashlib.sha256(SRC_BODY).hexdigest(),
+)
+DEB_PIN = RemoteArtifact(url="https://example.invalid/fixture-deb_1.0_amd64.deb", sha256=SHA_DEB)
+PAYLOAD_PROFILE = """\
+name: fixture-payloads
+summary: A source payload and an apt unit
+packages: [fixture-src, fixture-apt]
+documentation:
+  what_it_installs: A source unit and an apt unit, as the payload tests need.
+  why_together: They stand in for a profile with a payload member.
+  deliberately_excludes: Everything real, because it is a test fixture.
+  manual_configuration: Nothing, because it is a test fixture.
+"""
+
+
+def test_a_source_unit_the_bunker_holds_proceeds_offline_without_a_cache(
+    payload_catalog: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from hammunition.payloads import payload_name
+
+    apt_state(monkeypatch, installed="1.0")
+    enrol_file_bunker(tmp_path, [artifact("fixture-src", payload_name(SRC_PIN), SRC_BODY)])
+    rc, out, err = run(capsys, payload_catalog, "install", "--offline", "--dry-run", "fixture-src")
+    assert rc == 0, err
+    assert "Bunker only, offline" in out
+    assert f"fixture-src/{payload_name(SRC_PIN)}: offline; resolved from Bunker bunker" in out, out
+
+
+def test_a_profile_member_the_bunker_lacks_is_deferred_whole_not_refused(
+    payload_catalog: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    (payload_catalog / "profiles" / "fixture-payloads.yaml").write_text(PAYLOAD_PROFILE)
+    apt_state(monkeypatch, installed="1.0")
+    enrol_file_bunker(tmp_path, [])
+    rc, out, err = run(
+        capsys, payload_catalog, "install", "--offline", "--dry-run", "fixture-payloads"
+    )
+    assert rc == 0, err
+    assert "will not install this unit this run" in out + err and "fixture-src" in out + err
+    assert "not on Bunker" in out + err
+    assert "Unpack the fixture-src source" not in out
+
+
+def test_an_uncached_deb_the_bunker_holds_gets_its_dependency_check_after_the_fetch(
+    payload_catalog: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from hammunition.payloads import payload_name
+
+    only_installed(monkeypatch)
+    enrol_file_bunker(tmp_path, [artifact("fixture-deb", payload_name(DEB_PIN), DEB_BODY)])
+    rc, out, err = run(capsys, payload_catalog, "install", "--offline", "--dry-run", "fixture-deb")
+    assert rc == 0, err  # its bytes are not local to read: the install checks after the fetch
+    assert "Check that fixture-deb's dependencies are installed" in out
+
+
+def test_a_shared_catalogue_row_is_signed_for_its_owner_only() -> None:
+    import tempfile
+
+    row = artifact("u", "n", b"bytes", share="owner:abc")
+    base = Path(tempfile.mkdtemp(prefix="signed-"))
+    other = make_context(base / "a", [row], mode="group", enrolment_id="zzz")
+    mine = make_context(base / "b", [row], mode="group", enrolment_id="abc")
+    assert other.signed_sha256("u", "n") is None
+    assert mine.signed_sha256("u", "n") == hashlib.sha256(b"bytes").hexdigest()
+    assert mine.signed_sha256("u", "missing") is None
+    assert ResolutionContext().signed_sha256("u", "n") is None
 
 
 def test_an_installed_deb_unit_needs_no_dependency_check(machine: Path) -> None:
