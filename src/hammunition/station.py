@@ -206,14 +206,20 @@ def _check_mirror(url: str) -> str:
     value = url.strip()
     shown = redact_url_text(value)
     problem = None
+    parts: urllib.parse.SplitResult | None = None
     try:
         parts = urllib.parse.urlsplit(value)
-        parts.port  # noqa: B018 - read for its ValueError on a bad port
-    except ValueError as exc:
+        _ = parts.port  # read for its ValueError on a bad port
+    except ValueError:
+        # urlsplit's own message can quote the whole authority, user and password
+        # included, so it is neither shown nor kept as a cause or context: the
+        # error is raised below, outside this handler.
+        parts = None
+    if parts is None:
         raise StationError(
-            f"mirror {shown!r} is not usable: {exc}. Expected a LAN address such as "
-            f"http://bunker.lan:8080/ (D-070)."
-        ) from exc
+            f"mirror {shown!r} is not usable: it is not a valid URL (or its port is not a "
+            f"number). Expected a LAN address such as http://bunker.lan:8080/ (D-070)."
+        )
     if parts.scheme not in MIRROR_SCHEMES:
         problem = "it must start with http://, https:// or file://"
     elif parts.scheme == "file":

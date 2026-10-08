@@ -545,36 +545,51 @@ class Fetcher:
                 )
                 verify(sha, size, got, where)
             except BaseException as exc:
-                self._discard(temporary)
-                # Any Exception from the mirror is a mirror failure: a
-                # truncated chunked body or a bad status line is an
-                # http.client.HTTPException, not an OSError, and must hand
-                # over to the publisher rather than abort the install. An
-                # interrupt (not an Exception) still stops the run.
-                if source == "mirror" and isinstance(exc, Exception):
+                cleanup_failure = self._try_discard(temporary)
+                if not isinstance(exc, Exception):
+                    raise  # an interrupt stops the run, whatever else happened
+                if cleanup_failure is not None:
+                    # The temporary could not be removed, so nothing else can be
+                    # tried under its name. Only a sanitised message is raised.
+                    failure = (
+                        BackendError(
+                            redact_url_text(
+                                f"{where}: {exc}\n(removing the download temporary "
+                                f"{temporary} also failed: {cleanup_failure})"
+                            )
+                        ),
+                        exc,
+                    )
+                elif source == "mirror":
+                    # Any Exception from the mirror is a mirror failure: a
+                    # truncated chunked body or a bad status line is an
+                    # http.client.HTTPException, not an OSError, and must hand
+                    # over to the publisher rather than abort the install.
                     passed_over = redact_url_text(f"{where}: {exc}")
                     if isinstance(exc, TransportUnreachable):
                         self._mirror_down = redact_url_text(
                             f"the mirror {self.mirror} did not answer earlier in this run ({exc})"
                         )
                     continue
-                if passed_over is None or not isinstance(exc, Exception):
+                elif passed_over is None:
                     raise
-                # Whatever the publisher raised (an OSError, a short read, a
-                # timeout), the mirror's reason travels with it. The original
-                # stays as the cause unless it (or its chain) carries a credential.
-                note = f"(The LAN mirror was tried first and passed over: {passed_over})"
-                if isinstance(exc, BackendError):
-                    failure = (type(exc)(redact_url_text(f"{exc}\n{note}")), exc)
                 else:
-                    failure = (
-                        BackendError(
-                            redact_url_text(
-                                f"{where} could not be fetched: {type(exc).__name__}: {exc}\n{note}"
-                            )
-                        ),
-                        exc,
-                    )
+                    # Whatever the publisher raised (an OSError, a short read, a
+                    # timeout), the mirror's reason travels with it. The original
+                    # stays as the cause unless it (or its chain) carries a credential.
+                    note = f"(The LAN mirror was tried first and passed over: {passed_over})"
+                    if isinstance(exc, BackendError):
+                        failure = (type(exc)(redact_url_text(f"{exc}\n{note}")), exc)
+                    else:
+                        failure = (
+                            BackendError(
+                                redact_url_text(
+                                    f"{where} could not be fetched: "
+                                    f"{type(exc).__name__}: {exc}\n{note}"
+                                )
+                            ),
+                            exc,
+                        )
             if failure is not None:
                 # Raised outside the handler so the new error has no implicit context.
                 error, cause = failure
@@ -603,6 +618,14 @@ class Fetcher:
                 os.unlink(temporary)
         except FileNotFoundError:
             pass
+
+    def _try_discard(self, temporary: Path) -> Exception | None:
+        """:meth:`_discard`, returning the error instead of raising it."""
+        try:
+            self._discard(temporary)
+        except Exception as exc:
+            return exc
+        return None
 
     def _publish(self, temporary: Path, final: Path) -> None:
         """Move our verified temporary over *final*; nothing is left behind if
@@ -657,20 +680,23 @@ class Fetcher:
         """
         final = self.path_for(artifact)
 
-        if final.exists():
-            actual = _digest_file(final)
-            if actual == artifact.sha256:
-                return FetchResult(
-                    path=final,
-                    sha256=actual,
-                    from_cache=True,
-                    size=final.stat().st_size,
-                    source="cache",
-                )
-            # Content-addressed, so this cannot be a stale version: it is a
-            # corrupted or tampered cache entry. Drop it and fetch again rather
-            # than failing -- and never serve it.
-            final.unlink()
+        make_dir(self.cache_dir)
+
+        def cached_ok(sha: str, _size: int, _other: str | None, _copy: Path) -> None:
+            if sha != artifact.sha256:
+                raise VerificationError(f"{final}: its sha256 is not the manifest's")
+
+        # Content-addressed, so a cached file that does not match is a corrupted
+        # or tampered entry, not a stale version: dropped, fetched again, never served.
+        hit = self._cache_hit(
+            final,
+            expected_size=None,
+            limit=max_bytes if max_bytes is not None else self.max_bytes,
+            extra=None,
+            verify=cached_ok,
+        )
+        if hit is not None:
+            return hit
 
         make_dir(self.cache_dir)
         # Same directory as the destination so the final move is a rename
@@ -716,23 +742,19 @@ class Fetcher:
         make_dir(self.cache_dir)
         final = self.md5_path_for(url, md5)
 
-        if final.exists() and final.stat().st_size == expected_size:
-            digest = hashlib.md5(usedforsecurity=False)
-            with final.open("rb") as handle:
-                while chunk := handle.read(_CHUNK):
-                    digest.update(chunk)
-            if digest.hexdigest() == md5:
-                return FetchResult(
-                    path=final,
-                    sha256=_digest_file(final),
-                    from_cache=True,
-                    size=expected_size,
-                    source="cache",
-                )
-            # Same reasoning as fetch(): re-verified every time, never trusted
-            # for having matched once. A mismatch here is corruption, not a
-            # stale version -- there is only one URL/MD5 pair per cache name.
-            final.unlink()
+        def cached_ok(_sha: str, _size: int, got: str | None, _copy: Path) -> None:
+            if got != md5:
+                raise VerificationError(f"{final}: its md5 is not the publisher's")
+
+        hit = self._cache_hit(
+            final,
+            expected_size=expected_size,
+            limit=expected_size + 1024 * 1024,
+            extra="md5",
+            verify=cached_ok,
+        )
+        if hit is not None:
+            return hit
 
         temporary = self._temporary_for(final)
 
@@ -785,22 +807,20 @@ class Fetcher:
         """
         make_dir(self.cache_dir)
         final = self.sha1_path_for(url, sha1)
-        if final.exists() and final.stat().st_size == expected_size:
-            # Semgrep: SHA-1 is the digest CoMaps' own index publishes; the sha256 pins stay the integrity check.
-            # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
-            digest = hashlib.sha1(usedforsecurity=False)
-            with final.open("rb") as handle:
-                while chunk := handle.read(_CHUNK):
-                    digest.update(chunk)
-            if digest.hexdigest() == sha1:
-                return FetchResult(
-                    path=final,
-                    sha256=_digest_file(final),
-                    from_cache=True,
-                    size=expected_size,
-                    source="cache",
-                )
-            final.unlink()
+
+        def cached_ok(_sha: str, _size: int, got: str | None, _copy: Path) -> None:
+            if got != sha1:
+                raise VerificationError(f"{final}: its SHA-1 is not the publisher index's")
+
+        hit = self._cache_hit(
+            final,
+            expected_size=expected_size,
+            limit=expected_size + 1024 * 1024,
+            extra="sha1",
+            verify=cached_ok,
+        )
+        if hit is not None:
+            return hit
 
         temporary = self._temporary_for(final)
 
@@ -857,9 +877,20 @@ class Fetcher:
         """
         make_dir(self.cache_dir)
         final = self.etag_path_for(url, etag)
-        cached = self._verified_cached_etag(final, etag, expected_size)
-        if cached is not None:
-            return cached
+
+        def cached_ok(_sha: str, _size: int, _other: str | None, copy: Path) -> None:
+            if not etag_matches(copy, etag):
+                raise VerificationError(f"{final}: does not reproduce the ETag")
+
+        hit = self._cache_hit(
+            final,
+            expected_size=expected_size,
+            limit=expected_size + 1024 * 1024,
+            extra=None,
+            verify=cached_ok,
+        )
+        if hit is not None:
+            return hit
 
         temporary = self._temporary_for(final)
 
@@ -895,19 +926,30 @@ class Fetcher:
             mirror_failure=done.mirror_failure,
         )
 
-    def _verified_cached_etag(
-        self, final: Path, etag: str, expected_size: int
+    def _cache_hit(
+        self,
+        final: Path,
+        *,
+        expected_size: int | None,
+        limit: int,
+        extra: str | None,
+        verify: Callable[[str, int, str | None, Path], None],
     ) -> FetchResult | None:
-        """The cached copy at *final* when it passes the size and ETag checks,
-        else None with the entry removed (a failed check never leaves a final
-        file for a failed recovery to leave behind).
+        """The cached copy at *final* when it passes its route's checks, else
+        None with the entry removed (a failed check never leaves a final file
+        for a failed recovery to leave behind). The one place any route reuses
+        a cached file.
 
         Copy-then-verify: *final* is opened without following a symlink and
-        without blocking, must be a regular file of the expected size, and at
-        most that many bytes plus one are copied into a private temporary this
-        fetcher creates. The copy is what is checked, and it is then moved over
-        *final*, so the path, the bytes and the digest returned are one inode of
-        our own that nothing done to the original path afterwards can change.
+        without blocking, must be a regular file (of *expected_size* when the
+        route knows it, never over *limit*), and at most its size plus one byte
+        is copied into a private temporary this fetcher creates. The sha256 of
+        the result and the route's *extra* digest (``md5``/``sha1``) are taken
+        from that copy as it is written, *verify* ``(sha256, size, extra,
+        copy)`` raises if the copy fails the route's check, and only then is
+        the copy moved over *final*. The path, bytes and digests returned are
+        one inode of our own that nothing done to the original path afterwards
+        can change.
         """
         flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
         try:
@@ -921,25 +963,33 @@ class Fetcher:
         try:
             with os.fdopen(fd, "rb") as source:
                 status = os.fstat(source.fileno())
-                if not stat.S_ISREG(status.st_mode) or status.st_size != expected_size:
-                    raise VerificationError(f"{final}: not a regular file of {expected_size} bytes")
+                size = status.st_size
+                if (
+                    not stat.S_ISREG(status.st_mode)
+                    or size > limit
+                    or (expected_size is not None and size != expected_size)
+                ):
+                    raise VerificationError(f"{final}: not a regular file of the expected size")
                 digest = hashlib.sha256()
+                other = hashlib.new(extra, usedforsecurity=False) if extra else None
                 copied = 0
                 with create_temporary(temporary) as copy:
                     self._owned[temporary] = os.fstat(copy.fileno()).st_ino
-                    while copied <= expected_size:
-                        chunk = source.read(min(_CHUNK, expected_size + 1 - copied))
+                    while copied <= size:
+                        chunk = source.read(min(_CHUNK, size + 1 - copied))
                         if not chunk:
                             break
                         copied += len(chunk)
                         digest.update(chunk)
+                        if other is not None:
+                            other.update(chunk)
                         copy.write(chunk)
                     copy.flush()
                     os.fsync(copy.fileno())
-            if copied != expected_size:
+            if copied != size:
                 raise VerificationError(f"{final}: it changed size while it was read")
-            if not etag_matches(temporary, etag):
-                raise VerificationError(f"{final}: does not reproduce the ETag")
+            sha256 = digest.hexdigest()
+            verify(sha256, size, other.hexdigest() if other is not None else None, temporary)
             self._publish(temporary, final)
         except (OSError, BackendError):
             self._discard(temporary)
@@ -948,13 +998,7 @@ class Fetcher:
         except BaseException:
             self._discard(temporary)
             raise
-        return FetchResult(
-            path=final,
-            sha256=digest.hexdigest(),
-            from_cache=True,
-            size=expected_size,
-            source="cache",
-        )
+        return FetchResult(path=final, sha256=sha256, from_cache=True, size=size, source="cache")
 
     @staticmethod
     def _drop_entry(final: Path) -> None:
@@ -1128,16 +1172,23 @@ class Fetcher:
         )
 
 
-def _chain_is_clean(exc: BaseException | None, depth: int = 0) -> bool:
-    """Whether *exc*, its cause and its context all read the same after
-    redaction: nothing in the chain carries a URL's user or password."""
-    if exc is None or depth > 8:
-        return True
-    return (
-        redact_url_text(str(exc)) == str(exc)
-        and _chain_is_clean(exc.__cause__, depth + 1)
-        and _chain_is_clean(exc.__context__, depth + 1)
-    )
+def _chain_is_clean(exc: BaseException | None) -> bool:
+    """Whether *exc* and everything it chains (``__cause__`` and ``__context__``,
+    however deep, cycles allowed) reads the same after redaction: nothing in
+    the chain carries a URL's user or password."""
+    pending = [exc]
+    seen: set[int] = set()
+    while pending:
+        current = pending.pop()
+        if current is None or id(current) in seen:
+            continue
+        seen.add(id(current))
+        text = str(current)
+        if redact_url_text(text) != text:
+            return False
+        pending.append(current.__cause__)
+        pending.append(current.__context__)
+    return True
 
 
 def _digest_file(path: Path) -> str:

@@ -21,6 +21,7 @@ import threading
 import urllib.request
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import IO
@@ -36,6 +37,7 @@ from hammunition.fetch import (
     mirror_url,
     redact_url_text,
 )
+from hammunition.manifest.schema import RemoteArtifact
 from test_fetch_mirror import Routes
 
 BODY = b"II*\x00example TIFF"
@@ -523,10 +525,52 @@ def test_a_publisher_failure_after_a_mirror_failure_names_both_and_keeps_the_cau
     assert not _parts(tmp_path)
 
 
-def _cached_entry(tmp_path: Path, body: bytes = BODY) -> tuple[Fetcher, Routes, Path]:
+@dataclass(frozen=True)
+class RouteCase:
+    """One of the four routes that reuse a cached file."""
+
+    name: str
+    final: Callable[[Fetcher], Path]
+    run: Callable[[Fetcher], FetchResult]
+
+
+_ARTIFACT = RemoteArtifact(url=PUBLISHER, sha256=hashlib.sha256(BODY).hexdigest())
+_MD5 = ETAG
+_SHA1 = hashlib.sha1(
+    BODY, usedforsecurity=False
+).hexdigest()  # nosemgrep: insecure-hash-algorithm-sha1
+
+ROUTES = [
+    RouteCase(
+        "sha256",
+        lambda f: f.path_for(_ARTIFACT),
+        lambda f: f.fetch(_ARTIFACT, mirror=PATH),
+    ),
+    RouteCase(
+        "md5",
+        lambda f: f.md5_path_for(PUBLISHER, _MD5),
+        lambda f: f.fetch_md5(PUBLISHER, _MD5, expected_size=len(BODY), mirror=PATH),
+    ),
+    RouteCase(
+        "sha1",
+        lambda f: f.sha1_path_for(PUBLISHER, _SHA1),
+        lambda f: f.fetch_sha1(PUBLISHER, _SHA1, expected_size=len(BODY), mirror=PATH),
+    ),
+    RouteCase(
+        "etag",
+        lambda f: f.etag_path_for(PUBLISHER, ETAG),
+        lambda f: f.fetch_etag(PUBLISHER, ETAG, expected_size=len(BODY), mirror=PATH),
+    ),
+]
+ALL_ROUTES = pytest.mark.parametrize("case", ROUTES, ids=[c.name for c in ROUTES])
+
+
+def _cached_entry(
+    tmp_path: Path, case: RouteCase, body: bytes = BODY
+) -> tuple[Fetcher, Routes, Path]:
     routes = Routes({AT_MIRROR: BODY})
     fetcher = _fetcher(tmp_path, routes)
-    cached = fetcher.etag_path_for(PUBLISHER, ETAG)
+    cached = case.final(fetcher)
     cached.parent.mkdir(parents=True, exist_ok=True)
     cached.write_bytes(body)
     return fetcher, routes, cached
@@ -536,61 +580,87 @@ def _assert_consistent(result: FetchResult) -> None:
     """The path, its bytes and the digest are one verified thing."""
     data = result.path.read_bytes()
     assert hashlib.sha256(data).hexdigest() == result.sha256
-    assert hashlib.md5(data, usedforsecurity=False).hexdigest() == ETAG
     assert data == BODY
 
 
-def test_a_rename_replacement_during_the_check_cannot_change_what_is_returned(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@ALL_ROUTES
+def test_a_good_cached_copy_is_reused_and_is_our_own_verified_inode(
+    tmp_path: Path, case: RouteCase
 ) -> None:
-    from hammunition.s3etag import etag_matches as real
+    fetcher, routes, cached = _cached_entry(tmp_path, case)
+    before = cached.stat().st_ino
+    result = case.run(fetcher)
+    assert result.source == "cache" and result.from_cache and routes.requested == []
+    _assert_consistent(result)
+    assert result.path.stat().st_ino != before  # the verified copy, published over the path
+    assert not _parts(tmp_path)
 
-    fetcher, _routes, cached = _cached_entry(tmp_path)
+
+@ALL_ROUTES
+def test_a_wrong_cached_copy_of_the_right_size_is_replaced(tmp_path: Path, case: RouteCase) -> None:
+    fetcher, routes, _cached = _cached_entry(tmp_path, case, b"B" * len(BODY))
+    result = case.run(fetcher)
+    assert result.source == "mirror" and routes.requested == [AT_MIRROR]
+    _assert_consistent(result)
+
+
+@ALL_ROUTES
+def test_a_rename_replacement_after_the_copy_cannot_change_what_is_returned(
+    tmp_path: Path, case: RouteCase, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fetcher, _routes, cached = _cached_entry(tmp_path, case)
+    real_fsync = os.fsync
     done: list[int] = []
 
-    def swapping(path: Path, etag: str) -> bool:
-        ok = real(path, etag)
-        if not done:
-            done.append(1)
+    def swapping(fd: int) -> None:
+        real_fsync(fd)
+        if not done and ".part." in os.readlink(f"/proc/self/fd/{fd}"):
+            done.append(1)  # the copy is complete; a new inode now sits at the path
             other = cached.with_name("theirs")
             other.write_bytes(b"B" * len(BODY))
-            os.replace(other, cached)  # a new inode now sits at the path
-        return ok
+            os.replace(other, cached)
 
-    monkeypatch.setattr("hammunition.fetch.etag_matches", swapping)
-    result = _etag(fetcher)
-    assert done
+    monkeypatch.setattr(os, "fsync", swapping)
+    result = case.run(fetcher)
+    assert done and result.source == "cache"
     _assert_consistent(result)
 
 
-def test_a_timed_b_a_b_in_place_swap_cannot_pass_the_etag_check(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@ALL_ROUTES
+def test_a_timed_b_a_b_in_place_swap_cannot_be_accepted_as_something_it_is_not(
+    tmp_path: Path, case: RouteCase, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from hammunition.s3etag import etag_matches as real
-
     bad = b"B" * len(BODY)
-    fetcher, _routes, cached = _cached_entry(tmp_path, bad)
-    done: list[int] = []
+    fetcher, _routes, cached = _cached_entry(tmp_path, case, bad)
+    real_fstat, real_fsync = os.fstat, os.fsync
+    steps: list[str] = []
 
-    def timed(path: Path, etag: str) -> bool:
-        if done:
-            return real(path, etag)
-        done.append(1)
-        cached.write_bytes(BODY)  # A while the ETag is read ...
-        ok = real(path, etag)
-        cached.write_bytes(bad)  # ... B again for everything else
-        return ok
+    def measuring(fd: int) -> os.stat_result:
+        status = real_fstat(fd)
+        if "measured" not in steps and os.readlink(f"/proc/self/fd/{fd}") == str(cached):
+            steps.append("measured")
+            cached.write_bytes(BODY)  # A while it is copied ...
+        return status
 
-    monkeypatch.setattr("hammunition.fetch.etag_matches", timed)
-    result = _etag(fetcher)
-    assert result.source == "mirror"
-    _assert_consistent(result)
+    def flushing(fd: int) -> None:
+        real_fsync(fd)
+        if "flushed" not in steps and ".part." in os.readlink(f"/proc/self/fd/{fd}"):
+            steps.append("flushed")
+            cached.write_bytes(bad)  # ... B again once the copy is made
+
+    monkeypatch.setattr(os, "fstat", measuring)
+    monkeypatch.setattr(os, "fsync", flushing)
+    result = case.run(fetcher)
+    assert steps == ["measured", "flushed"]
+    _assert_consistent(result)  # what was verified is what is returned, never the B on disk
+    assert result.path.read_bytes() == BODY
 
 
+@ALL_ROUTES
 def test_a_file_that_grows_after_it_was_measured_is_not_a_cache_hit(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, case: RouteCase, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fetcher, _routes, cached = _cached_entry(tmp_path)
+    fetcher, _routes, cached = _cached_entry(tmp_path, case)
     real_fstat = os.fstat
     grown: list[int] = []
 
@@ -603,34 +673,37 @@ def test_a_file_that_grows_after_it_was_measured_is_not_a_cache_hit(
         return status
 
     monkeypatch.setattr(os, "fstat", growing)
-    monkeypatch.setattr("hammunition.fetch.etag_matches", lambda path, etag: True)
-    result = _etag(fetcher)
+    result = case.run(fetcher)
     assert grown and result.source == "mirror"
     assert result.path.read_bytes() == BODY and result.size == len(BODY)
 
 
-def test_a_symlink_at_the_final_path_is_not_a_cache_hit(tmp_path: Path) -> None:
-    fetcher, _routes, cached = _cached_entry(tmp_path)
+@ALL_ROUTES
+def test_a_symlink_at_the_final_path_is_not_a_cache_hit(tmp_path: Path, case: RouteCase) -> None:
+    fetcher, _routes, cached = _cached_entry(tmp_path, case)
     target = tmp_path / "elsewhere.tif"
     cached.rename(target)
     cached.symlink_to(target)
-    result = _etag(fetcher)
+    result = case.run(fetcher)
     assert result.source == "mirror" and not cached.is_symlink()
     assert target.read_bytes() == BODY  # the link's target was neither used nor removed
     _assert_consistent(result)
 
 
-def test_a_fifo_at_the_final_path_fails_fast_and_does_not_hang(tmp_path: Path) -> None:
+@ALL_ROUTES
+def test_a_fifo_at_the_final_path_fails_fast_and_does_not_hang(
+    tmp_path: Path, case: RouteCase
+) -> None:
     import threading
 
-    fetcher, _routes, cached = _cached_entry(tmp_path)
+    fetcher, _routes, cached = _cached_entry(tmp_path, case)
     cached.unlink()
     os.mkfifo(cached)
     outcome: list[FetchResult | BaseException] = []
 
     def attempt() -> None:
         try:
-            outcome.append(_etag(fetcher))
+            outcome.append(case.run(fetcher))
         except BaseException as exc:
             outcome.append(exc)
 
@@ -645,6 +718,42 @@ def test_a_fifo_at_the_final_path_fails_fast_and_does_not_hang(tmp_path: Path) -
     assert not hung, "the cache check blocked on a FIFO"
     (result,) = outcome
     assert isinstance(result, FetchResult) and result.source == "mirror"
+    _assert_consistent(result)
+
+
+def test_a_cached_file_over_the_fetch_cap_is_not_copied_or_served() -> None:
+    """The sha256 route knows no size, so the cap bounds what a cache hit may copy."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        fetcher, _routes, cached = _cached_entry(tmp_path, ROUTES[0])
+        with pytest.raises(BackendError, match="byte limit"):
+            fetcher.fetch(_ARTIFACT, max_bytes=len(BODY) - 1, mirror=PATH)
+        assert not cached.exists() and not _parts(tmp_path)
+
+
+def test_the_etag_swap_between_check_and_digest_cannot_return_other_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hammunition.s3etag import etag_matches as real
+
+    case = ROUTES[3]
+    fetcher, _routes, cached = _cached_entry(tmp_path, case, b"B" * len(BODY))
+    done: list[int] = []
+
+    def timed(path: Path, etag: str) -> bool:
+        if done:
+            return real(path, etag)
+        done.append(1)
+        cached.write_bytes(BODY)  # A while the ETag is read ...
+        ok = real(path, etag)
+        cached.write_bytes(b"B" * len(BODY))  # ... B again for everything else
+        return ok
+
+    monkeypatch.setattr("hammunition.fetch.etag_matches", timed)
+    result = case.run(fetcher)
+    assert result.source == "mirror"
     _assert_consistent(result)
 
 
@@ -810,6 +919,16 @@ def test_two_fetches_of_one_file_use_different_temporaries(tmp_path: Path) -> No
         ("http://bunker.invalid/a@b?c=d@e", "http://bunker.invalid/a@b?c=d@e"),
         ("see https://u:p@h/x: boom (http://v@w)", "see https://h/x: boom (http://w)"),
         ("no url here, user@host stays", "no url here, user@host stays"),
+        ("http://alice:SECRET@b\u00fccher.example/x", "http://b\u00fccher.example/x"),
+        ("http://alice:SECRET@xn--a-.example/x", "http://xn--a-.example/x"),
+        ("http://alice:SECRET@bun ker/x", "http://bun ker/x"),
+        # Failing closed: urlsplit refuses it, or it does not round-trip, or it
+        # carries a control character, so the whole authority goes.
+        ("http://alice:SECRET@bunker\u2100.invalid/x", "http://<redacted>/x"),
+        ("http://alice:SECRET@[::1/x", "http://<redacted>/x"),
+        ("http://alice:SECRET@bun\x00ker/x", "http://<redacted>/x"),
+        ("http://alice:SECRET@bun\x7fker:80/x", "http://<redacted>/x"),
+        ("https://alice:SECRET@[fe80::1%25eth0]x/y", "https://<redacted>/y"),
     ],
 )
 def test_redaction_follows_urlsplit_userinfo_rules(given: str, shown: str) -> None:
@@ -817,17 +936,35 @@ def test_redaction_follows_urlsplit_userinfo_rules(given: str, shown: str) -> No
 
 
 def _chain_text(exc: BaseException | None) -> str:
-    out = []
-    while exc is not None:
-        out.append(str(exc))
-        exc = exc.__cause__ or exc.__context__
+    out: list[str] = []
+    pending = [exc]
+    seen: set[int] = set()
+    while pending:
+        current = pending.pop()
+        if current is None or id(current) in seen:
+            continue
+        seen.add(id(current))
+        out.append(str(current))
+        pending += [current.__cause__, current.__context__]
     return "\n".join(out)
 
 
+def _chain(depth: int, secret_at: int) -> Exception:
+    """A cause chain *depth* long whose link number *secret_at* names the secret."""
+    link: Exception = OSError("end of the chain")
+    for number in range(depth):
+        outer = OSError(f"link {number}" + (f" for {AT_SECRET}" if number == secret_at else ""))
+        outer.__cause__ = link
+        link = outer
+    return link
+
+
 @KINDS
-def test_a_credential_in_an_exception_chain_does_not_survive(tmp_path: Path, fetch: Fetch) -> None:
-    boom = OSError("connection reset")
-    boom.__cause__ = RuntimeError(f"proxy said no for {AT_SECRET}")
+@pytest.mark.parametrize("depth", [2, 40], ids=["short", "deeper-than-any-limit"])
+def test_a_credential_anywhere_in_an_exception_chain_does_not_survive(
+    tmp_path: Path, fetch: Fetch, depth: int
+) -> None:
+    boom = _chain(depth, secret_at=0)  # the credential sits at the far end
     routes = Routes({AT_CLEAN: b"x" * len(BODY), PUBLISHER: boom})
     fetcher = Fetcher(
         tmp_path / "cache", transport=routes, mirror=SECRET_BUNKER, mirror_transport=routes
@@ -836,7 +973,52 @@ def test_a_credential_in_an_exception_chain_does_not_survive(tmp_path: Path, fet
         fetch(fetcher, BODY)
     assert "SECRET" not in _chain_text(err.value)
     assert err.value.__cause__ is None and err.value.__context__ is None
-    assert "connection reset" in str(err.value)
+    assert "link" in str(err.value)
+
+
+@KINDS
+def test_a_clean_chain_of_any_depth_is_kept_as_the_cause(tmp_path: Path, fetch: Fetch) -> None:
+    boom = _chain(40, secret_at=-1)
+    routes = Routes({AT_CLEAN: b"x" * len(BODY), PUBLISHER: boom})
+    fetcher = Fetcher(
+        tmp_path / "cache", transport=routes, mirror=SECRET_BUNKER, mirror_transport=routes
+    )
+    with pytest.raises(BackendError) as err:
+        fetch(fetcher, BODY)
+    assert err.value.__cause__ is boom
+
+
+@KINDS
+def test_a_cyclic_exception_chain_terminates_and_is_sanitised(tmp_path: Path, fetch: Fetch) -> None:
+    first, second = OSError(f"first {AT_SECRET}"), OSError("second")
+    first.__cause__, second.__context__ = second, first
+    routes = Routes({AT_CLEAN: b"x" * len(BODY), PUBLISHER: second})
+    fetcher = Fetcher(
+        tmp_path / "cache", transport=routes, mirror=SECRET_BUNKER, mirror_transport=routes
+    )
+    with pytest.raises(BackendError) as err:
+        fetch(fetcher, BODY)
+    assert "SECRET" not in _chain_text(err.value) and err.value.__cause__ is None
+
+
+@KINDS
+def test_a_failing_cleanup_is_sanitised_and_does_not_chain_the_raw_error(
+    tmp_path: Path, fetch: Fetch, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def unlink_fails(self: Fetcher, temporary: Path) -> None:
+        raise PermissionError(f"cannot remove {AT_SECRET}") from RuntimeError(AT_SECRET)
+
+    routes = Routes({})
+    fetcher = Fetcher(
+        tmp_path / "cache", transport=routes, mirror=SECRET_BUNKER, mirror_transport=routes
+    )
+    monkeypatch.setattr(Fetcher, "_discard", unlink_fails)
+    with pytest.raises(BackendError) as err:
+        fetch(fetcher, BODY)
+    assert "SECRET" not in _chain_text(err.value)
+    assert "also failed" in str(err.value) and "bunker.invalid" in str(err.value)
+    assert err.value.__cause__ is None or "SECRET" not in _chain_text(err.value.__cause__)
+    assert err.value.__context__ is None
 
 
 @KINDS
@@ -858,10 +1040,30 @@ def test_a_station_refusal_does_not_echo_a_credential() -> None:
         "http://alice:SECRET@bunker.invalid",
         "http://alice:pa@SECRET@bunker.invalid/base",
         "ftp://alice:SECRET@bunker.invalid",
+        "http://alice:SECRET@bunker.invalid:notaport",
     ):
         with pytest.raises(StationError) as err:
             _check_mirror(given)
-        assert "SECRET" not in str(err.value) and "bunker.invalid" in str(err.value)
+        assert "SECRET" not in _chain_text(err.value)
+        assert "bunker.invalid" in str(err.value) or "<redacted>" in str(err.value)
         with pytest.raises(StationError) as err2:
             Station(mirror=given)
         assert "SECRET" not in str(err2.value)
+
+
+@pytest.mark.parametrize(
+    "given",
+    [
+        "http://alice:SECRET@bunker\u2100.invalid",  # NFKC makes urlsplit refuse it
+        "http://alice:SECRET@[::1",
+        "http://alice:SECRET@bunker\x00.invalid",
+    ],
+)
+def test_a_malformed_host_fails_closed_in_the_station_refusal(given: str) -> None:
+    from hammunition.station import Station, StationError, _check_mirror
+
+    for attempt in (lambda: _check_mirror(given), lambda: Station(mirror=given)):
+        with pytest.raises(StationError) as err:
+            attempt()
+        assert "SECRET" not in _chain_text(err.value) and "alice" not in _chain_text(err.value)
+        assert err.value.__cause__ is None and err.value.__context__ is None
