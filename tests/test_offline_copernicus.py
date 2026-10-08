@@ -33,7 +33,7 @@ REGION = "europe/monaco"
 SLUG = "europe-monaco"
 
 
-def row(name: str = A, **changes: object) -> dict[str, object]:
+def row(name: str = A, /, **changes: object) -> dict[str, object]:
     values: dict[str, object] = dict(
         publisher_name=f"{name}.tif",
         publisher_size=3,
@@ -66,7 +66,7 @@ class DownTiles:
 
 def retrying(probe: object) -> RetryingProbe:
     policy = RetryPolicy(sleep=lambda _: None, notify=lambda _: None)
-    return RetryingProbe(probe, policy)  # type: ignore[arg-type]
+    return RetryingProbe(probe, policy)
 
 
 # -- recorded_tile / resolve_tile ------------------------------------------------
