@@ -65,8 +65,7 @@ REAL_CATALOG = REPO / "catalog"
 
 #: unit, and the words its refusal must carry
 PLAN_TIME_KINDS = [
-    ("dem-3dep", "3DEP terrain tiles"),
-    ("usgs-ustopo", "topographic sheets"),
+    ("usfs-fstopo", "Forest Service topographic sheets"),
     ("kiwix-library", "reference books"),
     ("comaps-maps", "CoMaps maps"),
 ]
@@ -153,13 +152,20 @@ def test_a_git_unit_is_refused_unless_it_is_already_built(
     assert cli._offline_unrouted(plan, plan_time=True) == [], "git is not a plan-time kind"
 
 
-def test_copernicus_terrain_is_routed_and_3dep_terrain_is_not() -> None:
-    from hammunition.manifest.schema import DemTilesInstall
+def test_terrain_and_us_topo_are_routed_and_fstopo_is_not() -> None:
+    from hammunition.manifest.schema import DemTilesInstall, TopoQuadsInstall
 
-    copernicus = InstallPlan(TARGET, (planned_from("dem-copernicus", DemTilesInstall),))
-    bare_earth = InstallPlan(TARGET, (planned_from("dem-3dep", DemTilesInstall),))
-    assert cli._offline_unrouted(copernicus, plan_time=True) == []
-    assert [b.subject for b in cli._offline_unrouted(bare_earth, plan_time=True)] == ["dem-3dep"]
+    routed = InstallPlan(
+        TARGET,
+        (
+            planned_from("dem-copernicus", DemTilesInstall),
+            planned_from("dem-3dep", DemTilesInstall),
+            planned_from("usgs-ustopo", TopoQuadsInstall),
+        ),
+    )
+    forest = InstallPlan(TARGET, (planned_from("usfs-fstopo", TopoQuadsInstall),))
+    assert cli._offline_unrouted(routed, plan_time=True) == []
+    assert [b.subject for b in cli._offline_unrouted(forest, plan_time=True)] == ["usfs-fstopo"]
 
 
 def test_a_unit_of_no_guarded_kind_is_not_named() -> None:
@@ -622,6 +628,28 @@ def test_copernicus_terrain_now_resolves_offline_from_verified_catalogue(
     rc, out, err = run(
         capsys, REAL_CATALOG, "install", "--offline", "--dry-run", "--json", "dem-copernicus"
     )
+    assert rc == 0, err
+    assert any(
+        "offline; resolved from Bunker bunker" in n
+        for n in parse_one(out)["install"]["region_notes"]
+    )
+    assert attempts == []
+
+
+@pytest.mark.parametrize("unit", ["usgs-ustopo", "dem-3dep"])
+def test_usgs_sheets_and_3dep_now_resolve_offline_from_verified_catalogue(
+    machine: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    unit: str,
+) -> None:
+    from test_offline_usgs import cli_setup, enrol, real_rows
+
+    enrol(tmp_path, real_rows())
+    cli_setup(machine, monkeypatch)
+    attempts = forbid_the_network(monkeypatch, probes=False)
+    rc, out, err = run(capsys, REAL_CATALOG, "install", "--offline", "--dry-run", "--json", unit)
     assert rc == 0, err
     assert any(
         "offline; resolved from Bunker bunker" in n

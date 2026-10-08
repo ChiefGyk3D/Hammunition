@@ -180,6 +180,7 @@ def resolve_topo(
     checks: PublisherChecks | None = None,
     bound: TopoBound = ALL,
     context: ResolutionContext | None = None,
+    unit: str | None = None,
 ) -> tuple[TopoResolution, tuple[str, ...]]:
     """*regions* as ``(region, slug)`` pairs resolved to the sheets they
     need under *bound* and how each is fetched, and any notes for the plan.
@@ -189,7 +190,14 @@ def resolve_topo(
     A publisher that did not answer after the retries (#200) is passed to
     *on_outage* with the item it concerned -- a region whose outline is not
     available, or one sheet -- and that item is left out; with no *on_outage*
-    (a unit the operator typed by name) it is refused like any other."""
+    (a unit the operator typed by name) it is refused like any other.
+
+    With a *context*, a sheet the bucket cannot be asked about is answered by
+    the Bunker's record, compared with the carried index; *unit* (the
+    manifest's name, the catalogue key) is then required. A sheet the Bunker
+    cannot answer for, while a Bunker is verified, defers the whole selection."""
+    if context is not None and unit is None:
+        raise ValueError("resolve_topo needs the unit name when given a context")
     refused: list[str] = []
     notes: list[str] = []
     entries: list[RegionQuads] = []
@@ -235,25 +243,30 @@ def resolve_topo(
             current.append(quad)
         else:
             todo.append(quad)
-    recheck_installed(
-        checks,
-        installed.name,
-        current,
-        name=lambda quad: quad.name,
-        path=lambda quad: installed / f"{quad.name}{TIF}",
-        check=lambda quad: check_quad(quad, quad_probe),
-        label="installed US Topo sheets against the USGS bucket",
-        probe=quad_probe,
-    )
+    # Offline the bucket is never asked; online a failed re-check stays a note
+    # (never the Bunker's answer, which says nothing of the installed file).
+    if context is None or not context.offline:
+        recheck_installed(
+            checks,
+            installed.name,
+            current,
+            name=lambda quad: quad.name,
+            path=lambda quad: installed / f"{quad.name}{TIF}",
+            check=lambda quad: check_quad(quad, quad_probe),
+            label="installed US Topo sheets against the USGS bucket",
+            probe=quad_probe,
+        )
     outcomes = run_checks(
         todo,
-        lambda quad: check_quad(quad, quad_probe),
+        lambda quad: check_quad(quad, quad_probe, context=context, unit=unit),
         label="US Topo sheets against the USGS bucket",
     )
     for quad, outcome in zip(todo, outcomes, strict=True):
         try:
             outcome.get()
         except PublisherUnavailable as exc:
+            if context is not None and context.verified is not None:
+                raise CatalogueMiss(f"{quad.name}: no complete sheet set: {exc}") from exc
             if on_outage is None:
                 refused.append(f"  {quad.name}: {exc}")
             else:
@@ -316,6 +329,7 @@ def resolve_station_topo(
         checks=checks,
         bound=bound,
         context=context,
+        unit=unit.name,
     )
 
 

@@ -337,12 +337,20 @@ def resolve_bare_earth(
     checks: PublisherChecks | None = None,
     context: ResolutionContext | None = None,
     bound: TopoBound = ALL,
+    unit: str | None = None,
 ) -> DemResolution:
     """*regions* resolved to their USGS 3DEP tiles, under *bound* (issue #232) (D-068, amended
     2026-10-01): each region's record, else its outline's squares named by
     their north-west corner and kept where the carried list has a tile; then
     every tile not installed HEAD-checked against the list's size and ETag.
-    Every refusal is named together, as for Copernicus."""
+    Every refusal is named together, as for Copernicus.
+
+    With a *context* a tile the bucket cannot be asked about is answered by
+    the Bunker's record, compared with the carried list; *unit* (the manifest's
+    name, the catalogue key) is then required. A tile the Bunker cannot answer
+    for, while a Bunker is verified, defers the whole selection."""
+    if context is not None and unit is None:
+        raise ValueError("resolve_bare_earth needs the unit name when given a context")
     refused: list[str] = []
     entries: list[RegionTiles] = []
     seen: set[tuple[str, str]] = set()
@@ -386,29 +394,37 @@ def resolve_bare_earth(
         "scripts/gen_3dep_tiles.py --fetch regenerates it"
     )
 
-    def check(name: str) -> TileRow:
+    def check_with(name: str, ctx: ResolutionContext | None) -> TileRow:
         row = tiles.get(name)
         if row is None:
             raise CopernicusError(absent)
-        check_tile(row, tile_probe)
+        check_tile(row, tile_probe, context=ctx, unit=unit)
         return row
 
-    recheck_installed(
-        checks,
-        installed.name,
-        current,
-        name=lambda tile: tile,
-        path=lambda tile: installed / f"{tile}{TIF}",
-        check=check,
-        label="installed 3DEP terrain tiles against the USGS bucket",
-        probe=tile_probe,
-    )
+    def check(name: str) -> TileRow:
+        return check_with(name, context)
+
+    # Offline the bucket is never asked; online a failed re-check stays a note
+    # (never the Bunker's answer, which says nothing of the installed file).
+    if context is None or not context.offline:
+        recheck_installed(
+            checks,
+            installed.name,
+            current,
+            name=lambda tile: tile,
+            path=lambda tile: installed / f"{tile}{TIF}",
+            check=lambda name: check_with(name, None),
+            label="installed 3DEP terrain tiles against the USGS bucket",
+            probe=tile_probe,
+        )
 
     outcomes = run_checks(todo, check, label="3DEP terrain tiles against the USGS bucket")
     for name, outcome in zip(todo, outcomes, strict=True):
         try:
             row = outcome.get()
         except PublisherUnavailable as exc:
+            if context is not None and context.verified is not None:
+                raise CatalogueMiss(f"{name}: no complete tile set: {exc}") from exc
             if on_outage is None:
                 refused.append(f"  {name}: {exc}")
             else:
@@ -512,6 +528,7 @@ def resolve_station_3dep(
         checks=checks,
         context=context,
         bound=bound,
+        unit=unit.name,
     )
     return resolution, ()
 
