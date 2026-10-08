@@ -12,6 +12,7 @@ offline, and no ``*.part.*`` file survives any path.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import http.client
 import http.server
@@ -27,7 +28,14 @@ from typing import IO
 import pytest
 
 from hammunition.backends.base import BackendError
-from hammunition.fetch import Fetcher, FetchResult, MirrorPath, UrllibTransport, mirror_url
+from hammunition.fetch import (
+    Fetcher,
+    FetchResult,
+    MirrorPath,
+    UrllibTransport,
+    mirror_url,
+    redact_url_text,
+)
 from test_fetch_mirror import Routes
 
 BODY = b"II*\x00example TIFF"
@@ -515,30 +523,129 @@ def test_a_publisher_failure_after_a_mirror_failure_names_both_and_keeps_the_cau
     assert not _parts(tmp_path)
 
 
-def test_a_swap_between_the_etag_check_and_the_digest_is_not_accepted(
+def _cached_entry(tmp_path: Path, body: bytes = BODY) -> tuple[Fetcher, Routes, Path]:
+    routes = Routes({AT_MIRROR: BODY})
+    fetcher = _fetcher(tmp_path, routes)
+    cached = fetcher.etag_path_for(PUBLISHER, ETAG)
+    cached.parent.mkdir(parents=True, exist_ok=True)
+    cached.write_bytes(body)
+    return fetcher, routes, cached
+
+
+def _assert_consistent(result: FetchResult) -> None:
+    """The path, its bytes and the digest are one verified thing."""
+    data = result.path.read_bytes()
+    assert hashlib.sha256(data).hexdigest() == result.sha256
+    assert hashlib.md5(data, usedforsecurity=False).hexdigest() == ETAG
+    assert data == BODY
+
+
+def test_a_rename_replacement_during_the_check_cannot_change_what_is_returned(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from hammunition.s3etag import etag_matches as real
 
-    routes = Routes({AT_MIRROR: BODY})
-    fetcher = _fetcher(tmp_path, routes)
-    cached = fetcher.etag_path_for(PUBLISHER, ETAG)
-    cached.parent.mkdir(parents=True)
-    cached.write_bytes(BODY)
-    calls: list[int] = []
+    fetcher, _routes, cached = _cached_entry(tmp_path)
+    done: list[int] = []
 
     def swapping(path: Path, etag: str) -> bool:
         ok = real(path, etag)
-        calls.append(1)
-        if len(calls) == 1:  # another process replaces the file just after the check
-            cached.write_bytes(b"B" * len(BODY))
+        if not done:
+            done.append(1)
+            other = cached.with_name("theirs")
+            other.write_bytes(b"B" * len(BODY))
+            os.replace(other, cached)  # a new inode now sits at the path
         return ok
 
     monkeypatch.setattr("hammunition.fetch.etag_matches", swapping)
     result = _etag(fetcher)
-    assert result.source == "mirror" and result.path.read_bytes() == BODY
-    assert result.sha256 == hashlib.sha256(BODY).hexdigest()
-    assert routes.requested == [AT_MIRROR]
+    assert done
+    _assert_consistent(result)
+
+
+def test_a_timed_b_a_b_in_place_swap_cannot_pass_the_etag_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hammunition.s3etag import etag_matches as real
+
+    bad = b"B" * len(BODY)
+    fetcher, _routes, cached = _cached_entry(tmp_path, bad)
+    done: list[int] = []
+
+    def timed(path: Path, etag: str) -> bool:
+        if done:
+            return real(path, etag)
+        done.append(1)
+        cached.write_bytes(BODY)  # A while the ETag is read ...
+        ok = real(path, etag)
+        cached.write_bytes(bad)  # ... B again for everything else
+        return ok
+
+    monkeypatch.setattr("hammunition.fetch.etag_matches", timed)
+    result = _etag(fetcher)
+    assert result.source == "mirror"
+    _assert_consistent(result)
+
+
+def test_a_file_that_grows_after_it_was_measured_is_not_a_cache_hit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fetcher, _routes, cached = _cached_entry(tmp_path)
+    real_fstat = os.fstat
+    grown: list[int] = []
+
+    def growing(fd: int) -> os.stat_result:
+        status = real_fstat(fd)
+        if not grown and os.readlink(f"/proc/self/fd/{fd}") == str(cached):
+            grown.append(1)
+            with cached.open("ab") as handle:
+                handle.write(b"!")
+        return status
+
+    monkeypatch.setattr(os, "fstat", growing)
+    monkeypatch.setattr("hammunition.fetch.etag_matches", lambda path, etag: True)
+    result = _etag(fetcher)
+    assert grown and result.source == "mirror"
+    assert result.path.read_bytes() == BODY and result.size == len(BODY)
+
+
+def test_a_symlink_at_the_final_path_is_not_a_cache_hit(tmp_path: Path) -> None:
+    fetcher, _routes, cached = _cached_entry(tmp_path)
+    target = tmp_path / "elsewhere.tif"
+    cached.rename(target)
+    cached.symlink_to(target)
+    result = _etag(fetcher)
+    assert result.source == "mirror" and not cached.is_symlink()
+    assert target.read_bytes() == BODY  # the link's target was neither used nor removed
+    _assert_consistent(result)
+
+
+def test_a_fifo_at_the_final_path_fails_fast_and_does_not_hang(tmp_path: Path) -> None:
+    import threading
+
+    fetcher, _routes, cached = _cached_entry(tmp_path)
+    cached.unlink()
+    os.mkfifo(cached)
+    outcome: list[FetchResult | BaseException] = []
+
+    def attempt() -> None:
+        try:
+            outcome.append(_etag(fetcher))
+        except BaseException as exc:
+            outcome.append(exc)
+
+    thread = threading.Thread(target=attempt, daemon=True)
+    thread.start()
+    thread.join(timeout=10)
+    hung = thread.is_alive()
+    if hung:  # release a reader stuck in open() so the test process can end
+        with contextlib.suppress(OSError):
+            os.close(os.open(cached, os.O_WRONLY | os.O_NONBLOCK))
+        thread.join(timeout=2)
+    assert not hung, "the cache check blocked on a FIFO"
+    (result,) = outcome
+    assert isinstance(result, FetchResult) and result.source == "mirror"
+    _assert_consistent(result)
 
 
 def test_a_wrong_sized_cache_entry_is_removed_even_when_recovery_fails(tmp_path: Path) -> None:
@@ -586,6 +693,8 @@ def test_a_failed_rename_removes_the_part_file(
 
 SECRET_BUNKER = "http://alice:SECRET@bunker.invalid"
 AT_SECRET = mirror_url(SECRET_BUNKER, PATH)
+#: What the fetcher actually asks, and shows: the same URL without the credentials.
+AT_CLEAN = redact_url_text(AT_SECRET)
 
 
 @KINDS
@@ -606,7 +715,7 @@ def test_mirror_credentials_never_reach_errors_facts_or_the_plan(
         fetch(offline, BODY)
     assert "SECRET" not in str(err.value) and "bunker.invalid" in str(err.value)
     down = Routes(
-        {AT_SECRET: TransportUnreachable(f"{AT_SECRET} could not be fetched"), PUBLISHER: BODY}
+        {AT_CLEAN: TransportUnreachable(f"{AT_SECRET} could not be fetched"), PUBLISHER: BODY}
     )
     online = Fetcher(tmp_path / "on", transport=down, mirror=SECRET_BUNKER, mirror_transport=down)
     result = fetch(online, BODY)
@@ -629,3 +738,130 @@ def test_mirror_credentials_never_reach_errors_facts_or_the_plan(
     assert "did not answer earlier" in str(later.value)
     note, detail, sources = fetch_disclosure(online, PUBLISHER, PATH, "ETag")
     assert "SECRET" not in repr((note, detail, sources)) and "bunker.invalid" in detail
+
+
+# -- fix round 3: temporary ownership --------------------------------------------------
+
+
+@KINDS
+def test_a_replaced_temporary_is_not_deleted_when_the_rename_fails(
+    tmp_path: Path, fetch: Fetch, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real_replace = os.replace
+    routes = Routes({AT_MIRROR: BODY})
+    fetcher = _fetcher(tmp_path, routes)
+
+    def hostile(src: str | os.PathLike[str], dst: str | os.PathLike[str]) -> None:
+        theirs = Path(src).with_name("theirs")
+        theirs.write_bytes(b"another process's file")
+        real_replace(theirs, src)  # their file now holds our temporary's name
+        raise PermissionError("rename refused")
+
+    monkeypatch.setattr(os, "replace", hostile)
+    with pytest.raises(PermissionError):
+        fetch(fetcher, BODY)
+    (survivor,) = _parts(tmp_path)
+    assert survivor.read_bytes() == b"another process's file"
+
+
+@KINDS
+def test_a_temporary_that_exclusive_creation_refused_is_never_deleted(
+    tmp_path: Path, fetch: Fetch, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import secrets
+
+    monkeypatch.setattr(secrets, "token_hex", lambda nbytes=None: "0" * 16)
+    routes = Routes({AT_MIRROR: BODY, PUBLISHER: BODY})
+    fetcher = _fetcher(tmp_path, routes)
+    final = (
+        fetcher.etag_path_for(PUBLISHER, ETAG)
+        if fetch is _etag
+        else fetcher.sized_path_for(PUBLISHER, len(BODY))
+    )
+    final.parent.mkdir(parents=True)
+    pre_existing = [
+        final.with_name(f"{final.name}.part.{os.getpid()}.{'0' * 16}"),
+        final.with_name(f"{final.name}.part.{os.getpid()}"),  # the old fixed name
+    ]
+    for planted in pre_existing:
+        planted.write_bytes(b"somebody else's")
+    with pytest.raises(BackendError, match="cannot create the download temporary"):
+        fetch(fetcher, BODY)
+    assert all(p.read_bytes() == b"somebody else's" for p in pre_existing)
+    assert not final.exists()
+
+
+def test_two_fetches_of_one_file_use_different_temporaries(tmp_path: Path) -> None:
+    fetcher = _fetcher(tmp_path, Routes({}))
+    final = fetcher.etag_path_for(PUBLISHER, ETAG)
+    assert fetcher._temporary_for(final) != fetcher._temporary_for(final)
+
+
+# -- fix round 3: redaction --------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("given", "shown"),
+    [
+        ("http://alice:SECRET@bunker.invalid/base", "http://bunker.invalid/base"),
+        ("http://alice:pa@SECRET@bunker.invalid/base", "http://bunker.invalid/base"),
+        ("http://alice:SECRET@[::1]:8080/x", "http://[::1]:8080/x"),
+        ("http://bunker.invalid/base//part@file", "http://bunker.invalid/base//part@file"),
+        ("http://bunker.invalid/a@b?c=d@e", "http://bunker.invalid/a@b?c=d@e"),
+        ("see https://u:p@h/x: boom (http://v@w)", "see https://h/x: boom (http://w)"),
+        ("no url here, user@host stays", "no url here, user@host stays"),
+    ],
+)
+def test_redaction_follows_urlsplit_userinfo_rules(given: str, shown: str) -> None:
+    assert redact_url_text(given) == shown
+
+
+def _chain_text(exc: BaseException | None) -> str:
+    out = []
+    while exc is not None:
+        out.append(str(exc))
+        exc = exc.__cause__ or exc.__context__
+    return "\n".join(out)
+
+
+@KINDS
+def test_a_credential_in_an_exception_chain_does_not_survive(tmp_path: Path, fetch: Fetch) -> None:
+    boom = OSError("connection reset")
+    boom.__cause__ = RuntimeError(f"proxy said no for {AT_SECRET}")
+    routes = Routes({AT_CLEAN: b"x" * len(BODY), PUBLISHER: boom})
+    fetcher = Fetcher(
+        tmp_path / "cache", transport=routes, mirror=SECRET_BUNKER, mirror_transport=routes
+    )
+    with pytest.raises(BackendError) as err:
+        fetch(fetcher, BODY)
+    assert "SECRET" not in _chain_text(err.value)
+    assert err.value.__cause__ is None and err.value.__context__ is None
+    assert "connection reset" in str(err.value)
+
+
+@KINDS
+def test_sources_and_results_carry_no_credentials(tmp_path: Path, fetch: Fetch) -> None:
+    routes = Routes({AT_CLEAN: BODY})
+    fetcher = Fetcher(
+        tmp_path / "cache", transport=routes, mirror=SECRET_BUNKER, mirror_transport=routes
+    )
+    assert "SECRET" not in repr(fetcher.sources_for(PUBLISHER, PATH))
+    result = fetch(fetcher, BODY)
+    assert result.source == "mirror" and result.url == AT_CLEAN
+    assert "SECRET" not in repr(result)
+
+
+def test_a_station_refusal_does_not_echo_a_credential() -> None:
+    from hammunition.station import Station, StationError, _check_mirror
+
+    for given in (
+        "http://alice:SECRET@bunker.invalid",
+        "http://alice:pa@SECRET@bunker.invalid/base",
+        "ftp://alice:SECRET@bunker.invalid",
+    ):
+        with pytest.raises(StationError) as err:
+            _check_mirror(given)
+        assert "SECRET" not in str(err.value) and "bunker.invalid" in str(err.value)
+        with pytest.raises(StationError) as err2:
+            Station(mirror=given)
+        assert "SECRET" not in str(err2.value)

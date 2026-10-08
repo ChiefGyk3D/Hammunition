@@ -275,6 +275,7 @@ from hammunition.upstream import (
     probe_upstream,
 )
 from hammunition.upstream import render as render_upstream
+from hammunition.urlredact import redact_url_text
 from hammunition.ustopo import UstopoError
 from hammunition.ustopo import bucket_probe as ustopo_probe
 from hammunition.ustopo import load_index as load_ustopo_index
@@ -537,6 +538,10 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
         code: int = EXIT_FAILED,
     ) -> None:
         nonlocal refusal_code
+        if key == "mirror":
+            # A refused mirror URL may carry a user and password: never echo them.
+            reason = redact_url_text(reason)
+            value = redact_url_text(value) if isinstance(value, str) else value
         if not refused:
             refusal_code = code
         refused.append(StationSetRefusal(key=key, value=value, reason=reason))

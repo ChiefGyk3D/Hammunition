@@ -53,6 +53,7 @@ import yaml
 from .kiwix import BOOK_ID
 from .maidenhead import centre
 from .paths import owner_aware_dir
+from .urlredact import redact_url_text
 
 __all__ = [
     "DERIVED",
@@ -203,13 +204,14 @@ def _check_mirror(url: str) -> str:
     operator's statement to make (D-070). A user or password is refused,
     because the station file is no place for a credential."""
     value = url.strip()
+    shown = redact_url_text(value)
     problem = None
     try:
         parts = urllib.parse.urlsplit(value)
         parts.port  # noqa: B018 - read for its ValueError on a bad port
     except ValueError as exc:
         raise StationError(
-            f"mirror {url!r} is not usable: {exc}. Expected a LAN address such as "
+            f"mirror {shown!r} is not usable: {exc}. Expected a LAN address such as "
             f"http://bunker.lan:8080/ (D-070)."
         ) from exc
     if parts.scheme not in MIRROR_SCHEMES:
@@ -224,7 +226,7 @@ def _check_mirror(url: str) -> str:
         problem = "it has a query or a fragment; a mirror is a base URL"
     if problem is not None:
         raise StationError(
-            f"mirror {url!r} is not usable: {problem}. Expected a LAN address such as "
+            f"mirror {shown!r} is not usable: {problem}. Expected a LAN address such as "
             f"http://bunker.lan:8080/ (D-070)."
         )
     return value
