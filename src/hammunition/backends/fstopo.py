@@ -165,7 +165,8 @@ class FsTopoBackend:
             fetched: dict[str, str | Path] = {}
             facts: dict[str, str] = {}
             where = MirrorPath(manifest.name, sheet.name)
-            note, urls, sources = "", sheet.url, ()
+            note, urls = "", sheet.url
+            sources: tuple[str, ...] = ()
             if not sheet.sha256:
                 # Size and a TIFF's first bytes are the only checks of an
                 # unpinned sheet, the Bunker's copy or the publisher's. A pinned
@@ -246,9 +247,7 @@ class FsTopoBackend:
                 )
                 how = f"sha256 {sheet.sha256[:12]}… verified against the pin"
             else:
-                result = self.fetcher.fetch_sized(
-                    sheet.url, expected_size=sheet.size, mirror=where
-                )
+                result = self.fetcher.fetch_sized(sheet.url, expected_size=sheet.size, mirror=where)
                 how = (
                     f"unverified: {result.size} bytes as announced and a TIFF, sha256 "
                     f"{result.sha256[:12]}… recorded"

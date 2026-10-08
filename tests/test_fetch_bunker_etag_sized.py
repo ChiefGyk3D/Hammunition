@@ -135,7 +135,7 @@ def test_when_both_fail_the_error_names_both_reasons(tmp_path: Path, fetch: Fetc
 def test_wrong_size_is_refused_on_either_route(tmp_path: Path, fetch: Fetch) -> None:
     short = BODY[:-1]
     routes = Routes({AT_MIRROR: short, PUBLISHER: short})
-    with pytest.raises(BackendError, match="size"):
+    with pytest.raises(BackendError, match="the size check failed"):
         fetch(_fetcher(tmp_path, routes), BODY)
     assert routes.requested == [AT_MIRROR, PUBLISHER] and not _parts(tmp_path)
     assert not list((tmp_path / "cache").glob("*Test.tif"))
@@ -173,9 +173,7 @@ def test_a_multipart_etag_is_reproduced_from_the_mirror(tmp_path: Path) -> None:
     result.path.unlink()
     routes.routes[PUBLISHER] = b"nope"
     with pytest.raises(BackendError, match="ETag"):
-        _fetcher(tmp_path, routes).fetch_etag(
-            PUBLISHER, etag, expected_size=len(body), mirror=PATH
-        )
+        _fetcher(tmp_path, routes).fetch_etag(PUBLISHER, etag, expected_size=len(body), mirror=PATH)
     assert not _parts(tmp_path)
 
 
@@ -269,9 +267,7 @@ ON_MIRROR = "/usgs-ustopo/DE/Test_20260101"
 
 
 @contextmanager
-def _server(
-    files: dict[str, bytes], redirects: dict[str, str]
-) -> Iterator[tuple[str, list[str]]]:
+def _server(files: dict[str, bytes], redirects: dict[str, str]) -> Iterator[tuple[str, list[str]]]:
     seen: list[str] = []
 
     class Handler(http.server.BaseHTTPRequestHandler):
@@ -355,3 +351,95 @@ def test_a_size_only_mirror_hit_over_real_http_is_checked_like_the_publisher(
         )
         result = fetcher.fetch_sized(f"{base}{SHEET}", expected_size=len(BODY), mirror=PATH)
     assert result.source == "mirror" and seen == [ON_MIRROR]
+
+
+# -- the fetcher's path identity is the catalogue identity the offline plan resolves by --
+
+
+def _identity_fetcher(tmp_path: Path, routes: Routes) -> Fetcher:
+    return Fetcher(
+        tmp_path / "cache", transport=routes, mirror=BUNKER, mirror_transport=routes, offline=True
+    )
+
+
+def test_a_us_topo_sheet_is_fetched_under_the_identity_the_offline_plan_resolves_by(
+    tmp_path: Path,
+) -> None:
+    import test_offline_usgs as usgs
+    import test_topo_backend as topo
+    from bunker_fixtures import make_context
+    from hammunition.backends.topo import TopoQuadsBackend, TopoResolution
+    from hammunition.ustopo import check_quad
+    from test_terrain_plan import TileProbe
+
+    q = usgs.quad()
+    context = make_context(tmp_path / "ctx", [usgs.quad_row(q)])
+    check_quad(q, TileProbe({}), context=context, unit=usgs.TOPO)
+    ((unit, name),) = [n for n in context.notes if n[0] == usgs.TOPO]
+    assert (unit, name) == ("usgs-ustopo", "DE/Test_20260101")
+    routes = Routes({})
+    backend = TopoQuadsBackend(
+        fetcher=_identity_fetcher(tmp_path, routes),
+        prefix=tmp_path,
+        resolution=TopoResolution(fetch=(q,)),
+    )
+    m = topo.manifest()
+    next(s for s in topo._actions(backend.steps(m, topo._block(m))) if s.kind == "fetch").perform()
+    assert routes.requested == [mirror_url(BUNKER, MirrorPath(unit, name))]
+
+
+def test_an_fstopo_sheet_is_fetched_under_the_identity_the_offline_plan_resolves_by(
+    tmp_path: Path,
+) -> None:
+    import test_fstopo_backend as fstopo
+    import test_offline_fstopo as offline
+    from bunker_fixtures import make_context
+    from hammunition.backends.fstopo import FsTopoResolution
+    from hammunition.fstopo import recorded_sheet
+
+    q = offline.sheet()
+    context = make_context(tmp_path / "ctx", [offline.row(q)])
+    got = recorded_sheet(q, unit=offline.UNIT, pins={}, context=context)
+    assert got.sha256 is None
+    routes = Routes({})
+    backend = fstopo._pair(
+        tmp_path,
+        FsTopoResolution(fetch=(got,)),
+        fetcher=_identity_fetcher(tmp_path, routes),
+    )
+    next(s for s in fstopo._steps(backend) if s.kind == "fetch").perform()
+    assert routes.requested == [mirror_url(BUNKER, MirrorPath(offline.UNIT, q.name))]
+    assert context.entry(offline.UNIT, q.name).name == q.name
+
+
+def test_a_3dep_tile_is_fetched_under_the_identity_the_offline_plan_resolves_by(
+    tmp_path: Path,
+) -> None:
+    import test_dem_3dep as dem3
+    import test_offline_usgs as usgs
+    from bunker_fixtures import make_context
+    from hammunition.backends.dem import DemResolution, DemTilesBackend
+    from hammunition.copernicus import TileFile
+    from hammunition.usgs3dep import check_tile, tile_url
+    from test_terrain_plan import TileProbe
+
+    t = usgs.tile()
+    context = make_context(tmp_path / "ctx", [usgs.tile_row(t)])
+    check_tile(t, TileProbe({}), context=context, unit=usgs.DEM)
+    ((unit, name),) = [n for n in context.notes if n[0] == usgs.DEM]
+    assert (unit, name) == ("dem-3dep", t.name)
+    routes = Routes({})
+    three = DemTilesBackend(
+        fetcher=_identity_fetcher(tmp_path, routes),
+        prefix=tmp_path,
+        resolution=DemResolution(
+            fetch=(TileFile(t.name, tile_url(t.name), t.size, None, None, t.etag),)
+        ),
+        provider="usgs-3dep",
+    )
+    m = dem3.manifest("dem-3dep", "usgs-3dep")
+    outer = DemTilesBackend(
+        fetcher=three.fetcher, prefix=tmp_path, resolution=DemResolution(), bare_earth=three
+    )
+    next(s for s in dem3._steps(outer, m) if s.kind == "fetch").perform()
+    assert routes.requested == [mirror_url(BUNKER, MirrorPath(unit, name))]

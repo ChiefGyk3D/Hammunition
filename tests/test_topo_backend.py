@@ -13,8 +13,6 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from test_fetch_mirror import Routes
-
 from hammunition.backends import Action, Command
 from hammunition.backends.topo import (
     TIF,
@@ -28,6 +26,7 @@ from hammunition.backends.topo import (
 from hammunition.fetch import Fetcher, FetchResult, MirrorPath, VerificationError, mirror_url
 from hammunition.manifest.schema import PackageManifest, TopoQuadsInstall
 from hammunition.ustopo import UNPINNED, Quad
+from test_fetch_mirror import Routes
 
 BODY = b"q" * 10
 MD5 = hashlib.md5(BODY, usedforsecurity=False).hexdigest()
@@ -308,7 +307,9 @@ def test_offline_a_sheet_is_the_mirrors_alone_and_the_plan_says_so(tmp_path: Pat
 
 def test_without_a_mirror_the_sheet_step_reads_as_it_did(tmp_path: Path) -> None:
     fetcher = FakeFetcher(tmp_path / "cache")
-    backend = _backend(tmp_path, TopoResolution(regions=(OCEANIA,), fetch=(ALPHA,)), fetcher=fetcher)
+    backend = _backend(
+        tmp_path, TopoResolution(regions=(OCEANIA,), fetch=(ALPHA,)), fetcher=fetcher
+    )
     m = manifest()
     fetch = next(s for s in _actions(backend.steps(m, _block(m))) if s.kind == "fetch")
     assert fetch.sources == (ALPHA.url,) and "mirror" not in fetch.description
