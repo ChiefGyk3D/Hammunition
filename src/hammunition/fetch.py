@@ -63,6 +63,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import shutil
 import urllib.error
 import urllib.parse
@@ -208,6 +209,7 @@ class UrllibTransport:
 
     def __init__(self, *, timeout: float = 60.0, follow_redirects: bool = True) -> None:
         self.timeout = timeout
+        self.follow_redirects = follow_redirects
         director = urllib.request.OpenerDirector()
         # A transport that follows no redirect answers a 30x as an HTTP error
         # (D-068, amended 2026-10-01: an FSTopo sheet is fetched from the
@@ -310,6 +312,15 @@ def safe_name(url: str) -> str:
     return _safe_name(url)
 
 
+_USERINFO = re.compile(r"(?<=//)[^/\s@]*@")
+
+
+def redact_url_text(text: str) -> str:
+    """*text* with any ``user:password@`` after ``//`` removed, so a mirror URL
+    given with credentials never shows them in an error, a plan or a log."""
+    return _USERINFO.sub("", text)
+
+
 def fetch_disclosure(
     fetcher: Fetcher, url: str, path: MirrorPath, check: str
 ) -> tuple[str, str, tuple[str, ...]]:
@@ -317,7 +328,8 @@ def fetch_disclosure(
     its description, the URLs for its detail, and the URLs in the order
     tried. With no mirror the suffix is empty and the detail is the URL, so
     the plan reads exactly as it did."""
-    urls = tuple(where for _, where in fetcher.sources_for(url, path))
+    urls = tuple(redact_url_text(where) for _, where in fetcher.sources_for(url, path))
+    url = redact_url_text(url)
     if fetcher.offline:
         return (
             f" — Bunker only, offline: the publisher is not asked; the {check} is checked",
@@ -337,17 +349,19 @@ def record_fetch(result: FetchResult, facts: dict[str, str], *, mirrored: bool) 
     """Put where *result*'s bytes came from into *facts*, for the step's
     ``action_end`` entry, and return the words its outcome line adds: none
     when no mirror is set, so the outcome reads as it did."""
+    where = redact_url_text(result.url) if result.url is not None else None
+    failure = redact_url_text(result.mirror_failure) if result.mirror_failure is not None else None
     facts["source"] = result.source
-    if result.url is not None:
-        facts["fetched_from"] = result.url
-    if result.mirror_failure is not None:
-        facts["mirror_failure"] = result.mirror_failure
+    if where is not None:
+        facts["fetched_from"] = where
+    if failure is not None:
+        facts["mirror_failure"] = failure
     if not mirrored or result.source == "cache":
         return ""
     if result.source == "mirror":
-        return f", from the LAN mirror {result.url}"
-    if result.mirror_failure is not None:
-        return f", from the publisher; the mirror was passed over: {result.mirror_failure}"
+        return f", from the LAN mirror {where}"
+    if failure is not None:
+        return f", from the publisher; the mirror was passed over: {failure}"
     return ", from the publisher"
 
 
@@ -459,12 +473,18 @@ class Fetcher:
         self.max_bytes = max_bytes
         self.mirror = mirror
         """The LAN mirror's base URL (D-070), or None: publisher only."""
+        chosen: Transport
         if mirror_transport is not None:
-            self.mirror_transport: Transport = mirror_transport
+            chosen = mirror_transport
         elif transport is not None:
-            self.mirror_transport = transport
+            chosen = transport
         else:
-            self.mirror_transport = UrllibTransport(timeout=MIRROR_TIMEOUT)
+            chosen = UrllibTransport(timeout=MIRROR_TIMEOUT)
+        if isinstance(chosen, UrllibTransport) and chosen.follow_redirects:
+            # A mirror that answers a redirect is a mirror failure, never a
+            # second place to fetch from: the Location is not the Bunker's.
+            chosen = UrllibTransport(timeout=chosen.timeout, follow_redirects=False)
+        self.mirror_transport: Transport = chosen
         #: For :meth:`fetch_sized`: the injected transport, else one that
         #: follows no redirect (final review, I1).
         self.strict_transport: Transport = (
@@ -530,15 +550,21 @@ class Fetcher:
                 # over to the publisher rather than abort the install. An
                 # interrupt (not an Exception) still stops the run.
                 if source == "mirror" and isinstance(exc, Exception):
-                    passed_over = f"{where}: {exc}"
+                    passed_over = redact_url_text(f"{where}: {exc}")
                     if isinstance(exc, TransportUnreachable):
-                        self._mirror_down = (
+                        self._mirror_down = redact_url_text(
                             f"the mirror {self.mirror} did not answer earlier in this run ({exc})"
                         )
                     continue
-                if passed_over is not None and isinstance(exc, BackendError):
-                    raise type(exc)(
-                        f"{exc}\n(The LAN mirror was tried first and passed over: {passed_over})"
+                if passed_over is not None and isinstance(exc, Exception):
+                    # Whatever the publisher raised (an OSError, a short read, a
+                    # timeout), the mirror's reason travels with it; the original
+                    # exception stays as the cause.
+                    note = f"(The LAN mirror was tried first and passed over: {passed_over})"
+                    if isinstance(exc, BackendError):
+                        raise type(exc)(f"{exc}\n{note}") from exc
+                    raise BackendError(
+                        f"{where} could not be fetched: {type(exc).__name__}: {exc}\n{note}"
                     ) from exc
                 raise
             return _Downloaded(sha, size, got, source, where, passed_over)
@@ -621,7 +647,7 @@ class Fetcher:
         got = self._from_sources(
             artifact.url, mirror, temporary, max_bytes=max_bytes, md5=False, verify=verify
         )
-        os.replace(temporary, final)
+        _publish(temporary, final)
         return FetchResult(
             path=final,
             sha256=got.sha256,
@@ -685,7 +711,7 @@ class Fetcher:
             md5=True,
             verify=verify,
         )
-        os.replace(temporary, final)
+        _publish(temporary, final)
         return FetchResult(
             path=final,
             sha256=done.sha256,
@@ -755,7 +781,7 @@ class Fetcher:
             verify=verify,
             also="sha1",
         )
-        os.replace(temporary, final)
+        _publish(temporary, final)
         return FetchResult(
             path=final,
             sha256=done.sha256,
@@ -785,16 +811,9 @@ class Fetcher:
         """
         make_dir(self.cache_dir)
         final = self.etag_path_for(url, etag)
-        if final.exists() and final.stat().st_size == expected_size:
-            if etag_matches(final, etag):
-                return FetchResult(
-                    path=final,
-                    sha256=_digest_file(final),
-                    from_cache=True,
-                    size=expected_size,
-                    source="cache",
-                )
-            final.unlink()
+        cached = self._verified_cached_etag(final, etag, expected_size)
+        if cached is not None:
+            return cached
 
         temporary = final.with_name(final.name + f".part.{os.getpid()}")
 
@@ -819,7 +838,7 @@ class Fetcher:
             md5=False,
             verify=verify,
         )
-        os.replace(temporary, final)
+        _publish(temporary, final)
         return FetchResult(
             path=final,
             sha256=done.sha256,
@@ -828,6 +847,32 @@ class Fetcher:
             source=done.source,
             url=done.url,
             mirror_failure=done.mirror_failure,
+        )
+
+    @staticmethod
+    def _verified_cached_etag(final: Path, etag: str, expected_size: int) -> FetchResult | None:
+        """The cached copy at *final* when it passes the size and ETag checks,
+        else None with the entry removed: a failed check never leaves a final
+        file for a failed recovery to leave behind. One open file is read for
+        the check and for the digest, and the digest is taken before and after
+        the ETag check and must agree, so a swap between the reads is refused."""
+        try:
+            with final.open("rb") as handle:
+                if os.fstat(handle.fileno()).st_size != expected_size:
+                    raise VerificationError(f"{final}: not {expected_size} bytes")
+                first = _digest_handle(handle)
+                if not etag_matches(Path(f"/proc/self/fd/{handle.fileno()}"), etag):
+                    raise VerificationError(f"{final}: does not reproduce the ETag")
+                handle.seek(0)
+                if _digest_handle(handle) != first:
+                    raise VerificationError(f"{final}: changed while it was checked")
+        except FileNotFoundError:
+            return None
+        except (OSError, BackendError):
+            final.unlink(missing_ok=True)
+            return None
+        return FetchResult(
+            path=final, sha256=first, from_cache=True, size=expected_size, source="cache"
         )
 
     def sized_path_for(self, url: str, size: int) -> Path:
@@ -877,7 +922,7 @@ class Fetcher:
             verify=verify,
             publisher_transport=self.strict_transport,
         )
-        os.replace(temporary, final)
+        _publish(temporary, final)
         return FetchResult(
             path=final,
             sha256=done.sha256,
@@ -930,7 +975,7 @@ class Fetcher:
         done = self._from_sources(
             url, mirror, temporary, max_bytes=max_bytes, md5=False, verify=verify
         )
-        os.replace(temporary, final)
+        _publish(temporary, final)
         return FetchResult(
             path=final,
             sha256=done.sha256,
@@ -993,6 +1038,23 @@ class Fetcher:
             size,
             (extra_digest.hexdigest() if extra_digest is not None else None),
         )
+
+
+def _publish(temporary: Path, final: Path) -> None:
+    """Move a verified download into place; the temporary goes if that fails."""
+    try:
+        os.replace(temporary, final)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def _digest_handle(handle: IO[bytes]) -> str:
+    handle.seek(0)
+    digest = hashlib.sha256()
+    while chunk := handle.read(_CHUNK):
+        digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _digest_file(path: Path) -> str:

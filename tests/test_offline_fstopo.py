@@ -515,8 +515,19 @@ def warning_lines(text: str) -> list[str]:
 
 
 def routing(line: str) -> str:
-    """*line* without the words that say which source a fetch asks."""
-    line = re.sub(r" — (the LAN mirror first|Bunker only, offline).*$", "", line)
+    """*line* without the words that say which source a fetch asks, and nothing
+    else: the clause naming the check ("the size is checked") is kept, so the
+    online and offline lines are still compared on it exactly."""
+    line = re.sub(
+        r" — the LAN mirror first, then the publisher; (the \w+ is checked) either way",
+        r" — \1",
+        line,
+    )
+    line = re.sub(
+        r" — Bunker only, offline: the publisher is not asked; (the \w+ is checked)",
+        r" — \1",
+        line,
+    )
     return re.sub(r", then \S+", "", line)
 
 
@@ -677,3 +688,11 @@ def test_cli_offline_a_pinned_sheet_the_plan_resolves_is_downloaded_through_the_
     assert outcome.startswith("downloaded") and "verified against the pin" in outcome
     assert fetch.facts["source"] == "mirror" and fetch.facts["fetched_from"] == at_mirror
     assert head.asked == [] and attempts == []
+
+
+def test_routing_keeps_the_check_clause_so_a_changed_check_is_seen() -> None:
+    online = "# 1: Fetch X — unverified — the LAN mirror first, then the publisher; the size is checked either way"
+    offline = "# 1: Fetch X — unverified — Bunker only, offline: the publisher is not asked; the size is checked"
+    assert routing(online) == routing(offline) == "# 1: Fetch X — unverified — the size is checked"
+    weaker = offline.replace("the size is checked", "nothing is checked")
+    assert routing(weaker) != routing(online)

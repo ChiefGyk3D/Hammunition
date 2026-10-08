@@ -13,7 +13,9 @@ offline, and no ``*.part.*`` file survives any path.
 from __future__ import annotations
 
 import hashlib
+import http.client
 import http.server
+import os
 import threading
 import urllib.request
 from collections.abc import Callable, Iterator
@@ -443,3 +445,187 @@ def test_a_3dep_tile_is_fetched_under_the_identity_the_offline_plan_resolves_by(
     )
     next(s for s in dem3._steps(outer, m) if s.kind == "fetch").perform()
     assert routes.requested == [mirror_url(BUNKER, MirrorPath(unit, name))]
+
+
+# -- fix round 2 ----------------------------------------------------------------------
+
+LEAK = "/elsewhere/leak.tif"
+
+
+@KINDS
+@pytest.mark.parametrize("offline", [True, False], ids=["offline", "online"])
+@pytest.mark.parametrize("explicit", [False, True], ids=["default", "explicit-following"])
+def test_a_mirror_redirect_is_a_mirror_failure_never_followed(
+    tmp_path: Path, fetch: Fetch, offline: bool, explicit: bool
+) -> None:
+    with _server({LEAK: BODY}, {ON_MIRROR: LEAK}) as (base, seen):
+        following = UrllibTransport(timeout=5.0) if explicit else None
+        fetcher = Fetcher(
+            tmp_path / "cache", mirror=base, offline=offline, mirror_transport=following
+        )
+        # The publisher is the sheet's own URL on the same server, which has no such file.
+        with pytest.raises(BackendError) as err:
+            if fetch is _etag:
+                fetcher.fetch_etag(f"{base}{SHEET}", ETAG, expected_size=len(BODY), mirror=PATH)
+            else:
+                fetcher.fetch_sized(f"{base}{SHEET}", expected_size=len(BODY), mirror=PATH)
+    assert LEAK not in seen
+    assert "302" in str(err.value)
+    if offline:
+        assert seen == [ON_MIRROR] and "offline Bunker download failed" in str(err.value)
+    else:
+        assert seen == [ON_MIRROR, SHEET]
+        assert "LAN mirror was tried first and passed over" in str(err.value)
+        assert "404" in str(err.value)
+    assert not _parts(tmp_path) and not list((tmp_path / "cache").glob("*Test*"))
+
+
+def test_the_default_mirror_transport_follows_no_redirect(tmp_path: Path) -> None:
+    assert not _follows_redirects(Fetcher(tmp_path / "a", mirror=BUNKER).mirror_transport)
+    given = UrllibTransport(timeout=7.0)
+    normalised = Fetcher(tmp_path / "b", mirror=BUNKER, mirror_transport=given).mirror_transport
+    assert not _follows_redirects(normalised)
+    assert isinstance(normalised, UrllibTransport) and normalised.timeout == 7.0
+
+
+class _ShortRead(Exception):
+    """Stands in for http.client.IncompleteRead below."""
+
+
+@KINDS
+@pytest.mark.parametrize(
+    "boom",
+    [
+        OSError("connection reset"),
+        http.client.IncompleteRead(b"II", 9),
+        TimeoutError("timed out"),
+    ],
+    ids=["oserror", "incompleteread", "timeout"],
+)
+def test_a_publisher_failure_after_a_mirror_failure_names_both_and_keeps_the_cause(
+    tmp_path: Path, fetch: Fetch, boom: Exception
+) -> None:
+    routes = Routes({AT_MIRROR: b"x" * len(BODY), PUBLISHER: boom})
+    with pytest.raises(BackendError) as err:
+        fetch(_fetcher(tmp_path, routes), BODY)
+    text = str(err.value)
+    assert PUBLISHER in text and AT_MIRROR in text and "passed over" in text
+    assert type(boom).__name__ in text
+    assert err.value.__cause__ is boom
+    assert not _parts(tmp_path)
+
+
+def test_a_swap_between_the_etag_check_and_the_digest_is_not_accepted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hammunition.s3etag import etag_matches as real
+
+    routes = Routes({AT_MIRROR: BODY})
+    fetcher = _fetcher(tmp_path, routes)
+    cached = fetcher.etag_path_for(PUBLISHER, ETAG)
+    cached.parent.mkdir(parents=True)
+    cached.write_bytes(BODY)
+    calls: list[int] = []
+
+    def swapping(path: Path, etag: str) -> bool:
+        ok = real(path, etag)
+        calls.append(1)
+        if len(calls) == 1:  # another process replaces the file just after the check
+            cached.write_bytes(b"B" * len(BODY))
+        return ok
+
+    monkeypatch.setattr("hammunition.fetch.etag_matches", swapping)
+    result = _etag(fetcher)
+    assert result.source == "mirror" and result.path.read_bytes() == BODY
+    assert result.sha256 == hashlib.sha256(BODY).hexdigest()
+    assert routes.requested == [AT_MIRROR]
+
+
+def test_a_wrong_sized_cache_entry_is_removed_even_when_recovery_fails(tmp_path: Path) -> None:
+    routes = Routes({})
+    fetcher = _fetcher(tmp_path, routes, offline=True)
+    poisoned = fetcher.etag_path_for(PUBLISHER, ETAG)
+    poisoned.parent.mkdir(parents=True)
+    poisoned.write_bytes(BODY + b"!")
+    with pytest.raises(BackendError):
+        _etag(fetcher)
+    assert not poisoned.exists() and not _parts(tmp_path)
+
+
+def test_a_cache_entry_that_cannot_be_read_is_removed_even_when_recovery_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def unreadable(path: Path, etag: str) -> bool:
+        raise OSError("input/output error")
+
+    routes = Routes({})
+    fetcher = _fetcher(tmp_path, routes, offline=True)
+    poisoned = fetcher.etag_path_for(PUBLISHER, ETAG)
+    poisoned.parent.mkdir(parents=True)
+    poisoned.write_bytes(BODY)
+    monkeypatch.setattr("hammunition.fetch.etag_matches", unreadable)
+    with pytest.raises(BackendError):
+        _etag(fetcher)
+    assert not poisoned.exists() and not _parts(tmp_path)
+
+
+@KINDS
+def test_a_failed_rename_removes_the_part_file(
+    tmp_path: Path, fetch: Fetch, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(src: object, dst: object) -> None:
+        raise PermissionError("rename refused")
+
+    routes = Routes({AT_MIRROR: BODY})
+    fetcher = _fetcher(tmp_path, routes)
+    monkeypatch.setattr(os, "replace", refuse)
+    with pytest.raises(PermissionError):
+        fetch(fetcher, BODY)
+    assert not _parts(tmp_path) and not list((tmp_path / "cache").glob("*Test*"))
+
+
+SECRET_BUNKER = "http://alice:SECRET@bunker.invalid"
+AT_SECRET = mirror_url(SECRET_BUNKER, PATH)
+
+
+@KINDS
+def test_mirror_credentials_never_reach_errors_facts_or_the_plan(
+    tmp_path: Path, fetch: Fetch
+) -> None:
+    from hammunition.fetch import TransportUnreachable, fetch_disclosure, record_fetch
+
+    assert "SECRET" in AT_SECRET
+    offline = Fetcher(
+        tmp_path / "off",
+        transport=Routes({}),
+        mirror=SECRET_BUNKER,
+        mirror_transport=Routes({}),
+        offline=True,
+    )
+    with pytest.raises(BackendError) as err:
+        fetch(offline, BODY)
+    assert "SECRET" not in str(err.value) and "bunker.invalid" in str(err.value)
+    down = Routes(
+        {AT_SECRET: TransportUnreachable(f"{AT_SECRET} could not be fetched"), PUBLISHER: BODY}
+    )
+    online = Fetcher(tmp_path / "on", transport=down, mirror=SECRET_BUNKER, mirror_transport=down)
+    result = fetch(online, BODY)
+    facts: dict[str, str] = {}
+    words = record_fetch(result, facts, mirrored=True)
+    assert result.source == "publisher" and "SECRET" not in words
+    assert "SECRET" not in repr(facts) and "bunker.invalid" in facts["mirror_failure"]
+    # The "mirror did not answer earlier in this run" note on a second fetch.
+    dead = Fetcher(
+        tmp_path / "off2",
+        transport=Routes({}),
+        mirror=SECRET_BUNKER,
+        mirror_transport=down,
+        offline=True,
+    )
+    for _ in range(2):
+        with pytest.raises(BackendError) as later:
+            fetch(dead, BODY)
+        assert "SECRET" not in str(later.value)
+    assert "did not answer earlier" in str(later.value)
+    note, detail, sources = fetch_disclosure(online, PUBLISHER, PATH, "ETag")
+    assert "SECRET" not in repr((note, detail, sources)) and "bunker.invalid" in detail
