@@ -549,19 +549,34 @@ def test_fallback_resets_unpublished_when_narrowing_all_selection_keeps_nothing(
     tmp_path: Path,
 ) -> None:
     """Fix 1: fallback must reset unpublished to 0 when narrowing an 'all'
-    3DEP selection to a radius bound keeps no tiles (issue #232, D-068)."""
+    3DEP selection to a radius bound that keeps no tiles (issue #232, D-068).
+
+    The test uses:
+    - A 3DEP tile USGS_13_n41w075 (at coordinates 40°N, -75°E)
+    - An 'all' selection containing that tile with unpublished=2
+    - A 1 km radius bound centered at 50°N, 10°E (6,400+ km away)
+    - The narrowed result should be empty and unpublished reset to 0
+    """
     from hammunition.usgs3dep import TileRow
 
+    # A USGS 3DEP tile far from where the radius bound is centered
+    tile = "USGS_13_n41w075"
+    tile_row = TileRow(tile, 39_000_000, MD5)
+
     # Create a selection with bound="all" and unpublished=2
-    entry = RegionTiles(REGION, SLUG, (A,), 2, "all")
+    # This simulates a stored selection covering this tile plus 1 other tile
+    entry = RegionTiles(REGION, SLUG, (tile,), 2, "all")
     context = inputs(tmp_path, {"dem3dep-selection": render_tiles(entry).encode()})
-    # Narrow to "none" which keeps nothing
-    bound = TopoBound("none")
+
+    # Narrow to a 1 km radius centered at 50°N, 10°E
+    # This is 6,400+ km from the tile, so it will keep no tiles
+    bound = TopoBound("radius", radius_km=1, centre=(50.0, 10.0))
+
     got = region_bare_earth(
         REGION,
         SLUG,
         installed=tmp_path,
-        tiles={A: TileRow(A, 39_000_000, MD5)},
+        tiles={tile: tile_row},
         region_probe=RegionProbe({}),
         bound=bound,
         context=context,
