@@ -1067,3 +1067,31 @@ def test_a_malformed_host_fails_closed_in_the_station_refusal(given: str) -> Non
             attempt()
         assert "SECRET" not in _chain_text(err.value) and "alice" not in _chain_text(err.value)
         assert err.value.__cause__ is None and err.value.__context__ is None
+
+
+def test_an_authority_urlsplit_changes_does_not_round_trip_and_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import urllib.parse
+
+    real = urllib.parse.urlsplit
+
+    def altering(url: str) -> urllib.parse.SplitResult:
+        parts = real(url)
+        return parts._replace(netloc=parts.netloc.replace("bun", "BUN"))
+
+    monkeypatch.setattr(urllib.parse, "urlsplit", altering)
+    assert redact_url_text("http://alice:SECRET@bunker/x") == "http://<redacted>/x"
+
+
+@KINDS
+def test_a_clean_cyclic_exception_chain_terminates(tmp_path: Path, fetch: Fetch) -> None:
+    first, second = OSError("first"), OSError("second")
+    first.__cause__, second.__cause__ = second, first
+    routes = Routes({AT_CLEAN: b"x" * len(BODY), PUBLISHER: first})
+    fetcher = Fetcher(
+        tmp_path / "cache", transport=routes, mirror=SECRET_BUNKER, mirror_transport=routes
+    )
+    with pytest.raises(BackendError) as err:
+        fetch(fetcher, BODY)
+    assert err.value.__cause__ is first
