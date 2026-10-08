@@ -220,7 +220,9 @@ def test_online_a_404_is_an_answer_not_an_outage_and_never_falls_back(tmp_path: 
 def test_online_a_changed_etag_still_refuses_and_never_falls_back(tmp_path: Path) -> None:
     t = tile()
     context = make_context(tmp_path, [tile_row(t)], offline=False)
-    heads = {threedep_url(t.name): (200, 3, '"' + "d" * 32 + '-2"')}
+    heads: dict[str, tuple[int, int, str | None]] = {
+        threedep_url(t.name): (200, 3, '"' + "d" * 32 + '-2"')
+    }
     with pytest.raises(CopernicusError, match="changed"):
         check_tile(t, retrying(TileProbe(heads)), context=context, unit=DEM)
     assert not context.notes
