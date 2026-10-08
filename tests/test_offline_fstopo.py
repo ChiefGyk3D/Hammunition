@@ -205,6 +205,12 @@ BAD_URLS = [
     pytest.param("https://data.fs.usda.gov/geodata/rastergateway/a.zip", id="not-a-tiff"),
     pytest.param("https://data.fs.usda.gov/geodata/rastergateway/a b.tif", id="space"),
     pytest.param("https://data.fs.usda.gov/geodata/rastergateway/a.tif\n", id="newline"),
+    pytest.param(GATEWAY + "a.tif?u=http://evil.example/x.tif", id="query"),
+    pytest.param(GATEWAY + "a.tif#frag", id="fragment"),
+    pytest.param(GATEWAY + "x%2Fa.tif", id="%2F"),
+    pytest.param(GATEWAY + "x%2fa.tif", id="%2f"),
+    pytest.param(GATEWAY + "x%252fa.tif", id="double-%2f"),
+    pytest.param(GATEWAY + "a//b.tif", id="empty-segment"),
     pytest.param("", id="empty"),
 ]
 
@@ -563,3 +569,48 @@ def test_no_hold_unverified_policy_exists_in_the_engine() -> None:
         if "hold_unverified" in p.read_text() and p.name != "artifacts.py"
     ]
     assert hits == []
+
+
+# -- the live Location is held to the same validator --------------------------------
+
+
+def _locate(location: str) -> tuple[str, int]:
+    def head(url: str) -> tuple[int, int, str | None]:
+        if url == map_url(1230000):
+            return 302, 0, location
+        return 200, 7, None
+
+    return GatewayProbe(head).locate(1230000)
+
+
+def test_online_a_normal_gateway_location_still_resolves() -> None:
+    assert _locate(file_url(1230000)) == (file_url(1230000), 7)
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        GATEWAY + "%2e%2e/%2e%2e/outside.tif",
+        GATEWAY + "a.tif?u=http://evil.example/x.tif",
+        GATEWAY + "x%2Fa.tif",
+        GATEWAY + "a//b.tif",
+    ],
+)
+def test_online_a_hostile_location_is_refused(location: str) -> None:
+    with pytest.raises(FstopoError, match="refused, not followed"):
+        _locate(location)
+
+
+# -- personal mode ignores share (design open question 3) ---------------------------
+
+
+def test_personal_mode_ignores_share(tmp_path: Path) -> None:
+    """Design open question 3, decided: in a personal-mode Bunker a row shared
+    ``owner:laptop-a`` still answers laptop-b, because personal mode ignores
+    ``share``; only group mode filters by owner. Changing that rule must change
+    this test (and the group-mode test above)."""
+    q = sheet()
+    context = make_context(
+        tmp_path, [row(q, share="owner:laptop-a")], mode="personal", enrolment_id="laptop-b"
+    )
+    assert recorded_sheet(q, unit=UNIT, pins={}, context=context).url == GOOD_URL

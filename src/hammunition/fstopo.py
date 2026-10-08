@@ -323,6 +323,11 @@ class GatewayProbe:
             )
         if ".." in urllib.parse.urlsplit(url).path.split("/"):
             raise FstopoError(f"{secoord}: the redirect {location!r} climbs out of the gateway")
+        if not _is_gateway_geotiff(url):
+            raise FstopoError(
+                f"{secoord}: the gateway redirected to {location!r}, which is not a plain "
+                f"GeoTIFF path under {GATEWAY}; refused, not followed"
+            )
         status, size, _ = self._head(url)
         if status != 200 or size <= 0:
             raise FstopoError(
@@ -343,7 +348,7 @@ def _is_gateway_geotiff(url: str) -> bool:
     gateway's host (so no userinfo and no port), a path under the gateway's
     path with a ``/`` boundary, no control character, backslash or ``.``/``..``
     segment however many times it is percent-encoded, and a ``.tif``/``.tiff``
-    name. The URL must already be canonically percent-encoded, as the live
+    name. No query, fragment, empty segment or encoded slash. The URL must already be canonically percent-encoded, as the live
     probe leaves it."""
     if not url or url != urllib.parse.quote(url, safe=":/?&=%"):
         return False
@@ -359,6 +364,7 @@ def _is_gateway_geotiff(url: str) -> bool:
         or parts.password is not None
         or port not in (None, 443)
         or parts.fragment
+        or parts.query
         or not parts.path.startswith(_GATEWAY_PARTS.path)
         or not parts.path.lower().endswith((".tif", ".tiff"))
     ):
@@ -367,8 +373,11 @@ def _is_gateway_geotiff(url: str) -> bool:
     for _ in range(4):  # percent-encoding of percent-encoding
         if "\\" in path or any(ord(c) < 0x20 or ord(c) == 0x7F for c in path):
             return False
-        if any(segment in (".", "..") for segment in path.split("/")):
+        segments = path.split("/")
+        if any(segment in (".", "..") for segment in segments):
             return False
+        if "" in segments[1:] or "%2f" in path.lower():
+            return False  # an empty segment, or a slash hidden inside one
         decoded = urllib.parse.unquote(path)
         if decoded == path:
             return True
