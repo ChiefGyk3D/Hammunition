@@ -135,6 +135,7 @@ def test_staging_copies_the_fetched_file_readable_and_not_executable(
             size=11,
             sha256=SHA,
             source="cache",
+            warning=None,
             url=None,
             mirror_failure=None,
         ),
