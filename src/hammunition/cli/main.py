@@ -1302,6 +1302,20 @@ def _dpkg_depends(path: Path) -> str:
     return ", ".join(value for value in values if value)
 
 
+def _deb_recommends(path: Path) -> str:
+    """The Recommends field of the .deb at *path* as one line (local, no network)."""
+    result = subprocess.run(
+        ["dpkg-deb", "--field", str(path), "Recommends"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    if result.returncode:
+        return f"(could not be read: {result.stderr.strip() or f'dpkg-deb exited {result.returncode}'})"
+    return " ".join(re.sub(r"^Recommends:", "", result.stdout).split())
+
+
 def _deb_unmet_file(apt: AptBackend, path: Path) -> list[str]:
     """Dependency groups of the vendor .deb at *path* that no installed package
     meets: not installed (at the stated architecture), outside the stated version
@@ -5028,6 +5042,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         attributed_files=helper_attributed,
         context=rctx,
         dependency_check=lambda path: _deb_unmet_file(apt, path),
+        recommends_of=_deb_recommends,
     )
     venv = VenvBackend(
         venv_root=venv_root(user or None),

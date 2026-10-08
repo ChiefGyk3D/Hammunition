@@ -474,6 +474,7 @@ def test_the_install_command_shares_its_context_with_every_payload_backend(
     context = seen["binary"].context
     assert isinstance(context, ResolutionContext) and context.offline
     assert callable(seen["binary"].dependency_check)
+    assert seen["binary"].recommends_of is cli._deb_recommends
 
 
 def test_a_profile_member_the_bunker_lacks_is_deferred_whole_not_refused(
