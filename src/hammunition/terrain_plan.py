@@ -68,6 +68,7 @@ from .copernicus import (
     load_pins,
     load_tile_list,
     parse_poly,
+    recorded_tile,
     resolve_tile,
     select,
     squares_touching,
@@ -145,12 +146,21 @@ def resolve_terrain(
     on_outage: OnOutage | None = None,
     checks: PublisherChecks | None = None,
     context: ResolutionContext | None = None,
+    unit: str | None = None,
 ) -> DemResolution:
     """*regions* as ``(region, slug)`` pairs -- this run's and the kept ones --
     resolved to the tiles they need and how each is fetched. A pair named
     twice is resolved once, so its outline is never asked for twice. A
     publisher that did not answer after the retries goes to *on_outage* and
-    that region or tile is left out (#200); without it, it is refused."""
+    that region or tile is left out (#200); without it, it is refused.
+
+    With a *context* the tiles come from the Bunker's records when the bucket
+    cannot be asked, and *unit* (the manifest's name, the catalogue key) is
+    required. A tile the Bunker cannot answer for, while a Bunker is verified,
+    defers the whole selection rather than recording fewer tiles than the
+    regions want."""
+    if context is not None and unit is None:
+        raise ValueError("resolve_terrain needs the unit name when given a context")
     refused: list[str] = []
     entries: list[RegionTiles] = []
     seen: set[tuple[str, str]] = set()
@@ -185,7 +195,7 @@ def resolve_terrain(
     held = set(current)
     todo = [name for name in wanted if name not in held]
 
-    def check(name: str) -> TileFile:
+    def check_online(name: str) -> TileFile:
         tile = resolve_tile(name, pins=pins, probe=tile_probe)
         if tile.sha256 is not None:
             status, _, _ = tile_probe.head(tile.url)
@@ -193,18 +203,34 @@ def resolve_terrain(
                 raise CopernicusError(f"{tile.url} answered HTTP {status}, not 200")
         return tile
 
+    def check(name: str) -> TileFile:
+        # One choose around the resolve and the pinned reachability HEAD, so an
+        # outage in either is answered by the same single catalogue lookup.
+        if context is None:
+            return check_online(name)
+        assert unit is not None
+        return context.choose(
+            unit,
+            name,
+            lambda: check_online(name),
+            lambda: recorded_tile(name, unit=unit, pins=pins, context=context),
+        )
+
     # #197: an installed tile the log attributes is not asked again until the
     # attribution is a week old; a failed re-check is a note, never a refusal.
-    recheck_installed(
-        checks,
-        installed.name,
-        current,
-        name=lambda tile: tile,
-        path=lambda tile: installed / f"{tile}{TIF}",
-        check=check,
-        label="installed terrain tiles against the Copernicus DEM bucket",
-        probe=tile_probe,
-    )
+    # Offline the bucket is never asked; online a failed re-check stays a note
+    # (never the Bunker's answer, which says nothing of the installed file).
+    if context is None or not context.offline:
+        recheck_installed(
+            checks,
+            installed.name,
+            current,
+            name=lambda tile: tile,
+            path=lambda tile: installed / f"{tile}{TIF}",
+            check=check_online,
+            label="installed terrain tiles against the Copernicus DEM bucket",
+            probe=tile_probe,
+        )
 
     fetch: list[TileFile] = []
     deferred: list[str] = []
@@ -213,6 +239,8 @@ def resolve_terrain(
         try:
             tile = outcome.get()
         except PublisherUnavailable as exc:
+            if context is not None and context.verified is not None:
+                raise CatalogueMiss(f"{name}: no complete tile set: {exc}") from exc
             if on_outage is None:
                 refused.append(f"  {name}: {exc}")
             else:
@@ -572,6 +600,7 @@ def resolve_station_terrain(
         on_outage=reporter_for(outages, unit),
         checks=checks,
         context=context,
+        unit=unit.name,
     )
 
 

@@ -1132,12 +1132,13 @@ def _apt_lists_note(apt: AptBackend) -> str:
 #: Install blocks whose plan-time resolution asks a publisher directly, with
 #: the Bunker route for each still to be built (#381). An offline run refuses
 #: them by name rather than letting a probe or a git clone reach a publisher.
-_OFFLINE_UNROUTED: tuple[tuple[type, str, bool], ...] = (
-    (DemTilesInstall, "terrain tiles", True),
-    (TopoQuadsInstall, "topographic sheets", True),
-    (KiwixBooksInstall, "reference books", True),
-    (MwmRegionsInstall, "CoMaps maps", True),
-    (GitInstall, "git sources", False),
+_OFFLINE_UNROUTED: tuple[tuple[type, str, bool, str | None], ...] = (
+    # Copernicus terrain is routed (Task 8); USGS 3DEP bare earth is not (Task 9).
+    (DemTilesInstall, "3DEP terrain tiles", True, "usgs-3dep"),
+    (TopoQuadsInstall, "topographic sheets", True, None),
+    (KiwixBooksInstall, "reference books", True, None),
+    (MwmRegionsInstall, "CoMaps maps", True, None),
+    (GitInstall, "git sources", False, None),
 )
 
 
@@ -1146,15 +1147,21 @@ def _offline_unrouted(
 ) -> list[Blocker]:
     """The units in *plan* whose resolution would ask a publisher, named.
 
-    ``plan_time`` selects the kinds a resolver probes while planning (asked
-    before any resolver runs); the rest act at execution and are skipped when
-    already built."""
+    A kind with a provider is refused only for that provider. ``plan_time``
+    selects the kinds a resolver probes while planning (asked before any
+    resolver runs); the rest act at execution and are skipped when already
+    built."""
     out: list[Blocker] = []
     for unit in plan.packages:
         if unit.name in built and not plan_time:
             continue
-        for kind, what, at_plan_time in _OFFLINE_UNROUTED:
-            if at_plan_time == plan_time and isinstance(unit.block.install, kind):
+        for kind, what, at_plan_time, provider in _OFFLINE_UNROUTED:
+            install = unit.block.install
+            if (
+                at_plan_time == plan_time
+                and isinstance(install, kind)
+                and (provider is None or getattr(install, "provider", None) == provider)
+            ):
                 out.append(
                     Blocker(
                         subject=unit.name,
