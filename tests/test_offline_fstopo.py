@@ -453,7 +453,7 @@ def real_quad() -> FsQuad:
     return load_index(CATALOG / "data/fstopo-quads.txt").quads[0]
 
 
-def enrol(tmp_path: Path, rows: list[dict[str, object]]) -> None:
+def enrol(tmp_path: Path, rows: list[dict[str, object]]) -> tuple[Path, str]:
     q = real_quad()
     body = render_record(RegionSheets(REGION, SLUG, (q,), "all")).encode()
     relative = f"inputs/fstopo-selection/{REGION}.quads"
@@ -464,12 +464,13 @@ def enrol(tmp_path: Path, rows: list[dict[str, object]]) -> None:
             "fetched": "2026-10-06T03:00:00Z",
         }
     ]  # fmt: skip
-    export, _ = enrol_file_bunker(
+    export, mirror = enrol_file_bunker(
         tmp_path, rows, inputs=inputs, station={"map_regions": [REGION], "topo_all": True}
     )
     target = export / relative
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(body)
+    return export, mirror
 
 
 def cli_setup(machine: Path, monkeypatch: pytest.MonkeyPatch) -> Head:
@@ -625,3 +626,54 @@ def test_personal_mode_ignores_share(tmp_path: Path) -> None:
         tmp_path, [row(q, share="owner:laptop-a")], mode="personal", enrolment_id="laptop-b"
     )
     assert recorded_sheet(q, unit=UNIT, pins={}, context=context).url == GOOD_URL
+
+
+def test_cli_offline_a_pinned_sheet_the_plan_resolves_is_downloaded_through_the_mirror(
+    machine: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Task 12 fix round: the offline plan resolves a pinned sheet, and the install
+    then fetches it from the Bunker (never the publisher), against the repository's
+    own pin. The fetch step is the one the CLI built, run with every socket refused."""
+    from hammunition.backends.base import Action
+    from hammunition.backends.fstopo import FsTopoBackend
+    from test_offline_context import put
+
+    q = real_quad()
+    export, mirror = enrol(tmp_path, [zrow(q)])
+    head = cli_setup(machine, monkeypatch)
+    monkeypatch.setattr(
+        "hammunition.topo_plan.load_fstopo_pins",
+        lambda path: {q.secoord: FsPin(q.secoord, len(BODY), SHA)},
+    )
+    built: list[Action] = []
+    real_steps = FsTopoBackend.steps
+
+    def capture(self: FsTopoBackend, manifest: Any, block: Any) -> Any:
+        steps = real_steps(self, manifest, block)
+        built.extend(s for s in steps if isinstance(s, Action) and s.kind == "fetch")
+        return steps
+
+    monkeypatch.setattr(FsTopoBackend, "steps", capture)
+    attempts: list[object] = []
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        attempts.append(args)
+        raise OSError("the network is forbidden in this test")
+
+    monkeypatch.setattr(socket.socket, "connect", refuse)
+    monkeypatch.setattr(socket, "getaddrinfo", refuse)
+    rc, out, err = run(capsys, CATALOG, "install", "--offline", "--dry-run", UNIT)
+    assert rc == 0, err
+    assert "unverified" not in out.split("Fetch FSTopo quad")[1].splitlines()[0]
+    (fetch,) = built
+    assert PINNED in fetch.description and "Bunker only, offline" in fetch.description
+    at_mirror = f"{mirror}/{UNIT}/{q.name}"
+    assert fetch.sources == (at_mirror,)
+    put(export, UNIT, q.name, BODY)
+    outcome = fetch.perform()
+    assert outcome.startswith("downloaded") and "verified against the pin" in outcome
+    assert fetch.facts["source"] == "mirror" and fetch.facts["fetched_from"] == at_mirror
+    assert head.asked == [] and attempts == []

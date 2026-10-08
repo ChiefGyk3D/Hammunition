@@ -165,13 +165,11 @@ class FsTopoBackend:
             fetched: dict[str, str | Path] = {}
             facts: dict[str, str] = {}
             where = MirrorPath(manifest.name, sheet.name)
-            note, urls = "", sheet.url
-            sources: tuple[str, ...] = ()
-            if not sheet.sha256:
-                # Size and a TIFF's first bytes are the only checks of an
-                # unpinned sheet, the Bunker's copy or the publisher's. A pinned
-                # sheet keeps its own route below.
-                note, urls, sources = fetch_disclosure(self.fetcher, sheet.url, where, "size")
+            # The sheet's check is its pin (sha256 and size) or, unpinned, its size
+            # and a TIFF's first bytes; the Bunker's copy meets the same one.
+            note, urls, sources = fetch_disclosure(
+                self.fetcher, sheet.url, where, "sha256" if sheet.sha256 else "size"
+            )
             steps.append(
                 Action(
                     kind="fetch",
@@ -243,7 +241,9 @@ class FsTopoBackend:
         try:
             if sheet.sha256:
                 result = self.fetcher.fetch(
-                    RemoteArtifact(url=sheet.url, sha256=sheet.sha256), max_bytes=sheet.size + MIB
+                    RemoteArtifact(url=sheet.url, sha256=sheet.sha256),
+                    max_bytes=sheet.size + MIB,
+                    mirror=where,
                 )
                 how = f"sha256 {sheet.sha256[:12]}… verified against the pin"
             else:
@@ -260,12 +260,8 @@ class FsTopoBackend:
             return self.ledger.fail(quad_key(sheet.name), f"{sheet.name}: {exc}")
         fetched["path"] = result.path
         fetched["sha256"] = result.sha256
-        source = (
-            ""
-            if sheet.sha256
-            else record_fetch(
-                result, facts if facts is not None else {}, mirrored=bool(self.fetcher.mirror)
-            )
+        source = record_fetch(
+            result, facts if facts is not None else {}, mirrored=bool(self.fetcher.mirror)
         )
         state = "cached" if result.from_cache else "downloaded"
         return f"{state} {result.size} bytes, {how}{source}"

@@ -262,14 +262,78 @@ def test_a_sheet_the_mirror_lacks_comes_from_the_publisher_and_records_why(tmp_p
     assert "404" in fetch.facts["mirror_failure"] and "mirror was passed over" in outcome
 
 
-def test_a_pinned_sheet_keeps_its_own_route_and_its_pin(tmp_path: Path) -> None:
+def _pinned(tmp_path: Path, routes: Routes, **kw: Any) -> TopoQuadsBackend:
+    fetcher = Fetcher(tmp_path / "cache", transport=routes, mirror=BUNKER, **kw)
+    return _pair(
+        tmp_path, FsTopoResolution(regions=(OCEANIA,), fetch=(PINNED_SHEET,)), fetcher=fetcher
+    )
+
+
+PINNED_AT_MIRROR = mirror_url(BUNKER, MirrorPath("usfs-fstopo", ALPHA.name))
+
+
+def test_an_offline_pinned_sheet_from_a_good_mirror_installs(tmp_path: Path) -> None:
+    routes = Routes({PINNED_AT_MIRROR: BODY, URL_A: BODY})
+    backend = _pinned(tmp_path, routes, offline=True)
+    steps = _steps(backend)
+    fetch = next(s for s in steps if s.kind == "fetch")
+    assert fetch.sources == (PINNED_AT_MIRROR,) and PINNED in fetch.description
+    assert "Bunker only, offline" in fetch.description
+    outcomes = [s.perform() for s in steps]
+    assert routes.requested == [PINNED_AT_MIRROR]
+    assert fetch.facts == {"source": "mirror", "fetched_from": PINNED_AT_MIRROR}
+    assert any("verified against the pin" in o and "from the LAN mirror" in o for o in outcomes)
+    assert (_data(tmp_path) / f"{ALPHA.name}{TIF}").read_bytes() == BODY
+    assert backend.ledger.failed == {}
+
+
+def test_an_offline_corrupt_mirror_copy_of_a_pinned_sheet_is_refused_and_leaves_no_part(
+    tmp_path: Path,
+) -> None:
+    routes = Routes({PINNED_AT_MIRROR: b"II*\x00" + b"x" * (len(BODY) - 4), URL_A: BODY})
+    backend = _pinned(tmp_path, routes, offline=True)
+    outcomes = [s.perform() for s in _steps(backend)]
+    assert any(o.startswith("FAILED, the rest continues") for o in outcomes)
+    assert URL_A not in routes.requested
+    assert not (_data(tmp_path) / f"{ALPHA.name}{TIF}").exists()
+    assert not list((tmp_path / "cache").glob("*.part.*"))
+    assert not list((tmp_path / "cache").glob("*a.tiff"))
+
+
+def test_an_online_bad_mirror_copy_of_a_pinned_sheet_falls_back_to_the_publisher(
+    tmp_path: Path,
+) -> None:
+    routes = Routes({PINNED_AT_MIRROR: b"II*\x00" + b"x" * (len(BODY) - 4), URL_A: BODY})
+    backend = _pinned(tmp_path, routes)
+    fetch = next(s for s in _steps(backend) if s.kind == "fetch")
+    outcome = fetch.perform()
+    assert routes.requested == [PINNED_AT_MIRROR, URL_A]
+    assert fetch.facts["source"] == "publisher" and "sha256" in fetch.facts["mirror_failure"]
+    assert "mirror was passed over" in outcome
+
+
+def test_when_the_mirror_and_the_publisher_both_fail_the_pin_the_error_names_both(
+    tmp_path: Path,
+) -> None:
+    bad = b"II*\x00" + b"x" * (len(BODY) - 4)
+    routes = Routes({PINNED_AT_MIRROR: bad, URL_A: bad})
+    backend = _pinned(tmp_path, routes)
+    outcome = next(s for s in _steps(backend) if s.kind == "fetch").perform()
+    assert "LAN mirror was tried first and passed over" in outcome and URL_A in outcome
+    assert PINNED_AT_MIRROR in outcome
+    assert not list((tmp_path / "cache").glob("*.part.*"))
+
+
+def test_a_pinned_sheet_without_a_mirror_reads_as_before(tmp_path: Path) -> None:
     fetcher = FakeFetcher(tmp_path / "cache")
     backend = _pair(
         tmp_path, FsTopoResolution(regions=(OCEANIA,), fetch=(PINNED_SHEET,)), fetcher=fetcher
     )
     fetch = next(s for s in _steps(backend) if s.kind == "fetch")
     assert PINNED in fetch.description and "mirror" not in fetch.description
+    assert fetch.sources == (URL_A,) and fetch.detail == f"{URL_A} ({len(BODY)} bytes)"
     assert fetch.perform().startswith("downloaded") and fetcher.calls == [("sha256", URL_A)]
+    assert fetcher.mirrors == []
 
 
 def test_without_a_mirror_the_unpinned_step_reads_as_it_did(tmp_path: Path) -> None:
