@@ -104,7 +104,7 @@ def region_tiles(
     if (
         recorded is not None
         and recorded.bound == "all"
-        and all(n in tile_list for n in recorded.tiles)
+        and (context is None or all(n in tile_list for n in recorded.tiles))
     ):
         return recorded
 
@@ -253,7 +253,7 @@ def region_bare_earth(
     if (
         recorded is not None
         and recorded.bound == bound.token
-        and all(n in tiles for n in recorded.tiles)
+        and (context is None or all(n in tiles for n in recorded.tiles))
     ):
         return recorded
 
@@ -275,11 +275,15 @@ def region_bare_earth(
             and selected.bound in (bound.token, "all")
             and all(n in tiles for n in selected.tiles)
         ):
+            narrowed = tuple(n for n in selected.tiles if bound.keeps(tile_box(n)))
+            unpublished = selected.unpublished
+            if not narrowed and unpublished and selected.bound == "all" and bound.token != "all":
+                unpublished = 0
             return RegionTiles(
                 region,
                 slug,
-                tuple(n for n in selected.tiles if bound.keeps(tile_box(n))),
-                selected.unpublished,
+                narrowed,
+                unpublished,
                 bound.token,
             )
         return derive(context.outline(region, region_probe, base=BASE))

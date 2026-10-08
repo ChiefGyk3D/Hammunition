@@ -152,8 +152,8 @@ class ResolutionContext:
         if self.verified is None or self.inputs is None:
             raise CatalogueMiss("no Bunker input transport; hammunition mirror enrol URL")
         row = self.require_payload("inputs", region, input_kind=kind)
-        if row.size > 32 * 1024 * 1024:
-            raise CatalogueMiss(f"inputs/{kind}/{region}: larger than the 32 MiB input bound")
+        if row.size > 8 * 1024 * 1024:
+            raise CatalogueMiss(f"inputs/{kind}/{region}: larger than the 8 MiB input bound")
         key = (kind, region, row.sha256)
         if key in self._input_cache:
             return self._input_cache[key]

@@ -34,7 +34,7 @@ from hammunition.topo_plan import region_quads, region_sheets
 from hammunition.ustopo import Quad, QuadIndex
 from json_support import parse_one
 from test_offline_context import apt_state, enrol_file_bunker, machine, run  # noqa: F401
-from test_terrain_plan import OUTLINE, A, RegionProbe
+from test_terrain_plan import MD5, OUTLINE, A, RegionProbe
 
 REGION = "europe/monaco"
 SLUG = "europe-monaco"
@@ -452,12 +452,12 @@ def test_inputs_are_bounded_before_transport(tmp_path: Path) -> None:
         "name": f"{REGION}.poly",
         "path": f"inputs/region-outline/{REGION}.poly",
         "sha256": "a" * 64,
-        "size": 32 * 1024 * 1024 + 1,
+        "size": 8 * 1024 * 1024 + 1,
         "fetched": "2026-10-06T03:00:00Z",
     }
     context = make_context(tmp_path / "large", [], inputs=[row])
     context.inputs = ForbiddenTransport()
-    with pytest.raises(CatalogueMiss, match="32 MiB"):
+    with pytest.raises(CatalogueMiss, match="8 MiB"):
         context.input_bytes("region-outline", REGION)
 
 
@@ -543,3 +543,76 @@ def test_matching_sha256_with_wrong_recorded_size_refuses(tmp_path: Path) -> Non
     context.inputs = CatalogueInputs(MirrorTransport(tmp_path.as_uri()))
     with pytest.raises(CatalogueMiss, match="expected size"):
         context.input_bytes("region-outline", REGION)
+
+
+def test_fallback_resets_unpublished_when_narrowing_all_selection_keeps_nothing(
+    tmp_path: Path,
+) -> None:
+    """Fix 1: fallback must reset unpublished to 0 when narrowing an 'all'
+    3DEP selection to a radius bound keeps no tiles (issue #232, D-068)."""
+    from hammunition.usgs3dep import TileRow
+
+    # Create a selection with bound="all" and unpublished=2
+    entry = RegionTiles(REGION, SLUG, (A,), 2, "all")
+    context = inputs(tmp_path, {"dem3dep-selection": render_tiles(entry).encode()})
+    # Narrow to "none" which keeps nothing
+    bound = TopoBound("none")
+    got = region_bare_earth(
+        REGION,
+        SLUG,
+        installed=tmp_path,
+        tiles={A: TileRow(A, 39_000_000, MD5)},
+        region_probe=RegionProbe({}),
+        bound=bound,
+        context=context,
+    )
+    # Before the fix: unpublished=2, tiles=()
+    # After the fix: unpublished=0, tiles=()
+    assert got.tiles == ()
+    assert got.unpublished == 0
+
+
+def test_region_tiles_without_context_accepts_stale_record(tmp_path: Path) -> None:
+    """Fix 2: Without a Bunker context, the installed-record fast path
+    must work exactly as before Task 7: a record naming a since-unpublished
+    tile is returned, with no outline fetch."""
+    # Create a record with a tile that is NOT in the current tile_list
+    entry = RegionTiles(REGION, SLUG, (A,), 1, "all")
+    (tmp_path / f"{SLUG}.tiles").write_text(render_tiles(entry))
+    # Call region_tiles with no context and an empty tile_list
+    # (so the record's tile A is no longer available)
+    probe = RegionProbe({})
+    got = region_tiles(
+        REGION,
+        SLUG,
+        installed=tmp_path,
+        tile_list=frozenset(),  # A is not in this list anymore
+        probe=probe,
+        context=None,  # No Bunker context
+    )
+    # Without context, the stale record should be returned as-is
+    assert got == entry
+    # And no outline should be fetched
+    assert probe.asked == []
+
+
+def test_region_bare_earth_without_context_accepts_stale_record(tmp_path: Path) -> None:
+    """Fix 2: Without a Bunker context, the installed-record fast path
+    in region_bare_earth must accept a stale record, not fetch the outline."""
+    # Create a record with a tile that is NOT in the current tiles dict
+    entry = RegionTiles(REGION, SLUG, (A,), 1, "all")
+    (tmp_path / f"{SLUG}.tiles").write_text(render_tiles(entry))
+    # Call region_bare_earth with no context and empty tiles
+    probe = RegionProbe({})
+    got = region_bare_earth(
+        REGION,
+        SLUG,
+        installed=tmp_path,
+        tiles={},  # A is not in this dict anymore
+        region_probe=probe,
+        context=None,  # No Bunker context
+    )
+    # Without context, the stale record should be returned as-is
+    assert got == entry
+    # And no outline should be fetched
+    assert probe.asked == []
