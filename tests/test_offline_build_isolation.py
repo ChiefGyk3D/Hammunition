@@ -76,7 +76,7 @@ def test_detect_picks_the_first_sandbox_that_really_works(
     monkeypatch: pytest.MonkeyPatch, which: set[str], codes: dict[str, int], expected: str | None
 ) -> None:
     monkeypatch.setattr(
-        netiso.shutil, "which", lambda name: f"/bin/{name}" if name in which else None
+        "hammunition.netiso.shutil.which", lambda name: f"/bin/{name}" if name in which else None
     )
     asked: list[tuple[str, ...]] = []
 
@@ -89,7 +89,7 @@ def test_detect_picks_the_first_sandbox_that_really_works(
 
 
 def test_detect_survives_a_probe_that_raises_or_hangs(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(netiso.shutil, "which", lambda name: f"/bin/{name}")
+    monkeypatch.setattr("hammunition.netiso.shutil.which", lambda name: f"/bin/{name}")
 
     def broken(argv: Any, **kwargs: Any) -> CompletedProcess[bytes]:
         if argv[0] == "bwrap":
