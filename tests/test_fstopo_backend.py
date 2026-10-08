@@ -294,7 +294,7 @@ def test_an_offline_corrupt_mirror_copy_of_a_pinned_sheet_is_refused_and_leaves_
     backend = _pinned(tmp_path, routes, offline=True)
     outcomes = [s.perform() for s in _steps(backend)]
     assert any(o.startswith("FAILED, the rest continues") for o in outcomes)
-    assert URL_A not in routes.requested
+    assert routes.requested == [PINNED_AT_MIRROR]
     assert not (_data(tmp_path) / f"{ALPHA.name}{TIF}").exists()
     assert not list((tmp_path / "cache").glob("*.part.*"))
     assert not list((tmp_path / "cache").glob("*a.tiff"))
