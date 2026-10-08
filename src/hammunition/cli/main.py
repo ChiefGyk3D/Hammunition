@@ -1136,7 +1136,6 @@ _OFFLINE_UNROUTED: tuple[tuple[type, str, bool, str | None], ...] = (
     # Copernicus terrain (Task 8) and USGS 3DEP bare earth and US Topo (Task 9)
     # are routed; the Forest Service sheets (fstopo) are not.
     (TopoQuadsInstall, "Forest Service topographic sheets", True, "usfs-fstopo"),
-    (DemTilesInstall, "3DEP terrain tiles", True, "usgs-3dep"),
     (KiwixBooksInstall, "reference books", True, None),
     (MwmRegionsInstall, "CoMaps maps", True, None),
     (GitInstall, "git sources", False, None),
