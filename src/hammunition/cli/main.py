@@ -50,7 +50,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn, TextIO, cast
 
-from hammunition import navit_config
+from hammunition import navit_config, netiso
 from hammunition.acma import AcmaProbe
 from hammunition.attributed import PublisherChecks
 from hammunition.backends import (
@@ -176,6 +176,7 @@ from hammunition.manifest.schema import (
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
+    SourceInstall,
     Status,
     TopoQuadsInstall,
 )
@@ -5024,6 +5025,10 @@ def cmd_install(args: argparse.Namespace) -> int:
     # backend replaces. Offline, a payload the Bunker cannot answer for is
     # refused before any step of its unit exists.
     source.context = rctx
+    if offline and any(isinstance(p.block.install, SourceInstall) for p in plan.packages):
+        # Asked once, at plan time: an offline build runs in a network sandbox,
+        # and with none that works the unit is refused below.
+        source.isolation = netiso.detect()
     git = GitBackend(
         runner=runner,
         build_root=builds,
@@ -5650,6 +5655,17 @@ def cmd_install(args: argparse.Namespace) -> int:
         # Notes the pass earned for payloads that stay in the plan; a deferred
         # unit noted nothing (the pass notes only a unit it can fully answer).
         region_notes.extend(_provenance_notes(rctx, noted))
+        sandboxed = sorted(
+            p.name
+            for p in plan.packages
+            if isinstance(p.block.install, SourceInstall) and p.name not in built
+        )
+        if sandboxed and source.isolation is not None:
+            region_notes.append(
+                f"offline: {', '.join(sandboxed)} build with no network ("
+                f"{'bwrap --unshare-net' if source.isolation == netiso.BWRAP else 'unshare -rn'}"
+                f"), so upstream's build code cannot fetch anything"
+            )
         unreachable = [
             *offline_network_blockers(plan, built),
             *_offline_unrouted(plan, built, plan_time=False),
@@ -5658,6 +5674,7 @@ def cmd_install(args: argparse.Namespace) -> int:
                 built,
                 cached=lambda artifact: cached_remote(source.fetcher, artifact),
                 deb_unmet=lambda unit: _deb_unmet(apt, source.fetcher, unit),
+                isolated=source.isolation is not None,
             ),
         ]
         if unreachable:

@@ -1313,6 +1313,11 @@ OFFLINE_PAYLOAD_REMEDY = (
     "for source and binary payloads (#381)"
 )
 
+OFFLINE_ISOLATION_REMEDY = (
+    "install bubblewrap (bwrap) or enable unprivileged user namespaces (unshare -rn) while "
+    "online, or run this unit online"
+)
+
 CATALOGUE_REMEDY = "populate this selection on the Bunker, or retry with the publisher reachable"
 
 
@@ -1714,6 +1719,7 @@ def offline_payload_blockers(
     *,
     cached: Callable[[RemoteArtifact], bool],
     deb_unmet: Callable[[PlannedPackage], list[str]],
+    isolated: bool = True,
 ) -> list[Blocker]:
     """Downloads an offline run could not make, refused at plan time by name.
 
@@ -1737,7 +1743,21 @@ def offline_payload_blockers(
         ):
             continue
         if isinstance(block, SourceInstall):
-            continue  # routed through the Bunker (payload_misses)
+            # Its payload is routed through the Bunker (payload_misses); its build
+            # runs upstream's code, which offline must have no network.
+            if not isolated:
+                out.append(
+                    Blocker(
+                        subject=unit.name,
+                        reason=(
+                            "offline: building it runs upstream's build code, which must have "
+                            "no network, and this machine has no network isolation that works "
+                            "(neither bwrap --unshare-net nor unshare -rn)"
+                        ),
+                        remedy=OFFLINE_ISOLATION_REMEDY,
+                    )
+                )
+            continue
         # A vendor .deb is routed too; only its dependencies are checked here, and
         # only once its bytes are local to read them from. An uncached one is
         # checked by the install itself, after its fetch (BinaryBackend).

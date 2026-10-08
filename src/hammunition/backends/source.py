@@ -48,6 +48,7 @@ not only the intent (**D-031**).
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import shutil
 import tarfile
@@ -57,6 +58,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hammunition import netiso
 from hammunition.manifest.schema import (
     Binary,
     InstallBlock,
@@ -375,7 +377,11 @@ class SourceBackend:
         jobs: int | None = None,
         owner: str | None = None,
         context: ResolutionContext | None = None,
+        isolation: str | None = None,
     ) -> None:
+        #: The network sandbox (``netiso``) offline builds run in; None when
+        #: the machine has none, which refuses an offline build.
+        self.isolation = isolation
         self.fetcher = fetcher
         self.build_root = build_root
         self.prefix = prefix
@@ -441,6 +447,25 @@ class SourceBackend:
         steps.extend(self._build_commands(manifest, install_block, block, layout))
         return steps
 
+    def _isolated(self, name: str, commands: list[Command]) -> list[Command]:
+        """Offline, upstream's build runs in a network sandbox so it cannot fetch
+        anything the Bunker did not vouch for; online it is unchanged."""
+        if not self.fetcher.offline:
+            return commands
+        if self.isolation is None:
+            raise BackendError(
+                f"{name}: an offline source build runs upstream's build code and needs "
+                f"network isolation (bwrap --unshare-net or unshare -rn), and this machine has "
+                f"none that works. Nothing was planned."
+            )
+        kind = self.isolation
+        return [
+            dataclasses.replace(
+                command, argv=netiso.wrap(command.argv, kind, privileged=command.requires_root)
+            )
+            for command in commands
+        ]
+
     def _build_commands(
         self,
         manifest: PackageManifest,
@@ -448,19 +473,22 @@ class SourceBackend:
         block: SourceInstall,
         layout: SourceLayout,
     ) -> list[Command]:
-        commands = build_commands(
-            name=manifest.name,
-            build_system=block.build_system,
-            layout=layout,
-            prefix=self.prefix,
-            jobs=self.jobs,
-            configure_args=block.configure_args,
-            compiler_flags=block.compiler_flags,
-            project_file=block.project_file,
-            build_args=block.build_args,
-            provides_install_target=block.provides_install_target,
-            binaries=effective_binaries(manifest, install_block),
-            autoreconf=block.autoreconf,
+        commands = self._isolated(
+            manifest.name,
+            build_commands(
+                name=manifest.name,
+                build_system=block.build_system,
+                layout=layout,
+                prefix=self.prefix,
+                jobs=self.jobs,
+                configure_args=block.configure_args,
+                compiler_flags=block.compiler_flags,
+                project_file=block.project_file,
+                build_args=block.build_args,
+                provides_install_target=block.provides_install_target,
+                binaries=effective_binaries(manifest, install_block),
+                autoreconf=block.autoreconf,
+            ),
         )
         if block.install_tree:
             commands.extend(
