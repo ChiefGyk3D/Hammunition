@@ -82,6 +82,22 @@ class Catalogue(Wire):
     declined: tuple[JsonValue, ...]
     last_run: JsonValue
 
+    def artifact_row(
+        self, unit: str, name: str, enrolment_id: str | None
+    ) -> CatalogueArtifact | None:
+        """The row for this unit and name that this enrolment may see, whatever
+        else it lacks (a missing size or path, a status that is not current)."""
+        for row in self.artifacts:
+            if (row.unit, row.name) != (unit, name):
+                continue
+            if (
+                self.bunker.mode == "personal"
+                or row.share == "all"
+                or (row.share == f"owner:{enrolment_id}" and enrolment_id is not None)
+            ):
+                return row
+        return None
+
     def artifact(self, unit: str, name: str, enrolment_id: str | None) -> CatalogueArtifact | None:
         for row in self.artifacts:
             if (

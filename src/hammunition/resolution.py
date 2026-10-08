@@ -20,6 +20,7 @@ item becomes, the data preflight) lives in :mod:`hammunition.plan`.
 from __future__ import annotations
 
 import hashlib
+import re
 import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -34,6 +35,7 @@ __all__ = [
     "NO_BUNKER",
     "CatalogueMiss",
     "InputTransport",
+    "MalformedCatalogueRow",
     "ResolutionContext",
     "TextProbe",
 ]
@@ -59,6 +61,11 @@ class TextProbe(Protocol):
 class CatalogueMiss(ValueError):
     """The catalogue cannot answer: nothing enrolled, no such entry, or an
     entry that is not current. The message names what was asked for."""
+
+
+class MalformedCatalogueRow(CatalogueMiss):
+    """A signed catalogue row that cannot be used as written (a digest that is not
+    64 lowercase hex digits, or a current row with none). Never read as "no row"."""
 
 
 @dataclass
@@ -149,12 +156,22 @@ class ResolutionContext:
 
     def signed_sha256(self, unit: str, name: str) -> str | None:
         """The sha256 the verified catalogue lists for this item, or None when
-        nothing is enrolled or the row is absent. For a route whose repository
-        pin is not a sha256, the Bunker's bytes must match it too."""
+        nothing is enrolled, the row is absent, or the row carries none (and need
+        not). The row is found by unit, name and owner alone: a missing size or
+        path, or a status that is not current, never hides a digest it carries.
+        A row that is malformed raises :class:`MalformedCatalogueRow`."""
         if self.verified is None:
             return None
-        row = self.verified.catalogue.artifact(unit, name, self.enrolment_id)
-        return None if row is None else row.sha256
+        row = self.verified.catalogue.artifact_row(unit, name, self.enrolment_id)
+        if row is None:
+            return None
+        if row.sha256 is None:
+            if row.status == "current":
+                raise MalformedCatalogueRow(f"{unit}/{name}: a current row carries no sha256")
+            return None
+        if not re.fullmatch(r"[0-9a-f]{64}", row.sha256):
+            raise MalformedCatalogueRow(f"{unit}/{name}: its sha256 is not 64 lowercase hex digits")
+        return row.sha256
 
     def input_bytes(self, kind: str, region: str) -> bytes:
         """Read and verify a bounded, signed input; cache successes for this run only."""

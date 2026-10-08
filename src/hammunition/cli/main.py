@@ -5017,6 +5017,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             mirror_transport=enrolled_transport,
             offline=offline,
             signed_sha256=lambda path: rctx.signed_sha256(path.unit, path.name),
+            bunker=rctx.verified.catalogue.bunker.name if rctx.verified is not None else None,
         ),
         build_root=builds,
         owner=user or None,

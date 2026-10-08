@@ -67,6 +67,7 @@ import os
 import secrets
 import shutil
 import stat
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -128,6 +129,16 @@ class VerificationError(BackendError):
     the same rule everything else is: D-016 forbids continuing past a failure,
     and this is the failure it would be worst to continue past.
     """
+
+
+class SignedMismatch(VerificationError):
+    """Bytes from the Bunker whose sha256 is not the one its signed catalogue
+    lists for them."""
+
+    def __init__(self, message: str, *, signed: str, actual: str) -> None:
+        super().__init__(message)
+        self.signed = signed
+        self.actual = actual
 
 
 class TransportUnreachable(BackendError):
@@ -283,6 +294,10 @@ class FetchResult:
     mirror_failure: str | None = None
     """Why the mirror was passed over for the publisher, when it was."""
 
+    warning: str | None = None
+    """A loud warning the fetch printed: the Bunker served bytes that contradict
+    its own signed catalogue, or its row for this item is malformed."""
+
 
 @dataclass(frozen=True)
 class _Downloaded:
@@ -292,6 +307,7 @@ class _Downloaded:
     source: str
     url: str
     mirror_failure: str | None
+    warning: str | None = None
 
 
 def _safe_name(url: str) -> str:
@@ -347,6 +363,8 @@ def record_fetch(result: FetchResult, facts: dict[str, str], *, mirrored: bool) 
     where = redact_url_text(result.url) if result.url is not None else None
     failure = redact_url_text(result.mirror_failure) if result.mirror_failure is not None else None
     facts["source"] = result.source
+    if result.warning is not None:
+        facts["warning"] = redact_url_text(result.warning)
     if where is not None:
         facts["fetched_from"] = where
     if failure is not None:
@@ -460,7 +478,10 @@ class Fetcher:
         mirror_transport: Transport | None = None,
         offline: bool = False,
         signed_sha256: Callable[[MirrorPath], str | None] | None = None,
+        bunker: str | None = None,
     ) -> None:
+        self.bunker = bunker
+        """The enrolled Bunker's name, for warnings that must name it."""
         self.offline = offline
         self.signed_sha256 = signed_sha256
         """The Bunker catalogue's signed sha256 for a mirror path, or None: asked
@@ -513,21 +534,57 @@ class Fetcher:
             )
         return (("publisher", url),)
 
-    def _signed_for(self, mirror: MirrorPath | None) -> str | None:
-        """The signed catalogue's sha256 for *mirror*, when one is known."""
+    def _bunker_label(self) -> str:
+        return f"Bunker {self.bunker}" if self.bunker else "Bunker"
+
+    @staticmethod
+    def _warn(text: str) -> str:
+        """A loud warning, on stderr, in the run log's tee and the step's facts."""
+        print(f"WARNING: {text}", file=sys.stderr)
+        return text
+
+    def _resolve_signed(
+        self, mirror: MirrorPath | None
+    ) -> tuple[MirrorPath | None, str | None, str | None]:
+        """``(mirror, signed sha256, warning)`` for a route whose repository pin is
+        not a sha256. A row carrying a sha256 is always enforced. A row that is
+        malformed is a refusal offline; online it is warned about loudly and the
+        mirror is not used at all (the publisher alone is asked)."""
         if mirror is None or self.signed_sha256 is None:
-            return None
-        return self.signed_sha256(mirror)
+            return mirror, None, None
+        from hammunition.resolution import MalformedCatalogueRow
+
+        try:
+            return mirror, self.signed_sha256(mirror), None
+        except MalformedCatalogueRow as exc:
+            if self.offline:
+                raise BackendError(
+                    redact_url_text(
+                        f"offline: the {self._bunker_label()}'s signed catalogue row for "
+                        f"{mirror.unit}/{mirror.name} is malformed ({exc}); refusing to use it"
+                    )
+                ) from None
+            return (
+                None,
+                None,
+                self._warn(
+                    f"the {self._bunker_label()}'s signed catalogue row for "
+                    f"{mirror.unit}/{mirror.name} is malformed ({exc}); the Bunker copy is not "
+                    f"used and the publisher alone is asked"
+                ),
+            )
 
     @staticmethod
     def _check_signed(actual: str, signed: str | None, where: object) -> None:
         """Refuse bytes whose sha256 is not the one the signed catalogue lists."""
         if signed is not None and actual != signed:
-            raise VerificationError(
+            raise SignedMismatch(
                 f"{where} does not match the sha256 the Bunker's signed catalogue lists.\n"
                 f"  signed catalogue sha256: {signed}\n"
                 f"  actually got:            {actual}\n"
-                f"The download has been discarded."
+                f"The download has been discarded.",
+                signed=signed,
+                actual=actual,
             )
 
     def _from_sources(
@@ -542,6 +599,7 @@ class Fetcher:
         also: str | None = None,
         publisher_transport: Transport | None = None,
         signed: str | None = None,
+        warning: str | None = None,
     ) -> _Downloaded:
         """Download into *temporary* from each source in turn until one
         verifies. *verify* raises :class:`VerificationError` (or
@@ -593,6 +651,15 @@ class Fetcher:
                     # http.client.HTTPException, not an OSError, and must hand
                     # over to the publisher rather than abort the install.
                     passed_over = redact_url_text(f"{where}: {exc}")
+                    if isinstance(exc, SignedMismatch) and mirror is not None and not self.offline:
+                        warning = self._warn(
+                            redact_url_text(
+                                f"the {self._bunker_label()} served bytes for "
+                                f"{mirror.unit}/{mirror.name} that contradict its own signed "
+                                f"catalogue (signed sha256 {exc.signed}, got {exc.actual}); "
+                                f"falling back to the publisher, whose own check still applies"
+                            )
+                        )
                     if isinstance(exc, TransportUnreachable):
                         self._mirror_down = redact_url_text(
                             f"the mirror {self.mirror} did not answer earlier in this run ({exc})"
@@ -621,7 +688,7 @@ class Fetcher:
                 # Raised outside the handler so the new error has no implicit context.
                 error, cause = failure
                 raise error from (cause if _chain_is_clean(cause) else None)
-            return _Downloaded(sha, size, got, source, where, passed_over)
+            return _Downloaded(sha, size, got, source, where, passed_over, warning)
         if self.offline:
             raise BackendError(
                 f"offline Bunker download failed: {passed_over or self._mirror_down}"
@@ -755,6 +822,7 @@ class Fetcher:
             source=got.source,
             url=got.url,
             mirror_failure=got.mirror_failure,
+            warning=got.warning,
         )
 
     def fetch_md5(
@@ -766,6 +834,7 @@ class Fetcher:
         publisher's server reported, and the cap is that size plus 1 MiB, so a
         server that keeps sending is still stopped.
         """
+        mirror, signed, lead = self._resolve_signed(mirror)
         make_dir(self.cache_dir)
         final = self.md5_path_for(url, md5)
 
@@ -779,7 +848,7 @@ class Fetcher:
             limit=expected_size + 1024 * 1024,
             extra="md5",
             verify=cached_ok,
-            signed=self._signed_for(mirror),
+            signed=signed,
         )
         if hit is not None:
             return hit
@@ -806,7 +875,8 @@ class Fetcher:
             max_bytes=expected_size + 1024 * 1024,
             md5=True,
             verify=verify,
-            signed=self._signed_for(mirror),
+            signed=signed,
+            warning=lead,
         )
         self._publish(temporary, final)
         return FetchResult(
@@ -817,6 +887,7 @@ class Fetcher:
             source=done.source,
             url=done.url,
             mirror_failure=done.mirror_failure,
+            warning=done.warning,
         )
 
     def sha1_path_for(self, url: str, sha1: str) -> Path:
@@ -834,6 +905,7 @@ class Fetcher:
         transaction log carries a strong digest of what was installed. A LAN
         mirror (D-070) is asked first when one is set, checked the same way.
         """
+        mirror, signed, lead = self._resolve_signed(mirror)
         make_dir(self.cache_dir)
         final = self.sha1_path_for(url, sha1)
 
@@ -847,7 +919,7 @@ class Fetcher:
             limit=expected_size + 1024 * 1024,
             extra="sha1",
             verify=cached_ok,
-            signed=self._signed_for(mirror),
+            signed=signed,
         )
         if hit is not None:
             return hit
@@ -876,7 +948,8 @@ class Fetcher:
             md5=False,
             verify=verify,
             also="sha1",
-            signed=self._signed_for(mirror),
+            signed=signed,
+            warning=lead,
         )
         self._publish(temporary, final)
         return FetchResult(
@@ -887,6 +960,7 @@ class Fetcher:
             source=done.source,
             url=done.url,
             mirror_failure=done.mirror_failure,
+            warning=done.warning,
         )
 
     def etag_path_for(self, url: str, etag: str) -> Path:
@@ -906,6 +980,7 @@ class Fetcher:
         set and its bytes pass the same size and ETag checks; offline it is the
         only source (#381).
         """
+        mirror, signed, lead = self._resolve_signed(mirror)
         make_dir(self.cache_dir)
         final = self.etag_path_for(url, etag)
 
@@ -919,7 +994,7 @@ class Fetcher:
             limit=expected_size + 1024 * 1024,
             extra=None,
             verify=cached_ok,
-            signed=self._signed_for(mirror),
+            signed=signed,
         )
         if hit is not None:
             return hit
@@ -946,7 +1021,8 @@ class Fetcher:
             max_bytes=expected_size + 1024 * 1024,
             md5=False,
             verify=verify,
-            signed=self._signed_for(mirror),
+            signed=signed,
+            warning=lead,
         )
         self._publish(temporary, final)
         return FetchResult(
@@ -957,6 +1033,7 @@ class Fetcher:
             source=done.source,
             url=done.url,
             mirror_failure=done.mirror_failure,
+            warning=done.warning,
         )
 
     def _cache_hit(
@@ -1059,6 +1136,7 @@ class Fetcher:
         first when one is set and its bytes pass the same two checks; offline
         it is the only source (#381).
         """
+        mirror, signed, lead = self._resolve_signed(mirror)
         make_dir(self.cache_dir)
         final = self.sized_path_for(url, expected_size)
         final.unlink(missing_ok=True)
@@ -1086,7 +1164,8 @@ class Fetcher:
             md5=False,
             verify=verify,
             publisher_transport=self.strict_transport,
-            signed=self._signed_for(mirror),
+            signed=signed,
+            warning=lead,
         )
         self._publish(temporary, final)
         return FetchResult(
@@ -1097,6 +1176,7 @@ class Fetcher:
             source=done.source,
             url=done.url,
             mirror_failure=done.mirror_failure,
+            warning=done.warning,
         )
 
     def checked_path_for(self, url: str) -> Path:
@@ -1123,6 +1203,7 @@ class Fetcher:
         sha256 of what arrived is returned for the log and the install's
         own re-check.
         """
+        mirror, signed, lead = self._resolve_signed(mirror)
         make_dir(self.cache_dir)
         final = self.checked_path_for(url)
         final.unlink(missing_ok=True)
@@ -1145,7 +1226,8 @@ class Fetcher:
             max_bytes=max_bytes,
             md5=False,
             verify=verify,
-            signed=self._signed_for(mirror),
+            signed=signed,
+            warning=lead,
         )
         self._publish(temporary, final)
         return FetchResult(
@@ -1156,6 +1238,7 @@ class Fetcher:
             source=done.source,
             url=done.url,
             mirror_failure=done.mirror_failure,
+            warning=done.warning,
         )
 
     def _download(

@@ -284,7 +284,11 @@ def _source(
         {"method": "source", "source": pin.model_dump(exclude_none=True), "build_system": "make"},
     )
     backend = SourceBackend(
-        fetcher, build_root=tmp_path / "build", prefix=tmp_path / "prefix", context=context
+        fetcher,
+        build_root=tmp_path / "build",
+        prefix=tmp_path / "prefix",
+        context=context,
+        isolation="unshare",
     )
     return backend.steps(manifest, manifest.install[0])
 
@@ -612,6 +616,22 @@ def test_payload_misses_skips_a_build_already_current_and_an_installed_deb(
     context = make_context(tmp_path, [])
     assert set(payload_misses(plan, context, frozenset(), cached=never_cached)) == {source.name}
     assert payload_misses(plan, context, frozenset({source.name}), cached=never_cached) == {}
+
+
+@pytest.mark.parametrize("kind", ["venv", "node"])
+def test_a_venv_or_node_unit_named_built_is_still_asked_because_its_steps_still_run(
+    tmp_path: Path, kind: str
+) -> None:
+    """venv and node take no part in ``already_built`` and ``commands_for`` never
+    skips them (pip over a satisfied venv is their cheap idempotency), so their
+    steps, and the backend's own preflight, run even for a name in ``built``:
+    the plan-time pass must ask for them or the backend would raise unhandled."""
+    pin = _pin()
+    unit = _planned(kind, pin)
+    plan = InstallPlan(TARGET, (unit,))
+    context = make_context(tmp_path, [])
+    misses = payload_misses(plan, context, frozenset({unit.name}), cached=never_cached)
+    assert list(misses) == [unit.name]
 
 
 # -- the static-data CLI path --------------------------------------------------
