@@ -487,15 +487,6 @@ class Fetcher:
             return (("mirror", mirror_url(self.mirror, mirror)), ("publisher", url))
         return (("publisher", url),)
 
-    def _refuse_offline_publisher(self, url: str) -> None:
-        """A download with no Bunker route yet (ETag and size-only fetches) is a
-        publisher download, which an offline run refuses by name."""
-        if self.offline:
-            raise BackendError(
-                f"offline: {url} would be fetched from its publisher, and this kind of "
-                "download has no Bunker route yet; the publisher is not asked under --offline"
-            )
-
     def _from_sources(
         self,
         url: str,
@@ -506,19 +497,26 @@ class Fetcher:
         md5: bool,
         verify: Callable[[str, int, str | None, str], None],
         also: str | None = None,
+        publisher_transport: Transport | None = None,
     ) -> _Downloaded:
         """Download into *temporary* from each source in turn until one
         verifies. *verify* raises :class:`VerificationError` (or
         :class:`BackendError`) for bytes that do not pass. A mirror failure
         of any kind is recorded and the publisher tried; a publisher failure
         is raised, naming the mirror's too. Nothing unverified survives: the
-        temporary is removed after every failed attempt."""
+        temporary is removed after every failed attempt. *publisher_transport*
+        replaces the publisher's transport (never the mirror's), for a download
+        that must follow no redirect."""
         passed_over: str | None = None
         for source, where in self.sources_for(url, mirror):
             if source == "mirror" and self._mirror_down is not None:
                 passed_over = self._mirror_down
                 continue
-            transport = self.mirror_transport if source == "mirror" else self.transport
+            transport = (
+                self.mirror_transport
+                if source == "mirror"
+                else (publisher_transport or self.transport)
+            )
             try:
                 sha, size, got = self._download(
                     where, temporary, max_bytes=max_bytes, md5=md5, transport=transport, also=also
@@ -772,50 +770,73 @@ class Fetcher:
         """Where an ETag-verified file lives once verified (:meth:`fetch_etag`). Pure."""
         return self.cache_dir / f"etag-{etag.strip().strip(chr(34))}-{_safe_name(url)}"
 
-    def fetch_etag(self, url: str, etag: str, *, expected_size: int) -> FetchResult:
+    def fetch_etag(
+        self, url: str, etag: str, *, expected_size: int, mirror: MirrorPath | None = None
+    ) -> FetchResult:
         """A file verified only by its publisher's S3 ETag (D-068): a
         single-part upload's MD5, or a multipart upload's MD5 of its parts'
         MD5s (:mod:`hammunition.s3etag`). As weak as :meth:`fetch_md5`, and
         the plan says so beside every file it is used for. The size must be
         the one the index and the bucket agree on; the cap is that size plus
         1 MiB. A cached copy is re-verified every time, never trusted for
-        having matched once.
+        having matched once. A LAN mirror (D-070) is asked first when one is
+        set and its bytes pass the same size and ETag checks; offline it is the
+        only source (#381).
         """
-        self._refuse_offline_publisher(url)
         make_dir(self.cache_dir)
         final = self.etag_path_for(url, etag)
         if final.exists() and final.stat().st_size == expected_size:
             if etag_matches(final, etag):
                 return FetchResult(
-                    path=final, sha256=_digest_file(final), from_cache=True, size=expected_size
+                    path=final,
+                    sha256=_digest_file(final),
+                    from_cache=True,
+                    size=expected_size,
+                    source="cache",
                 )
             final.unlink()
 
         temporary = final.with_name(final.name + f".part.{os.getpid()}")
-        try:
-            sha, size, _ = self._download(url, temporary, max_bytes=expected_size + 1024 * 1024)
+
+        def verify(_sha: str, size: int, _other: str | None, where: str) -> None:
             if size != expected_size:
                 raise VerificationError(
-                    f"{url}: {expected_size} bytes were expected and {size} arrived; "
+                    f"{where}: {expected_size} bytes were expected and {size} arrived; "
                     f"the size check failed"
                 )
             if not etag_matches(temporary, etag):
                 raise VerificationError(
-                    f"{url} does not match the ETag its publisher lists.\n"
+                    f"{where} does not match the ETag its publisher lists.\n"
                     f"  expected ETag: {etag}\n"
                     f"No part size reproduces it. The download has been discarded."
                 )
-        except BaseException:
-            temporary.unlink(missing_ok=True)
-            raise
+
+        done = self._from_sources(
+            url,
+            mirror,
+            temporary,
+            max_bytes=expected_size + 1024 * 1024,
+            md5=False,
+            verify=verify,
+        )
         os.replace(temporary, final)
-        return FetchResult(path=final, sha256=sha, from_cache=False, size=size)
+        return FetchResult(
+            path=final,
+            sha256=done.sha256,
+            from_cache=False,
+            size=done.size,
+            source=done.source,
+            url=done.url,
+            mirror_failure=done.mirror_failure,
+        )
 
     def sized_path_for(self, url: str, size: int) -> Path:
         """Where a size-checked file lands (:meth:`fetch_sized`). Pure."""
         return self.cache_dir / f"sized-{size}-{_safe_name(url)}"
 
-    def fetch_sized(self, url: str, *, expected_size: int) -> FetchResult:
+    def fetch_sized(
+        self, url: str, *, expected_size: int, mirror: MirrorPath | None = None
+    ) -> FetchResult:
         """A file nobody publishes a checksum for and Hammunition has not
         pinned (D-068, amended 2026-10-01: FSTopo sheets): only its size, as
         the server announced it at plan time, and its first bytes being a
@@ -823,38 +844,49 @@ class Fetcher:
         "unverified" beside every file it is used for. A cached copy is never
         reused, since nothing could tell a damaged one from a good one; the
         sha256 of what arrived is returned for the transaction log and the
-        install's own re-check. No redirect is followed: the URL is the one
-        the plan located and checked.
+        install's own re-check. No publisher redirect is followed: the URL is
+        the one the plan located and checked. A LAN mirror (D-070) is asked
+        first when one is set and its bytes pass the same two checks; offline
+        it is the only source (#381).
         """
-        self._refuse_offline_publisher(url)
         make_dir(self.cache_dir)
         final = self.sized_path_for(url, expected_size)
         final.unlink(missing_ok=True)
         temporary = final.with_name(final.name + f".part.{os.getpid()}")
-        try:
-            sha, size, _ = self._download(
-                url,
-                temporary,
-                max_bytes=expected_size + 1024 * 1024,
-                transport=self.strict_transport,
-            )
+
+        def verify(_sha: str, size: int, _other: str | None, where: str) -> None:
             if size != expected_size:
                 raise VerificationError(
-                    f"{url}: the server announced {expected_size} bytes and {size} arrived; "
+                    f"{where}: the server announced {expected_size} bytes and {size} arrived; "
                     f"the size check failed"
                 )
             with temporary.open("rb") as handle:
                 magic = handle.read(4)
             if magic not in TIFF_MAGIC:
                 raise VerificationError(
-                    f"{url} is not a TIFF (it starts {magic!r}); a gateway that answers "
+                    f"{where} is not a TIFF (it starts {magic!r}); a gateway that answers "
                     f"with a web page is not a map sheet. The download has been discarded."
                 )
-        except BaseException:
-            temporary.unlink(missing_ok=True)
-            raise
+
+        done = self._from_sources(
+            url,
+            mirror,
+            temporary,
+            max_bytes=expected_size + 1024 * 1024,
+            md5=False,
+            verify=verify,
+            publisher_transport=self.strict_transport,
+        )
         os.replace(temporary, final)
-        return FetchResult(path=final, sha256=sha, from_cache=False, size=size)
+        return FetchResult(
+            path=final,
+            sha256=done.sha256,
+            from_cache=False,
+            size=done.size,
+            source=done.source,
+            url=done.url,
+            mirror_failure=done.mirror_failure,
+        )
 
     def checked_path_for(self, url: str) -> Path:
         """Where a structure-checked file lands (:meth:`fetch_checked`). Pure."""
