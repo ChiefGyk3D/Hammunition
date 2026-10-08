@@ -272,7 +272,10 @@ def test_the_plan_can_print_every_path_before_anything_is_fetched(tmp_path: Path
     rendered = "\n".join(s.display(euid=1000) for s in steps)
     layout = backend.layout(manifest, manifest.install[0].install)  # type: ignore[arg-type]
     assert str(layout.src) in rendered
-    assert "sha256 verified" in rendered
+    # The shared payload step (Task 13) names the artifact and its URL; the
+    # sha256 check is the pin's, stated for the mirror route in the step's suffix.
+    assert "https://example.invalid/thing-1.0.tar.gz" in rendered
+    assert steps[0].description == "Fetch thing source archive"
 
 
 def test_compiler_flags_reach_the_compiler(tmp_path: Path) -> None:

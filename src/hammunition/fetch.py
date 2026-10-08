@@ -459,8 +459,13 @@ class Fetcher:
         mirror: str | None = None,
         mirror_transport: Transport | None = None,
         offline: bool = False,
+        signed_sha256: Callable[[MirrorPath], str | None] | None = None,
     ) -> None:
         self.offline = offline
+        self.signed_sha256 = signed_sha256
+        """The Bunker catalogue's signed sha256 for a mirror path, or None: asked
+        only for the routes whose repository pin is not a sha256, so bytes that
+        pass a weak digest must also be the bytes the signer vouched for."""
         """Mirror only: the publisher is never asked, and a source that fails
         verification refuses the download instead of falling through (#381)."""
         self.cache_dir = cache_dir if cache_dir is not None else artifact_cache_dir(owner)
@@ -508,6 +513,23 @@ class Fetcher:
             )
         return (("publisher", url),)
 
+    def _signed_for(self, mirror: MirrorPath | None) -> str | None:
+        """The signed catalogue's sha256 for *mirror*, when one is known."""
+        if mirror is None or self.signed_sha256 is None:
+            return None
+        return self.signed_sha256(mirror)
+
+    @staticmethod
+    def _check_signed(actual: str, signed: str | None, where: object) -> None:
+        """Refuse bytes whose sha256 is not the one the signed catalogue lists."""
+        if signed is not None and actual != signed:
+            raise VerificationError(
+                f"{where} does not match the sha256 the Bunker's signed catalogue lists.\n"
+                f"  signed catalogue sha256: {signed}\n"
+                f"  actually got:            {actual}\n"
+                f"The download has been discarded."
+            )
+
     def _from_sources(
         self,
         url: str,
@@ -519,6 +541,7 @@ class Fetcher:
         verify: Callable[[str, int, str | None, str], None],
         also: str | None = None,
         publisher_transport: Transport | None = None,
+        signed: str | None = None,
     ) -> _Downloaded:
         """Download into *temporary* from each source in turn until one
         verifies. *verify* raises :class:`VerificationError` (or
@@ -527,7 +550,9 @@ class Fetcher:
         is raised, naming the mirror's too. Nothing unverified survives: the
         temporary is removed after every failed attempt. *publisher_transport*
         replaces the publisher's transport (never the mirror's), for a download
-        that must follow no redirect."""
+        that must follow no redirect. *signed*, the signed catalogue's sha256
+        for a route whose repository pin is not a sha256, is checked in addition
+        to *verify* on the mirror's bytes only (never instead of it)."""
         passed_over: str | None = None
         for source, where in self.sources_for(url, mirror):
             if source == "mirror" and self._mirror_down is not None:
@@ -544,6 +569,8 @@ class Fetcher:
                     where, temporary, max_bytes=max_bytes, md5=md5, transport=transport, also=also
                 )
                 verify(sha, size, got, where)
+                if source == "mirror":
+                    self._check_signed(sha, signed, where)
             except BaseException as exc:
                 cleanup_failure = self._try_discard(temporary)
                 if not isinstance(exc, Exception):
@@ -752,6 +779,7 @@ class Fetcher:
             limit=expected_size + 1024 * 1024,
             extra="md5",
             verify=cached_ok,
+            signed=self._signed_for(mirror),
         )
         if hit is not None:
             return hit
@@ -778,6 +806,7 @@ class Fetcher:
             max_bytes=expected_size + 1024 * 1024,
             md5=True,
             verify=verify,
+            signed=self._signed_for(mirror),
         )
         self._publish(temporary, final)
         return FetchResult(
@@ -818,6 +847,7 @@ class Fetcher:
             limit=expected_size + 1024 * 1024,
             extra="sha1",
             verify=cached_ok,
+            signed=self._signed_for(mirror),
         )
         if hit is not None:
             return hit
@@ -846,6 +876,7 @@ class Fetcher:
             md5=False,
             verify=verify,
             also="sha1",
+            signed=self._signed_for(mirror),
         )
         self._publish(temporary, final)
         return FetchResult(
@@ -888,6 +919,7 @@ class Fetcher:
             limit=expected_size + 1024 * 1024,
             extra=None,
             verify=cached_ok,
+            signed=self._signed_for(mirror),
         )
         if hit is not None:
             return hit
@@ -914,6 +946,7 @@ class Fetcher:
             max_bytes=expected_size + 1024 * 1024,
             md5=False,
             verify=verify,
+            signed=self._signed_for(mirror),
         )
         self._publish(temporary, final)
         return FetchResult(
@@ -934,6 +967,7 @@ class Fetcher:
         limit: int,
         extra: str | None,
         verify: Callable[[str, int, str | None, Path], None],
+        signed: str | None = None,
     ) -> FetchResult | None:
         """The cached copy at *final* when it passes its route's checks, else
         None with the entry removed (a failed check never leaves a final file
@@ -990,6 +1024,7 @@ class Fetcher:
                 raise VerificationError(f"{final}: it changed size while it was read")
             sha256 = digest.hexdigest()
             verify(sha256, size, other.hexdigest() if other is not None else None, temporary)
+            self._check_signed(sha256, signed, final)
             self._publish(temporary, final)
         except (OSError, BackendError):
             self._discard(temporary)
@@ -1051,6 +1086,7 @@ class Fetcher:
             md5=False,
             verify=verify,
             publisher_transport=self.strict_transport,
+            signed=self._signed_for(mirror),
         )
         self._publish(temporary, final)
         return FetchResult(
@@ -1103,7 +1139,13 @@ class Fetcher:
                 ) from exc
 
         done = self._from_sources(
-            url, mirror, temporary, max_bytes=max_bytes, md5=False, verify=verify
+            url,
+            mirror,
+            temporary,
+            max_bytes=max_bytes,
+            md5=False,
+            verify=verify,
+            signed=self._signed_for(mirror),
         )
         self._publish(temporary, final)
         return FetchResult(

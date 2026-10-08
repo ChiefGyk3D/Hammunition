@@ -147,6 +147,15 @@ class ResolutionContext:
             raise CatalogueMiss(f"{unit}/{name}: Bunker copy does not match the expected size")
         return row
 
+    def signed_sha256(self, unit: str, name: str) -> str | None:
+        """The sha256 the verified catalogue lists for this item, or None when
+        nothing is enrolled or the row is absent. For a route whose repository
+        pin is not a sha256, the Bunker's bytes must match it too."""
+        if self.verified is None:
+            return None
+        row = self.verified.catalogue.artifact(unit, name, self.enrolment_id)
+        return None if row is None else row.sha256
+
     def input_bytes(self, kind: str, region: str) -> bytes:
         """Read and verify a bounded, signed input; cache successes for this run only."""
         if self.verified is None or self.inputs is None:

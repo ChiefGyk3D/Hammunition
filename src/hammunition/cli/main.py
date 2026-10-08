@@ -186,6 +186,7 @@ from hammunition.paths import (
     user_config_base,
     venv_root,
 )
+from hammunition.payloads import payload_cached
 from hammunition.phone_plan import build_phone_run
 from hammunition.plan import (
     NO_MAP_REGIONS,
@@ -198,9 +199,11 @@ from hammunition.plan import (
     cached_data_pin,
     cached_remote,
     catalogue_deferral,
+    deb_dependency_met,
     offline_network_blockers,
     offline_payload_blockers,
-    parse_deb_depends,
+    parse_deb_dependencies,
+    payload_misses,
     preflight_data,
     resolve,
 )
@@ -1269,21 +1272,31 @@ def _dpkg_depends(path: Path) -> str:
     return re.sub(r"^(?:Pre-)?Depends:", ",", result.stdout, flags=re.MULTILINE)
 
 
-def _deb_unmet(apt: AptBackend, fetcher: Fetcher, unit: PlannedPackage) -> list[str]:
-    """Dependency groups of a cached vendor .deb that no installed package meets."""
-    block = unit.block.install
-    assert isinstance(block, BinaryInstall)
+def _deb_unmet_file(apt: AptBackend, path: Path) -> list[str]:
+    """Dependency groups of the vendor .deb at *path* that no installed package
+    meets: a name apt does not list as installed, or an installed version outside
+    the .deb's stated range."""
     try:
-        groups = parse_deb_depends(_dpkg_depends(fetcher.path_for(block.artifact)))
-        names = sorted({name for group in groups for name in group})
+        groups = parse_deb_dependencies(_dpkg_depends(path))
+        names = sorted({d.name for group in groups for d in group})
         states = apt.probe(names) if names else {}
     except (OSError, subprocess.TimeoutExpired, BackendError) as exc:
         return [f"(its dependencies could not be read: {exc})"]
     return [
-        " | ".join(group)
+        " | ".join(d.text() for d in group)
         for group in groups
-        if not any(name in states and states[name].is_installed for name in group)
+        if not any(
+            deb_dependency_met(d, states[d.name].installed if d.name in states else None)
+            for d in group
+        )
     ]
+
+
+def _deb_unmet(apt: AptBackend, fetcher: Fetcher, unit: PlannedPackage) -> list[str]:
+    """Dependency groups of a cached vendor .deb that no installed package meets."""
+    block = unit.block.install
+    assert isinstance(block, BinaryInstall)
+    return _deb_unmet_file(apt, fetcher.path_for(block.artifact))
 
 
 def _provenance_notes(context: ResolutionContext) -> list[str]:
@@ -4955,10 +4968,15 @@ def cmd_install(args: argparse.Namespace) -> int:
             mirror=mirror,
             mirror_transport=enrolled_transport,
             offline=offline,
+            signed_sha256=lambda path: rctx.signed_sha256(path.unit, path.name),
         ),
         build_root=builds,
         owner=user or None,
     )
+    # Set after construction: the constructor stays what a test's stand-in
+    # backend replaces. Offline, a payload the Bunker cannot answer for is
+    # refused before any step of its unit exists.
+    source.context = rctx
     git = GitBackend(
         runner=runner,
         build_root=builds,
@@ -4975,6 +4993,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         prefix=source.prefix,
         owner=source.owner,
         attributed_files=helper_attributed,
+        context=rctx,
+        dependency_check=lambda path: _deb_unmet_file(apt, path),
     )
     venv = VenvBackend(
         venv_root=venv_root(user or None),
@@ -4983,12 +5003,14 @@ def cmd_install(args: argparse.Namespace) -> int:
         build_root=builds,
         prefix=source.prefix,
         owner=source.owner,
+        context=rctx,
     )
     node = NodeBackend(
         fetcher=source.fetcher,
         build_root=builds,
         node_root=node_root(user or None),
         bin_dir=user_bin_dir(user or None),
+        context=rctx,
     )
     data = DataBackend(
         fetcher=source.fetcher,
@@ -5566,6 +5588,16 @@ def cmd_install(args: argparse.Namespace) -> int:
         ),
     )
     if offline:
+        # Source, binary, venv and Node payloads come from the Bunker: one the
+        # catalogue cannot answer for (nor the cache) defers its whole unit, or
+        # refuses a unit the operator typed, before any step is built.
+        for name, miss in payload_misses(
+            plan, rctx, built, cached=payload_cached(source.fetcher)
+        ).items():
+            try:
+                defer_units(miss, {name})
+            except PlanError as error:
+                return plan_refusal(error)
         unreachable = [
             *offline_network_blockers(plan, built),
             *_offline_unrouted(plan, built, plan_time=False),

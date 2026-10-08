@@ -65,6 +65,7 @@ from hammunition.manifest.schema import (
     SourceInstall,
     effective_binaries,
 )
+from hammunition.payloads import payload_action, payload_cached, preflight_payloads
 
 from .base import Action, BackendError, Command
 
@@ -77,6 +78,7 @@ if TYPE_CHECKING:
     # `operator_dir` and `remove_tree` are real runtime dependencies, unlike
     # `Fetcher`, and are imported locally where they are used instead.
     from hammunition.fetch import Fetcher
+    from hammunition.resolution import ResolutionContext
 
 __all__ = [
     "DEFAULT_PREFIX",
@@ -372,10 +374,14 @@ class SourceBackend:
         prefix: Path = DEFAULT_PREFIX,
         jobs: int | None = None,
         owner: str | None = None,
+        context: ResolutionContext | None = None,
     ) -> None:
         self.fetcher = fetcher
         self.build_root = build_root
         self.prefix = prefix
+        #: The run's resolution context: offline, a payload the Bunker cannot
+        #: answer for is refused before any build step exists.
+        self.context = context
         self.jobs = jobs if jobs is not None else default_jobs()
         #: The operator an installed tree is handed to (D-043); None keeps it root's.
         self.owner = owner
@@ -414,15 +420,16 @@ class SourceBackend:
                 f"regression — D-014 records the zero rather than building for it."
             )
 
+        preflight_payloads(
+            manifest.name,
+            ((block.source, None),),
+            context=self.context,
+            cached=payload_cached(self.fetcher),
+        )
         layout = self.layout(manifest, block)
         artifact = block.source
         steps: list[Action | Command] = [
-            Action(
-                kind="fetch",
-                description=f"Download and verify the {manifest.name} source archive",
-                detail=f"{artifact.url} -> {self.fetcher.path_for(artifact)} (sha256 verified)",
-                perform=lambda: self._fetch(manifest, block),
-            ),
+            payload_action(manifest.name, artifact, self.fetcher, label="source archive"),
             Action(
                 kind="extract",
                 description=f"Unpack the {manifest.name} source",
@@ -433,11 +440,6 @@ class SourceBackend:
         steps.extend(patch_steps(manifest.name, block.patches, layout))
         steps.extend(self._build_commands(manifest, install_block, block, layout))
         return steps
-
-    def _fetch(self, manifest: PackageManifest, block: SourceInstall) -> str:
-        result = self.fetcher.fetch(block.source)
-        where = "cached" if result.from_cache else "downloaded"
-        return f"{where} {result.size} bytes, sha256 {result.sha256[:12]}… verified"
 
     def _build_commands(
         self,

@@ -248,13 +248,23 @@ def cache(url: str, body: bytes) -> Path:
     return path
 
 
-def only_installed(monkeypatch: pytest.MonkeyPatch, *installed: str) -> None:
-    """apt knows exactly *installed* as installed (and the unit's own deb as not)."""
+def only_installed(
+    monkeypatch: pytest.MonkeyPatch,
+    *installed: str,
+    installed_versions: dict[str, str] | None = None,
+) -> None:
+    """apt knows exactly *installed* as installed (and the unit's own deb as not),
+    each at version 2.0 unless *installed_versions* says otherwise."""
+    installed_versions = installed_versions or {}
     monkeypatch.setattr(
         AptBackend,
         "probe",
         lambda self, pkgs: {
-            p: AptPackageState(name=p, installed="1.0" if p in installed else None, candidate="1.0")
+            p: AptPackageState(
+                name=p,
+                installed=installed_versions.get(p, "2.0") if p in installed else None,
+                candidate="2.0",
+            )
             for p in pkgs
         },
     )
@@ -270,10 +280,10 @@ def test_an_uncached_source_unit_is_refused_at_plan_time(
     enrol_file_bunker(tmp_path, [])
     rc, out, err = run(capsys, payload_catalog, "install", "--offline", "--dry-run", "fixture-src")
     assert rc == cli.EXIT_UNPLANNABLE and out == ""
-    assert (
-        "fixture-src: offline: it downloads https://example.invalid/fixture-src-1.0.tar.gz" in err
-    )
-    assert "no Bunker route yet" in err and "run it once online" in err
+    # Task 13: a source payload has a Bunker route, so the refusal is the
+    # catalogue's, naming the item by its <sha256>/<file> name.
+    assert f"fixture-src/{hashlib.sha256(SRC_BODY).hexdigest()}/fixture-src-1.0.tar.gz" in err
+    assert "not on Bunker bunker" in err
 
 
 def test_a_cached_source_unit_proceeds_offline_from_its_verified_bytes(
@@ -290,7 +300,7 @@ def test_a_cached_source_unit_proceeds_offline_from_its_verified_bytes(
     assert "fixture-src" in out
     path.write_bytes(b"x" * len(SRC_BODY))  # right name, wrong bytes: not a hit
     rc, _out, err = run(capsys, payload_catalog, "install", "--offline", "--dry-run", "fixture-src")
-    assert rc == cli.EXIT_UNPLANNABLE and "not in the local cache" in err
+    assert rc == cli.EXIT_UNPLANNABLE and "not on Bunker bunker" in err
 
 
 def test_the_source_guard_names_nothing_online(
@@ -303,16 +313,43 @@ def test_the_source_guard_names_nothing_online(
     assert rc == 0, err
 
 
+DEPENDS = ", libfoo (>= 1.2), libbar | libbaz"
+SHA_DEB = hashlib.sha256(DEB_BODY).hexdigest()
+
+
 @pytest.mark.parametrize(
-    ("cached", "installed", "depends", "refused"),
+    ("cached", "installed", "versions", "depends", "refused"),
     [
-        (False, (), "", "it downloads https://example.invalid/fixture-deb_1.0_amd64.deb"),
-        (True, (), ", libfoo (>= 1.2), libbar | libbaz", "libfoo, libbar | libbaz"),
-        (True, ("libfoo",), ", libfoo (>= 1.2), libbar | libbaz", "libbar | libbaz"),
-        (True, ("libfoo", "libbaz"), ", libfoo (>= 1.2), libbar | libbaz", None),
-        (True, (), "", None),
+        (False, (), {}, "", [f"fixture-deb/{SHA_DEB}/fixture-deb_1.0_amd64.deb", "not on Bunker"]),
+        (True, (), {}, DEPENDS, ["libfoo (>= 1.2), libbar | libbaz", "fixture-deb: offline:"]),
+        (True, ("libfoo",), {}, DEPENDS, ["libbar | libbaz"]),
+        (True, ("libfoo", "libbaz"), {}, DEPENDS, None),
+        (True, (), {}, "", None),
+        # The version is checked, not only the name (Task 13).
+        (True, ("libfoo", "libbaz"), {"libfoo": "1.0"}, DEPENDS, ["libfoo (>= 1.2)"]),
+        (True, ("libfoo", "libbaz"), {"libfoo": "1:0.5"}, DEPENDS, None),
+        (True, ("libfoo", "libbaz"), {"libfoo": "1.2"}, DEPENDS, None),
+        (
+            True,
+            ("libbaz",),
+            {"libbaz": "0.9"},
+            ", libbar (>= 3) | libbaz (>= 1)",
+            ["libbar (>= 3) | libbaz (>= 1)"],
+        ),
+        (True, ("libbaz",), {"libbaz": "2.0"}, ", libbar (>= 3) | libbaz (>= 1)", None),
     ],
-    ids=["not-cached", "none-installed", "one-group-met", "all-met", "no-dependencies"],
+    ids=[
+        "not-cached",
+        "none-installed",
+        "one-group-met",
+        "all-met",
+        "no-dependencies",
+        "installed-too-old",
+        "epoch-wins",
+        "exactly-the-minimum",
+        "alternatives-both-out-of-range",
+        "alternative-in-range",
+    ],
 )
 def test_a_vendor_deb_offline_needs_its_bytes_and_its_installed_dependencies(
     payload_catalog: Path,
@@ -321,10 +358,11 @@ def test_a_vendor_deb_offline_needs_its_bytes_and_its_installed_dependencies(
     capsys: pytest.CaptureFixture[str],
     cached: bool,
     installed: tuple[str, ...],
+    versions: dict[str, str],
     depends: str,
-    refused: str | None,
+    refused: list[str] | None,
 ) -> None:
-    only_installed(monkeypatch, *installed)
+    only_installed(monkeypatch, *installed, installed_versions=versions)
     enrol_file_bunker(tmp_path, [])
     if cached:
         cache("https://example.invalid/fixture-deb_1.0_amd64.deb", DEB_BODY)
@@ -334,9 +372,11 @@ def test_a_vendor_deb_offline_needs_its_bytes_and_its_installed_dependencies(
         assert rc == 0, err
     else:
         assert rc == cli.EXIT_UNPLANNABLE
-        assert refused in err and "fixture-deb: offline:" in err
+        assert all(text in err for text in refused), err
         if cached:
             assert "apt, which would fetch what it depends on" in err
+        if "libfoo" in installed and versions.get("libfoo") != "1.0":
+            assert "libfoo (>= 1.2)" not in err
 
 
 def test_an_installed_deb_unit_needs_no_dependency_check(machine: Path) -> None:

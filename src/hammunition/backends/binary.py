@@ -40,6 +40,7 @@ refused by name so the gap stays visible (D-014).
 from __future__ import annotations
 
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -50,6 +51,7 @@ from hammunition.manifest.schema import (
     PackageManifest,
     effective_binaries,
 )
+from hammunition.payloads import payload_action, payload_cached, preflight_payloads
 
 from .base import Action, BackendError, Command, CommandRunner
 from .placements import helper_steps, placement_steps
@@ -69,6 +71,7 @@ if TYPE_CHECKING:
     # `Fetcher` is only ever used in an annotation, which `from __future__
     # import annotations` defers, so it never needs a real import.
     from hammunition.fetch import Fetcher
+    from hammunition.resolution import ResolutionContext
 
 __all__ = ["IMPLEMENTED_BINARY_FORMATS", "BinaryBackend"]
 
@@ -95,6 +98,15 @@ class BinaryBackend:
 
     owner: str | None = None
     """The operator an installed tree is handed to (D-043); None keeps it root's."""
+
+    context: ResolutionContext | None = None
+    """The run's resolution context: offline, an artifact the Bunker cannot
+    answer for is refused before any extraction or install step exists."""
+
+    dependency_check: Callable[[Path], list[str]] | None = None
+    """Offline only: names the dependency groups of a fetched vendor .deb that no
+    suitable installed package meets (version included). apt would have to fetch
+    them from an archive the machine cannot reach, so the install stops first."""
 
     attributed_files: frozenset[str] = frozenset()
     """The files the transaction log shows this engine installed, so a unit
@@ -140,24 +152,26 @@ class BinaryBackend:
                 f"quietly skipped."
             )
 
+        preflight_payloads(
+            manifest.name,
+            ((block.artifact, None),),
+            context=self.context,
+            cached=payload_cached(self.fetcher),
+        )
         fetched: dict[str, Path] = {}
-
-        def fetch() -> str:
-            result = self.fetcher.fetch(block.artifact)
-            fetched["path"] = result.path
-            where = "cached" if result.from_cache else "downloaded"
-            return f"{where} {result.size} bytes, sha256 {result.sha256[:12]}… verified"
-
         steps: list[Action | Command] = [
-            Action(
-                kind="fetch",
-                description=f"Fetch {manifest.name}",
-                detail=f"{block.artifact.url} (sha256 {block.artifact.sha256[:12]}…)",
-                perform=fetch,
+            payload_action(
+                manifest.name, block.artifact, self.fetcher, label="artifact", fetched=fetched
             )
         ]
 
         if block.format == "deb":
+            if (
+                self.context is not None
+                and self.context.offline
+                and self.dependency_check is not None
+            ):
+                steps.append(self._dependency_action(manifest.name, fetched, self.dependency_check))
             # The path is not knowable until the fetch has run, so the install
             # is an Action that builds its own command rather than a Command
             # rendered at plan time. The plan still names the URL and digest
@@ -304,6 +318,30 @@ class BinaryBackend:
             )
         )
         return steps
+
+    @staticmethod
+    def _dependency_action(
+        name: str, fetched: dict[str, Path], check: Callable[[Path], list[str]]
+    ) -> Action:
+        def perform() -> str:
+            path = fetched.get("path")
+            if path is None:  # pragma: no cover - the fetch Action always runs first
+                raise BackendError(f"{name}: the .deb was not fetched before its dependency check")
+            unmet = check(path)
+            if unmet:
+                raise BackendError(
+                    f"offline: {name}'s .deb is installed by apt, which would fetch what it "
+                    f"depends on, and this machine lacks: {', '.join(unmet)}. Nothing was "
+                    f"installed."
+                )
+            return "every dependency is met by an installed package"
+
+        return Action(
+            kind="check-deb-depends",
+            description=f"Check that {name}'s dependencies are installed (offline: apt cannot fetch them)",
+            detail="the .deb's Depends against the installed packages, versions included",
+            perform=perform,
+        )
 
     def _install_deb(self, name: str, fetched: dict[str, Path]) -> str:
         """Hand the file to apt so its dependencies resolve."""

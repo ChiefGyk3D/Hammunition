@@ -101,6 +101,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "Blocker",
+    "DebDependency",
     "Deferral",
     "GroupMembership",
     "InstallPlan",
@@ -110,9 +111,13 @@ __all__ = [
     "cached_data_pin",
     "cached_remote",
     "catalogue_deferral",
+    "compare_deb_versions",
+    "deb_dependency_met",
     "offline_network_blockers",
     "offline_payload_blockers",
+    "parse_deb_dependencies",
     "parse_deb_depends",
+    "payload_misses",
     "preflight_data",
     "resolve",
 ]
@@ -1434,21 +1439,176 @@ def _remote_artifacts(node: object) -> list[RemoteArtifact]:
     return found
 
 
+@dataclass(frozen=True)
+class DebDependency:
+    """One alternative of a ``Depends`` group: a package name and, if the .deb
+    states one, the version relation it needs (``>=``, ``=`` ...)."""
+
+    name: str
+    relation: str | None = None
+    version: str | None = None
+
+    def text(self) -> str:
+        return (
+            self.name if self.relation is None else f"{self.name} ({self.relation} {self.version})"
+        )
+
+
+_DEB_RELATION = re.compile(r"\(\s*(<<|<=|>=|>>|=|<|>)\s*([^)\s]+)\s*\)")
+
+
+def parse_deb_dependencies(field_text: str) -> list[list[DebDependency]]:
+    """``Depends``/``Pre-Depends`` text as groups of alternatives, with each
+    alternative's version relation when it has one.
+
+    ``"a (>= 1), b | c"`` is ``[[a >= 1], [b, c]]``; architecture qualifiers
+    are dropped."""
+    groups: list[list[DebDependency]] = []
+    for clause in field_text.replace("\n", " ").split(","):
+        alternatives: list[DebDependency] = []
+        for alternative in clause.split("|"):
+            name = alternative.split("(")[0].split("[")[0].split(":")[0].strip()
+            if not name:
+                continue
+            found = _DEB_RELATION.search(alternative)
+            relation = found.group(1) if found else None
+            if relation == "<":
+                relation = "<<"  # the deprecated spellings mean the strict ones
+            elif relation == ">":
+                relation = ">>"
+            alternatives.append(DebDependency(name, relation, found.group(2) if found else None))
+        if alternatives:
+            groups.append(alternatives)
+    return groups
+
+
 def parse_deb_depends(field_text: str) -> list[list[str]]:
     """``Depends``/``Pre-Depends`` text as groups of alternatives, names only.
 
     ``"a (>= 1), b | c"`` is ``[["a"], ["b", "c"]]``; architecture and version
-    qualifiers are dropped, so a group is met by any installed alternative."""
-    groups: list[list[str]] = []
-    for clause in field_text.replace("\n", " ").split(","):
-        names = [
-            alternative.split("(")[0].split("[")[0].split(":")[0].strip()
-            for alternative in clause.split("|")
-        ]
-        names = [name for name in names if name]
-        if names:
-            groups.append(names)
-    return groups
+    qualifiers are dropped. :func:`parse_deb_dependencies` keeps the versions."""
+    return [[d.name for d in group] for group in parse_deb_dependencies(field_text)]
+
+
+def _deb_order(char: str) -> int:
+    if char.isdigit() or not char:
+        return 0
+    if char.isalpha():
+        return ord(char)
+    if char == "~":
+        return -1
+    return ord(char) + 256
+
+
+def _deb_verrevcmp(a: str, b: str) -> int:
+    i = j = 0
+    while i < len(a) or j < len(b):
+        while (i < len(a) and not a[i].isdigit()) or (j < len(b) and not b[j].isdigit()):
+            difference = _deb_order(a[i] if i < len(a) else "") - _deb_order(
+                b[j] if j < len(b) else ""
+            )
+            if difference:
+                return difference
+            i += 1
+            j += 1
+        while i < len(a) and a[i] == "0":
+            i += 1
+        while j < len(b) and b[j] == "0":
+            j += 1
+        first = 0
+        while i < len(a) and a[i].isdigit() and j < len(b) and b[j].isdigit():
+            if not first:
+                first = ord(a[i]) - ord(b[j])
+            i += 1
+            j += 1
+        if i < len(a) and a[i].isdigit():
+            return 1
+        if j < len(b) and b[j].isdigit():
+            return -1
+        if first:
+            return first
+    return 0
+
+
+def _deb_parts(version: str) -> tuple[int, str, str]:
+    epoch = 0
+    if ":" in version:
+        head, version = version.split(":", 1)
+        epoch = int(head) if head.isdigit() else 0
+    upstream, _, revision = version.rpartition("-") if "-" in version else (version, "", "")
+    return epoch, upstream, revision
+
+
+def compare_deb_versions(a: str, b: str) -> int:
+    """Debian's version order (epoch, upstream, revision; ``~`` sorts before
+    everything): negative, zero or positive as *a* is older than, equal to or
+    newer than *b*."""
+    epoch_a, upstream_a, revision_a = _deb_parts(a)
+    epoch_b, upstream_b, revision_b = _deb_parts(b)
+    if epoch_a != epoch_b:
+        return epoch_a - epoch_b
+    return _deb_verrevcmp(upstream_a, upstream_b) or _deb_verrevcmp(revision_a, revision_b)
+
+
+def deb_dependency_met(dependency: DebDependency, installed: str | None) -> bool:
+    """Whether an installed version (None: not installed) satisfies *dependency*,
+    its version relation included."""
+    if installed is None:
+        return False
+    if dependency.relation is None or dependency.version is None:
+        return True
+    order = compare_deb_versions(installed, dependency.version)
+    return {
+        "<<": order < 0,
+        "<=": order <= 0,
+        "=": order == 0,
+        ">=": order >= 0,
+        ">>": order > 0,
+    }[dependency.relation]
+
+
+def _routed_payload(block: object) -> RemoteArtifact | None:
+    """The one pinned download of a source, binary, venv-payload or Node block."""
+    if isinstance(block, SourceInstall):
+        return block.source
+    if isinstance(block, BinaryInstall | NodeInstall):
+        return block.artifact
+    if isinstance(block, VenvInstall):
+        return block.payload
+    return None
+
+
+def payload_misses(
+    plan: InstallPlan,
+    context: ResolutionContext,
+    built: frozenset[str],
+    *,
+    cached: Callable[[RemoteArtifact], bool],
+) -> dict[str, CatalogueMiss]:
+    """Offline, the pinned payload of every source, binary, venv and Node unit the
+    verified Bunker cannot answer for (and the cache does not hold), by unit.
+
+    The same check each backend makes before returning steps, asked here so a
+    missing payload defers the whole unit (or refuses a typed one) through
+    :func:`catalogue_deferral` instead of failing while steps are built. A unit
+    already built at its pin, or a .deb already installed, is not asked about."""
+    from hammunition.payloads import preflight_payloads
+
+    misses: dict[str, CatalogueMiss] = {}
+    if not context.offline:
+        return misses
+    for unit in plan.packages:
+        block = unit.block.install
+        pin = _routed_payload(block)
+        if pin is None or (unit.name in built and not isinstance(block, VenvInstall | NodeInstall)):
+            continue
+        if isinstance(block, BinaryInstall) and unit.deb_installed:
+            continue
+        try:
+            preflight_payloads(unit.name, ((pin, None),), context=context, cached=cached)
+        except CatalogueMiss as exc:
+            misses[unit.name] = exc
+    return misses
 
 
 def offline_payload_blockers(
@@ -1460,13 +1620,14 @@ def offline_payload_blockers(
 ) -> list[Blocker]:
     """Downloads an offline run could not make, refused at plan time by name.
 
-    A source, binary, derived-data or other pinned payload has no Bunker route
-    in phase 1 (Task 13 and 14 add them), so it proceeds only when its bytes
-    are already in the verified cache or the unit is already built. A vendor
-    ``.deb`` is installed with ``apt-get install ./file.deb``, which resolves
-    its dependencies against the archive: offline it proceeds only when every
-    dependency group already has an installed package (*deb_unmet* names the
-    ones that do not). Units refused by :func:`offline_network_blockers`, and
+    A derived-data or other pinned payload with no Bunker route proceeds only
+    when its bytes are already in the verified cache or the unit is already
+    built. Source, binary, venv and Node payloads have one (:func:`payload_misses`).
+    A vendor ``.deb`` is installed with ``apt-get install ./file.deb``, which
+    resolves its dependencies against the archive: offline it proceeds only when
+    every dependency group already has a suitable installed package, version
+    included (*deb_unmet* names the ones that do not), checked here when its
+    bytes are cached and by the install after its fetch when they are not. Units refused by :func:`offline_network_blockers`, and
     the data kinds :func:`preflight_data` decides, are not repeated here."""
     from hammunition.manifest.schema import BinaryInstall, DataInstall, RegisterInstall
 
@@ -1478,7 +1639,16 @@ def offline_payload_blockers(
             DataInstall | RegisterInstall | AptInstall | VenvInstall | NodeInstall | GitInstall,
         ):
             continue
-        missing = [a for a in _remote_artifacts(block) if not cached(a)]
+        if isinstance(block, SourceInstall):
+            continue  # routed through the Bunker (payload_misses)
+        # A vendor .deb is routed too; only its dependencies are checked here, and
+        # only once its bytes are local to read them from. An uncached one is
+        # checked by the install itself, after its fetch (BinaryBackend).
+        missing = (
+            []
+            if isinstance(block, BinaryInstall)
+            else [a for a in _remote_artifacts(block) if not cached(a)]
+        )
         if missing:
             shown = ", ".join(a.url for a in missing[:3]) + (
                 f" and {len(missing) - 3} more" if len(missing) > 3 else ""
@@ -1494,7 +1664,12 @@ def offline_payload_blockers(
                 )
             )
             continue
-        if isinstance(block, BinaryInstall) and block.format == "deb" and not unit.deb_installed:
+        if (
+            isinstance(block, BinaryInstall)
+            and block.format == "deb"
+            and not unit.deb_installed
+            and cached(block.artifact)
+        ):
             unmet = deb_unmet(unit)
             if unmet:
                 out.append(
