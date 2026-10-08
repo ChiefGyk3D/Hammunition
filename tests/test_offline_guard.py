@@ -413,6 +413,68 @@ def test_a_source_unit_the_bunker_holds_proceeds_offline_without_a_cache(
     assert f"fixture-src/{payload_name(SRC_PIN)}: offline; resolved from Bunker bunker" in out, out
 
 
+def test_each_provenance_line_is_printed_once_across_the_plan_time_passes(
+    payload_catalog: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from hammunition.payloads import payload_name
+    from test_offline_context import BODY as DATA_BODY
+
+    apt_state(monkeypatch, installed="1.0")
+    enrol_file_bunker(
+        tmp_path,
+        [
+            artifact("fixture-data", "fixture-data.bin", DATA_BODY),
+            artifact("fixture-src", payload_name(SRC_PIN), SRC_BODY),
+        ],
+    )
+    rc, out, err = run(
+        capsys, payload_catalog, "install", "--offline", "--dry-run", "fixture-data", "fixture-src"
+    )
+    assert rc == 0, err
+    notes = [line for line in out.splitlines() if "resolved from Bunker" in line]
+    assert sum("fixture-data/fixture-data.bin" in line for line in notes) == 1, notes
+    assert sum(f"fixture-src/{payload_name(SRC_PIN)}" in line for line in notes) == 1, notes
+
+
+def test_the_install_command_shares_its_context_with_every_payload_backend(
+    payload_catalog: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Offline, each payload backend carries the run's context, and the .deb one
+    its dependency check; online they carry the same context, which asks nothing."""
+    from hammunition.backends.binary import BinaryBackend
+    from hammunition.backends.node import NodeBackend
+    from hammunition.backends.venv import VenvBackend
+
+    seen: dict[str, Any] = {}
+
+    def recording(name: str, base: type) -> type:
+        class Recording(base):  # type: ignore[misc]  # a test subclass of a dataclass/class by variable
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                super().__init__(*args, **kwargs)
+                seen[name] = self
+
+        return Recording
+
+    monkeypatch.setattr(cli, "BinaryBackend", recording("binary", BinaryBackend))
+    monkeypatch.setattr(cli, "VenvBackend", recording("venv", VenvBackend))
+    monkeypatch.setattr(cli, "NodeBackend", recording("node", NodeBackend))
+    apt_state(monkeypatch, installed="1.0")
+    enrol_file_bunker(tmp_path, [])
+    cache("https://example.invalid/fixture-src-1.0.tar.gz", SRC_BODY)
+    rc, _out, err = run(capsys, payload_catalog, "install", "--offline", "--dry-run", "fixture-src")
+    assert rc == 0, err
+    assert len({id(seen[name].context) for name in ("binary", "venv", "node")}) == 1
+    context = seen["binary"].context
+    assert isinstance(context, ResolutionContext) and context.offline
+    assert callable(seen["binary"].dependency_check)
+
+
 def test_a_profile_member_the_bunker_lacks_is_deferred_whole_not_refused(
     payload_catalog: Path,
     tmp_path: Path,
