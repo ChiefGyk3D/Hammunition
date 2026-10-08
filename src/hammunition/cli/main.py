@@ -192,8 +192,10 @@ from hammunition.plan import (
     InstallPlan,
     PlanError,
     PlannedPackage,
+    _without_units,
     cached_data_pin,
     cached_remote,
+    catalogue_deferral,
     offline_network_blockers,
     offline_payload_blockers,
     parse_deb_depends,
@@ -202,7 +204,7 @@ from hammunition.plan import (
 )
 from hammunition.progress import LiveStatus, Progress, activate_live, current_live
 from hammunition.repeater_sources import SnapshotHead
-from hammunition.resolution import ResolutionContext
+from hammunition.resolution import CatalogueMiss, ResolutionContext
 from hammunition.retry import (
     POLICY,
     Outages,
@@ -1129,7 +1131,6 @@ def _apt_lists_note(apt: AptBackend) -> str:
 #: the Bunker route for each still to be built (#381). An offline run refuses
 #: them by name rather than letting a probe or a git clone reach a publisher.
 _OFFLINE_UNROUTED: tuple[tuple[type, str, bool], ...] = (
-    (RegionalDataInstall, "map regions", True),
     (DemTilesInstall, "terrain tiles", True),
     (TopoQuadsInstall, "topographic sheets", True),
     (KiwixBooksInstall, "reference books", True),
@@ -4449,6 +4450,7 @@ def resolve_map_regions(
     probe: Probe,
     today: date,
     installed: Path,
+    context: ResolutionContext | None = None,
 ) -> MapResolution:
     """The station's map regions as dated, verifiable Geofabrik files.  D-057.
 
@@ -4469,7 +4471,9 @@ def resolve_map_regions(
     region about to be fetched -- not already installed at its resolved
     snapshot, pinned or not -- is also HEAD-checked here, before the plan
     ever prints; a region already installed keeps today's behaviour and is
-    never probed.
+    never probed. Offline and after exhausted publisher retries, a verified
+    catalogue supplies the identity and payload checks instead of this HEAD.
+    Missing records use whole-unit disposition; installed regions are kept.
     """
     wanted = any(
         isinstance(p.block.install, RegionalDataInstall | DerivedDataInstall) for p in plan.packages
@@ -4497,20 +4501,47 @@ def resolve_map_regions(
                 bar.tick()  # the previous region is finished
             try:
                 resolved = resolve_region(
-                    region, station.freshness, today=today, pins=pins, probe=probe
+                    region, station.freshness, today=today, pins=pins, probe=probe, context=context
                 )
-            except (GeofabrikError, OSError) as exc:
+            except (GeofabrikError, OSError, CatalogueMiss) as exc:
                 slug = region.replace("/", "-")
                 pbf = installed / f"{slug}.osm.pbf"
                 if pbf.is_file():
                     kept.append(KeptRegion(region, slug, installed_snapshot(pbf), str(exc)))
+                elif isinstance(exc, CatalogueMiss):
+                    raise
                 else:
                     refused.append(f"  {region}: {exc}")
                 continue
             pbf = installed / f"{resolved.slug}.osm.pbf"
-            if not region_current(pbf, resolved):
+            catalogue_resolved = context is not None and (
+                context.offline or ("osm-regions", region) in context.notes
+            )
+            if not region_current(pbf, resolved) and not catalogue_resolved:
                 try:
-                    status, _, _ = probe.head(resolved.url)
+
+                    def reachable(resolved: RegionFile = resolved) -> int:
+                        status, _, _ = probe.head(resolved.url)
+                        return status
+
+                    def recorded_reachability(
+                        resolved: RegionFile = resolved, region: str = region
+                    ) -> int:
+                        assert context is not None
+                        context.require_payload(
+                            "osm-regions",
+                            region,
+                            sha256=resolved.sha256,
+                            size=resolved.size,
+                            publisher_digest=resolved.md5,
+                        )
+                        return 200
+
+                    status = (
+                        context.choose("osm-regions", region, reachable, recorded_reachability)
+                        if context is not None
+                        else reachable()
+                    )
                     problem = (
                         None if status == 200 else f"{resolved.url} answered HTTP {status}, not 200"
                     )
@@ -4968,17 +4999,36 @@ def cmd_install(args: argparse.Namespace) -> int:
                 raise PlanError(unrouted)
         except PlanError as exc:
             return plan_refusal(exc)
+    POLICY.reset()
     map_units = [p for p in plan.packages if isinstance(p.block.install, RegionalDataInstall)]
     try:
         resolution = resolve_map_regions(
             plan,
             station,
             catalog_root,
-            probe=UrllibProbe(),
+            probe=RetryingProbe(UrllibProbe()),
+            context=rctx,
             today=date.today(),
             installed=data_root(source.prefix)
             / (map_units[0].name if map_units else "osm-regions"),
         )
+    except CatalogueMiss as exc:
+        try:
+            deferrals = tuple(
+                catalogue_deferral(p, exc)
+                for p in plan.packages
+                if isinstance(p.block.install, RegionalDataInstall | DerivedDataInstall)
+            )
+        except PlanError as error:
+            return plan_refusal(error)
+        names = {d.subject for d in deferrals}
+        plan = _without_units(
+            plan,
+            names,
+            [p for p in plan.packages if p.name not in names],
+            [*plan.deferrals, *deferrals],
+        )
+        resolution = MapResolution()
     except GeofabrikError as exc:
         print(f"error: {exc}", file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)
@@ -5000,7 +5050,6 @@ def cmd_install(args: argparse.Namespace) -> int:
     # again for a week (`--recheck` asks every one); the real run verifies
     # whatever it fetches either way.
     checks = PublisherChecks.from_log(read_log, recheck=args.recheck, offline=offline)
-    POLICY.reset()
     terrain_tile_probe = CachingTileProbe(RetryingProbe(S3Probe()), source.fetcher.cache_dir)
     usgs_tile_probe = CachingTileProbe(RetryingProbe(ustopo_probe()), source.fetcher.cache_dir)
     try:
@@ -5221,6 +5270,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         files=region_files,
         keep=kept,
         ledger=ledger,
+        provenance=rctx.notes,
         runner=runner,
     )
     # maptool runs as the operator into the operator's build tree; only the

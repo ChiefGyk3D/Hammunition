@@ -600,6 +600,7 @@ documentation:
 def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A catalogue with a data unit and a pip unit, a stubbed target and apt, and a
     temporary XDG tree; returns the catalogue root."""
+    monkeypatch.setenv("HOME", str(tmp_path))
     catalog = tmp_path / "catalog"
     shutil.copytree(FIXTURE_CATALOG, catalog)
     (catalog / "packages" / "fixture-data.yaml").write_text(DATA_UNIT)
@@ -947,3 +948,36 @@ def test_a_bunker_that_cannot_be_trusted_turns_the_fallback_off_online_and_refus
 
 def test_the_blocker_dataclass_is_the_planner_s_own() -> None:
     assert Blocker("u", "r").render() == "u: r"
+
+
+@pytest.mark.parametrize("selection", ["osm-regions", "fixture-offline"])
+def test_geofabrik_missing_record_refuses_typed_or_defers_whole_profile_unit(
+    machine: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    selection: str,
+) -> None:
+    from test_offline_geofabrik import CATALOG, REGION, DownProbe
+
+    (machine / "packages" / "osm-regions.yaml").write_bytes(
+        (CATALOG / "packages" / "osm-regions.yaml").read_bytes()
+    )
+    profile = machine / "profiles" / "fixture-offline.yaml"
+    profile.write_text(PROFILE.replace("fixture-data", "osm-regions"))
+    apt_state(monkeypatch, installed="1.0")
+    enrol_file_bunker(tmp_path, [], station={"map_regions": [REGION], "map_freshness": "latest"})
+    monkeypatch.setattr(cli, "UrllibProbe", DownProbe)
+    rc, out, err = run(capsys, machine, "install", "--offline", "--dry-run", "--json", selection)
+    if selection == "osm-regions":
+        assert rc == cli.EXIT_UNPLANNABLE
+        assert "not on Bunker bunker" in out + err
+    else:
+        assert rc == 0, err
+        doc = parse_one(out)["install"]
+        assert [p["name"] for p in doc["packages"]] == ["fixture-apt"]
+        assert any(
+            d["subject"] == "osm-regions" and "not on Bunker bunker" in d["why"]
+            for d in doc["deferrals"]
+        )
+        assert not any(c["action"] == "fetch" for c in doc["commands"])

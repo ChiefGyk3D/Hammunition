@@ -83,14 +83,22 @@ class ResolutionContext:
         return row
 
     def require_payload(
-        self, unit: str, name: str, *, sha256: str | None = None, size: int | None = None
+        self,
+        unit: str,
+        name: str,
+        *,
+        sha256: str | None = None,
+        size: int | None = None,
+        publisher_digest: str | None = None,
     ) -> CatalogueArtifact:
-        """The entry, which must also match the repository's own pin."""
+        """The entry, matching the caller's payload pins and publisher metadata."""
         row = self.entry(unit, name)
         if sha256 is not None and row.sha256 != sha256:
             raise CatalogueMiss(
                 f"{unit}/{name}: Bunker copy does not match the repository sha256 pin"
             )
+        if publisher_digest is not None and row.publisher_digest != publisher_digest:
+            raise CatalogueMiss(f"{unit}/{name}: Bunker copy does not match the publisher digest")
         if size is not None and row.size != size:
             raise CatalogueMiss(f"{unit}/{name}: Bunker copy does not match the expected size")
         return row
@@ -132,9 +140,17 @@ class ResolutionContext:
         if not self.offline:
             try:
                 return online()
-            except PublisherUnavailable:
+            except PublisherUnavailable as outage:
                 if self.verified is None:
                     raise
+                try:
+                    result = recorded()
+                except CatalogueMiss:
+                    if self.verified.catalogue.artifact(unit, name, self.enrolment_id) is None:
+                        raise outage from None
+                    raise
+                self.note(unit, name, fallback=True)
+                return result
         result = recorded()
         self.note(unit, name, fallback=not self.offline)
         return result

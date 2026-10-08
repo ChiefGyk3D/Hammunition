@@ -65,7 +65,6 @@ REAL_CATALOG = REPO / "catalog"
 
 #: unit, and the words its refusal must carry
 PLAN_TIME_KINDS = [
-    ("osm-regions", "map regions"),
     ("dem-copernicus", "terrain tiles"),
     ("usgs-ustopo", "topographic sheets"),
     ("kiwix-library", "reference books"),
@@ -573,3 +572,27 @@ def test_a_changed_station_mirror_is_a_refused_plan_document_too(
     save_station(Station(mirror="http://changed.invalid/"))
     doc = refused_document(capsys, machine)
     assert "differs from enrolled mirror" in doc["blockers"][0]["reason"]
+
+
+def test_map_regions_now_resolve_offline_from_verified_catalogue(
+    machine: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from test_offline_geofabrik import REGION, DownProbe, row
+
+    apt_state(monkeypatch, installed="1.0")
+    enrol_file_bunker(
+        tmp_path, [row()], station={"map_regions": [REGION], "map_freshness": "latest"}
+    )
+    attempts = forbid_the_network(monkeypatch, probes=False)
+    monkeypatch.setattr(cli, "UrllibProbe", DownProbe)
+    rc, out, err = run(
+        capsys, REAL_CATALOG, "install", "--offline", "--dry-run", "--json", "osm-regions"
+    )
+    assert rc == 0, err
+    assert any(
+        "resolved from Bunker bunker" in n for n in parse_one(out)["install"]["region_notes"]
+    )
+    assert attempts == []
