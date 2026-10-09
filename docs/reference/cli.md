@@ -306,8 +306,12 @@ paths. It is Geofabrik's list, nothing of yours.
 
 Every remote data artifact the engine would fetch for the selection on the
 command line (**D-070**): each `data` unit's files, the Geofabrik extract of
-each region, the Copernicus tiles each region's outline touches, and each
-Kiwix book given (**D-066**, the 2026-10-01 amendment of D-070). It
+each region, the Copernicus tiles each region's outline touches, each Kiwix
+book given (**D-066**, the 2026-10-01 amendment of D-070), the US Topo and
+FSTopo sheets and USGS 3DEP tiles each region's outline touches, and --
+since **Task 16** -- every catalog-pinned program payload: a `source`
+build's archive, a `binary` or `node` artifact, a `venv`'s own payload tree,
+a `derived` block's converter tool, and a `git` block's `extra_files`. It
 reads no station file and nothing installed on this machine, and installs
 nothing; the answer is the same on every machine. It is what
 [Hammunition Bunker](https://github.com/Renegade-Penguin/hammunition-bunker), a
@@ -322,26 +326,50 @@ $ hammunition artifacts --map-regions north-america/us/vermont --units osm-regio
 | `--map-regions R[,R…]` | Geofabrik region paths, as `station set --map-regions` takes them. None defers the map units |
 | `--map-freshness MODE` | `yearly` (the default), `monthly` or `latest`: which dated file each region resolves to and how it is verified, exactly as in the plan |
 | `--reference-books ID[,ID…]` | Kiwix book ids, as `station set --reference-books` takes them (`hammunition reference books` lists them). Each is listed by its id with the pinned URL, `sha256`, size and the book's own licence line, from the carried pins with no network asked. An id the book list or the pins do not carry is listed as deferred; a malformed one, or an empty list, exits 2. None defers `kiwix-library` as *no books selected* |
-| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions`, `dem-tiles`, `mwm-regions` or `kiwix-books` install block, then `repeater-snapshots` (D-078: not a catalog unit, the on-request repeater lists a Bunker may hold, which can also be named here). A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
+| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions`, `dem-tiles`, `mwm-regions`, `kiwix-books`, `register` or `topo-quads` install block, every unit with a `source`, `binary`, `venv`, `node` or `git` install block, every `derived` block naming a converter `tool` (Task 16), then `repeater-snapshots` (D-078: not a catalog unit, the on-request repeater lists a Bunker may hold, which can also be named here). A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`: apt-only, or a `derived` block with no `tool`), exits 2 naming it |
 
 The network is asked as the plan asks it, and only for what the selection
 names: Geofabrik for a region's dated file, its `.md5` and its `.poly`
-outline, and the Copernicus bucket for an unpinned tile's size and ETag. A
-pinned region or tile asks nothing. What cannot be resolved — a region
-Geofabrik does not have, an outline that cannot be read, a map unit with no
-`--map-regions` — is listed as deferred with the reason; it does not change
-the exit code.
+outline, the Copernicus bucket for an unpinned tile's size and ETag, the
+USGS buckets for a US Topo sheet's or a 3DEP tile's size and S3 ETag, and the
+Forest Service's raster gateway for an FSTopo sheet's location and size. A
+pinned region or tile asks nothing, and a catalog-pinned program payload
+(`source`, `binary`, `venv`, `node`, a `derived` block's `tool`, a `git`
+block's `extra_files`) asks nothing either -- its sha256 is already in the
+manifest. What cannot be resolved — a region Geofabrik does not have, an
+outline that cannot be read, a map unit with no `--map-regions`, a carried
+US Topo/FSTopo/3DEP index this checkout lacks — is listed as deferred with
+the reason; it does not change the exit code.
 
 With `--json`, prints an `artifacts` document
 ([json-interface.md](json-interface.md)): per artifact the unit, its stable
 name within the unit (what a mirror serves at `<mirror>/<unit>/<name>`), the
-publisher URL, the check (`sha256`, `md5-publisher`, `etag-md5`, `sha1-publisher` for CoMaps' maps, D-069, or
-`unverified-zip` for the ACMA register, D-074 amended 2026-10-01), the
-expected digest (null for `unverified-zip`: none is published), where a
-publisher checksum was read, the size, the licence, and `deferred`. The
-ACMA register's size is asked of the ACMA with one `HEAD` each listing,
-because the file changes daily; when that fails the entry is deferred. It carries the regions and books given, and nothing of the
+publisher URL, the check (`sha256`, `md5-publisher`, `etag-md5`, `sha1-publisher` for CoMaps' maps, D-069, `unverified-zip` for the ACMA register (D-074 amended
+2026-10-01), or `unverified-fetch` for a repeater snapshot or an FSTopo sheet
+with no carried pin), the
+expected digest (null for `unverified-zip` and `unverified-fetch`: neither
+is published), a nullable `part_size` (an `etag-md5` multipart part size in
+bytes), where a publisher checksum was read, the size, the licence, and
+`deferred`. The ACMA register's size is asked of the ACMA with one `HEAD`
+each listing, because the file changes daily; when that fails the entry is
+deferred. It carries the regions and books given, and nothing of the
 station's.
+
+The same document's `inputs` array (Task 16) is, for every region a
+regional unit among `--units` needs, the exact UTF-8 bytes of its Geofabrik
+outline and its four recorded selections (US Topo, FSTopo, Copernicus and
+3DEP) -- the same text the engine's own stateless selectors would compute,
+inlined with a sha256 and size, or a `deferred` reason naming why that one
+input cannot be produced (a missing carried index, an unreachable or
+malformed outline). An inline input over 8 MiB exits 2 naming it, asking to
+narrow the selection with `--units` rather than silently truncating it. The
+`git_pins` array is, for every `git` install block among `--units`, its
+pinned revision for a Bunker to mirror as a verified bundle: the repo, ref,
+commit (null and `deferred` for a tag with no recorded commit), whether the
+tree has submodules to walk, and the manifest's own licence line. Neither
+array clones a repository or asks a Bunker; see
+[bunker-catalogue.md](bunker-catalogue.md) for the exact division of
+responsibility between this command and the Bunker's own writer.
 
 ### `hammunition maps qmapshack [--configure-only]`
 

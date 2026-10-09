@@ -103,7 +103,7 @@ def region_quads(
     region: str,
     slug: str,
     *,
-    installed: Path,
+    installed: Path | None,
     index: QuadIndex,
     probe: Probe,
     notes: list[str],
@@ -111,11 +111,16 @@ def region_quads(
     context: ResolutionContext | None = None,
 ) -> RegionQuads:
     """*region*'s sheets under *bound*: its record when it was selected under
-    the same bound and is current, else its outline."""
+    the same bound and is current, else its outline.
+
+    *installed* is ``None`` for a stateless listing
+    (:func:`hammunition.artifacts.list_inputs`): no record is read."""
     token = bound.token
     if bound.mode == "none" or not bound.wants_region(region):
         return RegionQuads(region, slug, (), token)
-    recorded = read_record(installed / f"{slug}{QUADS}", region, slug)
+    recorded = (
+        read_record(installed / f"{slug}{QUADS}", region, slug) if installed is not None else None
+    )
     listed = index.by_path()
     if (
         recorded is not None
@@ -370,7 +375,7 @@ def region_sheets(
     region: str,
     slug: str,
     *,
-    installed: Path,
+    installed: Path | None,
     index: FsIndex,
     probe: Probe,
     notes: list[str],
@@ -379,11 +384,16 @@ def region_sheets(
 ) -> RegionSheets:
     """*region*'s FSTopo sheets under *bound*: its record when it was selected
     under the same bound and every sheet in it is still indexed (taken at the
-    index's vintage), else its outline."""
+    index's vintage), else its outline.
+
+    *installed* is ``None`` for a stateless listing
+    (:func:`hammunition.artifacts.list_inputs`): no record is read."""
     token = bound.token
     if bound.mode == "none" or not bound.wants_region(region):
         return RegionSheets(region, slug, (), token)
-    recorded = read_sheets(installed / f"{slug}{QUADS}", region, slug)
+    recorded = (
+        read_sheets(installed / f"{slug}{QUADS}", region, slug) if installed is not None else None
+    )
     listed = index.by_secoord()
     if (
         recorded is not None

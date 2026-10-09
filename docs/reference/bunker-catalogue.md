@@ -162,3 +162,32 @@ dependents are deferred as whole units through `catalogue_deferral`. An
 explicit request refuses by name. No partial selection is treated as a
 complete region, and deferred units have no installation steps or owned
 configuration changes.
+
+## `artifacts --json` as the listing source (Task 16)
+
+`hammunition artifacts --json` is the one command that answers what to put
+at every route above, for an explicit unit and region selection, with no
+station read and no install: its `artifacts` array is every payload
+(`data`, `osm-regions`, `dem-tiles`, `mwm-regions`, `kiwix-books`,
+`register`, both `topo-quads` providers, and now every `source`, `binary`,
+`venv`, `node`, `git` and tooled `derived` block), its `inputs` array is
+exactly the bytes for the five selection-input kinds above (each is the
+engine's own writer's output, byte for byte, via
+`hammunition.artifacts.list_inputs`), and its `git_pins` array is every
+`git` block's pinned revision (`hammunition.artifacts.list_git_pins`).
+
+**Division of responsibility for a git bundle.** `artifacts --json` never
+clones a repository and never names a recursive submodule bundle: a
+`git_pins` entry carries only the parent revision (`unit@commit`) and the
+manifest's `submodules: bool`, because which submodules exist at which
+gitlink commits is not knowable from the manifest alone -- it is a property
+of the tree at that commit. The Bunker's own writer is the one that clones
+the parent, and when `submodules` is true, walks the pinned gitlinks
+through the engine's `hammunition.gitbundles` API (the same walk
+`checkout_gitlinks` does for an online install) to produce one bundle per
+submodule, named `<unit>@<parent commit>/<submodule path>@<submodule
+commit>` as above. Those names appear in the Bunker's own generated
+catalogue, never in `artifacts --json`'s `git_pins` array -- that array is
+the *parent* pin list a writer starts from, not the finished bundle set.
+A `git_pins` entry with `commit: null` (an unpinned tag) is diagnostic only
+and is never a bundle name a writer should try to serve.

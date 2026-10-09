@@ -2111,7 +2111,14 @@ def cmd_artifacts(args: argparse.Namespace) -> int:
     and ETag -- and only for what the selection names. Reference books come
     from the carried pins alone (D-066).
     """
-    from hammunition.artifacts import SelectionError, list_artifacts, select_units
+    from hammunition.artifacts import (
+        SelectionError,
+        input_regions,
+        list_artifacts,
+        list_git_pins,
+        list_inputs,
+        select_units,
+    )
     from hammunition.interface.artifacts import ArtifactsDocument, render_artifacts
 
     regions: tuple[str, ...] = ()
@@ -2158,6 +2165,12 @@ def cmd_artifacts(args: argparse.Namespace) -> int:
     except SelectionError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNPLANNABLE
+    # Shared so a region's outline is fetched once even though several units
+    # and inputs may want it (Task 16); no explicit CLI bound exists for this
+    # command yet, so every selection is whole-region, which the laptop can
+    # always narrow further.
+    region_probe = MemoProbe(UrllibProbe())
+    bound = ALL
     entries = list_artifacts(
         units,
         regions=regions,
@@ -2166,17 +2179,32 @@ def cmd_artifacts(args: argparse.Namespace) -> int:
         catalog=catalog,
         catalog_root=catalog_root,
         today=date.today(),
-        region_probe=UrllibProbe(),
+        region_probe=region_probe,
         tile_probe=S3Probe(),
         register_probe=AcmaProbe(),
         snapshot_probe=SnapshotHead(),
+        bound=bound,
+        gateway=GatewayProbe(),
     )
+    try:
+        inputs = list_inputs(
+            input_regions(units, regions, catalog),
+            catalog_root=catalog_root,
+            probe=region_probe,
+            bound=bound,
+        )
+        git_pins = list_git_pins(units, catalog)
+    except SelectionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
     doc = ArtifactsDocument(
         map_regions=regions,
         map_freshness=args.map_freshness,
         reference_books=books,
         units=units,
         artifacts=entries,
+        inputs=inputs,
+        git_pins=git_pins,
     )
     if envelope.wanted(args):
         envelope.emit(doc)

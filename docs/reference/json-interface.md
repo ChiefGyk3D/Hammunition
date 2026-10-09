@@ -570,6 +570,8 @@ reason, never dropped.
 | `reference_books` | list of string | the `--reference-books` given (Kiwix book ids, D-066); empty when none |
 | `units` | list of string | the units listed, in order |
 | `artifacts` | list of [`ArtifactEntry`](#artifactentry) | one entry per artifact, deferred ones included |
+| `inputs` | list of [`InputEntry`](#inputentry) | selection inputs (Task 16) the regional units among `units` need: each region's outline and its four recorded selections, or a deferral; empty when no selected unit is regional |
+| `git_pins` | list of [`GitPinEntry`](#gitpinentry) | one entry per `git` install block among `units` (Task 16), its pinned revision for the Bunker to bundle; empty when no selected unit builds from git |
 
 #### `ArtifactEntry`
 
@@ -581,11 +583,50 @@ One remote artifact, or one the selection cannot list and why.
 | `name` | string or null | the artifact's stable name within the unit: a region path, a tile name, a data file's name, a Kiwix book id as the pin file names it. A LAN mirror serves it at `<mirror>/<unit>/<name>`. Null only for a deferred entry that covers the whole unit |
 | `url` | string or null | the publisher URL the engine itself fetches; null when deferred |
 | `check` | string or null | how the download is verified: `sha256` (pinned by Hammunition), `md5-publisher` (Geofabrik's published MD5), `etag-md5` (the Copernicus object's ETag), `sha1-publisher` (the SHA-1 and size in CoMaps' own map index at the pinned commit, carried in the catalog), `sha256-publisher` (no unit uses it today) or `unverified-zip` (the ACMA register: no digest exists, so the zip's own CRC-32s and the tables its reader needs are checked; D-074, amended 2026-10-01) or `unverified-fetch` (an on-request repeater list of unit `repeater-snapshots`: no digest, no licence stated by its publisher, only size and date can be checked; D-078); null when deferred |
-| `digest` | string or null | the expected digest, in hex, of the kind `check` names: the pin, or the publisher's checksum as the engine read it while resolving; null when deferred and for `unverified-zip` and `unverified-fetch`, which have none |
+| `digest` | string or null | the expected digest, in hex, of the kind `check` names: the pin, or the publisher's checksum as the engine read it while resolving -- for `etag-md5` the raw ETag, which is a bare 32 hex-digit MD5 for a single-part upload or `<hex>-<parts>` for a multipart one (see `part_size`), never stripped of its quotes or suffix; null when deferred and for `unverified-zip` and `unverified-fetch`, which have none |
 | `checksum_url` | string or null | where a publisher checksum is read: the `.md5` beside a Geofabrik file, or the tile URL whose `HEAD` carries the ETag; null for a pinned sha256 and when deferred |
 | `size` | integer or null | bytes, known before the fetch (for `unverified-zip` and `unverified-fetch`, the publisher's `HEAD` today: the file changes; null for `unverified-fetch` when the server states no length); null when deferred |
 | `licence` | string | the licence line the plan prints for the unit, or for a Kiwix book that book's own |
 | `deferred` | string or null | null, or why this artifact cannot be listed for this selection |
+| `part_size` | integer or null | ETag multipart part size in bytes, or null when not recorded |
+
+#### `InputEntry`
+
+One Bunker selection input (Task 16): the outline or the recorded
+selection text a stateless re-run of the engine's own codecs produces for
+one of `osm-regions`, `dem-copernicus`, `dem-3dep`, `usgs-ustopo` or
+`usfs-fstopo`'s regions. Never read from an installed record.
+
+| field | type | meaning |
+|---|---|---|
+| `kind` | string | one of the five Bunker input kinds |
+| `region` | string | explicitly requested Geofabrik region |
+| `name` | string | name within inputs/<kind>/, including region path |
+| `url` | string or null | publisher URL for an outline; null for locally derived selections |
+| `sha256` | string or null | sha256 of the exact content below; null when deferred |
+| `size` | integer or null | UTF-8 content size in bytes; null when deferred |
+| `content` | string or null | exact UTF-8 input bytes for the Bunker writer to store; null when deferred |
+| `deferred` | string or null | reason this input cannot be produced; null when available |
+
+#### `GitPinEntry`
+
+One git revision a `git` install block pins, for the Bunker to mirror
+as a verified bundle (Task 16, D-070, D-024). Recursive submodule
+bundles are not named here: the manifest carries only `submodules: bool`,
+and the Bunker's own writer enumerates the pinned gitlinks through
+:mod:`hammunition.gitbundles` after cloning, never guessed at listing
+time.
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | git-bundles |
+| `name` | string | unit@repository-pinned-commit; diagnostic only when deferred |
+| `repo` | string | upstream repository the Bunker clones at this pin |
+| `ref` | string | repository manifest tag or commit ref |
+| `commit` | string or null | full repository commit, null for an unpinned tag |
+| `submodules` | boolean | writer must recursively enumerate pinned gitlinks and produce separate bundles |
+| `licence` | string | manifest licence field, carried verbatim |
+| `deferred` | string or null | why no verifiable bundle can be named |
 
 <details><summary>JSON Schema</summary>
 
@@ -680,6 +721,18 @@ One remote artifact, or one the selection cannot list and why.
             }
           ],
           "title": "Deferred"
+        },
+        "part_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Part Size"
         }
       },
       "required": [
@@ -694,6 +747,155 @@ One remote artifact, or one the selection cannot list and why.
         "deferred"
       ],
       "title": "ArtifactEntry",
+      "type": "object"
+    },
+    "GitPinEntry": {
+      "additionalProperties": false,
+      "description": "One git revision a `git` install block pins, for the Bunker to mirror\nas a verified bundle (Task 16, D-070, D-024). Recursive submodule\nbundles are not named here: the manifest carries only `submodules: bool`,\nand the Bunker's own writer enumerates the pinned gitlinks through\n:mod:`hammunition.gitbundles` after cloning, never guessed at listing\ntime.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "repo": {
+          "title": "Repo",
+          "type": "string"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "commit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Commit"
+        },
+        "submodules": {
+          "title": "Submodules",
+          "type": "boolean"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "deferred": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Deferred"
+        }
+      },
+      "required": [
+        "unit",
+        "name",
+        "repo",
+        "ref",
+        "commit",
+        "submodules",
+        "licence",
+        "deferred"
+      ],
+      "title": "GitPinEntry",
+      "type": "object"
+    },
+    "InputEntry": {
+      "additionalProperties": false,
+      "description": "One Bunker selection input (Task 16): the outline or the recorded\nselection text a stateless re-run of the engine's own codecs produces for\none of `osm-regions`, `dem-copernicus`, `dem-3dep`, `usgs-ustopo` or\n`usfs-fstopo`'s regions. Never read from an installed record.",
+      "properties": {
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Sha256"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Size"
+        },
+        "content": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Content"
+        },
+        "deferred": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Deferred"
+        }
+      },
+      "required": [
+        "kind",
+        "region",
+        "name",
+        "url",
+        "sha256",
+        "size",
+        "content",
+        "deferred"
+      ],
+      "title": "InputEntry",
       "type": "object"
     }
   },
@@ -730,6 +932,22 @@ One remote artifact, or one the selection cannot list and why.
         "$ref": "#/$defs/ArtifactEntry"
       },
       "title": "Artifacts",
+      "type": "array"
+    },
+    "inputs": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/InputEntry"
+      },
+      "title": "Inputs",
+      "type": "array"
+    },
+    "git_pins": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/GitPinEntry"
+      },
+      "title": "Git Pins",
       "type": "array"
     }
   },

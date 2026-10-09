@@ -95,13 +95,18 @@ def region_tiles(
     region: str,
     slug: str,
     *,
-    installed: Path,
+    installed: Path | None,
     tile_list: frozenset[str],
     probe: Probe,
     context: ResolutionContext | None = None,
 ) -> RegionTiles:
-    """*region*'s tiles: its record when there is one, else its outline."""
-    recorded = read_record(installed / f"{slug}{TILES}", region, slug)
+    """*region*'s tiles: its record when there is one, else its outline.
+
+    *installed* is ``None`` for a stateless listing (:func:`hammunition.artifacts.list_inputs`):
+    no record is read, and the outline is always asked for."""
+    recorded = (
+        read_record(installed / f"{slug}{TILES}", region, slug) if installed is not None else None
+    )
     if (
         recorded is not None
         and recorded.bound == "all"
@@ -268,16 +273,20 @@ def region_bare_earth(
     region: str,
     slug: str,
     *,
-    installed: Path,
+    installed: Path | None,
     tiles: Mapping[str, TileRow],
     region_probe: Probe,
     bound: TopoBound = ALL,
     context: ResolutionContext | None = None,
 ) -> RegionTiles:
-    """Select 3DEP tiles using current records, verified inputs, or an outline."""
+    """Select 3DEP tiles using current records, verified inputs, or an outline.
+
+    *installed* is ``None`` for a stateless listing: no record is read."""
     if bound.mode == "none" or not bound.wants_region(region):
         return RegionTiles(region, slug, (), 0, bound.token)
-    recorded = read_record(installed / f"{slug}{TILES}", region, slug)
+    recorded = (
+        read_record(installed / f"{slug}{TILES}", region, slug) if installed is not None else None
+    )
     if (
         recorded is not None
         and recorded.bound == bound.token
@@ -326,18 +335,42 @@ def region_bare_earth(
     )
 
 
+def finish_selection(
+    entries: list[RegionTiles],
+    refused: list[str],
+    *,
+    selection_only: bool,
+    installed: Path | None,
+    tile_probe: TileProbe | None,
+) -> DemResolution | None:
+    """After the selection loop: with *selection_only*, the selection alone is
+    the answer (:func:`hammunition.artifacts.list_inputs` reads no installed
+    file and checks no tile against the bucket); otherwise an install caller
+    must have given a real *installed* directory and *tile_probe*, and
+    ``None`` tells the caller to continue into the installed-file and
+    publisher checks below."""
+    if selection_only:
+        if refused:
+            raise CopernicusError("\n".join(refused))
+        return DemResolution(regions=tuple(entries))
+    if installed is None or tile_probe is None:
+        raise CopernicusError("terrain downloads require an installed directory and tile probe")
+    return None
+
+
 def resolve_bare_earth(
     regions: Sequence[tuple[str, str]],
     *,
-    installed: Path,
+    installed: Path | None,
     tiles: Mapping[str, TileRow],
     region_probe: Probe,
-    tile_probe: TileProbe,
+    tile_probe: TileProbe | None,
     on_outage: OnOutage | None = None,
     checks: PublisherChecks | None = None,
     context: ResolutionContext | None = None,
     bound: TopoBound = ALL,
     unit: str | None = None,
+    selection_only: bool = False,
 ) -> DemResolution:
     """*regions* resolved to their USGS 3DEP tiles, under *bound* (issue #232) (D-068, amended
     2026-10-01): each region's record, else its outline's squares named by
@@ -348,7 +381,12 @@ def resolve_bare_earth(
     With a *context* a tile the bucket cannot be asked about is answered by
     the Bunker's record, compared with the carried list; *unit* (the manifest's
     name, the catalogue key) is then required. A tile the Bunker cannot answer
-    for, while a Bunker is verified, defers the whole selection."""
+    for, while a Bunker is verified, defers the whole selection.
+
+    With *selection_only* (Task 16), the function returns right after the
+    selection loop below, before anything installed is read and before the
+    bucket is asked about a single tile: *installed* and *tile_probe* may
+    both be ``None``."""
     if context is not None and unit is None:
         raise ValueError("resolve_bare_earth needs the unit name when given a context")
     refused: list[str] = []
@@ -383,6 +421,12 @@ def resolve_bare_earth(
             raise
         except (GeofabrikError, CopernicusError, OSError) as exc:
             refused.append(f"  {region}: its outline could not be read: {exc}")
+    early = finish_selection(
+        entries, refused, selection_only=selection_only, installed=installed, tile_probe=tile_probe
+    )
+    if early is not None:
+        return early
+    assert installed is not None and tile_probe is not None  # finish_selection guaranteed this
     wanted = sorted({name for entry in entries for name in entry.tiles})
     current = [name for name in wanted if (installed / f"{name}{TIF}").is_file()]
     held = set(current)
