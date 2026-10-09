@@ -60,6 +60,7 @@ from hammunition.backends import (
     BackendError,
     BinaryBackend,
     Command,
+    CommandResult,
     DataBackend,
     DerivedBackend,
     GitBackend,
@@ -114,7 +115,7 @@ from hammunition.country_boundaries import BoundarySource, CountryBoundaryError,
 from hammunition.desktop import current_desktop, scan_sessions
 from hammunition.devctl_helper import plan_helper
 from hammunition.distro import DetectionError, Target
-from hammunition.doctor import RigStatus
+from hammunition.doctor import Check, RigStatus
 from hammunition.execute import (
     ExecutionReport,
     Step,
@@ -154,6 +155,7 @@ from hammunition.interface import envelope
 from hammunition.interface.services import ServicesDocument, ServiceView
 from hammunition.java import JavaProbe
 from hammunition.kernel import KernelProbe
+from hammunition.keystrength import KeyStrength, classify
 from hammunition.kiwix import (
     BookFile,
     KiwixError,
@@ -223,6 +225,7 @@ from hammunition.retry import (
     retrying_head,
 )
 from hammunition.routing_plan import build_graph_run, graphhopper_jar
+from hammunition.security_keys import SecurityKeyState
 from hammunition.state import (
     RemovalError,
     RemovalPaths,
@@ -8407,6 +8410,113 @@ def _doctor_gps_resume(args: argparse.Namespace) -> gps_resume.ResumeStatus | No
     return gps_resume.status()
 
 
+def _security_key_probe(argv: tuple[str, ...]) -> CommandResult:
+    """Run one read-only security-key probe argv, bounded and never raising.
+
+    A12's own subprocess adapter, separate from :class:`SubprocessRunner`:
+    these commands (`systemctl is-active pcscd`, `ssh -V`, `fido2-token -L`,
+    `fido2-token -I <dev>`, `opensc-tool --list-readers`, `opensc-tool
+    --reader N --name`) are plain listings and liveness probes, never a PIN
+    generation, a touch-signing request, or a login change, and this adapter
+    never asks for one. It is timed out at 5 seconds and caps retained output
+    at 64 KiB across both streams combined, so a hung or flooding helper
+    cannot stall or exhaust `doctor`. A missing program or a timeout is
+    reported as a non-zero :class:`CommandResult`, never an exception —
+    :func:`hammunition.security_keys.probe_security_keys` always gets a
+    result to read.
+    """
+    import os
+    import selectors
+    import subprocess
+    import time
+
+    cap = 64 * 1024
+    data: dict[str, bytearray] = {"stdout": bytearray(), "stderr": bytearray()}
+    try:
+        process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except OSError as exc:
+        return CommandResult(argv=argv, returncode=127, stdout="", stderr=str(exc))
+    assert process.stdout is not None and process.stderr is not None
+    failure: str | None = None
+    deadline = time.monotonic() + 5
+    try:
+        with selectors.DefaultSelector() as selector:
+            for label, stream in (("stdout", process.stdout), ("stderr", process.stderr)):
+                os.set_blocking(stream.fileno(), False)
+                selector.register(stream, selectors.EVENT_READ, label)
+            while selector.get_map():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    failure = "security-key probe timed out after 5 seconds"
+                    break
+                for event, _mask in selector.select(remaining):
+                    used = sum(len(value) for value in data.values())
+                    chunk = os.read(event.fd, min(4096, cap - used + 1))
+                    if not chunk:
+                        selector.unregister(event.fileobj)
+                        continue
+                    if len(chunk) > cap - used:
+                        failure = "security-key probe exceeded 64 KiB output"
+                        break
+                    data[str(event.data)].extend(chunk)
+                if failure is not None:
+                    break
+            if failure is None:
+                process.wait(timeout=max(0.001, deadline - time.monotonic()))
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        failure = str(exc)
+    finally:
+        if process.poll() is None:
+            process.kill()
+        process.wait()
+        process.stdout.close()
+        process.stderr.close()
+    return CommandResult(
+        argv=argv,
+        returncode=127 if failure is not None else process.returncode,
+        stdout=data["stdout"].decode("utf-8", errors="replace"),
+        stderr=failure or data["stderr"].decode("utf-8", errors="replace"),
+    )
+
+
+def _security_keys_for_doctor(
+    args: argparse.Namespace,
+) -> tuple[SecurityKeyState | None, Check | None]:
+    """Gather :class:`SecurityKeyState` for `doctor` (A12), read-only.
+
+    Enrolled keys come from the owner-aware mirror store, already classified
+    — this is the one place `doctor` touches it, and it never refreshes trust
+    or the accepted serial, and never signs a test message. A corrupt or
+    unreadable store is reported as one warn check naming the remedy, not a
+    crash; no Bunker is enrolled at all is not an error (``enrolled`` stays
+    empty). Root cannot measure the ordinary operator's device access, so the
+    probe itself is told as much (D-056's `hardware apply` is the model for
+    this euid distinction).
+    """
+    from hammunition.security_keys import probe_security_keys
+    from hammunition.signers import SignerError, load_mirror
+
+    user = operator(args)
+    enrolled: tuple[KeyStrength, ...] = ()
+    error: Check | None = None
+    try:
+        mirror_state = load_mirror(owner=user or None)
+        if mirror_state is not None:
+            enrolled = tuple(classify(k.public_key) for k in mirror_state.keys)
+    except (SignerError, ValueError) as exc:
+        error = Check(
+            "security keys",
+            "warn",
+            f"the Bunker mirror state could not be read: {exc}",
+            "hammunition mirror status",
+            ["hammunition", "mirror", "status"],
+        )
+    state = probe_security_keys(
+        _security_key_probe, as_operator=os.geteuid() != 0, enrolled=enrolled
+    )
+    return state, error
+
+
 @envelope.json_capable()
 def cmd_doctor(args: argparse.Namespace) -> int:
     """Report what is ready and what is not yet set up. Changes nothing."""
@@ -8555,6 +8665,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
     sessions = scan_sessions()
     rig_status = _gather_rig_status(args, station, devices)
+    security_keys_state, security_keys_error = _security_keys_for_doctor(args)
     checks = run_checks(
         target_describe=target_describe,
         is_debian_family=is_debian,
@@ -8592,7 +8703,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         launchers_shadowing=shadowing_launchers,
         rig=rig_status,
         geoclue_state=geoclue_state,
+        security_keys=security_keys_state,
     )
+    if security_keys_error is not None:
+        checks.append(security_keys_error)
 
     from hammunition.interface.doctor import build_doctor, render_doctor
 
