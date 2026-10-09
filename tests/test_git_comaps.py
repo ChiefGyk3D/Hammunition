@@ -438,6 +438,23 @@ def test_offline_extra_artifact_preflight_refuses_before_any_build_step(tmp_path
         _steps(backend, _manifest(extra_files=[_world()]))
 
 
+def test_offline_with_no_context_refuses_before_any_build_step(tmp_path: Path) -> None:
+    """A context-less offline run (``GitBackend(context=None)``) must refuse
+    the same way an offline run with an empty Bunker does, and for the same
+    reason: ``preflight_payloads`` silently does nothing with no context, so
+    this backend has to catch it itself before checkout, build or install
+    ever start, not only when ``_extra_file_steps`` reaches its own fetch."""
+    backend, _ = _backend(
+        tmp_path,
+        fetcher=Fetcher(
+            tmp_path / "cache", transport=Routes({}), offline=True, mirror="http://bunker.invalid"
+        ),
+    )
+    with pytest.raises(BackendError, match="offline") as exc:
+        _steps(backend, _manifest(extra_files=[_world()]))
+    assert "none. Nothing was planned" in str(exc.value)
+
+
 def test_offline_extra_artifact_preflight_passes_with_a_bunker_row(tmp_path: Path) -> None:
     pin_dict = _world()["artifact"]
     row = catalogue_artifact("comaps", f"{pin_dict['sha256']}/World.mwm", WORLD)

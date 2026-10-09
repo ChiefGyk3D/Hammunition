@@ -353,6 +353,21 @@ def test_offline_the_poi_writer_preflight_refuses_before_any_build_step(tmp_path
         conv.steps(m, _block(m))
 
 
+def test_offline_with_no_context_refuses_before_any_build_step(tmp_path: Path) -> None:
+    """A context-less offline run must refuse the same way an offline run
+    with an empty Bunker does: ``preflight_payloads`` silently does nothing
+    with no context, so this backend has to catch it itself."""
+    _install_region(tmp_path, DELAWARE)
+    fetcher = Fetcher(
+        tmp_path / "cache", transport=Routes({}), offline=True, mirror="http://bunker.invalid"
+    )
+    conv = _converter(tmp_path, "poi", [DELAWARE], fetcher=fetcher)
+    m = manifest("poi")
+    with pytest.raises(BackendError, match="offline") as exc:
+        conv.steps(m, _block(m))
+    assert "none. Nothing was planned" in str(exc.value)
+
+
 def test_offline_the_poi_writer_preflight_passes_with_a_bunker_row(tmp_path: Path) -> None:
     _install_region(tmp_path, DELAWARE)
     row = catalogue_artifact("mapsforge-poi", f"{JAR_SHA}/{JAR_NAME}", JAR)

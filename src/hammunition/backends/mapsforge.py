@@ -365,11 +365,20 @@ class MapsforgeConverter:
     def _tool_steps(
         self, manifest: PackageManifest, tool: ConverterTool, dest: Path
     ) -> list[Action | Command]:
+        if self.fetcher is None:
+            raise BackendError(f"{manifest.name}: the POI writer has no fetcher in this run")
+        if self.fetcher.offline and self.context is None:
+            # preflight_payloads silently does nothing with no context (it
+            # also means "online"), so an offline run must refuse here
+            # itself rather than rely on that call to catch a missing one.
+            raise BackendError(
+                f"{manifest.name}: offline, the pinned POI writer needs the Bunker's "
+                f"verified catalogue to check before any step runs, and this run has "
+                f"none. Nothing was planned."
+            )
         # Offline, the Bunker is required to answer for the pinned writer
         # before any step of this unit exists (D-070, #381 Task 13).
         preflight_payloads(manifest.name, ((tool.artifact, tool.size),), context=self.context)
-        if self.fetcher is None:
-            raise BackendError(f"{manifest.name}: the POI writer has no fetcher in this run")
         fetched: dict[str, Path] = {}
         gap = signature_gap(tool.artifact)
         fetch = payload_action(

@@ -133,6 +133,35 @@ class GitBackend:
                 f"builds from a git checkout. Building it anyway would install "
                 f"something the plan never named."
             )
+        # Checked here, before the checkout, build and install steps below
+        # are even constructed, never only when _extra_file_steps builds its
+        # own steps at the end of this list (D-070, #381 Task 13): a build
+        # that runs to completion before discovering the Bunker cannot
+        # answer for one of its extras is not "refused before any build
+        # step", whatever _extra_file_steps itself goes on to check.
+        remote_extras = tuple(
+            (
+                RemoteArtifact(url=extra.artifact.url, sha256=extra.artifact.sha256),
+                extra.artifact.size,
+            )
+            for extra in block.extra_files
+            if extra.artifact is not None
+        )
+        if (
+            remote_extras
+            and self.fetcher is not None
+            and self.fetcher.offline
+            and self.context is None
+        ):
+            # preflight_payloads silently does nothing with no context (it
+            # also means "online"), so an offline run must refuse here
+            # itself rather than rely on that call to catch a missing one.
+            raise BackendError(
+                f"{manifest.name}: offline, its pinned extra_files need the Bunker's "
+                f"verified catalogue to check before any build step runs, and this run "
+                f"has none. Nothing was planned."
+            )
+        preflight_payloads(manifest.name, remote_extras, context=self.context)
         layout = self.layout(manifest, block)
         src = layout.src
         steps: list[Action | Command] = [
@@ -401,21 +430,10 @@ class GitBackend:
     def _extra_file_steps(
         self, manifest: PackageManifest, block: GitInstall, layout: SourceLayout
     ) -> list[Action | Command]:
-        # Offline, every pinned extra is required on the Bunker before any
-        # build step of this unit exists (D-070, #381 Task 13). An extra
-        # from the built tree names no remote pin and is not asked for.
-        preflight_payloads(
-            manifest.name,
-            tuple(
-                (
-                    RemoteArtifact(url=extra.artifact.url, sha256=extra.artifact.sha256),
-                    extra.artifact.size,
-                )
-                for extra in block.extra_files
-                if extra.artifact is not None
-            ),
-            context=self.context,
-        )
+        # The preflight check (every pinned extra required on the Bunker;
+        # an extra from the built tree names no remote pin and is not asked
+        # for) runs in steps() itself, before any step -- this method's own
+        # included -- is constructed. Not repeated here.
         steps: list[Action | Command] = []
         privileged = needs_root_for(self.prefix)
         for extra in block.extra_files:
