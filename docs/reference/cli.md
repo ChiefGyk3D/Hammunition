@@ -1868,7 +1868,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Twenty-four checks across four severities:
+one command that fixes it. Twenty-eight checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -1997,6 +1997,26 @@ executable, and a warn naming the launcher when:
   renamed launcher.
 
 No launcher that runs the engine and none that shadows a binary, no line.
+
+The **pcscd**, **FIDO2 token**, **PIV token**, **OpenSSH signing**, **FIDO2
+access**, **PIV access**, **Bunker key** and **Bunker key strength** checks
+are hardware signing readiness, read-only: `systemctl is-active pcscd`,
+`ssh -V`, `fido2-token -L`/`-I`, and `opensc-tool --list-readers`/`--reader N
+--name`, bounded to 5 seconds and 64 KiB of output and run as the operator
+invoking `doctor`, never a PIN mint, a touch-signing request or a login
+change. A present token is information, not every operator wants one; a
+*warn* for `pcscd` inactive, OpenSSH older than 8.2 (needed for `-sk`
+signing), or a device enumeration that answered permission-denied (named as
+*access*, never a misleading "no token"). Run as root, the two *access*
+checks say so is unmeasured rather than claiming a true-as-root result — a
+udev rule grants the console user, not root, and `doctor` cannot measure on
+the operator's behalf; run it as yourself, without `sudo`. **Bunker key**
+lists every key already enrolled in the owner-aware mirror store
+(`hammunition mirror status`), its fingerprint, algorithm and bit size; a
+weak one (RSA 2048 or under) adds a **Bunker key strength** warning naming
+the replacement. A mirror store that cannot be read is a warn naming
+`hammunition mirror status`, not a crash. Nothing here signs a test message
+or refreshes the mirror's trust or accepted serial.
 
 The closing line counts each, and the exit code is non-zero only when
 something is **blocking**. It is the natural first command after installing
