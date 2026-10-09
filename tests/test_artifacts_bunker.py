@@ -30,7 +30,7 @@ from hammunition.artifacts import (
     payload_entries,
     select_units,
 )
-from hammunition.fstopo import FstopoError
+from hammunition.fstopo import FstopoError, GatewayProbe
 from hammunition.manifest.load import load_catalog
 from hammunition.manifest.schema import (
     BinaryInstall,
@@ -159,6 +159,7 @@ def test_sheet_etag_is_raw_and_part_size_is_nullable(etag: str) -> None:
         )
         assert row.check == "etag-md5" and row.digest == etag
         assert row.part_size is None
+        assert row.url is not None
         assert (
             etag_entry(
                 unit, name, row.url, etag, 123, "public domain", part_size=5 * 1024 * 1024
@@ -419,16 +420,38 @@ def _write_topo_fixtures(root: Path) -> None:
     )
 
 
-class FakeGateway:
-    def __init__(self, answers: dict[int, tuple[str, int]]) -> None:
-        self.answers = answers
-        self.asked: list[int] = []
+def _gateway_file(secoord: int) -> str:
+    """The same shape the real gateway redirects to, as ``test_fstopo_plan.py``
+    builds it: ``_is_gateway_geotiff`` checks the exact path shape."""
+    from hammunition.fstopo import GATEWAY
 
-    def locate(self, secoord: int) -> tuple[str, int]:
-        self.asked.append(secoord)
-        if secoord not in self.answers:
-            raise FstopoError(f"{secoord}: no route")
-        return self.answers[secoord]
+    return f"{GATEWAY}data3/00000/fstopo/{secoord}.tiff"
+
+
+class _FakeHead:
+    """A gateway ``Head`` callable (Task 16): redirects ``map_url(secoord)``
+    to its file for every *sizes* key, like the real gateway's two requests,
+    and refuses anything else -- real ``GatewayProbe`` logic, fake transport,
+    the pattern ``tests/test_fstopo_plan.py`` already uses."""
+
+    def __init__(self, sizes: dict[int, int]) -> None:
+        self.sizes = sizes
+        self.asked: list[str] = []
+
+    def __call__(self, url: str) -> tuple[int, int, str | None]:
+        from hammunition.fstopo import map_url
+
+        self.asked.append(url)
+        for secoord, size in self.sizes.items():
+            if url == map_url(secoord):
+                return 302, 0, _gateway_file(secoord)
+            if url == _gateway_file(secoord):
+                return 200, size, None
+        raise FstopoError(f"{url} could not be reached: offline")
+
+
+def _gateway(sizes: dict[int, int]) -> GatewayProbe:
+    return GatewayProbe(_FakeHead(sizes))
 
 
 def test_3dep_and_ustopo_artifacts_use_the_etag_route_named_by_carried_forward_fields(
@@ -461,7 +484,6 @@ def test_fstopo_artifact_is_named_by_quad_name_pinned_sha256_or_unverified_fetch
 ) -> None:
     root = _root(tmp_path)
     _write_topo_fixtures(root)
-    gateway = FakeGateway({123456: ("https://data.fs.usda.gov/geodata/rastergateway/x.tif", 999)})
     entries = list_artifacts(
         ("usfs-fstopo",),
         regions=(DE,),
@@ -471,12 +493,12 @@ def test_fstopo_artifact_is_named_by_quad_name_pinned_sha256_or_unverified_fetch
         today=__import__("datetime").date(2026, 9, 29),
         region_probe=Geofabrik(),
         tile_probe=Bucket(),
-        gateway=gateway,
+        gateway=_gateway({123456: 999}),
     )
     (sheet,) = entries
     assert sheet.name == "DE_FixtureCell_123456_26"
     assert sheet.check == "unverified-fetch" and sheet.digest is None
-    assert gateway.asked == [123456]
+    assert sheet.url == _gateway_file(123456) and sheet.size == 999
 
     pins_root = _root(tmp_path / "pinned")
     _write_topo_fixtures(pins_root)
@@ -492,9 +514,7 @@ def test_fstopo_artifact_is_named_by_quad_name_pinned_sha256_or_unverified_fetch
         today=__import__("datetime").date(2026, 9, 29),
         region_probe=Geofabrik(),
         tile_probe=Bucket(),
-        gateway=FakeGateway(
-            {123456: ("https://data.fs.usda.gov/geodata/rastergateway/x.tif", 999)}
-        ),
+        gateway=_gateway({123456: 999}),
     )
     (pinned_sheet,) = pinned_entries
     assert pinned_sheet.check == "sha256" and pinned_sheet.digest == "c" * 64
@@ -531,7 +551,7 @@ def test_missing_carried_topo_index_defers_the_unit_by_name(tmp_path: Path) -> N
             today=__import__("datetime").date(2026, 9, 29),
             region_probe=Geofabrik(),
             tile_probe=Bucket(),
-            gateway=FakeGateway({}),
+            gateway=_gateway({}),
         )
         (entry,) = entries
         assert entry.deferred is not None, units
