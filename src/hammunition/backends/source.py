@@ -450,10 +450,11 @@ class SourceBackend:
     def _isolated(self, name: str, commands: list[Command], layout: SourceLayout) -> list[Command]:
         """Offline, upstream's build runs in the bwrap sandbox (no network, a
         read-only filesystem but the build tree and the install prefix, and
-        /run, /tmp, the operator's home, /opt, /usr/local and the other places
-        a build has no reason to read all private) so it cannot fetch anything
-        the Bunker did not vouch for, nor reach a host socket; online it is
-        unchanged."""
+        /run, /tmp, the operator's home, /opt and the other places a build
+        has no reason to read all private — not /usr/local, the one writable
+        prefix, which stays exposed under its own bind-try either way) so it
+        cannot fetch anything the Bunker did not vouch for, nor reach the
+        common host sockets (docker, podman, dbus); online it is unchanged."""
         if not self.fetcher.offline:
             return commands
         if self.isolation != netiso.BWRAP:

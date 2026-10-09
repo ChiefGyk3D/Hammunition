@@ -15,17 +15,22 @@ read-only bind, which still leaves an existing socket connectable:
   sockets), the filesystem read-only (``--ro-bind / /``) with writable binds
   only for the build tree and the install prefix, and private tmpfs over
   ``/run``, ``/var/run``, ``/tmp``, ``/var/tmp``, ``$XDG_RUNTIME_DIR``,
-  ``$HOME``, ``/root``, ``/opt``, ``/usr/local``, ``/srv``, ``/mnt`` and
-  ``/media`` — nothing a source build legitimately reads from, and exactly
-  where a docker, podman, proxy or dbus socket is likely to live. Hiding them
-  is safe here because the sandbox is read-only outside the two writable
-  binds: a build cannot be relying on writing there, and the two writable
-  binds are re-applied after the hides, so a build tree or prefix that lives
-  under one of them (``$HOME`` or ``/usr/local`` by default) still works.
-  ``unshare -rn`` is *not* used for builds: it hides no filesystem, and
-  rebuilding the same isolation from mount namespaces by hand (read-only
-  remounts, selective writable binds) would be a second, less reviewed
-  sandbox. With no working bwrap an offline source build is refused.
+  ``$HOME``, ``/root``, ``/opt``, ``/srv``, ``/mnt`` and ``/media`` — nothing a
+  source build legitimately reads from, and exactly where a docker, podman,
+  proxy or dbus socket is likely to live. Hiding them is safe here because the
+  sandbox is read-only outside the two writable binds: a build cannot be
+  relying on writing there, and the two writable binds are re-applied after
+  the hides, so a build tree or prefix that lives under one of them (``$HOME``
+  by default — never ``/opt``, ``/srv``, ``/mnt`` or ``/media``, which nothing
+  in this engine ever installs to) still works. ``/usr/local`` is deliberately
+  **not** in this list: the engine has no way to configure a different install
+  prefix (``source.DEFAULT_PREFIX``), so every real build's writable bind
+  targets it, and hiding a path only to immediately re-bind the whole thing
+  over it is a no-op that would misreport the guarantee. ``unshare -rn`` is
+  *not* used for builds: it hides no filesystem, and rebuilding the same
+  isolation from mount namespaces by hand (read-only remounts, selective
+  writable binds) would be a second, less reviewed sandbox. With no working
+  bwrap an offline source build is refused.
 * **Vendor .deb installs** run in ``bwrap`` too, but with the filesystem left
   writable (``--bind / /``): apt is doing a real, system-wide install and may
   legitimately write anywhere dpkg's file lists call for, including ``/opt``
@@ -36,6 +41,19 @@ read-only bind, which still leaves an existing socket connectable:
   touches the operator's home or a runtime directory, so hiding them closes
   the same maintainer-script/trigger socket bridge with no risk of discarding
   an installed file. With no working bwrap the vendor .deb unit is refused.
+
+**Known residual (tracked, not closed here):** both lists are a deny-list of
+where a bridging socket is *likely* to live, not an exhaustive one. A socket
+deliberately placed somewhere this module does not hide — ``/usr/local``
+itself (the .deb case, and the build case's own writable prefix), ``/etc``,
+``/var/lib``, or any other path never on either list — stays connectable. A
+complete guarantee needs filesystem-view isolation (a writable overlay the
+engine merges back deliberately, rather than exposing the real directory) or
+a syscall-level restriction on ``AF_UNIX connect()`` independent of pathname;
+both are bigger than this module and are not built here (Hammunition #398).
+This closes the common bridges (docker, podman, dbus, a user's own proxy
+under ``$HOME`` or the XDG runtime dir); it is not a sandbox a hostile package
+author who knows this codebase cannot plan around.
 """
 
 from __future__ import annotations
@@ -60,11 +78,14 @@ __all__ = [
 
 BWRAP = "bwrap"
 
-# Locations a build or a .deb's maintainer scripts have no legitimate reason
-# to read, and where a host service's pathname UNIX socket is likely to be
-# found. Only hidden for the read-only build sandbox: a .deb installing to
-# any of these would have its files silently discarded by a private tmpfs.
-_BUILD_ONLY_HIDDEN = ("/opt", "/usr/local", "/srv", "/mnt", "/media")
+# Locations a build has no legitimate reason to read, and where a host
+# service's pathname UNIX socket is likely to be found. Only hidden for the
+# read-only build sandbox: a .deb installing to any of these would have its
+# files silently discarded by a private tmpfs. /usr/local is excluded even
+# here: it is the engine's one and only install prefix (DEFAULT_PREFIX,
+# unconfigurable), so every build's writable bind re-exposes it anyway, and
+# hiding it first would only misreport the guarantee.
+_BUILD_ONLY_HIDDEN = ("/opt", "/srv", "/mnt", "/media")
 
 
 def runtime_dir() -> str | None:
@@ -109,8 +130,10 @@ def bwrap_prefix(
 
     Everything is read-only except *writable* (bound if it exists), and
     /run, /var/run (when it is a real directory rather than a link to /run),
-    /tmp, /var/tmp, *runtime_dir*, *home*, /root, /opt, /usr/local, /srv,
-    /mnt and /media are empty private tmpfs."""
+    /tmp, /var/tmp, *runtime_dir*, *home*, /root, /opt, /srv, /mnt and /media
+    are empty private tmpfs. /usr/local is not: it is always one of
+    *writable*'s real targets in this engine, so hiding it first would be
+    undone by the writable bind that follows."""
     hidden = _common_hidden(
         runtime_dir=runtime_dir, var_run_is_directory=var_run_is_directory, home=home
     )

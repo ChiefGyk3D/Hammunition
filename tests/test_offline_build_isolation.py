@@ -9,9 +9,16 @@ fail, and so must one that connects to a pathname UNIX socket somewhere on the
 host (a local proxy, docker, podman) to get there instead — ``--unshare-net``
 blocks IP and abstract sockets, not those. So every offline build command runs
 in bwrap: a fresh network namespace, a read-only filesystem, and the likely
-places for such a socket (/run, /tmp, the operator's home, /opt, /usr/local,
-/srv, /mnt, /media) replaced with an empty private tmpfs. With no working
-bwrap the offline source build is refused at plan time. Online is untouched.
+places for such a socket (/run, /tmp, the operator's home, /opt, /srv, /mnt,
+/media) replaced with an empty private tmpfs. With no working bwrap the
+offline source build is refused at plan time. Online is untouched.
+
+Not /usr/local: it is the engine's one unconfigurable install prefix
+(``source.DEFAULT_PREFIX``), so every real build's writable bind re-exposes
+it regardless of whether it was hidden first — hiding it would be a no-op
+that misreports the guarantee, so it stays off the hidden list, and a real
+test below proves a socket under the writable bind is reachable precisely
+because it is real estate the sandbox must hand back, not an oversight.
 """
 
 from __future__ import annotations
@@ -56,7 +63,7 @@ def _result(code: int) -> CompletedProcess[bytes]:
 # -- the bwrap invocation -------------------------------------------------------
 
 
-_BUILD_ONLY_HIDDEN = ["/opt", "/usr/local", "/srv", "/mnt", "/media"]
+_BUILD_ONLY_HIDDEN = ["/opt", "/srv", "/mnt", "/media"]
 
 
 def _expected_prefix(
@@ -125,9 +132,10 @@ def test_the_bwrap_invocation_is_read_only_with_private_run_tmp_home_and_opt(
 def test_the_privileged_invocation_is_writable_except_run_tmp_home_and_root(
     runtime_dir: str | None, var_run: bool, home: str | None
 ) -> None:
-    """Unlike the build sandbox: no /opt, /usr/local, /srv, /mnt or /media —
-    a .deb may legitimately install files there, and a private tmpfs would
-    silently discard them."""
+    """Unlike the build sandbox: no /opt, /srv, /mnt or /media — a .deb may
+    legitimately install files there, and a private tmpfs would silently
+    discard them. (/usr/local is excluded from both, for a different reason:
+    see the module docstring.)"""
     got = netiso.bwrap_writable_prefix(
         runtime_dir=runtime_dir, var_run_is_directory=var_run, home=home
     )
@@ -415,7 +423,7 @@ PROBE = (
     "        return 'connected'\n"
     "    except OSError:\n"
     "        return 'blocked'\n"
-    "port, unix_tmp, unix_run, unix_home, writable, readonly = sys.argv[1:7]\n"
+    "port, unix_tmp, unix_run, unix_home, unix_writable, writable, readonly = sys.argv[1:8]\n"
     "def can_write(directory):\n"
     "    try:\n"
     "        open(os.path.join(directory, 'probe'), 'w').close()\n"
@@ -426,6 +434,7 @@ PROBE = (
     "print(attempt(socket.AF_UNIX, unix_tmp))\n"
     "print(attempt(socket.AF_UNIX, unix_run))\n"
     "print(attempt(socket.AF_UNIX, unix_home))\n"
+    "print(attempt(socket.AF_UNIX, unix_writable))\n"
     "print(can_write(writable))\n"
     "print(can_write(readonly))\n"
 )
@@ -482,13 +491,14 @@ def test_a_real_sandbox_hides_ip_and_unix_sockets_and_the_filesystem(
     home_socket = str(fake_home / "bridge.sock")
     writable = tmp_path / "build"
     writable.mkdir()
+    writable_socket = str(writable / "bridge.sock")
     outside = tmp_path / "elsewhere"
     outside.mkdir()
     servers = []
     try:
         ip, port = _serve()
         servers.append(ip)
-        for path in (tmp_socket, run_socket, home_socket):
+        for path in (tmp_socket, run_socket, home_socket, writable_socket):
             servers.append(_serve(path)[0])
         argv = (
             sys.executable,
@@ -499,11 +509,13 @@ def test_a_real_sandbox_hides_ip_and_unix_sockets_and_the_filesystem(
             tmp_socket,
             run_socket,
             home_socket,
+            writable_socket,
             str(writable),
             str(outside),
         )
         plain = subprocess.run(argv, capture_output=True, text=True, timeout=60, check=False)
         assert plain.stdout.split() == [
+            "connected",
             "connected",
             "connected",
             "connected",
@@ -518,11 +530,17 @@ def test_a_real_sandbox_hides_ip_and_unix_sockets_and_the_filesystem(
             timeout=60,
             check=False,
         )
+        # The writable bind is the documented residual (netiso.py's module
+        # docstring): it must stay real, so a socket planted there -- same
+        # as a real /usr/local's would be, since that is always one of this
+        # engine's writable binds -- is reachable from inside the sandbox
+        # too. Everything else the common-hiding-places list covers is not.
         assert boxed.stdout.split() == [
             "blocked",
             "blocked",
             "blocked",
             "blocked",
+            "connected",
             "writable",
             "read-only",
         ], boxed
