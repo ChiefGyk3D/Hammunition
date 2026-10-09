@@ -38,7 +38,6 @@ from typing import TYPE_CHECKING
 
 from hammunition.manifest.schema import (
     COMMIT_SHA,
-    ExtraFile,
     GitInstall,
     InstallBlock,
     PackageManifest,
@@ -46,6 +45,7 @@ from hammunition.manifest.schema import (
     RemoteArtifact,
     effective_binaries,
 )
+from hammunition.payloads import payload_action, preflight_payloads
 
 from .base import Action, BackendError, Command, CommandRunner
 from .source import (
@@ -70,6 +70,7 @@ if TYPE_CHECKING:
     # `Fetcher` is only ever used in an annotation, which `from __future__
     # import annotations` defers, so it never needs a real import.
     from hammunition.fetch import Fetcher
+    from hammunition.resolution import ResolutionContext
 
 MIB = 1024 * 1024
 
@@ -101,6 +102,10 @@ class GitBackend:
     fetcher: Fetcher | None = None
     """Fetches a block's pinned `extra_files` (D-069). A block that names one
     and a backend built without it is refused by name, never half-planned."""
+
+    context: ResolutionContext | None = None
+    """The run's resolution context: offline, every pinned `extra_files`
+    artifact is required on the Bunker before any build step exists."""
 
     method = "git"
 
@@ -396,6 +401,21 @@ class GitBackend:
     def _extra_file_steps(
         self, manifest: PackageManifest, block: GitInstall, layout: SourceLayout
     ) -> list[Action | Command]:
+        # Offline, every pinned extra is required on the Bunker before any
+        # build step of this unit exists (D-070, #381 Task 13). An extra
+        # from the built tree names no remote pin and is not asked for.
+        preflight_payloads(
+            manifest.name,
+            tuple(
+                (
+                    RemoteArtifact(url=extra.artifact.url, sha256=extra.artifact.sha256),
+                    extra.artifact.size,
+                )
+                for extra in block.extra_files
+                if extra.artifact is not None
+            ),
+            context=self.context,
+        )
         steps: list[Action | Command] = []
         privileged = needs_root_for(self.prefix)
         for extra in block.extra_files:
@@ -408,17 +428,16 @@ class GitBackend:
                         f"Skipping it would install a build missing a file its manifest names."
                     )
                 artifact = extra.artifact
-                source = self.fetcher.path_for(artifact)
+                pin = RemoteArtifact(url=artifact.url, sha256=artifact.sha256)
+                source = self.fetcher.path_for(pin)
                 steps.append(
-                    Action(
-                        kind="fetch",
-                        description=(
-                            f"Download and verify {Path(extra.install_as).name} for {manifest.name}"
-                        ),
-                        detail=(
-                            f"{artifact.url} -> {source} (sha256 verified, {artifact.size} bytes)"
-                        ),
-                        perform=partial(_fetch_extra, self.fetcher, extra),
+                    payload_action(
+                        manifest.name,
+                        pin,
+                        self.fetcher,
+                        label=Path(extra.install_as).name,
+                        expected_size=artifact.size,
+                        max_bytes=artifact.size + MIB,
                     )
                 )
             else:
@@ -509,18 +528,3 @@ def check_produced(src: Path, prepare: PrepareStep) -> str:
             f"generation stops silently without optipng); check the block's build_depends."
         )
     return f"produced {', '.join(found)}"
-
-
-def _fetch_extra(fetcher: Fetcher, extra: ExtraFile) -> str:
-    artifact = extra.artifact
-    assert artifact is not None
-    result = fetcher.fetch(
-        RemoteArtifact(url=artifact.url, sha256=artifact.sha256), max_bytes=artifact.size + MIB
-    )
-    if result.size != artifact.size:
-        raise BackendError(
-            f"{artifact.url}: the manifest says {artifact.size} bytes and {result.size} "
-            f"arrived; the digest matched, so the manifest's size is wrong"
-        )
-    where = "cached" if result.from_cache else "downloaded"
-    return f"{where} {result.size} bytes, sha256 {result.sha256[:12]}… verified"

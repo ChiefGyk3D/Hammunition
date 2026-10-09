@@ -5072,6 +5072,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         jobs=source.jobs,
         owner=source.owner,
         fetcher=source.fetcher,
+        context=rctx,
     )
     helper_attributed = files_installed_by_hammunition(read_log)
     binary = BinaryBackend(
@@ -5516,6 +5517,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         files=region_files,
         keep=kept,
         regions=ledger,
+        context=rctx,
     )
     # D-071: the vector-tile maps for the browser page, from the same regions.
     tiles = build_tiles_run(
