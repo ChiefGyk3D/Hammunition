@@ -151,11 +151,12 @@ class GitBackend:
             remote_extras
             and self.fetcher is not None
             and self.fetcher.offline
-            and self.context is None
+            and (self.context is None or not self.context.offline)
         ):
-            # preflight_payloads silently does nothing with no context (it
-            # also means "online"), so an offline run must refuse here
-            # itself rather than rely on that call to catch a missing one.
+            # preflight_payloads silently does nothing with no context, or
+            # with one that disagrees and says online (it treats either the
+            # same as "online"), so an offline run must refuse here itself
+            # rather than rely on that call to catch either mismatch.
             raise BackendError(
                 f"{manifest.name}: offline, its pinned extra_files need the Bunker's "
                 f"verified catalogue to check before any build step runs, and this run "

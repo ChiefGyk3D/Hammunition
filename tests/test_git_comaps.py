@@ -455,6 +455,25 @@ def test_offline_with_no_context_refuses_before_any_build_step(tmp_path: Path) -
     assert "none. Nothing was planned" in str(exc.value)
 
 
+def test_a_context_that_disagrees_and_says_online_also_refuses(tmp_path: Path) -> None:
+    """The fetcher and the context are built from the same ``offline`` flag
+    in the real CLI, but this backend's API does not enforce that: a context
+    that exists but says ``offline=False`` while the fetcher says otherwise
+    is the same hole as no context at all -- ``preflight_payloads`` treats
+    both as "online" and does nothing."""
+    context = make_context(tmp_path / "ctx", [], offline=False)
+    backend, _ = _backend(
+        tmp_path,
+        fetcher=Fetcher(
+            tmp_path / "cache", transport=Routes({}), offline=True, mirror="http://bunker.invalid"
+        ),
+        context=context,
+    )
+    with pytest.raises(BackendError, match="offline") as exc:
+        _steps(backend, _manifest(extra_files=[_world()]))
+    assert "none. Nothing was planned" in str(exc.value)
+
+
 def test_offline_extra_artifact_preflight_passes_with_a_bunker_row(tmp_path: Path) -> None:
     pin_dict = _world()["artifact"]
     row = catalogue_artifact("comaps", f"{pin_dict['sha256']}/World.mwm", WORLD)

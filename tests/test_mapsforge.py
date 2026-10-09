@@ -368,6 +368,24 @@ def test_offline_with_no_context_refuses_before_any_build_step(tmp_path: Path) -
     assert "none. Nothing was planned" in str(exc.value)
 
 
+def test_a_context_that_disagrees_and_says_online_also_refuses(tmp_path: Path) -> None:
+    """The fetcher and the context are built from the same ``offline`` flag
+    in the real CLI, but this backend's API does not enforce that: a context
+    that exists but says ``offline=False`` while the fetcher says otherwise
+    is the same hole as no context at all -- ``preflight_payloads`` treats
+    both as "online" and does nothing."""
+    _install_region(tmp_path, DELAWARE)
+    context = make_context(tmp_path / "ctx", [], offline=False)
+    fetcher = Fetcher(
+        tmp_path / "cache", transport=Routes({}), offline=True, mirror="http://bunker.invalid"
+    )
+    conv = _converter(tmp_path, "poi", [DELAWARE], fetcher=fetcher, context=context)
+    m = manifest("poi")
+    with pytest.raises(BackendError, match="offline") as exc:
+        conv.steps(m, _block(m))
+    assert "none. Nothing was planned" in str(exc.value)
+
+
 def test_offline_the_poi_writer_preflight_passes_with_a_bunker_row(tmp_path: Path) -> None:
     _install_region(tmp_path, DELAWARE)
     row = catalogue_artifact("mapsforge-poi", f"{JAR_SHA}/{JAR_NAME}", JAR)
