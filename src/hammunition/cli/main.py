@@ -5664,8 +5664,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         if sandboxed and source.isolation is not None:
             region_notes.append(
                 f"offline: {', '.join(sandboxed)} build with no network ("
-                f"{'bwrap --unshare-net' if source.isolation == netiso.BWRAP else 'unshare -rn'}"
-                f"), so upstream's build code cannot fetch anything"
+                f"bwrap --unshare-net, read-only filesystem, private /run and /tmp), so "
+                f"upstream's build code cannot fetch anything or reach a host socket"
             )
         unreachable = [
             *offline_network_blockers(plan, built),

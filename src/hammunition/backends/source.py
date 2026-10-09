@@ -447,22 +447,22 @@ class SourceBackend:
         steps.extend(self._build_commands(manifest, install_block, block, layout))
         return steps
 
-    def _isolated(self, name: str, commands: list[Command]) -> list[Command]:
-        """Offline, upstream's build runs in a network sandbox so it cannot fetch
-        anything the Bunker did not vouch for; online it is unchanged."""
+    def _isolated(self, name: str, commands: list[Command], layout: SourceLayout) -> list[Command]:
+        """Offline, upstream's build runs in the bwrap sandbox (no network, a
+        read-only filesystem but the build tree and the install prefix, private
+        /run and /tmp) so it cannot fetch anything the Bunker did not vouch for,
+        nor reach a host socket; online it is unchanged."""
         if not self.fetcher.offline:
             return commands
-        if self.isolation is None:
+        if self.isolation != netiso.BWRAP:
             raise BackendError(
-                f"{name}: an offline source build runs upstream's build code and needs "
-                f"network isolation (bwrap --unshare-net or unshare -rn), and this machine has "
-                f"none that works. Nothing was planned."
+                f"{name}: an offline source build runs upstream's build code and needs the "
+                f"bwrap sandbox (no network, read-only filesystem, private /run and /tmp), "
+                f"and this machine has none that works. Nothing was planned."
             )
-        kind = self.isolation
+        writable = [layout.root, self.prefix]
         return [
-            dataclasses.replace(
-                command, argv=netiso.wrap(command.argv, kind, privileged=command.requires_root)
-            )
+            dataclasses.replace(command, argv=netiso.sandbox(command.argv, writable=writable))
             for command in commands
         ]
 
@@ -489,6 +489,7 @@ class SourceBackend:
                 binaries=effective_binaries(manifest, install_block),
                 autoreconf=block.autoreconf,
             ),
+            layout,
         )
         if block.install_tree:
             commands.extend(

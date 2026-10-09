@@ -13,6 +13,7 @@ source build is refused at plan time. Online is untouched.
 from __future__ import annotations
 
 import importlib
+import itertools
 import shutil
 import socket
 import subprocess
@@ -29,74 +30,143 @@ from hammunition import netiso
 from hammunition.backends.base import Action, BackendError, Command
 from hammunition.backends.source import SourceBackend
 from hammunition.fetch import Fetcher
-from hammunition.manifest.schema import PackageManifest
+from hammunition.manifest.schema import PackageManifest, SourceInstall
 from hammunition.plan import InstallPlan, PlannedPackage, offline_payload_blockers
 from test_offline_context import TARGET, apt_state, enrol_file_bunker, machine, run  # noqa: F401
 from test_offline_guard import SRC_BODY, SRC_PIN, payload_catalog  # noqa: F401
 
 cli = importlib.import_module("hammunition.cli.main")
-
-BWRAP = ("bwrap", "--unshare-net", "--dev-bind", "/", "/", "--")
+SRC_BLOCK = SourceInstall.model_validate(
+    {
+        "method": "source",
+        "source": SRC_PIN.model_dump(exclude_none=True),
+        "build_system": "autotools",
+    }
+)
 
 
 def _result(code: int) -> CompletedProcess[bytes]:
     return CompletedProcess(args=[], returncode=code, stdout=b"", stderr=b"")
 
 
-# -- detection and wrapping ---------------------------------------------------
+# -- the bwrap invocation -------------------------------------------------------
 
 
-def test_wrap_is_exact_for_each_sandbox_and_privilege() -> None:
-    argv = ("make", "-j2")
-    assert netiso.wrap(argv, "bwrap", privileged=False) == (*BWRAP, "make", "-j2")
-    assert netiso.wrap(argv, "bwrap", privileged=True) == (*BWRAP, "make", "-j2")
-    assert netiso.wrap(argv, "unshare", privileged=False) == ("unshare", "-rn", "--", "make", "-j2")
-    # Run as root through sudo, a user namespace is not needed (and "-r" would
-    # map root to root for nothing).
-    assert netiso.wrap(argv, "unshare", privileged=True) == ("unshare", "-n", "--", "make", "-j2")
+def _expected_prefix(
+    writable: list[str], runtime_dir: str | None, *, var_run: bool
+) -> tuple[str, ...]:
+    return (
+        "bwrap",
+        "--die-with-parent",
+        "--new-session",
+        "--unshare-net",
+        "--ro-bind",
+        "/",
+        "/",
+        "--dev",
+        "/dev",
+        "--proc",
+        "/proc",
+        "--tmpfs",
+        "/run",
+        *(("--tmpfs", "/var/run") if var_run else ()),
+        "--tmpfs",
+        "/tmp",
+        "--tmpfs",
+        "/var/tmp",
+        *(("--tmpfs", runtime_dir) if runtime_dir else ()),
+        *(arg for path in writable for arg in ("--bind-try", path, path)),
+        "--",
+    )
 
 
-def test_an_unknown_sandbox_is_refused() -> None:
-    with pytest.raises(ValueError, match="sandbox"):
-        netiso.wrap(("make",), "chroot", privileged=False)
+@pytest.mark.parametrize("var_run", [True, False])
+@pytest.mark.parametrize("runtime_dir", [None, "/run/user/1000", "/elsewhere/runtime"])
+def test_the_bwrap_invocation_is_read_only_with_private_run_and_tmp(
+    runtime_dir: str | None, var_run: bool
+) -> None:
+    got = netiso.bwrap_prefix(
+        [Path("/home/op/build/thing-1"), Path("/usr/local")],
+        runtime_dir=runtime_dir,
+        var_run_is_directory=var_run,
+    )
+    assert got == _expected_prefix(
+        ["/home/op/build/thing-1", "/usr/local"], runtime_dir, var_run=var_run
+    )
+
+
+def test_the_command_follows_the_double_dash_and_nothing_else_is_writable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
+    argv = netiso.sandbox(("make", "-j2"), writable=[Path("/b")], var_run_is_directory=False)
+    assert argv[-3:] == ("--", "make", "-j2")
+    assert argv.count("--bind-try") == 1 and "--bind" not in argv and "--dev-bind" not in argv
+    assert argv[argv.index("--ro-bind") : argv.index("--ro-bind") + 3] == ("--ro-bind", "/", "/")
+
+
+def test_sandbox_hides_this_environments_runtime_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XDG_RUNTIME_DIR", "/run/user/77")
+    argv = netiso.sandbox(("true",), writable=[], var_run_is_directory=False)
+    assert ("--tmpfs", "/run/user/77") in list(itertools.pairwise(argv))
+
+
+def test_unshare_net_wraps_a_privileged_command() -> None:
+    assert netiso.unshare_net(("apt-get", "install")) == (
+        "unshare",
+        "--net",
+        "--",
+        "apt-get",
+        "install",
+    )
+
+
+def test_the_default_runtime_dir_is_the_environments(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XDG_RUNTIME_DIR", "/run/user/4242")
+    assert netiso.runtime_dir() == "/run/user/4242"
+    monkeypatch.delenv("XDG_RUNTIME_DIR")
+    assert netiso.runtime_dir() is None
 
 
 @pytest.mark.parametrize(
-    ("which", "codes", "expected"),
-    [
-        ({"bwrap", "unshare"}, {"bwrap": 0, "unshare": 0}, "bwrap"),
-        ({"bwrap", "unshare"}, {"bwrap": 1, "unshare": 0}, "unshare"),
-        ({"unshare"}, {"unshare": 0}, "unshare"),
-        ({"bwrap"}, {"bwrap": 0}, "bwrap"),
-        ({"bwrap", "unshare"}, {"bwrap": 1, "unshare": 1}, None),
-        (set(), {}, None),
-    ],
+    ("have", "code", "expected"),
+    [(True, 0, "bwrap"), (True, 1, None), (False, 0, None)],
 )
-def test_detect_picks_the_first_sandbox_that_really_works(
-    monkeypatch: pytest.MonkeyPatch, which: set[str], codes: dict[str, int], expected: str | None
+def test_detect_needs_bwrap_to_run_the_full_sandbox(
+    monkeypatch: pytest.MonkeyPatch, have: bool, code: int, expected: str | None
 ) -> None:
     monkeypatch.setattr(
-        "hammunition.netiso.shutil.which", lambda name: f"/bin/{name}" if name in which else None
+        "hammunition.netiso.shutil.which", lambda name: "/bin/bwrap" if have else None
     )
     asked: list[tuple[str, ...]] = []
 
     def fake(argv: Any, **kwargs: Any) -> CompletedProcess[bytes]:
         asked.append(tuple(argv))
-        return _result(codes[argv[0]])
+        return _result(code)
 
     assert netiso.detect(fake) == expected
-    assert all(a[-1] == "true" for a in asked), "it probes with a harmless command"
+    for argv in asked:
+        # it probes the same sandbox a build gets, not a lighter one
+        assert argv[-1] == "true" and "--ro-bind" in argv and "--unshare-net" in argv
 
 
 def test_detect_survives_a_probe_that_raises_or_hangs(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("hammunition.netiso.shutil.which", lambda name: f"/bin/{name}")
 
     def broken(argv: Any, **kwargs: Any) -> CompletedProcess[bytes]:
-        if argv[0] == "bwrap":
-            raise OSError("exec format error")
         raise subprocess.TimeoutExpired(argv, 10)
 
     assert netiso.detect(broken) is None
+
+    def missing(argv: Any, **kwargs: Any) -> CompletedProcess[bytes]:
+        raise OSError("exec format error")
+
+    assert netiso.detect(missing) is None
+
+
+@pytest.mark.parametrize(("path", "expected"), [("/bin/unshare", True), (None, False)])
+def test_have_unshare_asks_for_the_binary(path: str | None, expected: bool) -> None:
+    assert netiso.have_unshare(lambda name: path) is expected
 
 
 # -- the source backend -------------------------------------------------------
@@ -145,25 +215,31 @@ def _commands(backend: SourceBackend) -> list[Command]:
     return [s for s in backend.steps(manifest, manifest.install[0]) if isinstance(s, Command)]
 
 
-@pytest.mark.parametrize("kind", ["bwrap", "unshare"])
-def test_every_offline_build_command_runs_inside_the_sandbox(tmp_path: Path, kind: str) -> None:
-    commands = _commands(_backend(tmp_path, offline=True, isolation=kind))
-    assert [c.argv[-3:] for c in commands if "configure" in " ".join(c.argv)]
+def test_every_offline_build_command_runs_inside_the_sandbox(tmp_path: Path) -> None:
+    backend = _backend(tmp_path, offline=True, isolation="bwrap")
+    manifest = _manifest()
+    layout = backend.layout(manifest, SRC_BLOCK)
+    commands = _commands(backend)
+    assert [c for c in commands if "./configure" in c.argv]
     for command in commands:
-        prefix = netiso.wrap(("X",), kind, privileged=command.requires_root)[:-1]
-        assert command.argv[: len(prefix)] == prefix, command.argv
-    # the real build command is still there, after the sandbox
-    assert any(
-        c.argv[len(netiso.wrap(("X",), kind, privileged=c.requires_root)) - 1] == "./configure"
-        for c in commands
-    )
+        split = command.argv.index("--", command.argv.index("--unshare-net"))
+        prefix = command.argv[: split + 1]
+        assert prefix[0] == "bwrap" and "--ro-bind" in prefix and "--new-session" in prefix
+        # writable: the build tree and the install prefix, nothing else
+        binds = [prefix[i + 1] for i, a in enumerate(prefix) if a == "--bind-try"]
+        assert binds == [str(layout.root), str(tmp_path / "prefix")]
+        assert command.argv[split + 1] in {"./configure", "make", "autoreconf", "install"}
 
 
 def test_the_sandbox_is_part_of_the_plan_text(tmp_path: Path) -> None:
-    commands = _commands(_backend(tmp_path, offline=True, isolation="unshare"))
+    commands = _commands(_backend(tmp_path, offline=True, isolation="bwrap"))
+    shown = [c.display(euid=1000) for c in commands]
     assert any(
-        c.display(euid=1000).startswith("cd ") and "unshare -rn -- " in c.display(euid=1000)
-        for c in commands
+        d.startswith("cd ")
+        and "--unshare-net" in d
+        and "--ro-bind / /" in d
+        and "--tmpfs /run" in d
+        for d in shown
     )
 
 
@@ -171,23 +247,24 @@ def test_the_root_install_step_is_sandboxed_under_sudo(tmp_path: Path) -> None:
     backend = SourceBackend(
         Fetcher(tmp_path / "cache", offline=True, mirror="http://bunker.invalid"),
         build_root=tmp_path / "build",
-        isolation="unshare",
+        isolation="bwrap",
     )  # the default prefix needs root
     manifest = _manifest()
     install = [s for s in backend.steps(manifest, manifest.install[0]) if isinstance(s, Command)][
         -1
     ]
     assert install.requires_root
-    assert install.argv[:4] == ("unshare", "-n", "--", "make")
+    assert install.argv[0] == "bwrap" and install.argv[-2:] == ("make", "install")
+    assert str(Path("/usr/local")) in install.argv  # the prefix is the one writable system path
     assert install.argv_for(euid=1000)[0] == "sudo"
 
 
 def test_online_builds_are_not_sandboxed_even_when_a_sandbox_is_known(tmp_path: Path) -> None:
-    for isolation in (None, "bwrap", "unshare"):
+    for isolation in (None, "bwrap"):
         for command in _commands(
             _backend(tmp_path / str(isolation), offline=False, isolation=isolation)
         ):
-            assert command.argv[0] not in {"bwrap", "unshare"}, command.argv
+            assert command.argv[0] != "bwrap", command.argv
 
 
 def test_the_unpack_and_tree_steps_are_not_wrapped(tmp_path: Path) -> None:
@@ -197,8 +274,14 @@ def test_the_unpack_and_tree_steps_are_not_wrapped(tmp_path: Path) -> None:
 
 
 def test_offline_with_no_sandbox_the_backend_refuses_to_plan_a_build(tmp_path: Path) -> None:
-    with pytest.raises(BackendError, match="network isolation"):
+    with pytest.raises(BackendError, match="bwrap"):
         _commands(_backend(tmp_path, offline=True, isolation=None))
+
+
+def test_unshare_is_not_an_accepted_build_sandbox(tmp_path: Path) -> None:
+    """It cannot hide the host's UNIX sockets or make / read-only."""
+    with pytest.raises(BackendError, match="bwrap"):
+        _commands(_backend(tmp_path, offline=True, isolation="unshare"))
 
 
 # -- plan time -----------------------------------------------------------------
@@ -215,9 +298,7 @@ def test_the_plan_refuses_an_offline_source_build_without_isolation() -> None:
         plan, frozenset(), cached=lambda a: True, deb_unmet=lambda u: [], isolated=False
     )
     assert [b.subject for b in found] == ["thing"]
-    assert (
-        "network" in found[0].reason and "bwrap" in found[0].reason and "unshare" in found[0].reason
-    )
+    assert "bwrap" in found[0].reason and "UNIX socket" in found[0].reason
     ok = offline_payload_blockers(
         plan, frozenset(), cached=lambda a: True, deb_unmet=lambda u: [], isolated=True
     )
@@ -241,7 +322,7 @@ def test_cli_offline_install_refuses_a_source_unit_when_no_sandbox_works(
     monkeypatch.setattr(cli.netiso, "detect", lambda *a, **k: None)
     rc, out, err = run(capsys, payload_catalog, "install", "--offline", "--dry-run", "fixture-src")
     assert rc == cli.EXIT_UNPLANNABLE and out == ""
-    assert "fixture-src" in err and "no network isolation" in err
+    assert "fixture-src" in err and "bwrap" in err
 
 
 def test_cli_offline_install_plans_the_sandboxed_build_when_one_works(
@@ -254,11 +335,11 @@ def test_cli_offline_install_plans_the_sandboxed_build_when_one_works(
     enrol_file_bunker(
         tmp_path, [artifact("fixture-src", f"{SRC_PIN.sha256}/fixture-src-1.0.tar.gz", SRC_BODY)]
     )
-    monkeypatch.setattr(cli.netiso, "detect", lambda *a, **k: "unshare")
+    monkeypatch.setattr(cli.netiso, "detect", lambda *a, **k: "bwrap")
     rc, out, err = run(capsys, payload_catalog, "install", "--offline", "--dry-run", "fixture-src")
     assert rc == 0, err
-    assert "unshare -rn -- ./configure" in out and "unshare -n -- make install" in out
-    assert "network" in out.lower()
+    assert "--unshare-net" in out and "--ro-bind / /" in out and "-- ./configure" in out
+    assert "build with no network" in out
 
 
 def test_cli_online_install_does_not_probe_or_wrap(
@@ -277,45 +358,97 @@ def test_cli_online_install_does_not_probe_or_wrap(
     assert "unshare" not in out and "bwrap" not in out
 
 
-# -- a real socket --------------------------------------------------------------
+# -- real sockets ----------------------------------------------------------------
 
 PROBE = (
-    "import socket,sys\n"
-    "s=socket.socket()\n"
-    "s.settimeout(3)\n"
-    "try:\n"
-    "    s.connect(('127.0.0.1',int(sys.argv[1])))\n"
-    "    print('connected')\n"
-    "except OSError:\n"
-    "    print('blocked')\n"
+    "import os,socket,sys\n"
+    "def attempt(kind, target):\n"
+    "    s = socket.socket(kind)\n"
+    "    s.settimeout(3)\n"
+    "    try:\n"
+    "        s.connect(target)\n"
+    "        return 'connected'\n"
+    "    except OSError:\n"
+    "        return 'blocked'\n"
+    "port, unix_tmp, unix_run, writable, readonly = sys.argv[1:6]\n"
+    "def can_write(directory):\n"
+    "    try:\n"
+    "        open(os.path.join(directory, 'probe'), 'w').close()\n"
+    "        return 'writable'\n"
+    "    except OSError:\n"
+    "        return 'read-only'\n"
+    "print(attempt(socket.AF_INET, ('127.0.0.1', int(port))))\n"
+    "print(attempt(socket.AF_UNIX, unix_tmp))\n"
+    "print(attempt(socket.AF_UNIX, unix_run))\n"
+    "print(can_write(writable))\n"
+    "print(can_write(readonly))\n"
 )
 
 
-def _listening() -> tuple[socket.socket, int]:
-    server = socket.socket()
-    server.bind(("127.0.0.1", 0))
-    server.listen(4)
-    threading.Thread(target=lambda: [server.accept() for _ in range(4)], daemon=True).start()
-    return server, server.getsockname()[1]
+def _serve(path: str | None = None) -> tuple[socket.socket, str]:
+    server = socket.socket(socket.AF_UNIX if path else socket.AF_INET)
+    if path:
+        server.bind(path)
+    else:
+        server.bind(("127.0.0.1", 0))
+    server.listen(8)
+    threading.Thread(target=lambda: [server.accept() for _ in range(8)], daemon=True).start()
+    return server, path or str(server.getsockname()[1])
 
 
-def test_a_real_sandbox_blocks_a_socket_the_unsandboxed_command_can_open() -> None:
-    kind = netiso.detect()
-    if kind is None:
-        pytest.skip("neither bwrap --unshare-net nor unshare -rn works on this machine")
-    server, port = _listening()
+def test_a_real_sandbox_hides_ip_and_unix_sockets_and_the_filesystem(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import tempfile
+
+    if netiso.detect() is None:
+        pytest.skip("bwrap does not run the build sandbox on this machine")
+    runtime = Path(tempfile.mkdtemp(prefix="xdg-runtime-"))
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime))
+    tmp_dir = Path(tempfile.mkdtemp(prefix="bridge-", dir="/tmp"))
+    tmp_socket = str(tmp_dir / "bridge.sock")
+    run_socket = str(runtime / "bridge.sock")
+    writable = tmp_path / "build"
+    writable.mkdir()
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    servers = []
     try:
-        argv = (sys.executable, "-I", "-c", PROBE, str(port))
-        plain = subprocess.run(argv, capture_output=True, text=True, timeout=30, check=False)
-        assert plain.stdout.strip() == "connected", plain
+        ip, port = _serve()
+        servers.append(ip)
+        for path in (tmp_socket, run_socket):
+            servers.append(_serve(path)[0])
+        argv = (
+            sys.executable,
+            "-I",
+            "-c",
+            PROBE,
+            port,
+            tmp_socket,
+            run_socket,
+            str(writable),
+            str(outside),
+        )
+        plain = subprocess.run(argv, capture_output=True, text=True, timeout=60, check=False)
+        assert plain.stdout.split() == [
+            "connected",
+            "connected",
+            "connected",
+            "writable",
+            "writable",
+        ], plain
         boxed = subprocess.run(
-            netiso.wrap(argv, kind, privileged=False),
+            netiso.sandbox(argv, writable=[writable]),
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=60,
             check=False,
         )
-        assert boxed.stdout.strip() == "blocked", boxed
+        assert boxed.stdout.split() == ["blocked", "blocked", "blocked", "writable", "read-only"], (
+            boxed
+        )
     finally:
-        server.close()
-    assert shutil.which(kind) is not None
+        for server in servers:
+            server.close()
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        shutil.rmtree(runtime, ignore_errors=True)

@@ -1314,8 +1314,8 @@ OFFLINE_PAYLOAD_REMEDY = (
 )
 
 OFFLINE_ISOLATION_REMEDY = (
-    "install bubblewrap (bwrap) or enable unprivileged user namespaces (unshare -rn) while "
-    "online, or run this unit online"
+    "install bubblewrap (bwrap) and make sure it can create user namespaces while online, "
+    "or run this unit online"
 )
 
 CATALOGUE_REMEDY = "populate this selection on the Bunker, or retry with the publisher reachable"
@@ -1750,9 +1750,9 @@ def offline_payload_blockers(
                     Blocker(
                         subject=unit.name,
                         reason=(
-                            "offline: building it runs upstream's build code, which must have "
-                            "no network, and this machine has no network isolation that works "
-                            "(neither bwrap --unshare-net nor unshare -rn)"
+                            "offline: building it runs upstream's build code, which must have no "
+                            "network and no way to reach a host UNIX socket (docker, dbus, a "
+                            "proxy), and this machine has no working bwrap sandbox"
                         ),
                         remedy=OFFLINE_ISOLATION_REMEDY,
                     )
