@@ -24,7 +24,9 @@ def _flat(path: str) -> str:
 def test_d085_and_offline_remedies_are_documented() -> None:
     decisions = " ".join((ROOT / "docs/DECISIONS.md").read_text().split()).casefold()
     guide = " ".join((ROOT / "docs/guides/lan-mirror.md").read_text().split()).casefold()
-    problems = " ".join((ROOT / "docs/troubleshooting/install-failures.md").read_text().split()).casefold()
+    problems = " ".join(
+        (ROOT / "docs/troubleshooting/install-failures.md").read_text().split()
+    ).casefold()
     assert "## d-085" in decisions
     assert "hardware keys are recommended, never required" in decisions
     for command in (
@@ -125,8 +127,6 @@ def test_no_permanent_mirror_signers_file_is_recommended() -> None:
 
 
 def test_the_spec_open_question_3_is_resolved_not_left_open() -> None:
-    spec = _flat(
-        "docs/superpowers/specs/2026-10-07-offline-bunker-catalogue-design.md"
-    )
+    spec = _flat("docs/superpowers/specs/2026-10-07-offline-bunker-catalogue-design.md")
     assert "resolved" in spec.casefold()
     assert "owner:<enrolment-id>" in spec or "owner:<enrolment id>" in spec

@@ -87,7 +87,9 @@ def redact_mirror_url(url: str) -> str:
     scheme = scheme_match.group(0)
     rest = url[scheme_match.end() :]
     delimiter = _REAL_DELIMITER.search(rest)
-    authority, tail = (rest[: delimiter.start()], rest[delimiter.start() :]) if delimiter else (rest, "")
+    authority, tail = (
+        (rest[: delimiter.start()], rest[delimiter.start() :]) if delimiter else (rest, "")
+    )
     if "@" not in authority:
         return url
     if not _parses_cleanly(scheme, authority):
