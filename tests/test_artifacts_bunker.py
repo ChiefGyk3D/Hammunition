@@ -49,7 +49,6 @@ cli = importlib.import_module("hammunition.cli.main")
 
 CATALOG = load_catalog(REPO_ROOT / "catalog" / "packages")
 DE = "north-america/us/delaware"
-DE_OUTLINE = "delaware\n1\n-75.9 38.1\n-75.1 38.1\n-75.1 38.9\n-75.9 38.9\nEND\nEND\n"
 
 
 # -- payload_entries (source/binary/venv/node/derived-tool/git) -------------
