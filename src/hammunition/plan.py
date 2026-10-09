@@ -1720,6 +1720,7 @@ def offline_payload_blockers(
     cached: Callable[[RemoteArtifact], bool],
     deb_unmet: Callable[[PlannedPackage], list[str]],
     isolated: bool = True,
+    deb_isolated: bool = True,
 ) -> list[Blocker]:
     """Downloads an offline run could not make, refused at plan time by name.
 
@@ -1778,6 +1779,24 @@ def offline_payload_blockers(
                         "is not in the local cache"
                     ),
                     remedy=OFFLINE_PAYLOAD_REMEDY,
+                )
+            )
+            continue
+        if (
+            isinstance(block, BinaryInstall)
+            and block.format == "deb"
+            and not unit.deb_installed
+            and not deb_isolated
+        ):
+            out.append(
+                Blocker(
+                    subject=unit.name,
+                    reason=(
+                        "offline: its .deb is installed with its maintainer scripts and "
+                        "triggers under `unshare --net` so they have no network, and `unshare` "
+                        "is not installed on this machine"
+                    ),
+                    remedy="install util-linux (unshare) while online, or run this unit online",
                 )
             )
             continue

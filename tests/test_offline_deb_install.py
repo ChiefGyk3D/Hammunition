@@ -19,7 +19,7 @@ import pytest
 
 from bunker_fixtures import artifact as catalogue_artifact
 from bunker_fixtures import make_context
-from hammunition.backends.base import Action, Command, CommandResult
+from hammunition.backends.base import Action, BackendError, Command, CommandResult
 from hammunition.backends.binary import BinaryBackend
 from hammunition.fetch import Fetcher
 from hammunition.manifest.schema import PackageManifest, RemoteArtifact
@@ -42,6 +42,9 @@ ONLINE_ARGV = (
     "/cache/x.deb",
 )
 OFFLINE_ARGV = (
+    "unshare",
+    "--net",
+    "--",
     "apt-get",
     "-o",
     "Acquire::Retries=3",
@@ -92,7 +95,12 @@ def _manifest() -> PackageManifest:
 
 
 def _backend(
-    tmp_path: Path, *, offline: bool, cached: bool = False, recommends: str | None = None
+    tmp_path: Path,
+    *,
+    offline: bool,
+    cached: bool = False,
+    recommends: str | None = None,
+    unshare: bool = True,
 ) -> tuple[BinaryBackend, Recording]:
     runner = Recording()
     fetcher = Fetcher(
@@ -112,6 +120,7 @@ def _backend(
             context=context,
             dependency_check=(lambda path: []) if offline else None,
             recommends_of=(lambda path: recommends or "") if offline else None,
+            unshare_available=unshare,
         ),
         runner,
     )
@@ -137,6 +146,59 @@ def _steps(backend: BinaryBackend) -> list[Action]:
     return [s for s in steps if isinstance(s, Action)]
 
 
+def test_offline_maintainer_scripts_run_in_a_network_namespace_as_root(tmp_path: Path) -> None:
+    backend, runner = _backend(tmp_path, offline=True)
+    backend._install_deb("debunit", {"path": Path("/cache/x.deb")})
+    command = runner.commands[-1]
+    assert command.argv[:4] == ("unshare", "--net", "--", "apt-get")
+    assert command.argv_for(euid=1000)[:2] == ("sudo", "env")  # elevated by the usual path
+    assert command.argv_for(euid=1000).index("unshare") < command.argv_for(euid=1000).index(
+        "apt-get"
+    )
+
+
+def test_offline_without_unshare_the_backend_refuses_the_deb_install(tmp_path: Path) -> None:
+    backend, _ = _backend(tmp_path, offline=True, unshare=False)
+    manifest = _manifest()
+    with pytest.raises(BackendError, match="unshare"):
+        backend.steps(manifest, manifest.install[0])
+    with pytest.raises(BackendError, match="unshare"):
+        backend._install_deb("debunit", {"path": Path("/cache/x.deb")})
+
+
+def test_online_needs_no_unshare(tmp_path: Path) -> None:
+    backend, _ = _backend(tmp_path, offline=False, unshare=False)
+    assert _steps(backend)
+
+
+def test_the_plan_refuses_an_offline_vendor_deb_when_unshare_is_missing() -> None:
+    from hammunition.distro import Target
+    from hammunition.plan import Blocker, InstallPlan, PlannedPackage, offline_payload_blockers
+
+    manifest = _manifest()
+    unit = PlannedPackage(manifest, manifest.install[0], (), requested_by=("requested",))
+    plan = InstallPlan(Target(distro="debian", version="13", arch="x86_64"), (unit,))
+
+    def blockers(p: InstallPlan, *, deb_isolated: bool) -> list[Blocker]:
+        return offline_payload_blockers(
+            p,
+            frozenset(),
+            cached=lambda a: True,
+            deb_unmet=lambda u: [],
+            deb_isolated=deb_isolated,
+        )
+
+    found = blockers(plan, deb_isolated=False)
+    assert [b.subject for b in found] == ["debunit"]
+    assert "unshare" in found[0].reason and "maintainer scripts" in found[0].reason
+    assert blockers(plan, deb_isolated=True) == []
+    installed = PlannedPackage(
+        manifest, manifest.install[0], (), requested_by=("requested",), deb_installed=True
+    )
+    again = InstallPlan(plan.target, (installed,))
+    assert blockers(again, deb_isolated=False) == []
+
+
 def test_the_planned_install_step_runs_the_offline_argv_when_performed(tmp_path: Path) -> None:
     backend, runner = _backend(tmp_path, offline=True, cached=True)
     fetch, check, install = _steps(backend)
@@ -152,6 +214,7 @@ def test_the_offline_plan_says_apt_may_not_download_or_install_recommends(tmp_pa
     install = _steps(backend)[2]
     text = install.description + " " + install.detail
     assert "--no-install-recommends" in text and "--no-download" in text
+    assert "unshare --net" in text and "maintainer scripts" in text
     online, _ = _backend(tmp_path / "o", offline=False)
     online_install = _steps(online)[1]
     assert "--no-download" not in online_install.description + online_install.detail

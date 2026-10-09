@@ -5047,6 +5047,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         owner=source.owner,
         attributed_files=helper_attributed,
         context=rctx,
+        unshare_available=netiso.have_unshare() if offline else True,
         dependency_check=lambda path: _deb_unmet_file(apt, path),
         recommends_of=_deb_recommends,
     )
@@ -5676,6 +5677,7 @@ def cmd_install(args: argparse.Namespace) -> int:
                 cached=lambda artifact: cached_remote(source.fetcher, artifact),
                 deb_unmet=lambda unit: _deb_unmet(apt, source.fetcher, unit),
                 isolated=source.isolation is not None,
+                deb_isolated=binary.unshare_available,
             ),
         ]
         if unreachable:

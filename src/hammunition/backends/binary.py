@@ -45,6 +45,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hammunition import netiso
 from hammunition.manifest.schema import (
     BinaryInstall,
     InstallBlock,
@@ -108,6 +109,11 @@ class BinaryBackend:
     """Offline only: names the dependency groups of a fetched vendor .deb that no
     suitable installed package meets (version included). apt would have to fetch
     them from an archive the machine cannot reach, so the install stops first."""
+
+    unshare_available: bool = True
+    """Offline, a vendor .deb installs under ``unshare --net`` so its maintainer
+    scripts and triggers have no network; without ``unshare`` the install is
+    refused."""
 
     recommends_of: Callable[[Path], str] | None = None
     """Offline only: the Recommends field of a vendor .deb that is local, as text,
@@ -173,6 +179,8 @@ class BinaryBackend:
 
         if block.format == "deb":
             offline = self.context is not None and self.context.offline
+            if offline and not self.unshare_available:
+                raise BackendError(self._no_unshare(manifest.name))
             local = payload_cached(self.fetcher)(block.artifact) if offline else False
             if offline and self.dependency_check is not None:
                 steps.append(
@@ -331,11 +339,20 @@ class BinaryBackend:
         )
         return steps
 
+    @staticmethod
+    def _no_unshare(name: str) -> str:
+        return (
+            f"{name}: an offline vendor .deb install runs its maintainer scripts under "
+            f"`unshare --net` so they have no network, and `unshare` is not installed here. "
+            f"Nothing was planned."
+        )
+
     def _install_detail(self, artifact: RemoteArtifact, *, offline: bool, local: bool) -> str:
         if not offline:
             return "apt-get install on the file, so its dependencies resolve"
         detail = (
-            "apt-get install on the file with --no-install-recommends --no-download, so apt "
+            "apt-get install on the file under unshare --net (its maintainer scripts and "
+            "triggers get no network) with --no-install-recommends --no-download, so apt "
             "can fetch nothing; "
         )
         if self.recommends_of is None:
@@ -405,19 +422,22 @@ class BinaryBackend:
         if path is None:  # pragma: no cover - the fetch Action always runs first
             raise BackendError(f"{name}: the .deb was not fetched before the install step")
         offline = self.context is not None and self.context.offline
+        if offline and not self.unshare_available:
+            raise BackendError(self._no_unshare(name))
+        apt_argv = (
+            "apt-get",
+            "-o",
+            "Acquire::Retries=3",
+            "install",
+            "--yes",
+            "--no-remove",
+            *(("--no-install-recommends", "--no-download") if offline else ()),
+            "--",
+            str(path),
+        )
         result = self.runner.run(
             Command(
-                argv=(
-                    "apt-get",
-                    "-o",
-                    "Acquire::Retries=3",
-                    "install",
-                    "--yes",
-                    "--no-remove",
-                    *(("--no-install-recommends", "--no-download") if offline else ()),
-                    "--",
-                    str(path),
-                ),
+                argv=netiso.unshare_net(apt_argv) if offline else apt_argv,
                 description=f"Install {name} from {path.name}",
                 env={"DEBIAN_FRONTEND": "noninteractive"},
                 requires_root=True,
