@@ -2,12 +2,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ruff: noqa: F811
 
-"""An offline source build has no network.  #381, Task 13 fix round 1.
+"""An offline source build has no network.  #381, Task 13 fix round 1, round 3.
 
 Only the pinned tarball comes from the Bunker. A Makefile that runs curl must
-fail, so every offline build command runs in a fresh network namespace
-(``bwrap --unshare-net``, else ``unshare -rn``). With neither usable the offline
-source build is refused at plan time. Online is untouched.
+fail, and so must one that connects to a pathname UNIX socket somewhere on the
+host (a local proxy, docker, podman) to get there instead — ``--unshare-net``
+blocks IP and abstract sockets, not those. So every offline build command runs
+in bwrap: a fresh network namespace, a read-only filesystem, and the likely
+places for such a socket (/run, /tmp, the operator's home, /opt, /usr/local,
+/srv, /mnt, /media) replaced with an empty private tmpfs. With no working
+bwrap the offline source build is refused at plan time. Online is untouched.
 """
 
 from __future__ import annotations
@@ -52,15 +56,25 @@ def _result(code: int) -> CompletedProcess[bytes]:
 # -- the bwrap invocation -------------------------------------------------------
 
 
+_BUILD_ONLY_HIDDEN = ["/opt", "/usr/local", "/srv", "/mnt", "/media"]
+
+
 def _expected_prefix(
-    writable: list[str], runtime_dir: str | None, *, var_run: bool
+    writable: list[str],
+    runtime_dir: str | None,
+    *,
+    var_run: bool,
+    home: str | None = None,
+    build_only_hidden: bool = True,
+    bind_flag: str = "--ro-bind",
 ) -> tuple[str, ...]:
+    home_hidden = [home] if home and home != "/root" else []
     return (
         "bwrap",
         "--die-with-parent",
         "--new-session",
         "--unshare-net",
-        "--ro-bind",
+        bind_flag,
         "/",
         "/",
         "--dev",
@@ -75,24 +89,70 @@ def _expected_prefix(
         "--tmpfs",
         "/var/tmp",
         *(("--tmpfs", runtime_dir) if runtime_dir else ()),
+        *(arg for path in home_hidden for arg in ("--tmpfs", path)),
+        "--tmpfs",
+        "/root",
+        *(
+            (arg for path in _BUILD_ONLY_HIDDEN for arg in ("--tmpfs", path))
+            if build_only_hidden
+            else ()
+        ),
         *(arg for path in writable for arg in ("--bind-try", path, path)),
         "--",
     )
 
 
+@pytest.mark.parametrize("home", [None, "/home/op", "/root"])
 @pytest.mark.parametrize("var_run", [True, False])
 @pytest.mark.parametrize("runtime_dir", [None, "/run/user/1000", "/elsewhere/runtime"])
-def test_the_bwrap_invocation_is_read_only_with_private_run_and_tmp(
-    runtime_dir: str | None, var_run: bool
+def test_the_bwrap_invocation_is_read_only_with_private_run_tmp_home_and_opt(
+    runtime_dir: str | None, var_run: bool, home: str | None
 ) -> None:
     got = netiso.bwrap_prefix(
         [Path("/home/op/build/thing-1"), Path("/usr/local")],
         runtime_dir=runtime_dir,
         var_run_is_directory=var_run,
+        home=home,
     )
     assert got == _expected_prefix(
-        ["/home/op/build/thing-1", "/usr/local"], runtime_dir, var_run=var_run
+        ["/home/op/build/thing-1", "/usr/local"], runtime_dir, var_run=var_run, home=home
     )
+
+
+@pytest.mark.parametrize("home", [None, "/home/op", "/root"])
+@pytest.mark.parametrize("var_run", [True, False])
+@pytest.mark.parametrize("runtime_dir", [None, "/run/user/1000", "/elsewhere/runtime"])
+def test_the_privileged_invocation_is_writable_except_run_tmp_home_and_root(
+    runtime_dir: str | None, var_run: bool, home: str | None
+) -> None:
+    """Unlike the build sandbox: no /opt, /usr/local, /srv, /mnt or /media —
+    a .deb may legitimately install files there, and a private tmpfs would
+    silently discard them."""
+    got = netiso.bwrap_writable_prefix(
+        runtime_dir=runtime_dir, var_run_is_directory=var_run, home=home
+    )
+    assert got == _expected_prefix(
+        [], runtime_dir, var_run=var_run, home=home, build_only_hidden=False, bind_flag="--bind"
+    )
+    assert "--ro-bind" not in got
+    for hidden in _BUILD_ONLY_HIDDEN:
+        assert hidden not in got
+
+
+def test_home_dir_reads_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME", "/home/op")
+    assert netiso.home_dir() == "/home/op"
+    monkeypatch.delenv("HOME")
+    assert netiso.home_dir() is None
+
+
+def test_sandbox_and_privileged_sandbox_pick_up_this_environments_home(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
+    monkeypatch.setenv("HOME", "/home/op")
+    assert "/home/op" in netiso.sandbox(("true",), writable=[], var_run_is_directory=False)
+    assert "/home/op" in netiso.privileged_sandbox(("true",))
 
 
 def test_the_command_follows_the_double_dash_and_nothing_else_is_writable(
@@ -109,16 +169,6 @@ def test_sandbox_hides_this_environments_runtime_dir(monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("XDG_RUNTIME_DIR", "/run/user/77")
     argv = netiso.sandbox(("true",), writable=[], var_run_is_directory=False)
     assert ("--tmpfs", "/run/user/77") in list(itertools.pairwise(argv))
-
-
-def test_unshare_net_wraps_a_privileged_command() -> None:
-    assert netiso.unshare_net(("apt-get", "install")) == (
-        "unshare",
-        "--net",
-        "--",
-        "apt-get",
-        "install",
-    )
 
 
 def test_the_default_runtime_dir_is_the_environments(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -162,11 +212,6 @@ def test_detect_survives_a_probe_that_raises_or_hangs(monkeypatch: pytest.Monkey
         raise OSError("exec format error")
 
     assert netiso.detect(missing) is None
-
-
-@pytest.mark.parametrize(("path", "expected"), [("/bin/unshare", True), (None, False)])
-def test_have_unshare_asks_for_the_binary(path: str | None, expected: bool) -> None:
-    assert netiso.have_unshare(lambda name: path) is expected
 
 
 # -- the source backend -------------------------------------------------------
@@ -370,7 +415,7 @@ PROBE = (
     "        return 'connected'\n"
     "    except OSError:\n"
     "        return 'blocked'\n"
-    "port, unix_tmp, unix_run, writable, readonly = sys.argv[1:6]\n"
+    "port, unix_tmp, unix_run, unix_home, writable, readonly = sys.argv[1:7]\n"
     "def can_write(directory):\n"
     "    try:\n"
     "        open(os.path.join(directory, 'probe'), 'w').close()\n"
@@ -380,8 +425,32 @@ PROBE = (
     "print(attempt(socket.AF_INET, ('127.0.0.1', int(port))))\n"
     "print(attempt(socket.AF_UNIX, unix_tmp))\n"
     "print(attempt(socket.AF_UNIX, unix_run))\n"
+    "print(attempt(socket.AF_UNIX, unix_home))\n"
     "print(can_write(writable))\n"
     "print(can_write(readonly))\n"
+)
+
+# Same four socket checks, without the write-capability pair: the writable
+# (.deb-install) sandbox leaves the rest of the real filesystem writable by
+# design (apt.py:_isolated's docstring), which an unprivileged test has no
+# other-writable-directory to prove against — the argv-shape tests above
+# (--bind, not --ro-bind; no /opt or /usr/local in the hidden set) cover that
+# half instead.
+SOCKET_PROBE = (
+    "import socket,sys\n"
+    "def attempt(kind, target):\n"
+    "    s = socket.socket(kind)\n"
+    "    s.settimeout(3)\n"
+    "    try:\n"
+    "        s.connect(target)\n"
+    "        return 'connected'\n"
+    "    except OSError:\n"
+    "        return 'blocked'\n"
+    "port, unix_tmp, unix_run, unix_home = sys.argv[1:5]\n"
+    "print(attempt(socket.AF_INET, ('127.0.0.1', int(port))))\n"
+    "print(attempt(socket.AF_UNIX, unix_tmp))\n"
+    "print(attempt(socket.AF_UNIX, unix_run))\n"
+    "print(attempt(socket.AF_UNIX, unix_home))\n"
 )
 
 
@@ -405,9 +474,12 @@ def test_a_real_sandbox_hides_ip_and_unix_sockets_and_the_filesystem(
         pytest.skip("bwrap does not run the build sandbox on this machine")
     runtime = Path(tempfile.mkdtemp(prefix="xdg-runtime-"))
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime))
+    fake_home = Path(tempfile.mkdtemp(prefix="fake-home-"))
+    monkeypatch.setenv("HOME", str(fake_home))
     tmp_dir = Path(tempfile.mkdtemp(prefix="bridge-", dir="/tmp"))
     tmp_socket = str(tmp_dir / "bridge.sock")
     run_socket = str(runtime / "bridge.sock")
+    home_socket = str(fake_home / "bridge.sock")
     writable = tmp_path / "build"
     writable.mkdir()
     outside = tmp_path / "elsewhere"
@@ -416,7 +488,7 @@ def test_a_real_sandbox_hides_ip_and_unix_sockets_and_the_filesystem(
     try:
         ip, port = _serve()
         servers.append(ip)
-        for path in (tmp_socket, run_socket):
+        for path in (tmp_socket, run_socket, home_socket):
             servers.append(_serve(path)[0])
         argv = (
             sys.executable,
@@ -426,11 +498,13 @@ def test_a_real_sandbox_hides_ip_and_unix_sockets_and_the_filesystem(
             port,
             tmp_socket,
             run_socket,
+            home_socket,
             str(writable),
             str(outside),
         )
         plain = subprocess.run(argv, capture_output=True, text=True, timeout=60, check=False)
         assert plain.stdout.split() == [
+            "connected",
             "connected",
             "connected",
             "connected",
@@ -444,11 +518,56 @@ def test_a_real_sandbox_hides_ip_and_unix_sockets_and_the_filesystem(
             timeout=60,
             check=False,
         )
-        assert boxed.stdout.split() == ["blocked", "blocked", "blocked", "writable", "read-only"], (
-            boxed
-        )
+        assert boxed.stdout.split() == [
+            "blocked",
+            "blocked",
+            "blocked",
+            "blocked",
+            "writable",
+            "read-only",
+        ], boxed
     finally:
         for server in servers:
             server.close()
         shutil.rmtree(tmp_dir, ignore_errors=True)
         shutil.rmtree(runtime, ignore_errors=True)
+        shutil.rmtree(fake_home, ignore_errors=True)
+
+
+def test_a_real_privileged_sandbox_hides_the_same_sockets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The .deb-install sandbox (``netiso.privileged_sandbox``) blocks the
+    same IP and pathname-socket bridges as the build sandbox, even though its
+    filesystem stays writable."""
+    import tempfile
+
+    if netiso.detect() is None:
+        pytest.skip("bwrap does not run the sandbox on this machine")
+    runtime = Path(tempfile.mkdtemp(prefix="xdg-runtime-"))
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime))
+    fake_home = Path(tempfile.mkdtemp(prefix="fake-home-"))
+    monkeypatch.setenv("HOME", str(fake_home))
+    tmp_dir = Path(tempfile.mkdtemp(prefix="bridge-", dir="/tmp"))
+    tmp_socket = str(tmp_dir / "bridge.sock")
+    run_socket = str(runtime / "bridge.sock")
+    home_socket = str(fake_home / "bridge.sock")
+    servers = []
+    try:
+        ip, port = _serve()
+        servers.append(ip)
+        for path in (tmp_socket, run_socket, home_socket):
+            servers.append(_serve(path)[0])
+        argv = (sys.executable, "-I", "-c", SOCKET_PROBE, port, tmp_socket, run_socket, home_socket)
+        plain = subprocess.run(argv, capture_output=True, text=True, timeout=60, check=False)
+        assert plain.stdout.split() == ["connected", "connected", "connected", "connected"], plain
+        boxed = subprocess.run(
+            netiso.privileged_sandbox(argv), capture_output=True, text=True, timeout=60, check=False
+        )
+        assert boxed.stdout.split() == ["blocked", "blocked", "blocked", "blocked"], boxed
+    finally:
+        for server in servers:
+            server.close()
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        shutil.rmtree(runtime, ignore_errors=True)
+        shutil.rmtree(fake_home, ignore_errors=True)

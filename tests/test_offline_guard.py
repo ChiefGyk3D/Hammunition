@@ -511,7 +511,7 @@ def test_an_uncached_deb_the_bunker_holds_gets_its_dependency_check_after_the_fe
 
 
 @pytest.mark.parametrize("have", [True, False])
-def test_an_offline_vendor_deb_needs_unshare_for_its_maintainer_scripts(
+def test_an_offline_vendor_deb_needs_bwrap_for_its_maintainer_scripts(
     payload_catalog: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -522,24 +522,24 @@ def test_an_offline_vendor_deb_needs_unshare_for_its_maintainer_scripts(
 
     only_installed(monkeypatch)
     enrol_file_bunker(tmp_path, [artifact("fixture-deb", payload_name(DEB_PIN), DEB_BODY)])
-    monkeypatch.setattr(cli.netiso, "have_unshare", lambda *a, **k: have)
+    monkeypatch.setattr(cli.netiso, "detect", lambda *a, **k: "bwrap" if have else None)
     rc, out, err = run(capsys, payload_catalog, "install", "--offline", "--dry-run", "fixture-deb")
     if have:
         assert rc == 0, err
-        assert "unshare --net" in out and "maintainer scripts" in out
+        assert "bwrap" in out and "maintainer scripts" in out
     else:
         assert rc == cli.EXIT_UNPLANNABLE
-        assert "fixture-deb: offline:" in err and "unshare" in err and "maintainer scripts" in err
+        assert "fixture-deb: offline:" in err and "bwrap" in err and "maintainer scripts" in err
 
 
-def test_an_online_install_never_asks_whether_unshare_exists(
+def test_an_online_install_never_asks_whether_bwrap_works(
     payload_catalog: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     def never(*a: object, **k: object) -> bool:
-        raise AssertionError("an online run asked about unshare")
+        raise AssertionError("an online run asked about bwrap")
 
     only_installed(monkeypatch)
-    monkeypatch.setattr(cli.netiso, "have_unshare", never)
+    monkeypatch.setattr(cli.netiso, "detect", never)
     rc, _out, err = run(capsys, payload_catalog, "install", "--dry-run", "fixture-deb")
     assert rc == 0, err
 

@@ -529,6 +529,7 @@ def _deb_steps(
         prefix=tmp_path / "prefix",
         context=context,
         dependency_check=check,
+        isolation="bwrap",
     )
     return backend.steps(manifest, manifest.install[0]), fetcher
 
@@ -598,6 +599,7 @@ def test_the_check_reads_the_file_the_fetch_wrote_from_the_bunker(tmp_path: Path
         prefix=tmp_path / "prefix",
         context=context,
         dependency_check=check,
+        isolation="bwrap",
     )
     manifest = _manifest()
     steps = backend.steps(manifest, manifest.install[0])

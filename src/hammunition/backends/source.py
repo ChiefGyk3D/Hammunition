@@ -449,16 +449,19 @@ class SourceBackend:
 
     def _isolated(self, name: str, commands: list[Command], layout: SourceLayout) -> list[Command]:
         """Offline, upstream's build runs in the bwrap sandbox (no network, a
-        read-only filesystem but the build tree and the install prefix, private
-        /run and /tmp) so it cannot fetch anything the Bunker did not vouch for,
-        nor reach a host socket; online it is unchanged."""
+        read-only filesystem but the build tree and the install prefix, and
+        /run, /tmp, the operator's home, /opt, /usr/local and the other places
+        a build has no reason to read all private) so it cannot fetch anything
+        the Bunker did not vouch for, nor reach a host socket; online it is
+        unchanged."""
         if not self.fetcher.offline:
             return commands
         if self.isolation != netiso.BWRAP:
             raise BackendError(
                 f"{name}: an offline source build runs upstream's build code and needs the "
-                f"bwrap sandbox (no network, read-only filesystem, private /run and /tmp), "
-                f"and this machine has none that works. Nothing was planned."
+                f"bwrap sandbox (no network, read-only filesystem, private /run, /tmp and "
+                f"the operator's home), and this machine has none that works. Nothing was "
+                f"planned."
             )
         writable = [layout.root, self.prefix]
         return [

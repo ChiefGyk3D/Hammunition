@@ -41,10 +41,7 @@ ONLINE_ARGV = (
     "--",
     "/cache/x.deb",
 )
-OFFLINE_ARGV = (
-    "unshare",
-    "--net",
-    "--",
+APT_OFFLINE_ARGV = (
     "apt-get",
     "-o",
     "Acquire::Retries=3",
@@ -100,7 +97,7 @@ def _backend(
     offline: bool,
     cached: bool = False,
     recommends: str | None = None,
-    unshare: bool = True,
+    isolation: str | None = "bwrap",
 ) -> tuple[BinaryBackend, Recording]:
     runner = Recording()
     fetcher = Fetcher(
@@ -120,7 +117,7 @@ def _backend(
             context=context,
             dependency_check=(lambda path: []) if offline else None,
             recommends_of=(lambda path: recommends or "") if offline else None,
-            unshare_available=unshare,
+            isolation=isolation,
         ),
         runner,
     )
@@ -135,7 +132,9 @@ def test_online_apt_argv_is_unchanged(tmp_path: Path) -> None:
 def test_offline_apt_can_neither_install_recommends_nor_download(tmp_path: Path) -> None:
     backend, runner = _backend(tmp_path, offline=True)
     backend._install_deb("debunit", {"path": Path("/cache/x.deb")})
-    assert runner.commands[-1].argv == OFFLINE_ARGV
+    argv = runner.commands[-1].argv
+    assert argv[0] == "bwrap" and "--bind" in argv and "--ro-bind" not in argv
+    assert argv[argv.index("--") + 1 :] == APT_OFFLINE_ARGV
     assert runner.commands[-1].requires_root
 
 
@@ -146,32 +145,31 @@ def _steps(backend: BinaryBackend) -> list[Action]:
     return [s for s in steps if isinstance(s, Action)]
 
 
-def test_offline_maintainer_scripts_run_in_a_network_namespace_as_root(tmp_path: Path) -> None:
+def test_offline_maintainer_scripts_run_in_a_sandbox_as_root(tmp_path: Path) -> None:
     backend, runner = _backend(tmp_path, offline=True)
     backend._install_deb("debunit", {"path": Path("/cache/x.deb")})
     command = runner.commands[-1]
-    assert command.argv[:4] == ("unshare", "--net", "--", "apt-get")
+    assert command.argv[0] == "bwrap"
+    assert command.argv[command.argv.index("--") + 1] == "apt-get"
     assert command.argv_for(euid=1000)[:2] == ("sudo", "env")  # elevated by the usual path
-    assert command.argv_for(euid=1000).index("unshare") < command.argv_for(euid=1000).index(
-        "apt-get"
-    )
+    assert command.argv_for(euid=1000).index("bwrap") < command.argv_for(euid=1000).index("apt-get")
 
 
-def test_offline_without_unshare_the_backend_refuses_the_deb_install(tmp_path: Path) -> None:
-    backend, _ = _backend(tmp_path, offline=True, unshare=False)
+def test_offline_without_bwrap_the_backend_refuses_the_deb_install(tmp_path: Path) -> None:
+    backend, _ = _backend(tmp_path, offline=True, isolation=None)
     manifest = _manifest()
-    with pytest.raises(BackendError, match="unshare"):
+    with pytest.raises(BackendError, match="bwrap"):
         backend.steps(manifest, manifest.install[0])
-    with pytest.raises(BackendError, match="unshare"):
+    with pytest.raises(BackendError, match="bwrap"):
         backend._install_deb("debunit", {"path": Path("/cache/x.deb")})
 
 
-def test_online_needs_no_unshare(tmp_path: Path) -> None:
-    backend, _ = _backend(tmp_path, offline=False, unshare=False)
+def test_online_needs_no_sandbox(tmp_path: Path) -> None:
+    backend, _ = _backend(tmp_path, offline=False, isolation=None)
     assert _steps(backend)
 
 
-def test_the_plan_refuses_an_offline_vendor_deb_when_unshare_is_missing() -> None:
+def test_the_plan_refuses_an_offline_vendor_deb_when_bwrap_is_missing() -> None:
     from hammunition.distro import Target
     from hammunition.plan import Blocker, InstallPlan, PlannedPackage, offline_payload_blockers
 
@@ -190,7 +188,7 @@ def test_the_plan_refuses_an_offline_vendor_deb_when_unshare_is_missing() -> Non
 
     found = blockers(plan, deb_isolated=False)
     assert [b.subject for b in found] == ["debunit"]
-    assert "unshare" in found[0].reason and "maintainer scripts" in found[0].reason
+    assert "bwrap" in found[0].reason and "maintainer scripts" in found[0].reason
     assert blockers(plan, deb_isolated=True) == []
     installed = PlannedPackage(
         manifest, manifest.install[0], (), requested_by=("requested",), deb_installed=True
@@ -205,8 +203,10 @@ def test_the_planned_install_step_runs_the_offline_argv_when_performed(tmp_path:
     fetch.perform()
     check.perform()
     install.perform()
-    assert runner.commands[-1].argv[:-1] == OFFLINE_ARGV[:-1]
-    assert runner.commands[-1].argv[-1].endswith(".deb")
+    argv = runner.commands[-1].argv
+    assert argv[0] == "bwrap" and "--bind" in argv and "--ro-bind" not in argv
+    assert argv[argv.index("--") + 1 : -1] == APT_OFFLINE_ARGV[:-1]
+    assert argv[-1].endswith(".deb")
 
 
 def test_the_offline_plan_says_apt_may_not_download_or_install_recommends(tmp_path: Path) -> None:
@@ -214,7 +214,7 @@ def test_the_offline_plan_says_apt_may_not_download_or_install_recommends(tmp_pa
     install = _steps(backend)[2]
     text = install.description + " " + install.detail
     assert "--no-install-recommends" in text and "--no-download" in text
-    assert "unshare --net" in text and "maintainer scripts" in text
+    assert "bwrap" in text and "maintainer scripts" in text
     online, _ = _backend(tmp_path / "o", offline=False)
     online_install = _steps(online)[1]
     assert "--no-download" not in online_install.description + online_install.detail

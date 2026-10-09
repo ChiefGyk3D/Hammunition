@@ -5065,10 +5065,6 @@ def cmd_install(args: argparse.Namespace) -> int:
     # backend replaces. Offline, a payload the Bunker cannot answer for is
     # refused before any step of its unit exists.
     source.context = rctx
-    if offline and any(isinstance(p.block.install, SourceInstall) for p in plan.packages):
-        # Asked once, at plan time: an offline build runs in a network sandbox,
-        # and with none that works the unit is refused below.
-        source.isolation = netiso.detect()
     git = GitBackend(
         runner=runner,
         build_root=builds,
@@ -5086,10 +5082,20 @@ def cmd_install(args: argparse.Namespace) -> int:
         owner=source.owner,
         attributed_files=helper_attributed,
         context=rctx,
-        unshare_available=netiso.have_unshare() if offline else True,
         dependency_check=lambda path: _deb_unmet_file(apt, path),
         recommends_of=_deb_recommends,
     )
+    if offline and any(
+        isinstance(p.block.install, SourceInstall)
+        or (isinstance(p.block.install, BinaryInstall) and p.block.install.format == "deb")
+        for p in plan.packages
+    ):
+        # Asked once, at plan time, and shared: an offline source build and
+        # an offline vendor .deb install both need the same bwrap sandbox,
+        # and with none that works the unit is refused below.
+        isolation = netiso.detect()
+        source.isolation = isolation
+        binary = dataclasses.replace(binary, isolation=isolation)  # BinaryBackend is frozen
     venv = VenvBackend(
         venv_root=venv_root(user or None),
         bin_dir=user_bin_dir(user or None),
@@ -5704,8 +5710,9 @@ def cmd_install(args: argparse.Namespace) -> int:
         if sandboxed and source.isolation is not None:
             region_notes.append(
                 f"offline: {', '.join(sandboxed)} build with no network ("
-                f"bwrap --unshare-net, read-only filesystem, private /run and /tmp), so "
-                f"upstream's build code cannot fetch anything or reach a host socket"
+                f"bwrap --unshare-net, read-only filesystem, private /run, /tmp and the "
+                f"operator's home), so upstream's build code cannot fetch anything or "
+                f"reach a host socket"
             )
         unreachable = [
             *offline_network_blockers(plan, built),
@@ -5716,7 +5723,7 @@ def cmd_install(args: argparse.Namespace) -> int:
                 cached=lambda artifact: cached_remote(source.fetcher, artifact),
                 deb_unmet=lambda unit: _deb_unmet(apt, source.fetcher, unit),
                 isolated=source.isolation is not None,
-                deb_isolated=binary.unshare_available,
+                deb_isolated=binary.isolation is not None,
             ),
         ]
         if unreachable:

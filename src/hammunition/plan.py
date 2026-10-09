@@ -1787,10 +1787,11 @@ def offline_payload_blockers(
                     subject=unit.name,
                     reason=(
                         "offline: its .deb is installed with its maintainer scripts and "
-                        "triggers under `unshare --net` so they have no network, and `unshare` "
-                        "is not installed on this machine"
+                        "triggers inside the bwrap sandbox so they have no network and no "
+                        "pathname socket to bridge through, and this machine has none that "
+                        "works"
                     ),
-                    remedy="install util-linux (unshare) while online, or run this unit online",
+                    remedy="install bubblewrap (bwrap) while online, or run this unit online",
                 )
             )
             continue
