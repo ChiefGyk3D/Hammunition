@@ -288,7 +288,7 @@ def _source(
         build_root=tmp_path / "build",
         prefix=tmp_path / "prefix",
         context=context,
-        isolation="unshare",
+        isolation="bwrap",
     )
     return backend.steps(manifest, manifest.install[0])
 

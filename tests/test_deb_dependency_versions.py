@@ -149,7 +149,6 @@ def test_the_deprecated_spellings_mean_or_equal_as_dpkg_reads_them() -> None:
         "libfoo (>= 1_0)",
         "libfoo (>= 1.0-)",
         "libfoo (>= :1)",
-        "libfoo (>= 1:2:3)",
     ],
 )
 def test_a_malformed_field_is_refused_never_passed_as_unversioned(field: str) -> None:
@@ -163,9 +162,17 @@ def test_known_arch_qualifiers_parse(qualifier: str) -> None:
     assert group[0].arch == qualifier
 
 
-@pytest.mark.parametrize("qualifier", ["bogus", "x86", "all", "AMD64", "native2"])
-def test_an_unknown_arch_qualifier_is_refused(qualifier: str) -> None:
-    with pytest.raises(DebDependencyError, match="architecture qualifier"):
+@pytest.mark.parametrize(
+    "qualifier", ["riscv64", "loong64", "x32", "kfreebsd-amd64", "bogus", "all"]
+)
+def test_any_syntactically_valid_architecture_name_parses(qualifier: str) -> None:
+    (group,) = parse_deb_dependencies(f"libfoo:{qualifier}")
+    assert group[0].arch == qualifier
+
+
+@pytest.mark.parametrize("qualifier", ["AMD64", "x_86", "", "-amd64", "a b", "amd64!", "i386:any"])
+def test_a_malformed_arch_qualifier_is_refused(qualifier: str) -> None:
+    with pytest.raises(DebDependencyError):
         parse_deb_dependencies(f"libfoo:{qualifier}")
 
 
@@ -182,7 +189,11 @@ def test_an_unknown_arch_qualifier_is_refused(qualifier: str) -> None:
         ("bad:1", False),
         (":1", False),
         ("1:", False),
-        ("1:2:3", False),
+        ("1:2:3", True),  # colons are allowed in the upstream part once there is an epoch
+        ("1:2:", True),
+        ("1::", False),
+        ("0:a:1", False),
+        ("1:a:1", False),
         ("a1", False),
         ("-1", False),
         ("1.0-", False),
@@ -197,13 +208,22 @@ def test_versions_are_validated_per_debian_policy(version: str, valid: bool) -> 
     assert valid_deb_version(version) is valid
 
 
-@pytest.mark.parametrize("bad", ["bad:1", "a1", "1.0_1", ":1", "1:2:3", "1.0-"])
+@pytest.mark.parametrize("bad", ["bad:1", "a1", "1.0_1", ":1", "1.0-", "1:", "x:1:2"])
 def test_comparing_an_invalid_version_raises_and_the_dependency_is_not_met(bad: str) -> None:
     with pytest.raises(ValueError, match="not a valid Debian version"):
         compare_deb_versions(bad, "1")
     with pytest.raises(ValueError, match="not a valid Debian version"):
         compare_deb_versions("1", bad)
     assert not deb_dependency_met(DebDependency("libfoo", ">=", "1"), bad)
+
+
+def test_a_colon_in_the_upstream_part_orders_with_the_rest() -> None:
+    assert compare_deb_versions("1:2:3", "1:2:4") < 0 < compare_deb_versions("1:2:4", "1:2:3")
+    assert compare_deb_versions("1:2:3", "1:2:3") == 0
+    assert compare_deb_versions("1:2:3", "2:0") < 0  # the epoch still comes first
+    assert deb_dependency_met(DebDependency("libfoo", ">=", "1:2:3"), "1:2:3")
+    (group,) = parse_deb_dependencies("libfoo (= 1:2:3)")
+    assert group[0].version == "1:2:3"
 
 
 def test_the_empty_version_orders_below_everything_and_equals_itself() -> None:
@@ -227,9 +247,31 @@ class StubApt(AptBackend):
         }
 
 
+class Dpkg:
+    """A stand-in for subprocess.run that answers dpkg's architecture queries."""
+
+    def __init__(self, **answers: Any) -> None:
+        self.answers = answers
+        self.asked: list[list[str]] = []
+
+    def __call__(self, argv: list[str], **kwargs: Any) -> Any:
+        self.asked.append(argv)
+        answer = self.answers.get(argv[1])
+        if isinstance(answer, Exception):
+            raise answer
+
+        class Result:
+            returncode = 0 if answer is not None else 1
+            stdout = answer or ""
+            stderr = "dpkg: error"
+
+        return Result()
+
+
 @pytest.fixture
 def amd64(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cli, "_native_arch", lambda: "amd64")
+    monkeypatch.setattr(cli, "_foreign_architectures", lambda: ("i386", "arm64"))
 
 
 def _unmet(
@@ -260,6 +302,8 @@ def test_unmet_names_the_group_with_its_version_range(
         ("libfoo:i386 (>= 1)", {"libfoo:i386": "0.5"}, False),
         ("libfoo:any", {"libfoo": "2.0"}, True),
         ("libfoo:any", {"libfoo:arm64": "2.0"}, True),
+        ("libfoo:any", {"libfoo:riscv64": "2.0"}, False),  # dpkg knows no riscv64 here
+        ("libfoo:riscv64", {"libfoo:riscv64": "2.0"}, True),  # valid syntax; apt is asked
         ("libfoo:any (>= 3)", {"libfoo:arm64": "2.0", "libfoo": "1"}, False),
         ("libfoo:any", {}, False),
         ("libfoo:native", {"libfoo": "2.0"}, True),
@@ -283,7 +327,7 @@ def test_arch_qualifiers_are_checked_against_that_arch(
 
 @pytest.mark.parametrize(
     "field",
-    ["libfoo:bogus", "libfoo (=> 1)", "libfoo (>= 1", "libfoo,, libbar", "libfoo (>= bad:1)"],
+    ["libfoo:AMD64", "libfoo (=> 1)", "libfoo (>= 1", "libfoo,, libbar", "libfoo (>= bad:1)"],
 )
 def test_a_field_that_does_not_parse_is_unmet_not_assumed_met(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, amd64: None, field: str
@@ -313,17 +357,14 @@ def test_unreadable_dependencies_are_reported_not_assumed_met(
     ("machine", "arch"),
     [("x86_64", "amd64"), ("aarch64", "arm64"), ("armv7l", "armhf"), ("i686", "i386")],
 )
-def test_the_native_architecture_is_the_debian_name(
+def test_the_kernel_name_fallback_gives_the_debian_name(
     monkeypatch: pytest.MonkeyPatch, machine: str, arch: str
 ) -> None:
+    monkeypatch.setattr(
+        cli.subprocess, "run", Dpkg(**{"--print-architecture": FileNotFoundError("dpkg")})
+    )
     monkeypatch.setattr(cli.platform, "machine", lambda: machine)
     assert cli._native_arch() == arch
-
-
-def test_an_unknown_machine_has_no_native_architecture(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(cli.platform, "machine", lambda: "vax")
-    with pytest.raises(BackendError, match="native architecture"):
-        cli._native_arch()
 
 
 def test_the_depends_text_joins_pre_depends_and_depends_as_one_field(
@@ -343,6 +384,77 @@ def test_the_depends_text_joins_pre_depends_and_depends_as_one_field(
     ]
     Result.stdout = ""
     assert parse_deb_dependencies(cli._dpkg_depends(tmp_path / "x.deb")) == []
+
+
+def test_native_architecture_comes_from_dpkg(monkeypatch: pytest.MonkeyPatch) -> None:
+    dpkg = Dpkg(**{"--print-architecture": "riscv64\n"})
+    monkeypatch.setattr(cli.subprocess, "run", dpkg)
+    monkeypatch.setattr(cli.platform, "machine", lambda: "x86_64")  # the kernel disagrees
+    assert cli._native_arch() == "riscv64"
+    assert dpkg.asked == [["dpkg", "--print-architecture"]]
+
+
+def test_native_architecture_falls_back_to_the_kernel_name_only_without_dpkg(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        cli.subprocess, "run", Dpkg(**{"--print-architecture": FileNotFoundError("dpkg")})
+    )
+    monkeypatch.setattr(cli.platform, "machine", lambda: "aarch64")
+    assert cli._native_arch() == "arm64"
+    monkeypatch.setattr(cli.platform, "machine", lambda: "vax")
+    with pytest.raises(BackendError, match="native architecture"):
+        cli._native_arch()
+
+
+@pytest.mark.parametrize("output", ["", "amd64 arm64\n", "AMD64\n", "a b\n"])
+def test_a_dpkg_that_fails_or_answers_nonsense_is_not_papered_over(
+    monkeypatch: pytest.MonkeyPatch, output: str
+) -> None:
+    monkeypatch.setattr(cli.subprocess, "run", Dpkg(**{"--print-architecture": output or None}))
+    monkeypatch.setattr(cli.platform, "machine", lambda: "x86_64")
+    with pytest.raises(BackendError):
+        cli._native_arch()
+
+
+def test_foreign_architectures_come_from_dpkg(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        cli.subprocess, "run", Dpkg(**{"--print-foreign-architectures": "i386\narm64\n"})
+    )
+    assert cli._foreign_architectures() == ("i386", "arm64")
+    monkeypatch.setattr(cli.subprocess, "run", Dpkg(**{"--print-foreign-architectures": ""}))
+    assert cli._foreign_architectures() == ()
+    monkeypatch.setattr(
+        cli.subprocess, "run", Dpkg(**{"--print-foreign-architectures": FileNotFoundError("x")})
+    )
+    assert cli._foreign_architectures() == ()
+    monkeypatch.setattr(cli.subprocess, "run", Dpkg(**{"--print-foreign-architectures": None}))
+    with pytest.raises(BackendError):
+        cli._foreign_architectures()
+
+
+def test_any_probes_exactly_the_architectures_dpkg_knows() -> None:
+    from hammunition.plan import deb_probe_names
+
+    dependency = DebDependency("libfoo", arch="any")
+    assert deb_probe_names(dependency, "amd64", ("i386",)) == (
+        "libfoo",
+        "libfoo:amd64",
+        "libfoo:i386",
+    )
+    assert deb_probe_names(dependency, "amd64", ()) == ("libfoo", "libfoo:amd64")
+
+
+def test_foreign_architectures_are_only_asked_when_a_dependency_says_any(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cli, "_native_arch", lambda: "amd64")
+
+    def never() -> tuple[str, ...]:
+        raise AssertionError("dpkg was asked for foreign architectures needlessly")
+
+    monkeypatch.setattr(cli, "_foreign_architectures", never)
+    assert _unmet(monkeypatch, tmp_path, "libfoo (>= 1)", {"libfoo": "2.0"}) == []
 
 
 # -- the install's own check, after the fetch -----------------------------------

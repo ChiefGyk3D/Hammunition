@@ -100,7 +100,6 @@ if TYPE_CHECKING:
     from hammunition.resolution import ResolutionContext
 
 __all__ = [
-    "DEB_ARCHITECTURES",
     "Blocker",
     "DebDependency",
     "DebDependencyError",
@@ -1470,29 +1469,18 @@ class DebDependency:
         return base if self.relation is None else f"{base} ({self.relation} {self.version})"
 
 
-#: The architectures a qualifier may name besides ``any`` and ``native``.
-DEB_ARCHITECTURES = (
-    "amd64",
-    "arm64",
-    "armel",
-    "armhf",
-    "i386",
-    "loong64",
-    "mips64el",
-    "mipsel",
-    "ppc64el",
-    "riscv64",
-    "s390x",
-)
+#: What a qualifier after the colon may be: ``any``, ``native`` or a Debian
+#: architecture name (lowercase letters, digits and hyphens, starting with one).
+_DEB_ARCH = re.compile(r"[a-z0-9][a-z0-9\-]*", re.ASCII)
 
 _DEB_ALTERNATIVE = re.compile(
     r"^(?P<name>[a-z0-9][a-z0-9+.\-]+)"
-    r"(?::(?P<arch>[A-Za-z0-9]+))?"
+    r"(?::(?P<arch>[^\s()|,:]*))?"
     r"(?:\s*\(\s*(?P<op><<|<=|>=|>>|=|<|>)\s*(?P<version>[^\s()]+)\s*\))?",
     re.ASCII,
 )
 _DEB_REVISION = re.compile(r"[A-Za-z0-9+.~]+")
-_DEB_UPSTREAM = re.compile(r"[0-9][A-Za-z0-9.+~\-]*")
+_DEB_UPSTREAM = re.compile(r"[0-9][A-Za-z0-9.+~\-:]*")
 
 
 def _deb_split(version: str) -> tuple[int, str, str] | None:
@@ -1505,7 +1493,7 @@ def _deb_split(version: str) -> tuple[int, str, str] | None:
     rest = version
     if ":" in version:
         head, rest = version.split(":", 1)
-        if not head.isdigit() or ":" in rest:
+        if not head.isdigit():
             return None
         epoch = int(head)
     upstream, revision = rest, ""
@@ -1544,7 +1532,7 @@ def parse_deb_dependencies(field_text: str) -> list[list[DebDependency]]:
             if found is None:
                 raise DebDependencyError(f"cannot read {raw.strip()!r} as a dependency")
             arch = found.group("arch")
-            if arch is not None and arch not in ("any", "native", *DEB_ARCHITECTURES):
+            if arch is not None and not _DEB_ARCH.fullmatch(arch):
                 raise DebDependencyError(
                     f"unknown architecture qualifier :{arch} in {raw.strip()!r}"
                 )
@@ -1644,21 +1632,27 @@ def deb_dependency_met(dependency: DebDependency, installed: str | None) -> bool
     }[dependency.relation]
 
 
-def deb_probe_names(dependency: DebDependency, native: str) -> tuple[str, ...]:
+def deb_probe_names(
+    dependency: DebDependency, native: str, foreign: Sequence[str] = ()
+) -> tuple[str, ...]:
     """The names apt is asked about to find *dependency*'s installed package: a
-    bare name is the native one; ``:any`` is every architecture; ``:native`` and
-    an explicit architecture are that one."""
+    bare name is the native one; ``:any`` is the native and every foreign
+    architecture dpkg knows; ``:native`` and an explicit architecture are that
+    one."""
     name = dependency.name
     if dependency.arch is None:
         return (name,)
     if dependency.arch == "any":
-        return (name, *(f"{name}:{arch}" for arch in DEB_ARCHITECTURES))
+        return (name, *(f"{name}:{arch}" for arch in (native, *foreign)))
     arch = native if dependency.arch == "native" else dependency.arch
     return (name, f"{name}:{arch}") if arch == native else (f"{name}:{arch}",)
 
 
 def deb_group_met(
-    group: Sequence[DebDependency], installed: Mapping[str, str | None], native: str
+    group: Sequence[DebDependency],
+    installed: Mapping[str, str | None],
+    native: str,
+    foreign: Sequence[str] = (),
 ) -> bool:
     """Whether any alternative of *group* has an installed package, at its stated
     architecture, whose version is in range. *installed* maps the names
@@ -1666,7 +1660,7 @@ def deb_group_met(
     return any(
         deb_dependency_met(dependency, installed.get(candidate))
         for dependency in group
-        for candidate in deb_probe_names(dependency, native)
+        for candidate in deb_probe_names(dependency, native, foreign)
     )
 
 

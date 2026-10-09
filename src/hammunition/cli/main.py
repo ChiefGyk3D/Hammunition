@@ -1274,14 +1274,46 @@ _DEBIAN_ARCH = {
     "s390x": "s390x",
     "loongarch64": "loong64",
 }
+_ARCH_NAME = re.compile(r"[a-z0-9][a-z0-9\-]*", re.ASCII)
+
+
+def _dpkg_architectures(option: str) -> list[str] | None:
+    """The words dpkg prints for a read-only architecture query, or None when
+    dpkg is not installed. A dpkg that fails, or prints something that is not an
+    architecture name, is an error: never papered over."""
+    try:
+        result = subprocess.run(
+            ["dpkg", option], capture_output=True, text=True, timeout=30, check=False
+        )
+    except FileNotFoundError:
+        return None
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise BackendError(f"dpkg {option} could not be run: {exc}") from exc
+    if result.returncode:
+        raise BackendError(f"dpkg {option} failed: {result.stderr.strip() or result.returncode}")
+    words = result.stdout.split()
+    if not all(_ARCH_NAME.fullmatch(word) for word in words):
+        raise BackendError(f"dpkg {option} answered {result.stdout.strip()!r}, not architectures")
+    return words
 
 
 def _native_arch() -> str:
-    """This machine's Debian architecture name, from the kernel's machine name."""
+    """This machine's Debian architecture: ``dpkg --print-architecture``, and
+    only without dpkg the kernel's machine name mapped to Debian's."""
+    words = _dpkg_architectures("--print-architecture")
+    if words is not None:
+        if len(words) != 1:
+            raise BackendError(f"dpkg --print-architecture answered {words!r}, not one name")
+        return words[0]
     machine = platform.machine()
     if machine not in _DEBIAN_ARCH:
         raise BackendError(f"cannot name this machine's native architecture from {machine!r}")
     return _DEBIAN_ARCH[machine]
+
+
+def _foreign_architectures() -> tuple[str, ...]:
+    """The foreign architectures dpkg is configured for (none without dpkg)."""
+    return tuple(_dpkg_architectures("--print-foreign-architectures") or ())
 
 
 def _dpkg_depends(path: Path) -> str:
@@ -1324,7 +1356,14 @@ def _deb_unmet_file(apt: AptBackend, path: Path) -> list[str]:
     try:
         native = _native_arch()
         groups = parse_deb_dependencies(_dpkg_depends(path))
-        names = sorted({n for group in groups for d in group for n in deb_probe_names(d, native)})
+        foreign = (
+            _foreign_architectures()
+            if any(d.arch == "any" for group in groups for d in group)
+            else ()
+        )
+        names = sorted(
+            {n for group in groups for d in group for n in deb_probe_names(d, native, foreign)}
+        )
         states = apt.probe(names) if names else {}
     except (OSError, subprocess.TimeoutExpired, BackendError, DebDependencyError) as exc:
         return [f"(its dependencies could not be read: {exc})"]
@@ -1332,7 +1371,7 @@ def _deb_unmet_file(apt: AptBackend, path: Path) -> list[str]:
     return [
         " | ".join(d.text() for d in group)
         for group in groups
-        if not deb_group_met(group, installed, native)
+        if not deb_group_met(group, installed, native, foreign)
     ]
 
 
