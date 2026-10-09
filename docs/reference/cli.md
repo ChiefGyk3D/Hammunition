@@ -2491,6 +2491,11 @@ it never passes the assume-yes flag and never runs as root. Walkthrough:
 
 ## mirror
 
+A signed Bunker catalogue (**D-085**, `docs/guides/lan-mirror.md`,
+`docs/reference/bunker-catalogue.md`): enrolling it is a separate step from
+`station set --mirror`, below, which only gives the D-070 download route and
+enrols no trust on its own.
+
 ### `hammunition mirror enrol URL [--enrolment-id ID]`
 
 Fetch the Bunker's catalogue and show each signer’s fingerprint, measured
@@ -2545,7 +2550,7 @@ hammunition station show
 | `--map-regions R[,R…]` | Geofabrik region paths for offline maps, e.g. `north-america/us/vermont,north-america/us/new-hampshire`. Replaces the whole list. Checked for shape only (lowercase words joined by `/`); whether Geofabrik has the region is checked at plan time (**D-057**) |
 | `--map-freshness MODE` | `yearly` (the default when unset), `monthly` or `latest`: which dated file each region resolves to, and so how it can be verified |
 | `--reference-books ID[,ID…]` | Kiwix books for `kiwix-library`, by id (`hammunition reference books` lists them). Replaces the whole list; an id the catalog's book list does not name is refused when you type it, and an empty list is refused (uninstall `kiwix-library` to remove the books) (**D-066**) |
-| `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile, a CoMaps map, a reference book) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
+| `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile, a CoMaps map, a reference book) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host, or `file:///absolute/path` with no host; no user, password, query or fragment. A LAN address, never one reachable from the internet. **Does not enrol signing keys or authorize `--offline` planning** — that is `hammunition mirror enrol URL` (**D-085**); `docs/guides/lan-mirror.md` |
 | `--clear-mirror` | Remove the saved mirror URL and all enrolled keys, enrolment id and accepted serial; preserve hardware policy |
 | `--mirror-require-hardware-key` / `--no-mirror-require-hardware-key` | Require an enrolled hardware signer for Bunker catalogues, or turn that policy off (default). Hardware means sk type or operator-affirmed origin. `station set --json` reports the policy in its `station-set` document; `station show --json` includes it in the `station` document |
 | `--doppler-project PROJECT`, `--doppler-config CONFIG` | Where a keyed download's key is read from when its environment variable is not set (**D-081**): the two names of a Doppler project and config, given together, never a token. Each is letters, digits, `.`, `_` or `-`, starting with a letter or digit. One without the other, or either with `--clear-doppler`, is refused (exit 2) |

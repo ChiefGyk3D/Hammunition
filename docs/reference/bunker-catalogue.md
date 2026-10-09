@@ -153,9 +153,16 @@ index rows, sizes and ETags, never those of a Bunker record. A stale selected
 sheet requires recomputation from an outline. Neither a missing selection
 nor a missing outline permits substituting a rectangular bounding box.
 
-These inputs supply selection only. The terrain and topographic sheet
-payload routes remain guarded under `--offline` until their resolver tasks
-land; selection records do not make a payload downloadable offline.
+These inputs supply selection only, never the payload. The matching payload
+routes (Copernicus and 3DEP elevation tiles, US Topo and FSTopo sheets) now
+check the Bunker for the artifact bytes themselves too, against the
+publisher's own ETag, size or MD5, or a pinned sha256 where one exists —
+the same check the publisher's copy would get, never the Bunker's say-so
+alone. A complete offline resolution for a region needs both: a selection
+record and every payload artifact the Bunker can answer for. A Bunker
+holding one without the other still leaves the unit short, and it is
+deferred whole through `catalogue_deferral`, like any other gap, rather
+than installed partway.
 
 If neither route supplies a complete selection, a profile member and its
 dependents are deferred as whole units through `catalogue_deferral`. An
