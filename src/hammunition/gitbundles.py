@@ -231,6 +231,20 @@ def _ancestors_are_not_symlinks(root: Path, relative: str) -> None:
     CVEs that followed it. Checked with ``is_symlink()`` on each prefix (an
     ``lstat``, never a ``resolve()``), so a symlink is caught at whichever
     level it sits, never silently followed.
+
+    This check and :func:`clone_checked` on its result are two separate
+    operations, not one atomic one: a concurrent process with write access to
+    the *operator's own* build-cache tree can swap a validated ancestor for a
+    symlink in the window between this call returning and the clone that
+    follows it (a Codex Daybreak finding, #381 Task 15). The same shape of
+    race is already open and documented, not solved, in
+    :func:`hammunition.backends.source.prepare_tree` — "root still builds by
+    path inside an operator-owned directory afterwards, which an operator-uid
+    process can race; that is a separate, open issue, not solved here." That
+    reasoning applies here unchanged: closing it needs descriptor-relative,
+    no-follow filesystem operations (or build-into-a-sibling-then-rename)
+    through this whole module, tracked as Hammunition #399, not attempted
+    in this task.
     """
     from hammunition.backends.base import BackendError
 

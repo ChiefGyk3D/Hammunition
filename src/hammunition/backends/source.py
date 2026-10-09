@@ -228,7 +228,9 @@ def prepare_tree(destination: Path) -> str:
     (``build/unit-abc -> /somewhere``) is refused, never followed. That is
     all this protects. Root still builds by path inside an operator-owned
     directory afterwards, which an operator-uid process can race; that is a
-    separate, open issue, not solved here.
+    separate, open issue, not solved here. The git-bundle backend's recursive
+    gitlink checkout (:func:`hammunition.gitbundles._ancestors_are_not_symlinks`)
+    has the identical shape, tracked together as Hammunition #399.
     """
     # Late import: see the TYPE_CHECKING comment at the top of this module
     # (#158's cycle) -- hammunition.fetch has finished loading by the time any

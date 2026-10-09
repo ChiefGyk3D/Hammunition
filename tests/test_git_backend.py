@@ -398,6 +398,57 @@ def test_backend_falls_back_to_a_network_clone_when_the_bundle_route_fails_onlin
     assert "Fetch thing at v1.0" in str(caught.value)
 
 
+def test_backend_checks_the_pin_before_recreating_a_moved_tag_or_touching_submodules(
+    tmp_path: Path,
+) -> None:
+    """A Codex Daybreak finding (#381 Task 15): the network fallback is one
+    function, not separate steps, so it has to check the pin itself before
+    recreating a tag or fetching a single submodule from the network --
+    otherwise a re-cut tag whose publisher also serves a hostile submodule
+    would have it fetched before the mismatch was ever noticed, with the
+    separate verify-pin Action (next in the plan) catching it only too late."""
+    upstream, old_commit = _repository(tmp_path, "upstream")
+    _git(upstream, "-c", "tag.gpgSign=false", "tag", "v1.0", old_commit)
+    (upstream / "file").write_text("moved")
+    _git(upstream, "add", "file")
+    _git(upstream, "-c", "commit.gpgsign=false", "commit", "-qm", "moved")
+    # A submodule the fallback must never reach: `submodule update` against
+    # this URL would fail loudly (DNS), which is exactly how this test tells
+    # the two failure modes apart.
+    (upstream / ".gitmodules").write_text(
+        '[submodule "child"]\n\tpath = child\n\turl = https://example.invalid/never-reached\n'
+    )
+    _git(upstream, "add", ".gitmodules")
+    _git(upstream, "-c", "commit.gpgsign=false", "commit", "-qm", "add a submodule entry")
+    _git(upstream, "-c", "tag.gpgSign=false", "tag", "-f", "v1.0", "HEAD")
+
+    body = bytearray(_bundle_bytes(upstream, tmp_path, "upstream"))
+    offset = bytes(body).find(b"PACK") + 40
+    body[offset] ^= 0xFF
+    body[offset + 1] ^= 0xFF
+    name = bundle_name("thing", old_commit)
+    route = mirror_url("http://bunker.invalid", MirrorPath("git-bundles", name))
+    routes = Routes({route: bytes(body)})
+    backend = _bundle_backend(
+        tmp_path,
+        offline=False,
+        rows=[catalogue_artifact("git-bundles", name, bytes(body))],
+        routes=routes,
+    )
+    manifest = _manifest(repo=str(upstream), ref="v1.0", commit=old_commit, submodules=True)
+    steps = backend.steps(manifest, manifest.install[0])
+    [prepare] = [s for s in steps if isinstance(s, Action) and s.kind == "prepare"]
+    prepare.perform()
+    [checkout] = [s for s in steps if isinstance(s, Action) and s.kind == "checkout"]
+    with pytest.raises(BackendError, match=r"tag v1\.0 no longer resolves") as caught:
+        checkout.perform()
+    # Not the submodule's own DNS failure: the pin check stopped the fallback
+    # before `submodule update` ever ran.
+    assert "never-reached" not in str(caught.value)
+    src = tmp_path / "build" / "thing-v1.0"
+    assert not (src / "child").exists()
+
+
 def test_backend_refuses_offline_without_a_bundle_route(tmp_path: Path) -> None:
     """Before any build step is returned, not only when the checkout Action
     is later performed (D-031: a plan must be complete and accurate)."""

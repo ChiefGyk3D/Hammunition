@@ -433,6 +433,16 @@ class GitBackend:
             ("git", "-C", str(src), "checkout", "--quiet", "FETCH_HEAD"),
             f"Check out {block.ref}",
         )
+        # Checked here, before the tag is recreated or a single submodule is
+        # fetched from the network: this fallback is one function rather than
+        # separate steps, so the pin's own separate verify-pin Action (next
+        # in the plan) would otherwise run too late to stop either (found by
+        # a Codex Daybreak review, #381 Task 15 -- a re-cut tag whose
+        # publisher also serves hostile submodules would have had them fetched
+        # before the mismatch was ever noticed). `block.commit` is never None
+        # here: steps() only reaches this fallback through `use_bundle`, which
+        # requires `repo_commit` (== `block.commit` for a tag) to be set.
+        self.verify_pin(src, block.ref, commit=block.commit)
         if not COMMIT_SHA.match(block.ref):
             run(
                 (
