@@ -36,6 +36,7 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hammunition.gitbundles import GIT_ENV, bundle_name, checkout_bundle
 from hammunition.manifest.schema import (
     COMMIT_SHA,
     GitInstall,
@@ -46,6 +47,7 @@ from hammunition.manifest.schema import (
     effective_binaries,
 )
 from hammunition.payloads import payload_action, preflight_payloads
+from hammunition.resolution import CatalogueMiss
 
 from .base import Action, BackendError, Command, CommandRunner
 from .source import (
@@ -57,11 +59,13 @@ from .source import (
     tree_install_commands,
 )
 
-# Every git the engine runs is unattended. An operator's own git config can turn
-# a plain `git tag` into an annotated, signed one (`tag.gpgsign true`), which
-# opens an editor; a credential prompt on a fetch would wait the same way. A
-# navigation install sat in nano on the bench for that (2026-10-03).
-GIT_ENV: dict[str, str] = {"GIT_TERMINAL_PROMPT": "0", "GIT_EDITOR": "true"}
+# GIT_ENV moved to `hammunition.gitbundles` (#381 Task 15), which is a leaf
+# module both this backend and the bundle-verification code import from --
+# the one constant, not defined twice. Every git the engine runs is
+# unattended: an operator's own git config can turn a plain `git tag` into an
+# annotated, signed one (`tag.gpgsign true`), which opens an editor; a
+# credential prompt on a fetch would wait the same way. A navigation install
+# sat in nano on the bench for that (2026-10-03).
 
 if TYPE_CHECKING:
     # Type-only: `hammunition.backends/__init__.py` imports this module
@@ -165,78 +169,173 @@ class GitBackend:
         preflight_payloads(manifest.name, remote_extras, context=self.context)
         layout = self.layout(manifest, block)
         src = layout.src
-        steps: list[Action | Command] = [
-            Action(
-                kind="prepare",
-                description=f"Clear any previous {manifest.name} checkout",
-                detail=f"{src} (removed if present, then recreated)",
-                perform=lambda: prepare_tree(src),
-            ),
-            Command(
-                argv=("git", "init", "--quiet", str(src)),
-                env=GIT_ENV,
-                description=f"Start an empty repository for {manifest.name}",
-            ),
-            Command(
-                argv=("git", "-C", str(src), "remote", "add", "origin", block.repo),
-                env=GIT_ENV,
-                description=f"Point it at {block.repo}",
-            ),
-            Command(
-                # Shallow and by ref: a pinned commit costs one object walk, not
-                # the project's whole history.
-                argv=("git", "-C", str(src), "fetch", "--depth", "1", "origin", block.ref),
-                env=GIT_ENV,
-                description=f"Fetch {manifest.name} at {block.ref}",
-            ),
-            Command(
-                argv=("git", "-C", str(src), "checkout", "--quiet", "FETCH_HEAD"),
-                env=GIT_ENV,
-                description=f"Check out {block.ref}",
-            ),
-            *(
-                [
-                    Command(
-                        # A shallow tag fetch leaves only FETCH_HEAD; builds
-                        # that version themselves with `git describe` then see
-                        # no tag at all. Recreating the ref locally costs
-                        # nothing and makes describe answer with the pin.
-                        # Lightweight on purpose, whatever the operator's git
-                        # config says: a signed tag needs a message and a key.
-                        argv=(
-                            "git",
-                            "-c",
-                            "tag.gpgSign=false",
-                            "-c",
-                            "tag.forceSignAnnotated=false",
-                            "-C",
-                            str(src),
-                            "tag",
-                            "-f",
-                            block.ref,
-                            "FETCH_HEAD",
-                        ),
-                        env=GIT_ENV,
-                        description=f"Recreate the {block.ref} tag for describe-based versioning",
-                    )
-                ]
-                if not COMMIT_SHA.match(block.ref)
-                else []
-            ),
-            Action(
-                kind="verify-pin",
-                description=f"Confirm {manifest.name} is at the pinned revision",
-                detail=(
-                    f"git rev-parse HEAD in {src} must be {block.commit}, the commit "
-                    f"tag {block.ref} is pinned to"
-                    if block.commit
-                    else f"git rev-parse HEAD in {src} must be {block.ref}"
+
+        # The repository's own pin (D-070, #381 Task 15): `block.commit` for a
+        # tag, `block.ref` itself when it already is a SHA. A tag the manifest
+        # never recorded a commit for cannot be bundle-verified at all.
+        repo_commit = block.ref if COMMIT_SHA.match(block.ref) else block.commit
+        truly_offline = self.context is not None and self.context.offline
+        bundle_listed = (
+            repo_commit is not None
+            and self.context is not None
+            and self.context.verified is not None
+            and self.context.verified.catalogue.artifact(
+                "git-bundles",
+                bundle_name(manifest.name, repo_commit),
+                self.context.enrolment_id,
+            )
+            is not None
+        )
+        if truly_offline:
+            assert self.context is not None  # truly_offline's own condition
+            if self.fetcher is None:
+                raise BackendError(
+                    f"{manifest.name}: offline, and this git backend was built without "
+                    f"a fetcher; its pinned revision cannot be checked out from a "
+                    f"mirrored bundle without one. Nothing was planned."
+                )
+            if repo_commit is None:
+                raise BackendError(
+                    f"{manifest.name}: tag {block.ref} has no recorded commit; offline "
+                    f"bundle verification needs a repository pin. Nothing was planned."
+                )
+            # Checked here, before any step below exists, the same reason the
+            # extra_files preflight above runs first: the root bundle itself
+            # must be on the Bunker. A recursive gitlink's own bundle cannot be
+            # named yet -- its commit is not in the manifest, only in the
+            # parent's own tree -- so it is still checked, just later, inside
+            # the one Action that walks the checkout (D-070's enumeration gap,
+            # Task 16).
+            self.context.entry("git-bundles", bundle_name(manifest.name, repo_commit))
+        use_bundle = self.fetcher is not None and (truly_offline or bundle_listed)
+
+        if use_bundle:
+            assert repo_commit is not None  # truly_offline refused above; bundle_listed implies it
+            steps: list[Action | Command] = [
+                Action(
+                    kind="prepare",
+                    description=f"Clear any previous {manifest.name} checkout",
+                    detail=f"{src} (removed if present, then recreated)",
+                    perform=lambda: prepare_tree(src),
                 ),
-                perform=lambda: self.verify_pin(src, block.ref, commit=block.commit),
-            ),
-        ]
-        if block.submodules:
-            steps.extend(self._submodule_steps(manifest, src))
+                Action(
+                    kind="checkout",
+                    description=f"Check out {manifest.name} from its mirrored git bundle",
+                    detail=(
+                        f"git-bundles/{bundle_name(manifest.name, repo_commit)} -> {src}, "
+                        + (
+                            "verified offline; no publisher is asked"
+                            if truly_offline
+                            else f"tried first, {block.repo} on failure (D-070)"
+                        )
+                    ),
+                    perform=lambda: self._checkout_from_bundle(
+                        manifest, block, src, truly_offline=truly_offline
+                    ),
+                ),
+                Action(
+                    kind="verify-pin",
+                    description=f"Confirm {manifest.name} is at the pinned revision",
+                    detail=(
+                        f"git rev-parse HEAD in {src} must be {block.commit}, the commit "
+                        f"tag {block.ref} is pinned to"
+                        if block.commit
+                        else f"git rev-parse HEAD in {src} must be {block.ref}"
+                    ),
+                    perform=lambda: self.verify_pin(src, block.ref, commit=block.commit),
+                ),
+            ]
+            if block.submodules:
+                # The bundle checkout above already populated every submodule
+                # from its own local bundle (or, on an online fallback, the
+                # network step just run did the equivalent `submodule update`);
+                # no second, network-reaching Command is added here.
+                steps.append(
+                    Action(
+                        kind="verify-submodules",
+                        description=(
+                            f"Confirm every {manifest.name} submodule is at its recorded commit"
+                        ),
+                        detail=(
+                            f"git submodule status --recursive in {src}: each line must "
+                            f"start with a space"
+                        ),
+                        perform=partial(self.verify_submodules, src),
+                    )
+                )
+        else:
+            steps = [
+                Action(
+                    kind="prepare",
+                    description=f"Clear any previous {manifest.name} checkout",
+                    detail=f"{src} (removed if present, then recreated)",
+                    perform=lambda: prepare_tree(src),
+                ),
+                Command(
+                    argv=("git", "init", "--quiet", str(src)),
+                    env=GIT_ENV,
+                    description=f"Start an empty repository for {manifest.name}",
+                ),
+                Command(
+                    argv=("git", "-C", str(src), "remote", "add", "origin", block.repo),
+                    env=GIT_ENV,
+                    description=f"Point it at {block.repo}",
+                ),
+                Command(
+                    # Shallow and by ref: a pinned commit costs one object walk, not
+                    # the project's whole history.
+                    argv=("git", "-C", str(src), "fetch", "--depth", "1", "origin", block.ref),
+                    env=GIT_ENV,
+                    description=f"Fetch {manifest.name} at {block.ref}",
+                ),
+                Command(
+                    argv=("git", "-C", str(src), "checkout", "--quiet", "FETCH_HEAD"),
+                    env=GIT_ENV,
+                    description=f"Check out {block.ref}",
+                ),
+                *(
+                    [
+                        Command(
+                            # A shallow tag fetch leaves only FETCH_HEAD; builds
+                            # that version themselves with `git describe` then see
+                            # no tag at all. Recreating the ref locally costs
+                            # nothing and makes describe answer with the pin.
+                            # Lightweight on purpose, whatever the operator's git
+                            # config says: a signed tag needs a message and a key.
+                            argv=(
+                                "git",
+                                "-c",
+                                "tag.gpgSign=false",
+                                "-c",
+                                "tag.forceSignAnnotated=false",
+                                "-C",
+                                str(src),
+                                "tag",
+                                "-f",
+                                block.ref,
+                                "FETCH_HEAD",
+                            ),
+                            env=GIT_ENV,
+                            description=f"Recreate the {block.ref} tag for describe-based versioning",
+                        )
+                    ]
+                    if not COMMIT_SHA.match(block.ref)
+                    else []
+                ),
+                Action(
+                    kind="verify-pin",
+                    description=f"Confirm {manifest.name} is at the pinned revision",
+                    detail=(
+                        f"git rev-parse HEAD in {src} must be {block.commit}, the commit "
+                        f"tag {block.ref} is pinned to"
+                        if block.commit
+                        else f"git rev-parse HEAD in {src} must be {block.ref}"
+                    ),
+                    perform=lambda: self.verify_pin(src, block.ref, commit=block.commit),
+                ),
+            ]
+            if block.submodules:
+                steps.extend(self._submodule_steps(manifest, src))
         # After the pin is confirmed and before anything is compiled, the same
         # way a source block is patched: the checkout is cleared and re-fetched
         # every run, so a patch never applies twice.
@@ -274,6 +373,105 @@ class GitBackend:
             )
         steps.extend(self._extra_file_steps(manifest, block, layout))
         return steps
+
+    # -- the mirrored bundle checkout (D-070, #381 Task 15) -----------------
+
+    def _checkout_from_bundle(
+        self, manifest: PackageManifest, block: GitInstall, src: Path, *, truly_offline: bool
+    ) -> str:
+        """Verify and check out *src* from the Bunker's mirrored bundle.
+
+        Offline there is no fallback: whatever :func:`checkout_bundle` raises
+        propagates as-is (as a :class:`BackendError`, converting a bare
+        :class:`~hammunition.resolution.CatalogueMiss` from a missing
+        recursive gitlink bundle into one too, so the failure is reported the
+        same way every other step's failure is, rather than escaping as an
+        uncaught exception the transaction log has no entry for). Online, the
+        Bunker's bundle is tried first and a direct network clone from
+        ``block.repo`` is the fallback (D-070's publisher-after-mirror shape,
+        applied here to a verified checkout rather than a plain file).
+        """
+        assert self.fetcher is not None and self.context is not None  # steps() guarantees both
+        try:
+            return checkout_bundle(
+                manifest.name,
+                block,
+                src,
+                fetcher=self.fetcher,
+                context=self.context,
+                runner=self.runner,
+            )
+        except (BackendError, CatalogueMiss) as exc:
+            if truly_offline:
+                if isinstance(exc, CatalogueMiss):
+                    raise BackendError(str(exc)) from exc
+                raise
+            prepare_tree(src)
+            return self._clone_from_network(manifest, block, src)
+
+    def _clone_from_network(self, manifest: PackageManifest, block: GitInstall, src: Path) -> str:
+        """The plain network clone (init/remote/fetch/checkout/tag), run
+        directly rather than through pre-built steps: whether it is needed at
+        all is a run-time decision (the Bunker's bundle route failed), not a
+        plan-time one."""
+
+        def run(argv: tuple[str, ...], description: str) -> None:
+            result = self.runner.run(Command(argv=argv, env=GIT_ENV, description=description))
+            if not result.ok:
+                raise BackendError(f"{description}: {result.stderr.strip()}")
+
+        run(("git", "init", "--quiet", str(src)), f"Start an empty repository for {manifest.name}")
+        run(
+            ("git", "-C", str(src), "remote", "add", "origin", block.repo),
+            f"Point it at {block.repo}",
+        )
+        run(
+            ("git", "-C", str(src), "fetch", "--depth", "1", "origin", block.ref),
+            f"Fetch {manifest.name} at {block.ref}",
+        )
+        run(
+            ("git", "-C", str(src), "checkout", "--quiet", "FETCH_HEAD"),
+            f"Check out {block.ref}",
+        )
+        if not COMMIT_SHA.match(block.ref):
+            run(
+                (
+                    "git",
+                    "-c",
+                    "tag.gpgSign=false",
+                    "-c",
+                    "tag.forceSignAnnotated=false",
+                    "-C",
+                    str(src),
+                    "tag",
+                    "-f",
+                    block.ref,
+                    "FETCH_HEAD",
+                ),
+                f"Recreate the {block.ref} tag for describe-based versioning",
+            )
+        if block.submodules:
+            run(
+                (
+                    "git",
+                    "-C",
+                    str(src),
+                    "submodule",
+                    "update",
+                    "--init",
+                    "--recursive",
+                    "--depth",
+                    "1",
+                ),
+                (
+                    f"Check out {manifest.name}'s submodules at the commits the pinned "
+                    f"revision records (shallow, recursive)"
+                ),
+            )
+        return (
+            f"the mirrored bundle route failed; fell back to a direct network clone of "
+            f"{block.repo} at {block.ref}"
+        )
 
     # -- submodules (D-069) -------------------------------------------------
 

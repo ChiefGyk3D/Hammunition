@@ -166,6 +166,7 @@ from hammunition.listening import bound_to_loopback_only
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
+    COMMIT_SHA,
     AptInstall,
     BinaryInstall,
     DemTilesInstall,
@@ -1145,22 +1146,50 @@ def _apt_lists_note(apt: AptBackend) -> str:
 #: the Bunker route for each still to be built (#381). An offline run refuses
 #: them by name rather than letting a probe or a git clone reach a publisher.
 _OFFLINE_UNROUTED: tuple[tuple[type, str, bool, str | None], ...] = (
-    # Copernicus terrain (Task 8), USGS 3DEP bare earth and US Topo (Task 9), the
-    # Forest Service sheets (Task 10) and Kiwix books and CoMaps maps (Task 11)
+    # Copernicus terrain (Task 8), USGS 3DEP bare earth and US Topo (Task 9),
+    # Kiwix books and CoMaps maps (Task 11) and git sources (Task 15, below)
     # are routed; what is left asks a publisher.
     (GitInstall, "git sources", False, None),
 )
 
 
+def _git_bundle_routed(install: GitInstall, name: str, context: ResolutionContext) -> bool:
+    """Whether *name*'s pinned revision has a verified ``git-bundles`` entry
+    on the enrolled Bunker (D-070, #381 Task 15) -- the route an offline run
+    uses instead of a network clone, and an online one tries first. False
+    with nothing enrolled, or a tag the manifest never recorded a repository
+    commit for: neither is a route, however the question is asked, and this
+    function never asks the publisher to find out."""
+    if context.verified is None:
+        return False
+    commit = install.ref if COMMIT_SHA.fullmatch(install.ref) else install.commit
+    if commit is None:
+        return False
+    from hammunition.gitbundles import bundle_name
+
+    row = context.verified.catalogue.artifact(
+        "git-bundles", bundle_name(name, commit), context.enrolment_id
+    )
+    return row is not None
+
+
 def _offline_unrouted(
-    plan: InstallPlan, built: frozenset[str] = frozenset(), *, plan_time: bool
+    plan: InstallPlan,
+    built: frozenset[str] = frozenset(),
+    *,
+    plan_time: bool,
+    context: ResolutionContext | None = None,
 ) -> list[Blocker]:
     """The units in *plan* whose resolution would ask a publisher, named.
 
     A kind with a provider is refused only for that provider. ``plan_time``
     selects the kinds a resolver probes while planning (asked before any
     resolver runs); the rest act at execution and are skipped when already
-    built."""
+    built. A git unit the enrolled Bunker carries a verified bundle for
+    (*context*, #381 Task 15) is routed and never named here -- the git
+    backend itself checks the bundle before any build step, the same as
+    every other preflight in this table; this is only the plan-time
+    disclosure that a *type* match alone is not."""
     out: list[Blocker] = []
     for unit in plan.packages:
         if unit.name in built and not plan_time:
@@ -1172,6 +1201,13 @@ def _offline_unrouted(
                 and isinstance(install, kind)
                 and (provider is None or getattr(install, "provider", None) == provider)
             ):
+                if (
+                    kind is GitInstall
+                    and context is not None
+                    and isinstance(install, GitInstall)
+                    and _git_bundle_routed(install, unit.name, context)
+                ):
+                    continue
                 out.append(
                     Blocker(
                         subject=unit.name,
@@ -5129,7 +5165,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             plan = preflight_data(
                 plan, rctx, cached=lambda unit, pin: cached_data_pin(source.fetcher, pin)
             )
-            unrouted = _offline_unrouted(plan, plan_time=True)
+            unrouted = _offline_unrouted(plan, plan_time=True, context=rctx)
             if unrouted:
                 raise PlanError(unrouted)
         except PlanError as exc:
@@ -5718,7 +5754,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             )
         unreachable = [
             *offline_network_blockers(plan, built),
-            *_offline_unrouted(plan, built, plan_time=False),
+            *_offline_unrouted(plan, built, plan_time=False, context=rctx),
             *offline_payload_blockers(
                 plan,
                 built,

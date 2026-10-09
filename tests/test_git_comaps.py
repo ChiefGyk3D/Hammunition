@@ -35,6 +35,7 @@ from hammunition.backends import (
     RecordingRunner,
 )
 from hammunition.fetch import Fetcher, mirror_url
+from hammunition.gitbundles import bundle_name
 from hammunition.manifest.schema import GitInstall, PackageManifest, RemoteArtifact
 from hammunition.payloads import payload_name, payload_path
 from hammunition.resolution import CatalogueMiss
@@ -477,7 +478,10 @@ def test_a_context_that_disagrees_and_says_online_also_refuses(tmp_path: Path) -
 def test_offline_extra_artifact_preflight_passes_with_a_bunker_row(tmp_path: Path) -> None:
     pin_dict = _world()["artifact"]
     row = catalogue_artifact("comaps", f"{pin_dict['sha256']}/World.mwm", WORLD)
-    context = make_context(tmp_path / "ctx", [row])
+    # The main checkout's own root bundle (#381 Task 15): offline, every git
+    # unit now needs one before any step is planned, not only its extras.
+    bundle_row = catalogue_artifact("git-bundles", bundle_name("comaps", COMMIT), b"bundle bytes")
+    context = make_context(tmp_path / "ctx", [row, bundle_row])
     backend, _ = _backend(
         tmp_path,
         fetcher=Fetcher(
@@ -495,8 +499,10 @@ def test_offline_extra_artifact_preflight_passes_with_a_bunker_row(tmp_path: Pat
 
 def test_offline_preflight_never_asks_for_a_from_tree_extra(tmp_path: Path) -> None:
     """A `from_tree` extra names no remote pin, so it needs no Bunker row and
-    its local copy still plans, even offline with an empty catalogue."""
-    context = make_context(tmp_path / "ctx", [])
+    its local copy still plans, even offline with an empty catalogue -- the
+    main checkout's own root bundle (#381 Task 15) is the only row needed."""
+    bundle_row = catalogue_artifact("git-bundles", bundle_name("comaps", COMMIT), b"bundle bytes")
+    context = make_context(tmp_path / "ctx", [bundle_row])
     backend, _ = _backend(
         tmp_path,
         fetcher=Fetcher(tmp_path / "cache", transport=Routes({}), offline=True),
