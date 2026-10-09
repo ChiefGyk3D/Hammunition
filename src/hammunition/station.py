@@ -53,7 +53,7 @@ import yaml
 from .kiwix import BOOK_ID
 from .maidenhead import centre
 from .paths import owner_aware_dir
-from .urlredact import redact_url_text
+from .urlredact import redact_mirror_url
 
 __all__ = [
     "DERIVED",
@@ -204,7 +204,7 @@ def _check_mirror(url: str) -> str:
     operator's statement to make (D-070). A user or password is refused,
     because the station file is no place for a credential."""
     value = url.strip()
-    shown = redact_url_text(value)
+    shown = redact_mirror_url(value)
     problem = None
     parts: urllib.parse.SplitResult | None = None
     try:

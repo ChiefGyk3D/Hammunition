@@ -1051,6 +1051,23 @@ def test_a_station_refusal_does_not_echo_a_credential() -> None:
         assert "SECRET" not in str(err2.value)
 
 
+def test_a_space_inside_userinfo_does_not_leave_a_tail_unredacted() -> None:
+    """``redact_url_text``'s authority match stops at the first whitespace, so
+    it never saw the literal, un-encoded space some operators type inside a
+    username -- ``urlsplit`` itself keeps a raw space inside ``netloc``
+    (confirmed: it is not a delimiter), so the real ``@`` and the credential
+    after it survived past the narrow match, unredacted, in the station
+    refusal's echoed value (#381, Task 19 follow-up)."""
+    from hammunition.station import Station, StationError, _check_mirror
+
+    given = "http://ali ce:SECRET@bunker.invalid/base"
+    for attempt in (lambda: _check_mirror(given), lambda: Station(mirror=given)):
+        with pytest.raises(StationError) as err:
+            attempt()
+        assert "SECRET" not in _chain_text(err.value)
+        assert "bunker.invalid" in str(err.value)
+
+
 @pytest.mark.parametrize(
     "given",
     [

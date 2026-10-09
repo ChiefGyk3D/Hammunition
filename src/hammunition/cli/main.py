@@ -286,7 +286,7 @@ from hammunition.upstream import (
     probe_upstream,
 )
 from hammunition.upstream import render as render_upstream
-from hammunition.urlredact import redact_url_text
+from hammunition.urlredact import redact_mirror_url, redact_url_text
 from hammunition.ustopo import UstopoError
 from hammunition.ustopo import bucket_probe as ustopo_probe
 from hammunition.ustopo import load_index as load_ustopo_index
@@ -551,8 +551,12 @@ def _cmd_station_set(args: argparse.Namespace, *, json_output: bool) -> int:
         nonlocal refusal_code
         if key == "mirror":
             # A refused mirror URL may carry a user and password: never echo them.
+            # reason is prose with the URL embedded partway through (the
+            # prose-safe matcher); value is the bare operator-typed URL and
+            # nothing else, so a literal space inside its userinfo must still
+            # redact (#381, Task 19 follow-up).
             reason = redact_url_text(reason)
-            value = redact_url_text(value) if isinstance(value, str) else value
+            value = redact_mirror_url(value) if isinstance(value, str) else value
         if not refused:
             refusal_code = code
         refused.append(StationSetRefusal(key=key, value=value, reason=reason))

@@ -41,7 +41,17 @@ def _parses_cleanly(scheme: str, authority: str) -> bool:
 
 
 def redact_url_text(text: str) -> str:
-    """*text* with the userinfo of every URL in it removed."""
+    """*text* with the userinfo of every URL in it removed.
+
+    The authority match stops at the first whitespace on purpose: *text* here
+    is free-form (an error message, a chained exception), often a URL mixed
+    with prose, and matching across a space risks mistaking an unrelated
+    ``@`` later in the sentence for part of the URL. That is safe only
+    because this function is never handed a string that is *only* a
+    candidate URL; :func:`redact_mirror_url` is for that case, where
+    ``urlsplit`` itself keeps a raw, un-encoded space inside the userinfo
+    rather than treating it as a delimiter (confirmed on CPython: ``netloc``
+    round-trips with the space included)."""
 
     def strip(match: re.Match[str]) -> str:
         scheme, authority = match.group(1), match.group(2)
@@ -52,3 +62,34 @@ def redact_url_text(text: str) -> str:
         return scheme + authority.rpartition("@")[2]
 
     return _AUTHORITY.sub(strip, text)
+
+
+#: Where a real URL's authority ends, per :func:`urllib.parse.urlsplit`:
+#: whitespace is not a delimiter there, only these three characters are.
+_REAL_DELIMITER = re.compile(r"[/?#]")
+
+
+def redact_mirror_url(url: str) -> str:
+    """*url*, which must be exactly one candidate URL and nothing else (no
+    surrounding prose), with its userinfo removed.
+
+    Unlike :func:`redact_url_text`, this is safe to let span a literal space
+    inside the userinfo -- there is no unrelated sentence for the authority
+    match to run away into, because the whole string *is* the URL being
+    checked. Used where an operator's typed ``--mirror`` value, or a station
+    refusal that echoes it, must never leak a credential (#381): a space in
+    place of the ``%20`` a real client would send still reaches the engine
+    verbatim, and :func:`redact_url_text`'s prose-safe matcher would stop
+    before the real ``@``, leaving the credential after it unredacted."""
+    scheme_match = re.match(r"[A-Za-z][A-Za-z0-9+.\-]*://", url)
+    if scheme_match is None:
+        return url
+    scheme = scheme_match.group(0)
+    rest = url[scheme_match.end() :]
+    delimiter = _REAL_DELIMITER.search(rest)
+    authority, tail = (rest[: delimiter.start()], rest[delimiter.start() :]) if delimiter else (rest, "")
+    if "@" not in authority:
+        return url
+    if not _parses_cleanly(scheme, authority):
+        return scheme + REDACTED + tail
+    return scheme + authority.rpartition("@")[2] + tail
