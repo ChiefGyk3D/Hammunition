@@ -35,6 +35,22 @@ class Candidate:
     signatures: dict[str, bytes]
 
 
+def _same_endpoint(a: str, b: str) -> bool:
+    """Whether *a* and *b* name the same Bunker endpoint, ignoring a purely
+    cosmetic difference: a trailing or repeated slash, host case, or an
+    explicit default port. Used only to decide whether a rollback floor
+    carries forward on re-enrolment -- never to decide trust, which rests
+    on the catalogue's own signature regardless of which URL fetched it."""
+    left, right = urlsplit(a), urlsplit(b)
+    default_port = {"http": 80, "https": 443}.get(left.scheme.lower())
+    return (
+        left.scheme.lower() == right.scheme.lower()
+        and (left.hostname or "").lower() == (right.hostname or "").lower()
+        and (left.port or default_port) == (right.port or default_port)
+        and left.path.rstrip("/") == right.path.rstrip("/")
+    )
+
+
 def display_signer(signer: Signer) -> str:
     strength = classify(signer.public_key)
     origin = (
@@ -89,7 +105,16 @@ def enrol(
         hardware = strength.hardware_by_type
         if not hardware and signer.hardware:
             disclosure = "The Bunker claims this key is hardware-backed; the algorithm cannot prove that. Affirm only if you verified its hardware origin."
-            if affirm_hardware is not None and not affirm_hardware(disclosure + " Type yes: "):
+            # No callback to ask is "could not ask", not "yes" -- the inverted
+            # form (`affirm_hardware is not None and not affirm_hardware(...)`)
+            # read a missing callback as affirmation, enrolling a plain
+            # software key as hardware-verified (found by an Opus adversarial
+            # review of the whole branch, #381). Unreachable from the shipped
+            # CLI today (cmd_mirror_enrol sets both from the same `interactive`
+            # flag), but the inversion is the kind of latent trust default a
+            # future caller could reintroduce by supplying one without the
+            # other.
+            if affirm_hardware is None or not affirm_hardware(disclosure + " Type yes: "):
                 hardware = False
             else:
                 hardware_record = resolve_mirror_consent(
@@ -108,9 +133,25 @@ def enrol(
             )
         )
     old = load_mirror(owner=owner)
+    # Carried forward when *old* names the same endpoint, compared with a
+    # cosmetic normalisation (trailing/repeated slashes, host case, an
+    # explicit default port) rather than exact string equality: a
+    # respelling of the same Bunker URL must not reset the rollback floor
+    # to 0 -- or re-enrolling with no real change but spelling would
+    # silently accept an older, already-superseded catalogue, and the
+    # engine's own "station mirror differs from enrolled mirror; run
+    # hammunition mirror enrol URL" message is exactly what would walk an
+    # operator into triggering it (found by an Opus adversarial review of
+    # the whole branch, #381). A genuinely different host (a real Bunker
+    # move, or an unrelated one that happens to share a name) is still
+    # treated as fresh, matching the existing, deliberate "a changed URL is
+    # a new Bunker" rule -- this only closes the cosmetic-respelling gap in
+    # it, not the rule itself.
     serial = (
         old.accepted_serial
-        if old is not None and (old.url, old.name) == (normalized, parsed.bunker.name)
+        if old is not None
+        and old.name == parsed.bunker.name
+        and _same_endpoint(old.url, normalized)
         else 0
     )
     state = MirrorState(

@@ -2680,7 +2680,7 @@ the station hardware policy still applies to future enrolment.
 |---|---|---|
 | `url` | string or null | enrolled mirror URL; null when no Bunker is enrolled |
 | `name` | string or null | enrolled Bunker name |
-| `mode` | string or null | personal or group mode from the last verified catalogue |
+| `mode` | string or null | personal or group mode as of enrolment -- a later verified catalogue can change its own mode without this field being refreshed to match (an Opus adversarial review of the whole branch, #381) |
 | `enrolment_id` | string or null | opaque group sharing id; not proof of laptop identity |
 | `accepted_serial` | integer or null | highest accepted serial, except explicit backup restoration |
 | `generated` | string or null | UTC generation time from the last verified catalogue |

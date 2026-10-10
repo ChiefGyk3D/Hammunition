@@ -41,7 +41,11 @@ class MirrorDocument(Strict):
     KIND: ClassVar[str] = "mirror"
     url: str | None = described("enrolled mirror URL; null when no Bunker is enrolled")
     name: str | None = described("enrolled Bunker name")
-    mode: str | None = described("personal or group mode from the last verified catalogue")
+    mode: str | None = described(
+        "personal or group mode as of enrolment -- a later verified catalogue can "
+        "change its own mode without this field being refreshed to match (an Opus "
+        "adversarial review of the whole branch, #381)"
+    )
     enrolment_id: str | None = described("opaque group sharing id; not proof of laptop identity")
     accepted_serial: int | None = described(
         "highest accepted serial, except explicit backup restoration"

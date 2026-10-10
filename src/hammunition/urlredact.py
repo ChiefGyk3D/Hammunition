@@ -80,10 +80,18 @@ def redact_mirror_url(url: str) -> str:
     refusal that echoes it, must never leak a credential (#381): a space in
     place of the ``%20`` a real client would send still reaches the engine
     verbatim, and :func:`redact_url_text`'s prose-safe matcher would stop
-    before the real ``@``, leaving the credential after it unredacted."""
+    before the real ``@``, leaving the credential after it unredacted.
+
+    A string with no recognisable ``scheme://`` prefix is not known to
+    carry no credential -- ``_check_mirror``'s own rejection of a bare
+    ``user:pass@host`` (no scheme at all) or ``http:/user:pass@host/`` (one
+    slash, so this match fails) would otherwise echo it back untouched
+    (found by an Opus adversarial review of the whole branch, #381): fail
+    closed to :data:`REDACTED` whenever an ``@`` is present, rather than
+    assuming the absence of a scheme means the absence of userinfo."""
     scheme_match = re.match(r"[A-Za-z][A-Za-z0-9+.\-]*://", url)
     if scheme_match is None:
-        return url
+        return REDACTED if "@" in url else url
     scheme = scheme_match.group(0)
     rest = url[scheme_match.end() :]
     delimiter = _REAL_DELIMITER.search(rest)

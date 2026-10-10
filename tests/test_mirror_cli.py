@@ -149,17 +149,34 @@ def test_hardware_consent_is_real_and_logged(tmp_path: Path) -> None:
     value = candidate(tmp_path, hardware=True)
     identity = parse(value.raw).signers[0].id
     records: list[ConsentRecord] = []
+    # Reached through a genuine affirm_hardware=True (real affirmation that
+    # it is hardware), not its absence: the stronger hardware-consent step
+    # below is what this test declines, and only a real "yes" to the first
+    # question reaches it -- an absent callback must never stand in for one
+    # (an Opus adversarial review of the whole branch, #381 -- see
+    # test_no_affirm_hardware_callback_is_not_affirmation).
     responses = iter((identity, identity, "wrong"))
     with pytest.raises(ConsentDeclined):
-        enroll(value, records, choose=lambda text: next(responses))
+        enroll(value, records, choose=lambda text: next(responses), affirm=lambda text: True)
     assert signers.load_mirror() is None
     assert len(records) == 1
     records.clear()
-    state = enroll(value, records)
+    state = enroll(value, records, affirm=lambda text: True)
     assert state.keys[0].hardware
     assert len(records) == 2
     assert all(record.extra["key_fingerprint"] == identity for record in records)
     assert records[0].disclosure_sha256 != records[1].disclosure_sha256
+
+
+def test_no_affirm_hardware_callback_is_not_affirmation(tmp_path: Path) -> None:
+    """A missing ``affirm_hardware`` must read as "could not ask", never as
+    "yes" -- the inverted form enrolled a plain software key the Bunker
+    merely claimed was hardware as hardware-verified with no real
+    confirmation (an Opus adversarial review of the whole branch, #381)."""
+    value = candidate(tmp_path, hardware=True)
+    records: list[ConsentRecord] = []
+    state = enroll(value, records)
+    assert state.keys[0].hardware is False
 
 
 def test_bad_signature_writes_no_state(tmp_path: Path) -> None:
@@ -526,6 +543,58 @@ def test_explicit_new_url_does_not_reuse_serial(tmp_path: Path) -> None:
     )
     assert state.accepted_serial == 1
     assert load_station().mirror == state.url
+
+
+@pytest.mark.parametrize(
+    "respelled",
+    [
+        "http://bunker.invalid:8080",  # no trailing slash
+        "http://bunker.invalid:8080//",  # extra slash
+        "http://BUNKER.invalid:8080/",  # host case
+    ],
+)
+def test_a_cosmetically_respelled_url_cannot_reset_the_serial_floor(
+    tmp_path: Path, respelled: str
+) -> None:
+    """A trailing slash, a repeated one, or host case must not reset the
+    rollback floor to 0 for the same Bunker name: that would let a LAN
+    position attacker, or a Bunker rolled back to an old snapshot, serve a
+    genuinely-signed but older catalogue and have it accepted with no
+    `accept-older` prompt (an Opus adversarial review of the whole branch,
+    #381)."""
+    from datetime import UTC, datetime
+
+    from hammunition.catalogue import parse
+
+    first = candidate(tmp_path / "first", serial=500)
+    identity = parse(first.raw).signers[0].id
+    mirror.enrol(
+        first,
+        "http://bunker.invalid:8080/",
+        None,
+        choose=lambda text: identity,
+        affirm_hardware=None,
+        owner=None,
+        require_hardware=False,
+        now=datetime(2026, 10, 7, 13, tzinfo=UTC),
+        record_consent=lambda record: None,
+    )
+    older = candidate(tmp_path / "older", serial=1)
+    older_identity = parse(older.raw).signers[0].id
+    with pytest.raises(signers.SignerError, match="accept-older"):
+        mirror.enrol(
+            older,
+            respelled,
+            None,
+            choose=lambda text: older_identity,
+            affirm_hardware=None,
+            owner=None,
+            require_hardware=False,
+            now=datetime(2026, 10, 7, 14, tzinfo=UTC),
+            record_consent=lambda record: None,
+        )
+    unchanged = signers.load_mirror(owner=None)
+    assert unchanged is not None and unchanged.accepted_serial == 500
 
 
 def test_hardware_policy_refuses_file_key(tmp_path: Path) -> None:

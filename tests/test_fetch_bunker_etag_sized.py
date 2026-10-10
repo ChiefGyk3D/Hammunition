@@ -1071,6 +1071,32 @@ def test_a_space_inside_userinfo_does_not_leave_a_tail_unredacted() -> None:
 @pytest.mark.parametrize(
     "given",
     [
+        "user:SECRET@bunker.lan:8080",  # no scheme at all
+        "http:/user:SECRET@bunker.lan/",  # one slash: the scheme regex doesn't match
+    ],
+)
+def test_redact_mirror_url_fails_closed_with_no_recognised_scheme(given: str) -> None:
+    """A string with no ``scheme://`` prefix is not known to carry no
+    credential: ``_check_mirror`` rejects both of these for a different
+    reason (not a valid URL shape) and echoes the value back through
+    ``redact_mirror_url`` first, which used to return it completely
+    unchanged -- the credential survived into the refusal, and from there
+    into the teed run log (an Opus adversarial review of the whole branch,
+    #381)."""
+    from hammunition.urlredact import REDACTED, redact_mirror_url
+
+    assert redact_mirror_url(given) == REDACTED
+
+
+def test_redact_mirror_url_passes_through_a_credential_free_non_url() -> None:
+    from hammunition.urlredact import redact_mirror_url
+
+    assert redact_mirror_url("not a url at all") == "not a url at all"
+
+
+@pytest.mark.parametrize(
+    "given",
+    [
         "http://alice:SECRET@bunker\u2100.invalid",  # NFKC makes urlsplit refuse it
         "http://alice:SECRET@[::1",
         "http://alice:SECRET@bunker\x00.invalid",
